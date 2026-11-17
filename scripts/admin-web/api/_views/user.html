@@ -14,10 +14,10 @@
   <div class="content"><div class="wrap">
     <header class="page-head">
       <h1>사용자 찾기</h1>
-      <p class="hint">사용자 ID·주문 ID·주문 번호(입금자명 FC-MMDD-NNNN)로 찾아 주문·입금·환불을 보고 처리해요. 생산자는 농가 상품(작성 중 포함)도 보여요. 받는 사람 전화·주소는 보이지 않아요.</p>
+      <p class="hint">사용자 ID·주문 ID·주문 번호(FC-MMDD-NNNN)·입금자명(예: 김민지76)으로 찾아 주문·입금·환불을 보고 처리해요. 생산자는 농가 상품(작성 중 포함)도 보여요. 받는 사람 전화·주소는 보이지 않아요.</p>
     </header>
     <form id="find" class="row" style="margin-bottom: 16px">
-      <input id="q" name="q" placeholder="u-… / o-… / FC-1021-1234" autocomplete="off" style="flex: 1; min-width: 200px">
+      <input id="q" name="q" placeholder="u-… / o-… / FC-1021-1234 / 김민지76" autocomplete="off" style="flex: 1; min-width: 200px">
       <button class="primary" type="submit">찾기</button>
     </form>
     <section id="view" aria-live="polite"></section>
@@ -44,6 +44,8 @@ const DRAFT_FIELD = { name: "이름", variety: "품종", options: "옵션", expe
 const won = (n) => Number(n || 0).toLocaleString("ko-KR") + "원";
 const kg = (g) => (Number(g || 0) / 1000).toLocaleString("ko-KR") + "kg";
 const idOk = (v) => /^[A-Za-z0-9_-]+$/.test(v);
+// 입금자명(DEV-342): 이름(한글·로마자) + 숫자. 통장에 띄어 쓴 값도 붙여 넣을 수 있게 공백은 뺀다
+const refOk = (v) => /^[A-Za-z0-9_가-힣-]+$/.test(v);
 let detail = null, busy = false;
 
 function currentId() {
@@ -54,6 +56,7 @@ function currentId() {
 function orderCard(o) {
   const lines = [
     ["주문 번호", `<code>${esc(o.orderNo)}</code> <span class="hint">${esc(o.orderId)}</span>`],
+    ...(o.depositCode ? [["입금자명", `<code>${esc(o.depositCode)}</code>`]] : []),
     ["상품", `${esc(o.productName)} × ${o.quantity} <span class="hint">· ${esc(o.farmName)} (${esc(o.farmId)})</span>`],
     ["금액", won(o.totalAmount) + (o.refundedAmount ? ` <span class="hint">· 환불 ${won(o.refundedAmount)}, 남은 ${won(o.refundableAmount)}</span>` : "")],
     ["받는 사람", esc(o.recipient)],
@@ -168,11 +171,11 @@ async function load(id) {
 
 $("#find").onsubmit = async (e) => {
   e.preventDefault();
-  const q = $("#q").value.trim();
-  if (!idOk(q)) { toast("ID나 주문 번호를 확인해 주세요.", true); return; }
+  const q = $("#q").value.replace(/\s+/g, "");
+  if (!refOk(q)) { toast("ID·주문 번호·입금자명을 확인해 주세요.", true); return; }
   let id = q;
-  if (!q.startsWith("u-")) {
-    try { id = (await call(`/admin/users/by-order/${q}`)).userId; }
+  if (!(q.startsWith("u-") && idOk(q))) {
+    try { id = (await call(`/admin/users/by-order/${encodeURIComponent(q)}`)).userId; }
     catch (err) { toast(err.message, true); return; }
   }
   history.pushState(null, "", "/users/" + id);

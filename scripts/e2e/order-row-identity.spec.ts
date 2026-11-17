@@ -96,13 +96,20 @@ test("DEV-226 AC-10-8/AC-17-10: repeated orders are told apart by number, date a
   const productName = mine[0].productName;
   expect(productName).toBeTruthy();
   const who = `${mine[0].recipientName} · ${productName} 5kg × 1`;
+  // DEV-342: 입금 대기 줄에는 주문 번호 대신 짧은 입금자명(같은 농가 입금 대기끼리 겹치지 않음)이 굵게 나온다
+  for (const o of mine) {
+    expect(o.depositCode).toBeTruthy();
+    await expect(producerPage.getByText(o.depositCode!, { exact: true }).first()).toBeVisible();
+  }
+  // 주문 번호도 줄 오른쪽 위(‘번호 · 기한’)에 그대로 보인다
   for (const o of placed) {
-    await expect(producerPage.getByText(o.orderNo, { exact: true }).first()).toBeVisible();
+    await expect(producerPage.getByText(o.orderNo, { exact: false }).first()).toBeVisible();
   }
   // DEV-294: 줄은 이름 / 상품 줄(상품명 옵션 × 수량, 상품명 끝 옵션 목록은 뗌)이다. 우리 주문 두 줄 모두 상품 줄이 보여야 한다
   const item = `${productName.replace(/\s+[\d.]+\s*kg(?:\s*\/\s*[\d.]+\s*kg)*$/, "")} 5kg × 1`;
-  for (const o of placed) {
-    const row = producerPage.getByText(o.orderNo, { exact: true }).first().locator("xpath=../..");
+  for (const o of mine) {
+    // 입금자명 글자 → 입금자명·채팅하기 줄 → 주문 줄
+    const row = producerPage.getByText(o.depositCode!, { exact: true }).first().locator("xpath=../../..");
     await expect(row.getByText(item, { exact: true })).toBeVisible();
   }
   await producerPage.getByRole("button", { name: `${placed[1].orderNo} 입금 승인`, exact: true }).click();

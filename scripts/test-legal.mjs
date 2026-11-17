@@ -192,3 +192,16 @@ test("DEV-314: privacy policy tells that the postcode search keyword goes to Kak
   assert.equal(content.privacyPolicy.effective, "2026년 11월 13일");
   assert.equal(content.LEGAL_VERSION, "2026-10-29");
 });
+
+test("DEV-342: the 11/17 depositor-name wording takes effect on the deploy date, without a version bump", () => {
+  const privacy = pages.pageHtml(content.privacyPolicy);
+  const terms = pages.pageHtml(content.termsOfService);
+  assert.match(privacy, /입금자명\(농가 화면에 보이는 이름\(닉네임 등\) 앞 3글자와 숫자로 만든 짧은 입금 코드\)/);
+  assert.match(privacy, /2026년 11월 17일 변경: [^<]*다시 동의를 받지 않습니다/);
+  assert.ok(privacy.includes("2026년 11월 17일 변경분(제2조 입금자명)은 2026년 11월 17일부터 시행합니다."));
+  assert.match(terms, /입금자명은 입금 안내에 나오는 짧은 입금 코드/);
+  assert.doesNotMatch(terms, /입금자명은 주문 번호로 적습니다/);
+  assert.match(terms, /2026년 11월 17일 변경: 제7조[^<]*다시 동의를 받지 않습니다/);
+  assert.ok(terms.includes("다만 2026년 11월 17일 변경분(제7조 입금자명)은 2026년 11월 17일부터 시행합니다."));
+  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+});

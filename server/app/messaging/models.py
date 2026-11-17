@@ -111,7 +111,9 @@ class Thread(Base):
 
 
 class ThreadOrderContext(Base):
-    """Explicit paid-order entry, without submitting an inquiry (M-04)."""
+    """Explicit order entry without submitting an inquiry (M-04): a consumer's paid-order entry
+    (source CONSUMER), or a producer's '채팅하기' from an awaiting-deposit order (source PRODUCER,
+    DEV-342: visibility only, not a linked order)."""
 
     __tablename__ = "thread_order_contexts"
 
@@ -122,6 +124,8 @@ class ThreadOrderContext(Base):
         ForeignKey("orders.id", ondelete="CASCADE"), primary_key=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # CONSUMER: 소비자 결제 주문 진입(연결 주문). PRODUCER: 생산자 ‘채팅하기’(보기만, DEV-342)
+    source: Mapped[str] = mapped_column(String(16), default="CONSUMER", server_default="CONSUMER")
 
 
 class ThreadMessage(Base):

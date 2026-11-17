@@ -272,7 +272,7 @@ const segments = {
     await tap(btn("이 주소로 받기"));
     await tap(page.getByRole("checkbox", { name: "모두 동의해요" }));
     await tap(btn("예약하기").last(), { after: 1800 });
-    await cap("무통장 입금 안내", "farmclub은 돈을 받지 않아요. 농가 계좌·입금액·\n입금자명(주문 번호)·기한을 보고 입금한 뒤\n'입금을 마쳤어요'를 눌러요.", "FEAT-09 · SCR-11");
+    await cap("무통장 입금 안내", "farmclub은 돈을 받지 않아요. 농가 계좌·입금액·\n입금자명(짧은 입금 코드)·기한을 보고 입금한 뒤\n'입금을 마쳤어요'를 눌러요.", "FEAT-09 · SCR-11");
     state.orderId = new URL(page.url()).searchParams.get("orderId");
     save();
     await scroll(400);

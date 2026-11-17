@@ -62,7 +62,7 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   ).toBeChecked();
   await expect(reserve).toBeEnabled();
   await reserve.click();
-  // DEV-68: 입금 안내(농가 계좌·입금자명=주문 번호·기한·중개자 고지) → 입금했어요 → 입금 확인 중
+  // DEV-68: 입금 안내(농가 계좌·입금자명(DEV-342 짧은 입금 코드)·기한·중개자 고지) → 입금했어요 → 입금 확인 중
   await expect(consumerPage).toHaveURL(/\/pay/);
   await expect(consumerPage.getByText("101-23-456789")).toBeVisible();
   await expect(

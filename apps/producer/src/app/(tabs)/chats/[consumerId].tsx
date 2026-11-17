@@ -21,6 +21,8 @@ import { GlobalAiButton, HumanReplyStatus } from "../../../lib/GlobalAiButton";
 import { View } from "react-native";
 import { ORDER_STATUS, copyText, errMsg } from "../../../lib/views";
 import { useHideTabBar } from "../../../lib/session";
+import { goBackOr } from "../../../lib/nav";
+import { clearChatDraft, peekChatDraft } from "../../../lib/chatDraft";
 import { replyKind } from "../../../lib/producerEvents";
 import { track } from "@farmclub/analytics";
 export default function Chat() {
@@ -30,6 +32,12 @@ export default function Chat() {
       name?: string;
     }>(),
     router = useRouter();
+  // 입금 대기 주문 ‘채팅하기’(DEV-342)가 넘긴 확인 글. 입력칸에만 넣고 보내지 않는다.
+  // 처음 열 때(렌더 중 읽기)와, 이미 떠 있던 화면을 다시 볼 때(focus) 넣고 지운다
+  const [prefill, setPrefill] = useState(() => {
+    const text = peekChatDraft(consumerId);
+    return text ? { text, id: 0 } : undefined;
+  });
   // farmclub 문의 대화방(DEV-111): AI 응대 바 대신 문의 안내를 보인다
   const support = consumerId === SUPPORT_ID;
   const [page, setPage] = useState<ChatPage | null>(null),
@@ -38,8 +46,11 @@ export default function Chat() {
   useFocusEffect(
     useCallback(() => {
       setActive(true);
+      const text = peekChatDraft(consumerId);
+      if (text) setPrefill((cur) => (cur?.text === text && cur.id === 0 ? cur : { text, id: Date.now() }));
+      clearChatDraft(consumerId);
       return () => setActive(false);
-    }, []),
+    }, [consumerId]),
   );
   // 답장 종류(DEV-312)를 고르려고 불러온 메시지의 보낸 쪽·확인 요청 상태·시각만 기억한다(본문은 두지 않음)
   const seen = useRef(new Map<string, { senderType: string; checkState?: string | null; createdAt: string }>());
@@ -63,7 +74,12 @@ export default function Chat() {
         subtitle={support ? "운영팀 문의" : "1:1 채팅"}
         avatar={support ? <SupportAvatar size={40} /> : undefined}
         right={!support && page ? <GlobalAiButton onEnabledChange={setAiEnabled} /> : undefined}
-        onBack={() => router.navigate("/chats?view=private")}
+        // 주문 현황에서 연 대화는 그 화면으로 돌아간다(DEV-342). 나머지는 1:1 목록
+        onBack={() =>
+          prefill
+            ? goBackOr(router, "/chats?view=private")
+            : router.navigate("/chats?view=private")
+        }
       />
       {support ? (
         <View
@@ -90,6 +106,7 @@ export default function Chat() {
       <ChatThread
         key={consumerId}
         producer
+        prefill={prefill}
         edit={!support ? (id, text, version, key) => messaging.editChatMessage(id, text, version, key) : undefined}
         replies={!support}
         active={active}

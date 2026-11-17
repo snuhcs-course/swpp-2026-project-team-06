@@ -7,6 +7,9 @@ import { configured, loggedIn, readBody, sameOrigin, sendJson } from "./_lib/ses
 const API_BASE = (process.env.FARMCLUB_API_URL || "https://api.farmclub.kr").replace(/\/+$/, "");
 const QUERY = "(\\?[A-Za-z0-9=&_-]*)?";
 const ID = "[A-Za-z0-9_-]+";
+// 주문 찾기 값: ID·주문 번호, 또는 퍼센트 인코딩한 한글 입금자명(DEV-342). %80~%FF(UTF-8 바이트)만 받아
+// %2F(/)·%2E(.)·%20 같은 경로 문자를 몰래 넣지 못한다
+const REF = "(?:[A-Za-z0-9_-]|%[89A-Fa-f][0-9A-Fa-f])+";
 const ALLOWED = [
   // 반려 되돌리기(revert)는 DEV-307
   new RegExp(`^/admin/producers(/${ID}/(approve|reject|decisions|revert))?${QUERY}$`),
@@ -20,7 +23,7 @@ const ALLOWED = [
   new RegExp(`^/admin/users/${ID}/activity$`), // 활동 로그(DEV-307)
   new RegExp(`^/admin/home(\\?kind=(real|test|all))?$`), // 홈 할 일 건수(DEV-307)
   // 사용자 상세와 그 화면의 주문 처리 버튼(DEV-106). 운영 API는 기존 것을 그대로 쓴다
-  new RegExp(`^/admin/users/(${ID}|by-order/${ID})$`),
+  new RegExp(`^/admin/users/(${ID}|by-order/${REF})$`),
   new RegExp(`^/admin/orders/${ID}/(confirm-deposit|refund|refunds|delivered)$`),
   // 문의함(DEV-111): 목록, 대화 보기·답장, 읽음 표시
   new RegExp(`^/admin/support(\\?kind=(real|test|all))?$`), // 계정 필터만(DEV-307)

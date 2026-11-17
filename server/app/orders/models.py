@@ -33,6 +33,11 @@ class Order(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     order_no: Mapped[str] = mapped_column(String(32), unique=True)
+    # 입금자명(짧은 입금 코드, DEV-342, R-28): 닉네임 앞 3글자 + 숫자 2자리(예: 귤사랑76), 6자 이내.
+    # 입금 안내 때 정하고 같은 농가의 입금 대기 주문끼리 겹치지 않는다.
+    # 입금 안내 전 주문, 0034 때 입금 대기가 아니었거나 이미 ‘입금했어요’를 보낸 주문은 비어 있다
+    # (앱은 주문 번호를 보인다)
+    deposit_code: Mapped[str | None] = mapped_column(String(16), index=True)
     consumer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     product_id: Mapped[str] = mapped_column(String(64), index=True)
     option_id: Mapped[str] = mapped_column(String(64))

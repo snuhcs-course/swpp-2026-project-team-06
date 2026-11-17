@@ -200,6 +200,7 @@ export function order(d: DB, o: OrderRec): Order {
   return {
     orderId: o.orderId,
     orderNo: o.orderNo,
+    depositCode: o.depositCode ?? null,
     productId: o.productId,
     productName: p?.name.split(" / ")[0].replace(/\s\d+kg$/, "") ?? "",
     farmId: p?.farmId ?? "",
@@ -274,6 +275,7 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
   return {
     orderId: o.orderId,
     orderNo: o.orderNo,
+    depositCode: o.depositCode ?? null,
     productId: o.productId,
     stageId: o.stageId,
     productName: p?.name ?? "",
