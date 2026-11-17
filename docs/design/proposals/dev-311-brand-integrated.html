@@ -207,7 +207,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     <tr><td><b>카톡 공유 카드</b></td><td>옛 ‘farmclub.’ 워드마크 카드를 크림 바탕 + 승인 조합형 + 계단 표식 정적 카드 한 장으로</td><td>크림 #FFF4E8, 조합형, 이름 ‘farmclub’ 한 가지</td><td>계단 표식만(가격 숫자는 안 넣음)</td><td>② 개념 문장을 설명 문구로</td></tr>
     <tr><td><b>아이콘</b></td><td>조합형 64% 폭 → 심볼 높이 86%, 크림 바탕 · 생산자 올리브</td><td>A 무브 4 그대로</td><td>—</td><td>—</td></tr>
     <tr><td><b>주문서</b></td><td>지금 화면의 절·입력·동의 항목은 그대로 두고 더하기만: 뒤로 왔을 때 ‘이미 만든 예약’ 안내, 상품 줄에 ‘지금 예약가로 잡아 뒀어요’, 버튼 위 한 줄</td><td>—</td><td>표식 + ‘지금 예약가’ 이름 이어 쓰기</td><td>⑥ 이미 만든 예약 · 버튼 위 한 줄 · 강조색 버튼 하나</td></tr>
-    <tr><td><b>입금 안내</b></td><td>금액 한 번 + 복사, 기한 첫 줄, 입금자명 안내 상자(UX ④). 판매자·고지·하단 버튼 등 나머지는 그대로(서버 순번 줄은 11/16 결정으로 후속)</td><td>—</td><td>—</td><td>④ 금액 한 번·기한 첫 줄·입금자명 두 문장</td></tr>
+    <tr><td><b>입금 안내</b></td><td>금액 한 번 + 복사, 입금자명 안내 상자(UX ④). 입금 기한은 지금 자리 그대로(11/17). 판매자·고지·하단 버튼 등 나머지는 그대로(서버 순번 줄은 11/16 결정으로 후속)</td><td>—</td><td>—</td><td>④ 금액 한 번·기한 첫 줄·입금자명 두 문장</td></tr>
   </table></div></div>
   <p class="foot">B에서 가져오지 않은 것: 평면 로고 다듬기, ‘수확까지 D-n’ 첫 줄과 홈 수확 타임라인, 상품별 가격표 공유 카드, 로그인의 ‘이 가격’ 상자, 막대 높이 가격 비례, 지금 칸 주황. C는 쓰지 않았어요.</p>
 </section>
@@ -217,7 +217,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
   <ol class="moves">
     <li><span class="num">1</span><h3>로고는 원본 그대로, 자리 셋만</h3><p>홈 머리 글자형(지금 위치·폭 159 그대로), 로그인 조합형(150×113), 아이콘 심볼(높이 86%). 픽셀 수정 0, 새 그림 0. 이름을 글자로 쓸 때는 ‘farmclub’ 하나(메타 제목·카톡 카드 포함).</p><div class="tags"><span class="src a">A 1·4·6</span></div></li>
     <li><span class="num">2</span><h3>숫자 두 개는 자리를 나눠요</h3><p>‘팬 n명’은 농가 줄(상세 농가 줄, 홈 소식 카드)에만, ‘n명 예약’은 상품 줄(카드·신뢰 첫 줄)에만 둬요. 한 줄에 ‘명’ 숫자가 둘 오지 않아요. A 홈 카드의 ‘· 팬 128’은 뺐어요.</p><div class="tags"><span class="src a">A 3</span><span class="src ux">UX ①</span></div></li>
-    <li><span class="num">3</span><h3>계단 높이는 가격이 아니라 기간 순서</h3><p>막대 높이 1:2:3(20·32·44px). 가격 비례(29:33:36)면 첫 칸과 마지막 칸 차이가 20%뿐이라 44px 안에서 9px 차이로 계단이 안 읽혀요. 지금 칸만 #111로 채우고 나머지는 #6B6B6B 1.5px 테두리(흰 바탕 5.33:1).</p><div class="tags"><span class="src b">B 3</span></div></li>
+    <li><span class="num">3</span><h3>계단 높이는 가격이 아니라 기간 순서</h3><p>막대 높이 1:2:3(20·32·44px). 가격 비례(29:33:36)면 첫 칸과 마지막 칸 차이가 20%뿐이라 44px 안에서 9px 차이로 계단이 안 읽혀요. 결은 S1 둥근 면(11/17 채택): 테두리 없이 면만, 위 모서리 10·아래 2, 칸 사이 4px, 지금 칸 #111, 뒤 칸 #F1F0EC(흰 바탕 1.14:1이라 면 경계는 약해요. 기간 정보는 날짜 글자가 전하고, 실기기 확인은 구현 때). 4단계 이상이면 ‘지금’을 지금 칸 위로 올려요.</p><div class="tags"><span class="src b">B 3</span></div></li>
     <li><span class="num">4</span><h3>계단은 가격을 다시 쓰지 않아요</h3><p>지금 가격은 옵션 카드 ‘지금 예약가’에 한 번만. 계단 라벨은 날짜, 가격은 마지막 칸 ‘5kg 36,000원’ 하나(UX ②가 남긴 줄을 옮긴 것). 다음 기간 가격(<code>nextPrice</code>)은 어디에도 안 써요.</p><div class="tags"><span class="src b">B 3</span><span class="src ux">UX ②</span></div></li>
     <li><span class="num">5</span><h3>주황은 세 역할, 새 색은 크림 하나</h3><p>#FB8F27은 로고 그림 안에만, #C94F0C는 주요 버튼과 홈 카드 D-day 글자(DEV-293 그대로), 새 값 #FFF4E8은 공유 카드·아이콘 바탕에만(앱 화면 안에서는 이번 범위에 쓰는 곳이 없어 UI 토큰은 후속 ‘응원하는 농가’ 줄과 함께 정해요). 계단·신뢰 줄에는 주황을 안 써요(UX ‘주황은 버튼 하나’).</p><div class="tags"><span class="src a">A 2</span><span class="src ux">UX ①⑥</span></div></li>
     <li><span class="num">6</span><h3>순번은 상세의 예측 문구 하나만</h3><p>상세 신뢰 첫 줄 보조 14 ‘지금 예약하면 38번째예요’(예약 수 + 1)만 둬요. 입금 안내의 확정 순번(‘강씨네 귤밭의 38번째 예약이에요’)은 주문 순번이 서버에 있어야 해서 11/16 결정으로 후속 이슈로 뺐어요(주문 쪽 고위험 경로). A의 상세 크림 상자와 22 주황 숫자도 뺐어요.</p><div class="tags"><span class="src a">A 3</span><span class="src ux">UX ①</span></div></li>
@@ -336,7 +336,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
       <ol>
         <li>농가 줄 ‘제주 서귀포 · 팬 128명’. 버튼 이름 ‘팔로우’는 그대로. <span class="src a">A 3</span></li>
         <li>도착 줄 ‘무료배송 · 이 가격은 10월 12일까지’, 옵션 카드 ‘지금 예약가’, 취소선 없음. <span class="src ux">UX ②</span></li>
-        <li>계단 블록: ‘일찍 예약할수록 싸요’ + 막대 셋(20·32·44) + 날짜 라벨, 마지막 칸만 가격 ‘5kg 36,000원’. <span class="src b">B 3</span> <span class="src ux">UX ②</span></li>
+        <li>계단 블록(S1 둥근 면, 11/17): ‘일찍 예약할수록 싸요’ + 면 셋(20·32·44, 위 모서리 10, 칸 사이 4) + 날짜 라벨, 마지막 칸만 가격 ‘5kg 36,000원’. <span class="src b">B 3</span> <span class="src ux">UX ②</span></li>
         <li>신뢰 세 줄, 첫 줄 보조에 ‘지금 예약하면 38번째예요’. <span class="src ux">UX ①</span> <span class="src a">A 3</span></li>
       </ol>
       <p class="from">지금: DEV-268 로컬 시드 캡처 위 1060px. 아래쪽 ‘채팅 · 예약하기’ 고정 버튼은 두 쪽 모두 이 높이 밖이에요.</p>
@@ -355,8 +355,8 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
         </div>
         <div class="px" style="padding-top:18px">
           <div class="t14 sb">일찍 예약할수록 싸요</div>
-          <div class="stair" style="margin-top:8px;height:44px"><div class="bar now" style="height:20px"></div><div class="bar" style="height:32px"></div><div class="bar" style="height:44px"></div></div>
-          <div class="stair" style="margin-top:6px;align-items:start"><div class="lab now" data-wrap="1" data-wrap-name="계단 지금 라벨">지금 · 10월 12일까지</div><div class="lab" data-wrap="1" data-wrap-name="계단 둘째 라벨">10월 13일부터</div><div class="lab" data-wrap="2" data-wrap-name="계단 마지막 라벨">11월 6일부터<br>5kg 36,000원</div></div>
+          <div class="stair" style="margin-top:8px;height:44px;gap:4px"><div style="height:20px;background:#111;border-radius:10px 10px 2px 2px"></div><div style="height:32px;background:#F1F0EC;border-radius:10px 10px 2px 2px"></div><div style="height:44px;background:#F1F0EC;border-radius:10px 10px 2px 2px"></div></div>
+          <div class="stair" style="margin-top:6px;align-items:start;gap:4px"><div class="lab now" data-wrap="1" data-wrap-name="계단 지금 라벨">지금 · 10월 12일까지</div><div class="lab" data-wrap="1" data-wrap-name="계단 둘째 라벨">10월 13일부터</div><div class="lab" data-wrap="2" data-wrap-name="계단 마지막 라벨">11월 6일부터<br>5kg 36,000원</div></div>
         </div>
         <div class="trust" style="margin-top:14px">
           <div class="tr"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.8.8 3 2.6 3.5 5.2"/></svg><div><div class="t16">37명이 예약했어요</div><div class="t14 mut" data-wrap="1" data-wrap-name="신뢰 첫 줄 보조">지금 예약하면 38번째예요</div></div></div>
@@ -490,9 +490,10 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
   <div class="pair" id="p-deposit">
     <div class="note"><h3>입금 안내 (화면 전체)</h3>
       <ol>
-        <li>UX ④가 승인한 변경만: 기한을 맨 위 한 줄로, 금액은 큰 숫자 한 번 + 복사(표의 ‘입금액’·‘입금 기한’ 줄을 합침), ‘입금자명: 주문 번호’ 한 줄을 면색 상자 두 문장으로. <span class="src ux">UX ④</span></li>
+        <li>UX ④에서 남긴 변경: 금액은 ‘입금할 금액’ 큰 숫자 한 번 + 복사(표의 ‘입금액’ 줄을 합침), ‘입금자명: 주문 번호’ 한 줄을 면색 상자 두 문장으로. <span class="src ux">UX ④</span></li>
+        <li>입금 기한은 지금 화면처럼 표 안 입금자명 아래 ‘입금 기한 | 10월 8일 (목) 10:00까지’(11/17 사용자 결정, UX ④의 ‘기한 맨 위’는 취소).</li>
         <li>그 밖의 항목은 모두 그대로예요: 상품 줄, 계좌번호 + 복사, 예금주, 입금자명 + 복사, 판매자(이름·대표, 지역·연락처), 통신판매중개자 고지 상자, 구매안전서비스 고지, 하단 ‘입금을 마쳤어요’·‘나중에 입금할게요’.</li>
-        <li>입금을 알린 뒤에는 기한 대신 ‘입금 알림’ 시각을 보이는 지금 규칙(DEV-207)도 그대로예요(첫 줄 문구만 바뀜, 그림은 알리기 전).</li>
+        <li>입금을 알린 뒤에는 기한 줄 대신 ‘입금 알림’ 시각을 보이는 지금 규칙(DEV-207)도 그대로예요(그림은 알리기 전).</li>
       </ol>
       <p class="from">지금: DEV-268 로컬 시드 화면 전체(960px). 판매자 이름·연락처·계좌는 시드의 가짜 값이에요. PNG는 위 540px과 아래 420px 두 쌍. 맨 위 순번 줄(A)은 11/16 결정으로 후속이라 그리지 않았어요.</p>
     </div>
@@ -502,7 +503,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
         <div class="hd2"><svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>입금 안내</div>
         <div class="testbar">테스트 서비스예요 · 실제 돈은 나가지 않아요</div>
         <div class="px" style="padding-top:14px">
-          <div class="t14 mut">10월 8일 (목) 오전 10:00까지 입금해 주세요</div>
+          <div class="t14 mut">입금할 금액</div>
           <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:28px;line-height:36px;font-weight:700">58,000원</span><span class="copy">복사</span></div>
           <div class="t14 mut">하우스 감귤 5kg × 2 · 강씨네 귤밭</div>
         </div>
@@ -510,6 +511,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
           <div class="row48" style="border-top:1px solid var(--app-border)"><span class="t16 mut">계좌번호</span><span class="t16 b">제주은행 101-23-456789<span class="copy">복사</span></span></div>
           <div class="row48"><span class="t16 mut">예금주</span><span class="t16">강영수 (강씨네 귤밭)</span></div>
           <div class="row48"><span class="t16 mut">입금자명</span><span class="t16 b">FC-1007-3379<span class="copy">복사</span></span></div>
+          <div class="row48"><span class="t16 mut">입금 기한</span><span class="t16">10월 8일 (목) 10:00까지</span></div>
         </div>
         <div class="notice" style="margin:14px 16px 0"><div class="t16 sb" data-wrap="2" data-wrap-name="입금자명 안내 제목">받는 분 통장 표시를 FC-1007-3379로 바꿔 보내 주세요</div><div class="t14 mut" style="margin-top:2px">농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요.</div></div>
         <div class="px" style="padding-top:28px;padding-bottom:16px">
@@ -536,19 +538,19 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
 <!-- ============================ 가격 계단 시안 ============================ -->
 <section class="sec" aria-label="가격 계단 시안" id="stair">
   <h2>가격 계단 시안 (11/15 피드백: 더 눈에 들어오게, 장식 없이)</h2>
-  <div class="card" style="border-left:6px solid var(--mark)"><h3>결정(11/16): 지금 통합안 유지, V1~V7 미채택</h3><p style="font-size:14px;line-height:21px;color:var(--ink-2)">사용자가 7안을 본 뒤 처음 통합안 계단(테두리 칸 셋, 높이 20·32·44, 지금 칸만 채움, 마지막 칸에 ‘5kg 36,000원’)을 그대로 쓰기로 했어요. 아래 시안은 비교 기록으로 남겨요. 4단계 이상에서 ‘지금 · 날짜’가 두 줄로 꺾이던 것만 고쳤어요(‘지금’을 지금 칸 위 빈자리로 올림).</p></div>
+  <div class="card" style="border-left:6px solid var(--mark)"><h3>결정(11/17): S1 둥근 면 채택</h3><p style="font-size:14px;line-height:21px;color:var(--ink-2)">11/16의 ‘지금 통합안 유지’는 ‘막대 그래프가 너무 딱딱하다’는 피드백으로 바뀌었어요. 구조(칸 셋, 기간 순서 높이 20·32·44, 지금 칸만 채움, 마지막 칸에만 ‘5kg 36,000원’, 4단계 이상이면 ‘지금’을 칸 위로)는 그대로 두고 결만 S1(테두리 없는 면, 위 모서리 10, 칸 사이 4px, 뒤 칸 #F1F0EC, 지금 칸 #111)로 해요. V1~V7·S2~S4는 미채택, 아래는 비교 기록이에요.</p></div>
   <p class="lede">통합안의 계단은 테두리 상자 셋 + 검은 칸 하나라 와이어프레임 막대그래프처럼 읽혔어요. 색·그라데이션·그림자를 더하지 않고, 큰 글자와 작은 라벨의 크기 차이, 꽉 찬 면이나 선 하나로 다시 그렸어요. 세 안은 구조가 달라요: V1은 시간 레일, V2는 글자 계단, V3는 이어진 면. 문구는 UX 승인안 그대로이고, 가격은 마지막 기간 ‘5kg 36,000원’ 하나만 보여요.</p>
   <h3 style="margin-top:8px">3차 (11/16): 결 다듬기 — 구조는 지금 통합안 그대로, 테두리 상자의 딱딱함만 덜기</h3>
   <div class="duo quad" style="flex-wrap:wrap">
-    <div class="col"><span class="lbl">지금 통합안 · 채택</span><div class="shot" style="height:440px"><div class="phone" style="height:440px" data-frame="cur"></div></div></div>
-    <div class="col"><span class="lbl after">S1 둥근 면</span><div class="shot" data-shot="stair-s1" style="height:440px"><div class="phone" style="height:440px" data-frame="s1"></div></div></div>
+    <div class="col"><span class="lbl">지금 통합안 (11/16, 이후 S1로 바뀜)</span><div class="shot" style="height:440px"><div class="phone" style="height:440px" data-frame="cur"></div></div></div>
+    <div class="col"><span class="lbl after">S1 둥근 면 · 채택(11/17)</span><div class="shot" data-shot="stair-s1" style="height:440px"><div class="phone" style="height:440px" data-frame="s1"></div></div></div>
     <div class="col"><span class="lbl after">S2 크림 결</span><div class="shot" data-shot="stair-s2" style="height:440px"><div class="phone" style="height:440px" data-frame="s2"></div></div></div>
     <div class="col"><span class="lbl after">S3 알약 기둥</span><div class="shot" data-shot="stair-s3" style="height:440px"><div class="phone" style="height:440px" data-frame="s3"></div></div></div>
     <div class="col"><span class="lbl after">S4 글자를 품은 칸</span><div class="shot" data-shot="stair-s4" style="height:440px"><div class="phone" style="height:440px" data-frame="s4"></div></div></div>
   </div>
   <div class="lbl" style="font-size:13px;font-weight:700;color:var(--ink-2)">3차 · 작은 표식</div>
   <div class="duo quad" style="flex-wrap:wrap">
-    <div class="col"><span class="lbl">지금 통합안 · 채택</span><div class="shot"><div class="glyphpanel" data-glyph="cur"></div></div></div>
+    <div class="col"><span class="lbl">지금 통합안 (11/16, 이후 S1로 바뀜)</span><div class="shot"><div class="glyphpanel" data-glyph="cur"></div></div></div>
     <div class="col"><span class="lbl after">S1</span><div class="shot" data-shot="glyph-s1"><div class="glyphpanel" data-glyph="s1"></div></div></div>
     <div class="col"><span class="lbl after">S2</span><div class="shot" data-shot="glyph-s2"><div class="glyphpanel" data-glyph="s2"></div></div></div>
     <div class="col"><span class="lbl after">S3</span><div class="shot" data-shot="glyph-s3"><div class="glyphpanel" data-glyph="s3"></div></div></div>
@@ -556,7 +558,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
   </div>
   <div class="lbl" style="font-size:13px;font-weight:700;color:var(--ink-2)">3차 · 단계 2개 / 4개 + 지난 단계</div>
   <div class="duo quad" style="flex-wrap:wrap">
-    <div class="col"><span class="lbl">지금 통합안 · 채택</span><div class="shot"><div class="phone stresspanel" data-stress="cur"></div></div></div>
+    <div class="col"><span class="lbl">지금 통합안 (11/16, 이후 S1로 바뀜)</span><div class="shot"><div class="phone stresspanel" data-stress="cur"></div></div></div>
     <div class="col"><span class="lbl after">S1</span><div class="shot" data-shot="stress-s1"><div class="phone stresspanel" data-stress="s1"></div></div></div>
     <div class="col"><span class="lbl after">S2</span><div class="shot" data-shot="stress-s2"><div class="phone stresspanel" data-stress="s2"></div></div></div>
     <div class="col"><span class="lbl after">S3</span><div class="shot" data-shot="stress-s3"><div class="phone stresspanel" data-stress="s3"></div></div></div>
@@ -567,7 +569,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     <div class="card"><h3>S2 크림 결</h3><ol class="dl"><li>S1 모양에 뒤 칸을 로고 손잡이 크림 #F1E2CF로, 지금 칸을 로고 올리브 #56652A로.</li><li>크림 #FFF4E8은 흰 바탕과 1.08:1이라 칸이 거의 안 보여서, 한 단 짙은 손잡이 크림을 썼어요.</li><li>올리브를 고른 이유: 크림 옆에서 #111은 너무 세서 따로 놀고, 올리브는 로고 FARM 글자와 같은 계열이라 브랜드 온기가 생겨요.</li></ol><div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>올리브 / 흰 6.38 · 올리브 / 크림 5.02 · 크림 #F1E2CF / 흰 1.27</td></tr><tr><td>최소 글자</td><td>12</td></tr><tr><td>390 줄바꿈</td><td>모두 한 줄</td></tr><tr><td>개발</td><td>색 값 둘이 UI에 새로 들어와요(올리브·크림, 토큰 2개) · 0.5일</td></tr><tr><td>솔직히</td><td>따뜻하지만 화면에서 올리브가 이 자리 하나뿐이라 왜 여기만 초록인지 설명이 필요해요. 빵·흙 같은 인상이 날 수 있어요</td></tr></table></div></div>
     <div class="card"><h3>S3 알약 기둥</h3><ol class="dl"><li>칸 폭의 44% 캡슐 기둥 셋, 완전 둥근 끝, 가운데 정렬, 라벨도 가운데.</li><li>뒤 기둥 #EAE8E2, 지금 기둥 #111.</li><li>여백이 많아 가벼워요.</li></ol><div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>#111 / 흰 18.88 · #EAE8E2 / 흰 1.23</td></tr><tr><td>최소 글자</td><td>12</td></tr><tr><td>390 줄바꿈</td><td>모두 한 줄</td></tr><tr><td>개발</td><td>쉬움 · 0.5일</td></tr><tr><td>솔직히</td><td><b>유치해 보여요.</b> 높이 20~44에 완전 둥근 끝이라 기둥이 아니라 알약·타원 덩어리로 읽히고, 14px 표식은 휴대폰 신호 막대처럼 보여요. 권하지 않아요</td></tr></table></div></div>
     <div class="card"><h3>S4 글자를 품은 칸</h3><ol class="dl"><li>높이 차를 줄이고(28·36·44) 모서리 8, 지금 칸 안에 흰 ‘지금’ 12 굵게. 칸 아래에는 날짜만.</li><li>근거: 딱딱함은 그림과 글자가 따로 노는 데서도 오니, ‘지금’을 칸 안에 넣어 둘을 하나로 묶었어요.</li><li>완만한 높이 차라 막대그래프보다 단 셋으로 읽혀요.</li></ol><div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>흰 / #111 18.88 · #F1F0EC / 흰 1.14</td></tr><tr><td>최소 글자</td><td>12</td></tr><tr><td>390 줄바꿈</td><td>모두 한 줄(4단계도 ‘지금’이 칸 안이라 칸 위로 안 올림)</td></tr><tr><td>개발</td><td>쉬움 · 0.5일</td></tr><tr><td>솔직히</td><td>검정 칸에 흰 글자라 탭이나 누르는 버튼처럼 보여요. 바로 아래 옵션 시트·하단 버튼과 헷갈릴 수 있어요</td></tr></table></div></div>
-    <div class="card" style="border-left:6px solid var(--mark);grid-column:1/-1"><h3>3차 추천 · S1 둥근 면 (따뜻함을 원하면 S2)</h3><ol class="dl">
+    <div class="card" style="border-left:6px solid var(--mark);grid-column:1/-1"><h3>3차 결과 · S1 둥근 면 채택(11/17). S2~S4 미채택</h3><ol class="dl">
       <li><b>S1.</b> 지금 통합안의 구조·색·문구를 그대로 두고 테두리만 면으로 바꿔서, 사용자가 싫어한 각진 상자 느낌이 가장 많이 사라져요. 새 색 0, 구현은 PriceStair 스타일 값만이에요.</li>
       <li><b>S2</b>는 브랜드 온기가 생기지만 올리브·크림이 UI에 새로 들어와요. 이 자리만 초록이 되는 게 괜찮으면 고를 만해요.</li>
       <li>S3는 유치해 보이고, S4는 버튼처럼 보여서 권하지 않아요.</li>
@@ -576,7 +578,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
 
   <h3 style="margin-top:20px">1차·2차 (11/15~16, 기록)</h3>
   <div class="duo quad" style="flex-wrap:wrap">
-    <div class="col"><span class="lbl">지금 통합안 · 채택</span><div class="shot" data-shot="stair-current" style="height:440px"><div class="phone" style="height:440px" data-frame="cur"></div></div></div>
+    <div class="col"><span class="lbl">지금 통합안 (11/16, 이후 S1로 바뀜)</span><div class="shot" data-shot="stair-current" style="height:440px"><div class="phone" style="height:440px" data-frame="cur"></div></div></div>
     <div class="col"><span class="lbl after">V1 레일</span><div class="shot" data-shot="stair-v1" style="height:440px"><div class="phone" style="height:440px" data-frame="v1"></div></div></div>
     <div class="col"><span class="lbl after">V2 글자 계단</span><div class="shot" data-shot="stair-v2" style="height:440px"><div class="phone" style="height:440px" data-frame="v2"></div></div></div>
     <div class="col"><span class="lbl after">V3 실루엣</span><div class="shot" data-shot="stair-v3" style="height:440px"><div class="phone" style="height:440px" data-frame="v3"></div></div></div>
@@ -719,7 +721,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
       <tr><td><span class="sw" style="background:#111"></span>#111 공유 카드 글 / <span class="sw" style="background:#FFF4E8"></span>#FFF4E8</td><td>17.41</td><td class="ok">AAA</td></tr>
       <tr><td>#6B6B6B 보조 / #FFF4E8 (공유 카드 작은 글)</td><td>4.91</td><td class="ok">AA</td></tr>
       <tr><td>#C94F0C ‘이 가격 D-5’ 12 600 / 흰</td><td>4.56</td><td class="ok">AA (DEV-293 그대로)</td></tr>
-      <tr><td>계단 빈 칸 테두리 #6B6B6B / 흰</td><td>5.33</td><td class="ok">비텍스트 3:1 통과</td></tr>
+      <tr><td>계단 뒤 칸 면 #F1F0EC / 흰 (S1)</td><td>1.14</td><td class="wn">약함 — 비텍스트 3:1 미달. 기간 정보는 날짜 글자가 같이 전해요(1.4.11 예외로 봄). 실기기 확인은 구현 때</td></tr>
       <tr><td>계단 지금 칸 #111 / 흰</td><td>18.88</td><td class="ok">비텍스트 통과</td></tr>
       <tr><td>#6B6B6B 계단 라벨 12 / 흰</td><td>5.33</td><td class="ok">AA</td></tr>
       <tr><td>#6B6B6B 개념 상자 14 / #F5F5F3</td><td>4.88</td><td class="ok">AA</td></tr>
@@ -733,7 +735,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     </table></div>
       <ul>
         <li>주황 픽셀 = R&gt;200, 80&lt;G&lt;200, B&lt;110인 픽셀(바탕과 섞인 뒤). 지금은 CLUB 글자도 주황이라 왼쪽 7px(심볼 자리)만 셌어요. 글자 두 줄이 같은 정사각에 들어가 귤이 몇 픽셀로 줄어요.</li>
-        <li>계단 표식 14×10: 막대 폭 3px, 간격 2px, 빈 막대 1px 테두리. 12px 글자 옆에서 막대 셋이 구별돼요(위 홈 쌍). 실기기 확인 전이에요.</li>
+        <li>계단 표식 14×10(S1 결): 폭 4px 면 셋, 간격 1px, 모서리 0.8, 지금 칸만 진하게, 뒤 칸은 같은 색 28% 농도. 12px 글자 옆에서 셋이 구별돼요(위 홈 쌍). 세 막대가 휴대폰 신호 막대처럼 보일 수 있어요. 실기기 확인 전이에요.</li>
       </ul>
     </div>
     <div class="card"><h3>390 폭 줄바꿈 (보드가 열릴 때 브라우저가 잼)</h3><div class="tblx"><table id="wraps"><tr><th>자리</th><th>허용 줄</th><th>잰 줄</th><th>판정</th></tr></table></div>
@@ -742,7 +744,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
       <tr><th>토큰·자산</th><th>지금</th><th>통합안</th></tr>
       <tr><td><code>color.accent</code></td><td>#C94F0C</td><td>그대로</td></tr>
       <tr><td><code>color.accentSoft</code> (새)</td><td>—</td><td>#FFF4E8 공유 카드·아이콘 바탕(UI 토큰 추가는 후속 ‘응원하는 농가’ 줄과 함께)</td></tr>
-      <tr><td>계단 색</td><td>—</td><td>새 토큰 없음: #111(text), #6B6B6B(muted), 흰(bg)</td></tr>
+      <tr><td>계단 색</td><td>—</td><td>#111(text) + 뒤 칸 #F1F0EC(새 값 하나 — 구현 때 기존 surface #F5F5F3로 바꿀지 실기기에서 결정)</td></tr>
       <tr><td>새 부품</td><td>—</td><td><code>PriceStair</code>(상세), <code>StageGlyph</code>(14×10·28×20)</td></tr>
       <tr><td>manifest <code>background_color</code></td><td>#FFFFFF</td><td>#FFF4E8</td></tr>
       <tr><td>Android <code>adaptiveIcon.backgroundColor</code></td><td>#E6F4FE</td><td>#FFF4E8 / 생산자 #56652A</td></tr>
@@ -766,7 +768,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
 </section>
 
 <section class="sec decide" aria-label="결정">
-  <h2>결정 (2026-11-16, 사용자 “추천대로 진행해”)</h2>
+  <h2>결정 (2026-11-16 “추천대로 진행해”, 11/17 보완)</h2>
   <div class="card"><ol>
     <li><b>‘팬’ 호칭을 쓴다.</b> 화면 표시만 ‘팬 n명’, 버튼 이름은 ‘팔로우’ 그대로. FEAT-06 팔로우 표시 이름·screens.md 문구표는 구현 PR에서 고쳐요.</li>
     <li><b>입금 안내의 서버 순번은 이번 범위에서 뺀다.</b> 상세의 예측 문구 ‘지금 예약하면 38번째예요’만 둬요. 확정 순번은 주문 순번이 서버에 있어야 해서(<code>server/app/orders/**</code>, 고위험) 후속 이슈로. <code>reservedCount</code>가 사람 수인지 박스 수인지는 구현 때 확인해요.</li>
@@ -775,6 +777,9 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     <li><b>로그인 로고 150으로 줄이고</b> 제목 ‘로그인하고 예약을 이어 가요’는 유지.</li>
     <li><b>상품별 동적 공유 카드는 후속 이슈.</b> 이번에는 사이트 공통 정적 카드 한 장.</li>
     <li><b>로그인 상태 홈 ‘내가 응원하는 농가’ 줄은 후속 이슈.</b></li>
+    <li><b>통합안은 지금 화면의 정보·입력·동의 항목을 빼지 않는다.</b> 더하기만 해요(11/16).</li>
+    <li><b>입금 기한 위치는 지금 화면 유지</b>(11/17). UX ④의 ‘기한 맨 위’는 취소.</li>
+    <li><b>가격 계단 결은 S1 둥근 면</b>(11/17).</li>
   </ol></div>
   <p class="foot">수치 출처: 대비비는 WCAG 2.x 상대 휘도 공식으로 계산. 16px 판독·줄바꿈은 이 페이지가 열릴 때 캔버스·레이아웃을 직접 재서 채워요. 사진은 <code>docs/design/assets</code>의 자리표시 사진, 로고는 <code>DEV-311/assets</code>의 승인 원본 축소본이에요. 계좌·이름·연락처는 DEV-268 로컬 시드의 가짜 값이에요.</p>
 </section>
@@ -783,7 +788,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
 
 <!-- 계단 표식(지금 = 첫 기간) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-  <g id="g1"><rect x="0" y="6" width="3" height="4" rx=".5" fill="currentColor"/><rect x="5.5" y="3.5" width="2" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1"/><rect x="10.5" y=".5" width="2" height="9" rx=".5" fill="none" stroke="currentColor" stroke-width="1"/></g>
+  <g id="g1"><rect x="0" y="6" width="4" height="4" rx=".8" fill="currentColor"/><rect x="5" y="3" width="4" height="7" rx=".8" fill="currentColor" fill-opacity=".28"/><rect x="10" y="0" width="4" height="10" rx=".8" fill="currentColor" fill-opacity=".28"/></g>
 </defs></svg>
 
 <!-- 공유 카드 원본(1200×630) -->
