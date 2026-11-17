@@ -201,7 +201,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
   <h2>화면별로 무엇이 바뀌나</h2>
   <div class="card sum"><div class="tblx"><table>
     <tr><th style="width:120px">화면</th><th>무엇이 바뀌나</th><th style="width:200px"><span class="src a">A 팬클럽</span></th><th style="width:200px"><span class="src b">B 가격 계단</span></th><th style="width:220px"><span class="src ux">UX 승인안</span></th></tr>
-    <tr><td><b>홈</b></td><td>소식 카드에 팬 수, 상품 위 단계 가격 설명 상자에 계단 표식, 카드의 ‘이 가격 D-n’ 앞에 지금 단계 표식</td><td>소식 카드 ‘팬 n명’, 로고 원본 위치 그대로</td><td>계단 표식(개념 상자 28×20, 카드 14×10)</td><td>② ‘이 가격 D-n’·취소선 제거·개념 상자 두 문장</td></tr>
+    <tr><td><b>홈</b></td><td>소식 카드에 팬 수, 상품 위 단계 가격 설명 상자에 계단 표식, 카드의 ‘이 가격 D-n’ 앞에 지금 단계 표식</td><td>소식 카드 ‘팬 n명’, 로고 원본 위치 그대로</td><td>계단 표식(개념 상자 28×20, 카드 14×10)</td><td>② ‘이 가격 D-n’·개념 상자 두 문장(취소선은 11/17 유지로 바뀜)</td></tr>
     <tr><td><b>상품 상세</b></td><td>‘지금 예약가’ 옵션 카드 아래 계단 블록, 신뢰 세 줄 첫 줄에 ‘지금 예약하면 38번째예요’, 농가 줄 ‘팬 128명’</td><td>팬 128명, 38번째(보조 줄로)</td><td>계단 블록(기간 순서 높이)</td><td>① 알아 둘 세 줄 · ② 지금 예약가·이 가격 날짜</td></tr>
     <tr><td><b>로그인</b></td><td>소비자 로그인에도 승인 조합형 로고, 제목은 예약에서 왔을 때 문구</td><td>DEV-85 배치(제목 왼쪽, 로고 오른쪽)</td><td>—</td><td>⑤ ‘로그인하고 예약을 이어 가요’</td></tr>
     <tr><td><b>카톡 공유 카드</b></td><td>옛 ‘farmclub.’ 워드마크 카드를 크림 바탕 + 승인 조합형 + 계단 표식 정적 카드 한 장으로</td><td>크림 #FFF4E8, 조합형, 이름 ‘farmclub’ 한 가지</td><td>계단 표식만(가격 숫자는 안 넣음)</td><td>② 개념 문장을 설명 문구로</td></tr>
@@ -218,7 +218,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     <li><span class="num">1</span><h3>로고는 원본 그대로, 자리 셋만</h3><p>홈 머리 글자형(지금 위치·폭 159 그대로), 로그인 조합형(150×113), 아이콘 심볼(높이 86%). 픽셀 수정 0, 새 그림 0. 이름을 글자로 쓸 때는 ‘farmclub’ 하나(메타 제목·카톡 카드 포함).</p><div class="tags"><span class="src a">A 1·4·6</span></div></li>
     <li><span class="num">2</span><h3>숫자 두 개는 자리를 나눠요</h3><p>‘팬 n명’은 농가 줄(상세 농가 줄, 홈 소식 카드)에만, ‘n명 예약’은 상품 줄(카드·신뢰 첫 줄)에만 둬요. 한 줄에 ‘명’ 숫자가 둘 오지 않아요. A 홈 카드의 ‘· 팬 128’은 뺐어요.</p><div class="tags"><span class="src a">A 3</span><span class="src ux">UX ①</span></div></li>
     <li><span class="num">3</span><h3>계단 높이는 가격이 아니라 기간 순서</h3><p>막대 높이 1:2:3(20·32·44px). 가격 비례(29:33:36)면 첫 칸과 마지막 칸 차이가 20%뿐이라 44px 안에서 9px 차이로 계단이 안 읽혀요. 지금 칸만 #111로 채우고 나머지는 #6B6B6B 1.5px 테두리(흰 바탕 5.33:1). 4단계 이상이면 ‘지금’을 지금 칸 위 빈자리로 올려요(11/16).</p><div class="tags"><span class="src b">B 3</span></div></li>
-    <li><span class="num">4</span><h3>계단은 가격을 다시 쓰지 않아요</h3><p>지금 가격은 옵션 카드 ‘지금 예약가’에 한 번만. 계단 라벨은 날짜, 가격은 마지막 칸 ‘5kg 36,000원’ 하나(UX ②가 남긴 줄을 옮긴 것). 다음 기간 가격(<code>nextPrice</code>)은 어디에도 안 써요.</p><div class="tags"><span class="src b">B 3</span><span class="src ux">UX ②</span></div></li>
+    <li><span class="num">4</span><h3>칸마다 기간 가격, 같은 가격은 한 칸 (11/17 PM)</h3><p>계단의 모든 칸 아래에 시작 날짜(지금 칸은 ‘지금 · 끝 날짜’)와 그 기간 가격을 둬요. 이어지는 기간의 가격이 같으면 한 칸으로 합쳐 가격이 실제로 오르는 지점에서만 칸을 나눠요(칸 높이는 합친 뒤 칸 순서). 옵션 표기는 칸마다 쓰지 않고 제목 줄 ‘일찍 예약할수록 싸요 · 5kg 기준’으로 올려요(고른 옵션 기준, 기본 첫 옵션). 차액·이득 문구는 계속 없어요. 이로써 ‘다음 기간 가격 숨김(UX ②)·날짜별 가격표 없음’ 결정은 바뀌었어요.</p><div class="tags"><span class="src b">B 3</span><span class="src ux">UX ②</span></div></li>
     <li><span class="num">5</span><h3>주황은 세 역할, 새 색은 크림 하나</h3><p>#FB8F27은 로고 그림 안에만, #C94F0C는 주요 버튼과 홈 카드 D-day 글자(DEV-293 그대로), 새 값 #FFF4E8은 공유 카드·아이콘 바탕에만(앱 화면 안에서는 이번 범위에 쓰는 곳이 없어 UI 토큰은 후속 ‘응원하는 농가’ 줄과 함께 정해요). 계단·신뢰 줄에는 주황을 안 써요(UX ‘주황은 버튼 하나’).</p><div class="tags"><span class="src a">A 2</span><span class="src ux">UX ①⑥</span></div></li>
     <li><span class="num">6</span><h3>순번은 상세의 예측 문구 하나만</h3><p>상세 신뢰 첫 줄 보조 14 ‘지금 예약하면 38번째예요’(예약 수 + 1)만 둬요. 입금 안내의 확정 순번(‘강씨네 귤밭의 38번째 예약이에요’)은 주문 순번이 서버에 있어야 해서 11/16 결정으로 후속 이슈로 뺐어요(주문 쪽 고위험 경로). A의 상세 크림 상자와 22 주황 숫자도 뺐어요.</p><div class="tags"><span class="src a">A 3</span><span class="src ux">UX ①</span></div></li>
   </ol>
@@ -231,13 +231,13 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
       <h3>(가) <span class="src b">B 가격 계단</span> ↔ <span class="src ux">UX ② 지금 예약가 · 이 가격 D-n</span></h3>
       <div class="k">합친 하나</div>
       <ul>
-        <li>문구는 UX 그대로: 옵션 카드 ‘지금 예약가’, 도착 줄 ‘이 가격은 10월 12일까지’, 카드 ‘이 가격 D-5’, 홈 개념 상자 두 문장, 취소선 없음.</li>
-        <li>계단은 UX가 남긴 12px 한 줄(‘일찍 예약할수록 싸요. 마지막 기간 5kg 36,000원’) 자리에 들어가요. 같은 두 사실을 그림으로 바꾼 것이라 정보는 늘지 않아요.</li>
+        <li>문구는 UX 그대로: 옵션 카드 ‘지금 예약가’, 도착 줄 ‘이 가격은 10월 12일까지’, 카드 ‘이 가격 D-5’, 홈 개념 상자 두 문장. 취소선은 11/17 PM 결정으로 유지(카드 가격 옆, 옵션 카드 ‘지금 예약가’ 옆, 값은 마지막 기간 가격).</li>
+        <li>계단은 UX가 남긴 12px 한 줄 자리에 들어가요. 11/17 PM 결정으로 칸마다 기간 가격을 보이고, 같은 가격이 이어지면 한 칸으로 합쳐요.</li>
         <li>카드·개념 상자·공유 카드에는 막대 셋짜리 표식(14×10, 28×20)만. 글자 ‘이 가격 D-n’ 앞에 붙어 지금 몇 번째 기간인지 보여 줘요.</li>
       </ul>
       <div class="k">버린 것</div>
       <ul>
-        <li>막대 안 가격 세 개 — 다음 가격이 보여 UX ②의 ‘nextPrice 안 씀’과 부딪혀요.</li>
+        <li>막대 <b>안</b>에 가격 쓰기 — 11/17부터 가격은 칸 아래 라벨로 보여요(처음엔 ‘nextPrice 안 씀’ 때문에 버렸던 것).</li>
         <li>‘10월 12일까지 이 가격 · 5일 남음’ — ‘이 가격 D-5’와 같은 말을 두 번 해요.</li>
         <li>지금 칸 주황, 가격 비례 높이, 계단이 든 상품별 공유 카드.</li>
       </ul>
@@ -285,7 +285,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
         <li>로고는 지금 자리·크기 그대로예요. <span class="src a">A 1</span></li>
         <li>소식 카드 이름 옆에 ‘팬 128명’. <span class="src a">A 3</span></li>
         <li>제철 상품 위 개념 상자 두 문장 + 계단 표식 28×20. 상품이 없으면 숨겨요. <span class="src ux">UX ②</span> <span class="src b">B 3</span></li>
-        <li>카드: 취소선 빼고 ‘29,000원~’, ‘[표식] 이 가격 D-5’, ‘37명 예약’. <span class="src ux">UX ②</span></li>
+        <li>카드: ‘29,000원~ <s>36,000원</s>’(취소선 = 마지막 기간 가격, 11/17 유지), ‘[표식] 이 가격 D-5’, ‘37명 예약’. <span class="src ux">UX ②</span></li>
       </ol>
       <p class="from">지금: DEV-268 로컬 시드 캡처(11/11). 로그인 상태의 ‘내가 응원하는 농가’ 크림 줄(A)은 후속 이슈라 그리지 않았어요(결정 7).</p>
     </div>
@@ -314,10 +314,10 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 16px 0">
           <div><div class="ph" style="aspect-ratio:1;border-radius:16px;background-image:url(../assets/basket.jpg)"></div>
-            <div class="t14 mut" style="margin-top:10px">강씨네 귤밭</div><div class="t16 sb" data-wrap="1" data-wrap-name="홈 카드 상품명">하우스 감귤 5kg / 10kg</div><div class="t18" style="margin-top:2px">29,000원~</div>
+            <div class="t14 mut" style="margin-top:10px">강씨네 귤밭</div><div class="t16 sb" data-wrap="1" data-wrap-name="홈 카드 상품명">하우스 감귤 5kg / 10kg</div><div class="t18" style="margin-top:2px" data-wrap="1" data-wrap-name="홈 카드 가격 + 취소선">29,000원~ <s class="t14 mut" style="font-weight:400">36,000원</s></div>
             <div class="t12 acc sb stagechip" style="margin-top:4px" data-wrap="1" data-wrap-name="홈 카드 ‘이 가격 D-n’"><svg class="gly" viewBox="0 0 14 10"><use href="#g1"/></svg>이 가격 D-5</div><div class="t12 mut">37명 예약</div></div>
           <div><div class="ph" style="aspect-ratio:1;border-radius:16px;background-image:url(../assets/greenhouse-aisle.jpg)"></div>
-            <div class="t14 mut" style="margin-top:10px">효돈 하우스농원</div><div class="t16 sb">하우스 감귤 3kg</div><div class="t18" style="margin-top:2px">19,000원</div>
+            <div class="t14 mut" style="margin-top:10px">효돈 하우스농원</div><div class="t16 sb">하우스 감귤 3kg</div><div class="t18" style="margin-top:2px">19,000원 <s class="t14 mut" style="font-weight:400">22,000원</s></div>
             <div class="t12 acc sb stagechip" style="margin-top:4px"><svg class="gly" viewBox="0 0 14 10"><use href="#g1"/></svg>이 가격 D-9</div></div>
         </div>
         <div class="tabbar">
@@ -335,8 +335,8 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     <div class="note"><h3>상품 상세 (상단 ~ 가격·옵션·신뢰 세 줄)</h3>
       <ol>
         <li>농가 줄 ‘제주 서귀포 · 팬 128명’. 버튼 이름 ‘팔로우’는 그대로. <span class="src a">A 3</span></li>
-        <li>도착 줄 ‘무료배송 · 이 가격은 10월 12일까지’, 옵션 카드 ‘지금 예약가’, 취소선 없음. <span class="src ux">UX ②</span></li>
-        <li>계단 블록: ‘일찍 예약할수록 싸요’ + 막대 셋(20·32·44) + 날짜 라벨, 마지막 칸만 가격 ‘5kg 36,000원’. <span class="src b">B 3</span> <span class="src ux">UX ②</span></li>
+        <li>도착 줄 ‘무료배송 · 이 가격은 10월 12일까지’. 옵션 카드는 가격 위 줄에 ‘지금 예약가 <s>36,000원</s>’(라벨 + 마지막 기간 가격 취소선, 둘 다 회색, 11/17). <span class="src ux">UX ②</span></li>
+        <li>계단 블록: ‘일찍 예약할수록 싸요 · 5kg 기준’ + 테두리 칸 셋 + 칸마다 날짜와 가격(29,000원 · 33,000원 · 36,000원). 같은 가격이 이어지면 한 칸으로 합쳐요(11/17). <span class="src b">B 3</span> <span class="src ux">UX ②</span></li>
         <li>신뢰 세 줄, 첫 줄 보조에 ‘지금 예약하면 38번째예요’. <span class="src ux">UX ①</span> <span class="src a">A 3</span></li>
       </ol>
       <p class="from">지금: DEV-268 로컬 시드 캡처 위 1060px. 아래쪽 ‘채팅 · 예약하기’ 고정 버튼은 두 쪽 모두 이 높이 밖이에요.</p>
@@ -350,13 +350,13 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
         <div class="hr" style="margin:16px 16px 0"></div>
         <div class="px" style="display:flex;justify-content:space-between;align-items:center;padding-top:14px"><div><div class="t16 sb">11월 10일~20일 도착 예정</div><div class="t14 mut" data-wrap="1" data-wrap-name="상세 도착 줄">무료배송 · 이 가격은 10월 12일까지</div></div><svg class="ico" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div>
         <div style="margin:18px 16px 0;border:1px solid var(--app-border);border-radius:16px">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--app-border)"><div><div class="t16 sb">5kg</div><div class="t14 mut">35박스 남음</div></div><div style="text-align:right"><div class="t12 mut">지금 예약가</div><div class="t18">29,000원</div></div></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px"><div><div class="t16 sb">10kg</div><div class="t14 mut">14박스 남음</div></div><div style="text-align:right"><div class="t12 mut">지금 예약가</div><div class="t18">55,000원</div></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--app-border)"><div><div class="t16 sb">5kg</div><div class="t14 mut">35박스 남음</div></div><div style="text-align:right"><div class="t12 mut" data-wrap="1" data-wrap-name="옵션 카드 5kg 라벨 줄">지금 예약가 <s>36,000원</s></div><div class="t18">29,000원</div></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px"><div><div class="t16 sb">10kg</div><div class="t14 mut">14박스 남음</div></div><div style="text-align:right"><div class="t12 mut" data-wrap="1" data-wrap-name="옵션 카드 10kg 라벨 줄">지금 예약가 <s>68,000원</s></div><div class="t18">55,000원</div></div></div>
         </div>
         <div class="px" style="padding-top:18px">
-          <div class="t14 sb">일찍 예약할수록 싸요</div>
+          <div class="t14 sb" data-wrap="1" data-wrap-name="계단 제목 줄">일찍 예약할수록 싸요 · 5kg 기준</div>
           <div class="stair" style="margin-top:8px;height:44px"><div class="bar now" style="height:20px"></div><div class="bar" style="height:32px"></div><div class="bar" style="height:44px"></div></div>
-          <div class="stair" style="margin-top:6px;align-items:start"><div class="lab now" data-wrap="1" data-wrap-name="계단 지금 라벨">지금 · 10월 12일까지</div><div class="lab" data-wrap="1" data-wrap-name="계단 둘째 라벨">10월 13일부터</div><div class="lab" data-wrap="2" data-wrap-name="계단 마지막 라벨">11월 6일부터<br>5kg 36,000원</div></div>
+          <div class="stair" style="margin-top:6px;align-items:start"><div class="lab now"><div data-wrap="1" data-wrap-name="계단 지금 날짜">지금 · 10월 12일까지</div><div>29,000원</div></div><div class="lab"><div data-wrap="1" data-wrap-name="계단 둘째 날짜">10월 13일부터</div><div>33,000원</div></div><div class="lab"><div data-wrap="1" data-wrap-name="계단 마지막 날짜">11월 6일부터</div><div>36,000원</div></div></div>
         </div>
         <div class="trust" style="margin-top:14px">
           <div class="tr"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.8.8 3 2.6 3.5 5.2"/></svg><div><div class="t16">37명이 예약했어요</div><div class="t14 mut" data-wrap="1" data-wrap-name="신뢰 첫 줄 보조">지금 예약하면 38번째예요</div></div></div>
@@ -365,6 +365,25 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
         </div>
         <div class="fade"></div>
       </div></div></div>
+    </div>
+  </div>
+
+  <!-- 옵션 카드 취소선 배치 비교 (11/17) -->
+  <div class="pair" id="p-optcard">
+    <div class="note"><h3>옵션 카드 취소선 배치 (11/17 PM ‘취소선 해. 앵커링해야지’)</h3>
+      <ol>
+        <li><b>A(채택):</b> 가격 위 줄에 ‘지금 예약가 <s>36,000원</s>’(라벨 + 마지막 기간 가격 취소선, 둘 다 회색 12), 아래 줄 29,000원 18. 오른쪽 정렬이 두 줄 모두 숫자로 끝나 위아래 숫자가 바로 비교돼요.</li>
+        <li><b>B(비교):</b> 지금 화면처럼 가격 위에 취소선만, 라벨은 가격 왼쪽 같은 줄.</li>
+      </ol>
+      <p class="from">측정은 아래 검산 ‘390 폭 줄바꿈’ 표(옵션 카드 A·B 줄).</p>
+    </div>
+    <div class="duo">
+      <div class="col"><span class="lbl after">A · 채택</span><div class="shot" data-shot="optcard-a"><div class="phone" style="padding:16px 0"><div style="margin:0 16px;border:1px solid var(--app-border);border-radius:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--app-border)"><div><div class="t16 sb">5kg</div><div class="t14 mut">35박스 남음</div></div><div style="text-align:right"><div class="t12 mut" data-wrap="1" data-wrap-name="옵션 카드 A 라벨 줄">지금 예약가 <s>36,000원</s></div><div class="t18">29,000원</div></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px"><div><div class="t16 sb">10kg</div><div class="t14 mut">14박스 남음</div></div><div style="text-align:right"><div class="t12 mut">지금 예약가 <s>68,000원</s></div><div class="t18">55,000원</div></div></div></div></div></div></div>
+      <div class="col"><span class="lbl">B · 비교</span><div class="shot" data-shot="optcard-b"><div class="phone" style="padding:16px 0"><div style="margin:0 16px;border:1px solid var(--app-border);border-radius:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--app-border)"><div><div class="t16 sb">5kg</div><div class="t14 mut">35박스 남음</div></div><div style="text-align:right"><div class="t12 mut"><s>36,000원</s></div><div data-wrap="1" data-wrap-name="옵션 카드 B 가격 줄" style="white-space:nowrap"><span class="t12 mut" style="margin-right:6px">지금 예약가</span><span class="t18">29,000원</span></div></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px"><div><div class="t16 sb">10kg</div><div class="t14 mut">14박스 남음</div></div><div style="text-align:right"><div class="t12 mut"><s>68,000원</s></div><div style="white-space:nowrap"><span class="t12 mut" style="margin-right:6px">지금 예약가</span><span class="t18">55,000원</span></div></div></div></div></div></div></div>
     </div>
   </div>
 
@@ -538,7 +557,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
 <!-- ============================ 가격 계단 시안 ============================ -->
 <section class="sec" aria-label="가격 계단 시안" id="stair">
   <h2>가격 계단 시안 (11/15 피드백: 더 눈에 들어오게, 장식 없이)</h2>
-  <div class="card" style="border-left:6px solid var(--mark)"><h3>결정(11/17, 최종): 처음 통합안 계단으로 확정. 같은 날 S1 → V5로 바꿨다가 되돌림. V1~V7·S1~S4 미채택(비교 기록으로 남김)</h3><p style="font-size:14px;line-height:21px;color:var(--ink-2)">테두리 칸 셋, 높이 20·32·44, 지금 칸만 #111로 채움, 마지막 칸 아래 ‘5kg 36,000원’, 라벨 ‘지금 · 10월 12일까지’, 4단계 이상이면 ‘지금’을 칸 위로. 옵션 카드는 UX ② 그대로(‘지금 예약가’ 라벨 유지). 아래 1·2·3차 시안은 비교 기록이에요. 작은 표식만 S3 알약 기둥으로(11/17). 큰 계단은 처음 통합안 유지.</p></div>
+  <div class="card" style="border-left:6px solid var(--mark)"><h3>결정(11/17, 최종): 처음 통합안 계단으로 확정. 같은 날 S1 → V5로 바꿨다가 되돌림. V1~V7·S1~S4 미채택(비교 기록으로 남김)</h3><p style="font-size:14px;line-height:21px;color:var(--ink-2)">테두리 칸 셋, 높이 20·32·44, 지금 칸만 #111로 채움, 마지막 칸 아래 ‘5kg 36,000원’, 라벨 ‘지금 · 10월 12일까지’, 4단계 이상이면 ‘지금’을 칸 위로. 옵션 카드는 UX ② 그대로(‘지금 예약가’ 라벨 유지). 아래 1·2·3차 시안은 비교 기록이에요. 작은 표식만 S3 알약 기둥으로(11/17). 큰 계단은 처음 통합안 유지. 칸마다 기간 가격 표시, 같은 가격은 합침(11/17). 취소선 유지(11/17).</p></div>
   <p class="lede">통합안의 계단은 테두리 상자 셋 + 검은 칸 하나라 와이어프레임 막대그래프처럼 읽혔어요. 색·그라데이션·그림자를 더하지 않고, 큰 글자와 작은 라벨의 크기 차이, 꽉 찬 면이나 선 하나로 다시 그렸어요. 세 안은 구조가 달라요: V1은 시간 레일, V2는 글자 계단, V3는 이어진 면. 문구는 UX 승인안 그대로이고, 가격은 마지막 기간 ‘5kg 36,000원’ 하나만 보여요.</p>
   <h3 style="margin-top:8px">3차 (11/16): 결 다듬기 — 구조는 지금 통합안 그대로, 테두리 상자의 딱딱함만 덜기</h3>
   <div class="duo quad" style="flex-wrap:wrap">
@@ -739,6 +758,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
       </ul>
     </div>
     <div class="card"><h3>390 폭 줄바꿈 (보드가 열릴 때 브라우저가 잼)</h3><div class="tblx"><table id="wraps"><tr><th>자리</th><th>허용 줄</th><th>잰 줄</th><th>판정</th></tr></table></div>
+      <p class="foot"><b>계단 칸 가격 표기(11/17 측정):</b> 4칸이면 칸 폭 85px, 12px 글자 ‘5kg 41,000원’ 74px·‘10kg 68,000원’ 81px·‘41,000원’ 50px·‘12월 15일부터’ 74px. kg까지 칸마다 쓰면 10kg에서 여유가 4px뿐이라 기기 글꼴·확대에서 꺾일 수 있어서, 칸에는 가격만 쓰고 옵션은 제목 줄 ‘일찍 예약할수록 싸요 · 5kg 기준’으로 올렸어요(제목 줄 1줄, 358px 안). 옵션 카드 취소선 배치는 A(가격 위 줄 ‘지금 예약가 <s>36,000원</s>’, 108px)를 골랐어요. B(라벨을 가격 왼쪽, 가격 줄 140px)도 한 줄에 들지만 18px 가격 옆에 12px 라벨이 붙어 큰 숫자가 덜 바로 읽혀요.</p>
       <p class="foot">줄 수 = 요소 높이 ÷ 줄 높이(반올림). 글꼴은 Pretendard 가변(CDN). 글꼴을 못 받으면 기기 글꼴이라 줄 수가 달라질 수 있어요.</p></div>
     <div class="card"><h3>UI 1.6 토큰 대비 바뀌는 것</h3><div class="tblx"><table>
       <tr><th>토큰·자산</th><th>지금</th><th>통합안</th></tr>
@@ -772,7 +792,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
   <div class="card"><ol>
     <li><b>‘팬’ 호칭을 쓴다.</b> 화면 표시만 ‘팬 n명’, 버튼 이름은 ‘팔로우’ 그대로. FEAT-06 팔로우 표시 이름·screens.md 문구표는 구현 PR에서 고쳐요.</li>
     <li><b>입금 안내의 서버 순번은 이번 범위에서 뺀다.</b> 상세의 예측 문구 ‘지금 예약하면 38번째예요’만 둬요. 확정 순번은 주문 순번이 서버에 있어야 해서(<code>server/app/orders/**</code>, 고위험) 후속 이슈로. <code>reservedCount</code>가 사람 수인지 박스 수인지는 구현 때 확인해요.</li>
-    <li><b>취소선 정가를 뺀다.</b> UX ②대로. DEV-293 승인 Figma 1:14와 다르므로 구현 PR에서 Figma v6을 같이 고쳐요.</li>
+    <li><b>취소선 유지</b>(11/17 PM 결정, 11/16 제거 결정 취소). 앵커링 효과 때문에 마지막 기간 가격을 취소선으로 둬요: 홈 카드 가격 옆, 옵션 카드 ‘지금 예약가’ 옆.</li>
     <li><b>계단 높이는 기간 순서.</b> 가격 비례가 아니에요. 계단 모양은 지금 통합안 그대로(11/16, V1~V7 미채택).</li>
     <li><b>로그인 로고 150으로 줄이고</b> 제목 ‘로그인하고 예약을 이어 가요’는 유지.</li>
     <li><b>상품별 동적 공유 카드는 후속 이슈.</b> 이번에는 사이트 공통 정적 카드 한 장.</li>
@@ -780,6 +800,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     <li><b>통합안은 지금 화면의 정보·입력·동의 항목을 빼지 않는다.</b> 더하기만 해요(11/16).</li>
     <li><b>입금 기한 위치는 지금 화면 유지</b>(11/17). UX ④의 ‘기한 맨 위’는 취소.</li>
     <li><b>단계 가격 표시는 처음 통합안 계단</b>(11/17 최종). 같은 날 S1 → V5로 바꿨다가 되돌림. 옵션 카드는 UX ② 그대로.</li>
+    <li><b>계단 칸마다 기간 가격 표시, 같은 가격은 합침</b>(11/17 PM). 옵션 표기는 제목 줄 ‘· 5kg 기준’. ‘다음 기간 가격 숨김’은 취소, 차액·이득 문구는 계속 없음.</li>
   </ol></div>
   <p class="foot">수치 출처: 대비비는 WCAG 2.x 상대 휘도 공식으로 계산. 16px 판독·줄바꿈은 이 페이지가 열릴 때 캔버스·레이아웃을 직접 재서 채워요. 사진은 <code>docs/design/assets</code>의 자리표시 사진, 로고는 <code>DEV-311/assets</code>의 승인 원본 축소본이에요. 계좌·이름·연락처는 DEV-268 로컬 시드의 가짜 값이에요.</p>
 </section>
@@ -864,7 +885,7 @@ function measure(canvas, key) {
 }
 function wraps() {
   const tb = document.getElementById('wraps');
-  document.querySelectorAll('[data-wrap]').forEach(el => {
+  document.querySelectorAll('[data-wrap]:not([data-wrap-v])').forEach(el => {
     const lh = parseFloat(getComputedStyle(el).lineHeight); const n = Math.round(el.getBoundingClientRect().height / lh);
     const max = +el.dataset.wrap; const ok = n <= max;
     const tr = document.createElement('tr');
@@ -873,25 +894,33 @@ function wraps() {
   });
 }
 // ===== 가격 계단 시안: 같은 데이터로 네 가지(cur·v1·v2·v3)를 그린다 =====
+const STAIR_AMTS = { base: [29000, 33000, 36000], two: [29000, 33000], four: [35000, 38000, 40000, 41000], merge: [35000, 38000, 38000, 41000] };
 const STAIR_SETS = {
   base: { dday: 5, stages: [{ until: '10월 12일까지', days: 6 }, { from: '10월 13일부터', days: 24 }, { from: '11월 6일부터', days: 4, price: '5kg 36,000원' }] },
   two:  { dday: 5, stages: [{ until: '10월 12일까지', days: 6 }, { from: '10월 13일부터', days: 28, price: '5kg 33,000원' }] },
   four: { dday: 54, stages: [{ until: '11월 30일까지', days: 55 }, { from: '12월 1일부터', days: 14 }, { from: '12월 15일부터', days: 16 }, { from: '12월 31일부터', days: 10, price: '5kg 41,000원' }] },
+  merge: { dday: 54, stages: [{ until: '11월 30일까지', days: 55 }, { from: '12월 1일부터', days: 14 }, { from: '12월 15일부터', days: 16 }, { from: '12월 31일부터', days: 10, price: '5kg 41,000원' }] },
 };
 const SW = 358; // 390 - 좌우 16
 const CAP = '일찍 예약할수록 싸요';
 function wrapAttr(v, set, name, max) { return set === 'base' || name.startsWith('!') ? ` data-wrap="${max}" data-wrap-name="${v.toUpperCase()} ${name.replace('!', '')}" data-wrap-v="${v}"` : ''; }
 function stairCur(S, set) {
-  const n = S.stages.length;
-  // 4단계 이상이면 칸 폭(약 85px)에 '지금 · 날짜'가 안 들어가서 '지금'을 지금 칸 위 빈자리로 올린다(11/16)
-  const split = n >= 4, nm = `data-wrap-v="cur" data-wrap-name="지금 통합안 ${n}단계 지금 라벨"`;
-  const bars = S.stages.map((s, i) => {
-    const bar = `<div class="bar${i ? '' : ' now'}" style="height:${Math.round(44 * (i + 1) / n)}px"></div>`;
-    return i === 0 && split ? `<div style="display:flex;flex-direction:column;justify-content:flex-end;gap:2px"><div class="lab now" data-wrap="1" ${nm.replace('지금 라벨', '‘지금’ (칸 위)')}>지금</div>${bar}</div>` : bar;
+  // 11/17 PM: 칸마다 날짜와 그 기간 가격, 이어지는 기간의 가격이 같으면 한 칸으로 합친다(가격이 오르는 지점에서만 칸을 나눔).
+  // 옵션 표기 ‘5kg’는 칸마다 쓰지 않고 제목 줄 ‘일찍 예약할수록 싸요 · 5kg 기준’으로 올린다(4칸 85px에서 줄바꿈 방지).
+  const amts = STAIR_AMTS[set] || STAIR_AMTS.base;
+  const cols = [];
+  S.stages.forEach((s, i) => { const a = amts[i]; if (cols.length && cols[cols.length - 1].amt === a) return; cols.push({ s, i, amt: a }); });
+  const n = cols.length, won = x => x.toLocaleString('ko-KR') + '원';
+  const split = n >= 4, nm = k => `data-wrap-v="cur" data-wrap-name="지금 통합안 ${set === 'base' ? '3단계' : set === 'two' ? '2단계' : set === 'four' ? '4단계' : '4단계(가운데 같은 가격, 3칸)'} ${k}"`;
+  const bars = cols.map((c, i) => {
+    const bar = `<div class="bar${i ? '' : ' now'}" style="height:${n > 1 ? Math.round(20 + 24 * i / (n - 1)) : 44}px"></div>`;
+    return i === 0 && split ? `<div style="display:flex;flex-direction:column;justify-content:flex-end;gap:2px"><div class="lab now" data-wrap="1" ${nm('‘지금’ (칸 위)')}>지금</div>${bar}</div>` : bar;
   }).join('');
-  const labs = S.stages.map((s, i) => i === 0 ? `<div class="lab now" data-wrap="1" ${nm}>${split ? s.until : '지금 · ' + s.until}</div>` : (s.price ? `<div class="lab">${s.from}<br>${s.price}</div>` : `<div class="lab">${s.from}</div>`)).join('');
-  return `<div class="t14 sb">${CAP}</div>
-    <div class="stair" style="grid-template-columns:repeat(${n},1fr);margin-top:8px;height:44px">${bars}</div>
+  const labs = cols.map((c, i) => i === 0
+    ? `<div class="lab now"><div data-wrap="1" ${nm('지금 날짜')}>${split ? c.s.until : '지금 · ' + c.s.until}</div><div data-wrap="1" ${nm('지금 가격')}>${won(c.amt)}</div></div>`
+    : `<div class="lab"><div data-wrap="1" ${nm(i + 1 + '번째 칸 날짜')}>${c.s.from}</div><div data-wrap="1" ${nm(i + 1 + '번째 칸 가격')}>${won(c.amt)}</div></div>`).join('');
+  return `<div class="t14 sb" data-wrap="1" ${nm('제목 줄')}>${CAP} · 5kg 기준</div>
+    <div class="stair" style="grid-template-columns:repeat(${n},1fr);margin-top:8px;height:${44 + (split ? 18 : 0)}px">${bars}</div>
     <div class="stair" style="grid-template-columns:repeat(${n},1fr);margin-top:6px;align-items:start">${labs}</div>`;
 }
 function stairV1(S, set) {
@@ -1059,8 +1088,9 @@ document.querySelectorAll('[data-frame]').forEach(el => {
 });
 document.querySelectorAll('[data-stress]').forEach(el => {
   const v = el.dataset.stress;
+  const extra = v === 'cur' ? `<div class="hr" style="margin:20px 0 16px"></div><div class="t12 mut" style="margin-bottom:10px">단계 4개 · 가운데 두 기간이 같은 38,000원 → 3칸으로 합침</div>${STAIRS.cur(STAIR_SETS.merge, 'merge')}` : '';
   el.innerHTML = `<div class="px" style="padding:16px"><div class="t12 mut" style="margin-bottom:10px">단계 2개</div>${STAIRS[v](STAIR_SETS.two, 'two')}
-    <div class="hr" style="margin:20px 0 16px"></div><div class="t12 mut" style="margin-bottom:10px">${/^(v[4-7]|s[1-4])$/.test(v) ? '단계 4개 · 지난 단계 1개 · 11월 30일까지 · D-54' : '단계 4개 · 11월 30일까지 · D-54'}</div>${/^(v[4-7]|s[1-4])$/.test(v) ? STAIRS[v](STAIR_SETS.fourpast, 'fourpast') : STAIRS[v](STAIR_SETS.four, 'four')}</div>`;
+    <div class="hr" style="margin:20px 0 16px"></div><div class="t12 mut" style="margin-bottom:10px">${/^(v[4-7]|s[1-4])$/.test(v) ? '단계 4개 · 지난 단계 1개 · 11월 30일까지 · D-54' : '단계 4개 · 11월 30일까지 · D-54'}</div>${/^(v[4-7]|s[1-4])$/.test(v) ? STAIRS[v](STAIR_SETS.fourpast, 'fourpast') : STAIRS[v](STAIR_SETS.four, 'four')}${extra}</div>`;
 });
 // 작은 표식 14×10 (viewBox 0 0 14 10). c = 색
 const GLYPH = {
