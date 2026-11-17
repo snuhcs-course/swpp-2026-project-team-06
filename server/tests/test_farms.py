@@ -1,9 +1,12 @@
 """FEAT-06 홈·농가·팔로우, FEAT-15 농가 공개 소식."""
 
+from datetime import date
+
+import pytest
 from sqlalchemy import update
 
 from app.ai import service as ai
-from app.catalog.models import Product
+from app.catalog.models import Product, Stage, StageAllocation
 from app.core.db import get_sessionmaker
 from app.core.detail import DetailContent, TextDetailBlock
 
@@ -21,12 +24,15 @@ def test_home_has_hero_recommended_and_farm_cards(client):
 def test_AC_06_4_recommended_sorted_by_soonest_deadline(client):
     recommended = client.get("/api/home").json()["recommended"]
 
-    # 레드향은 이번 단계 품절이라 빠진다. 하우스 감귤(10/12) → 효돈(10/16) → 노지(10/25)
-    assert [c["productId"] for c in recommended] == ["p-house", "p-hyodon", "p-noji"]
+    # 예약 가능: 하우스 감귤(10/12) → 효돈(10/16) → 노지(10/25). 레드향은 이번 기간 품절이라
+    # 예약 가능 상품 뒤에 남는다(AC-07-3, DEV-327).
+    assert [c["productId"] for c in recommended] == ["p-house", "p-hyodon", "p-noji", "p-redhyang"]
     assert recommended[0]["dDay"] == 5
     assert recommended[0]["currentPrice"] == 29000
     assert recommended[0]["nextPrice"] == 33000
     assert recommended[0]["reservedCount"] == 37
+    assert recommended[-1]["availability"] == "PERIOD_SOLD_OUT"
+    assert recommended[-1]["soldOut"] is True
 
 
 def test_AC_06_5_home_without_products_on_sale(client):
@@ -40,29 +46,146 @@ def test_AC_06_5_home_without_products_on_sale(client):
     assert len(body["farms"]) == 4
 
 
+def _set_product(product_id: str, **values) -> None:
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(update(Product).where(Product.id == product_id).values(**values))
+
+
+def _set_stages(product_id: str, starts_at: date, ends_at: date) -> None:
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Stage)
+            .where(Stage.product_id == product_id)
+            .values(starts_at=starts_at, ends_at=ends_at)
+        )
+
+
+def _farm(body: dict, farm_id: str) -> dict:
+    return next(f for f in body["farms"] if f["farmId"] == farm_id)
+
+
 def test_AC_07_3_paused_product_leaves_home_and_farm_featured(client):
-    with get_sessionmaker()() as session, session.begin():
-        session.execute(update(Product).where(Product.id == "p-house").values(sales_paused=True))
+    _set_product("p-house", sales_paused=True)
 
     body = client.get("/api/home").json()
 
-    # FEAT-06: 홈 추천·히어로·농가 대표는 판매 중 상품만.
-    # 강씨네는 레드향도 이번 기간 품절이라 대표가 없다.
-    assert [c["productId"] for c in body["recommended"]] == ["p-hyodon", "p-noji"]
+    # R-27: 중지 상품은 홈 추천·히어로·농가 대표에서 빠진다. 품절(레드향)은 남는다(DEV-327).
+    assert [c["productId"] for c in body["recommended"]] == ["p-hyodon", "p-noji", "p-redhyang"]
     assert body["hero"]["productId"] is None
-    kang = next(f for f in body["farms"] if f["farmId"] == "f-kang")
-    assert kang["featured"] is None
+    # 강씨네는 예약 가능 상품이 없어 이번 기간 품절인 레드향이 대표가 된다.
+    assert _farm(body, "f-kang")["featured"]["productId"] == "p-redhyang"
+    assert _farm(body, "f-kang")["featured"]["availability"] == "PERIOD_SOLD_OUT"
 
 
-def test_AC_07_3_total_sold_out_product_leaves_home(client):
-    with get_sessionmaker()() as session, session.begin():
-        session.execute(update(Product).where(Product.id == "p-house").values(sales_limit_grams=0))
+@pytest.mark.parametrize(
+    ("change", "availability"),
+    [
+        (lambda: _set_stages("p-hyodon", date(2026, 12, 1), date(2026, 12, 31)), "NOT_OPEN"),
+        (lambda: _set_stages("p-hyodon", date(2026, 9, 1), date(2026, 9, 30)), "ENDED"),
+        (lambda: _set_product("p-hyodon", sales_paused=True), "PAUSED"),
+    ],
+)
+def test_AC_07_3_paused_not_open_and_ended_still_leave_home_and_featured(
+    client, change, availability
+):
+    change()
+
+    assert client.get("/api/products/p-hyodon").json()["availability"] == availability
+    body = client.get("/api/home").json()
+
+    # DEV-327은 품절만 남긴다. 중지·예약 시작 전·예약 종료는 지금처럼 빠진다.
+    assert "p-hyodon" not in [c["productId"] for c in body["recommended"]]
+    assert _farm(body, "f-hyodon")["featured"] is None
+    farms = client.get("/api/farms").json()["items"]
+    assert next(f for f in farms if f["farmId"] == "f-hyodon")["featured"] is None
+
+
+def test_AC_07_3_sold_out_stays_on_home_after_available(client):
+    _set_product("p-house", sales_limit_grams=0)
 
     body = client.get("/api/home").json()
 
-    assert "p-house" not in [c["productId"] for c in body["recommended"]]
-    kang = next(f for f in body["farms"] if f["farmId"] == "f-kang")
-    assert kang["featured"] is None
+    # 예약 가능(효돈 10/16 → 노지 10/25) 뒤에 품절(하우스 10/12 총 한도 소진 → 레드향 기간 품절)
+    recommended = body["recommended"]
+    assert [c["productId"] for c in recommended] == ["p-hyodon", "p-noji", "p-house", "p-redhyang"]
+    assert [c["availability"] for c in recommended] == [
+        "AVAILABLE",
+        "AVAILABLE",
+        "TOTAL_SOLD_OUT",
+        "PERIOD_SOLD_OUT",
+    ]
+    assert [c["soldOut"] for c in recommended] == [False, False, True, True]
+
+
+def test_AC_07_3_hero_skips_sold_out_product(client):
+    _set_product("p-house", sales_limit_grams=0)
+
+    body = client.get("/api/home").json()
+
+    # 히어로 상품(p-house)이 품절이면 추천에는 남아도 히어로 링크는 비운다.
+    assert "p-house" in [c["productId"] for c in body["recommended"]]
+    assert body["hero"]["productId"] is None
+
+
+def test_AC_07_3_recommended_limit_keeps_available_first(client, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "home_recommend_limit", 3)
+
+    recommended = client.get("/api/home").json()["recommended"]
+
+    # 상위 N은 거른 뒤 자른다. 예약 가능 상품이 N개면 품절 상품은 밀려난다.
+    assert [c["productId"] for c in recommended] == ["p-house", "p-hyodon", "p-noji"]
+
+
+def test_AC_07_3_farm_featured_falls_back_to_sold_out_with_availability(client):
+    _set_product("p-house", sales_limit_grams=0)
+
+    body = client.get("/api/home").json()
+
+    # 강씨네: 예약 가능 상품이 없으면 마감 임박순 첫 품절 상품(하우스 10/12)이 대표다.
+    kang = _farm(body, "f-kang")["featured"]
+    assert kang == {
+        "productId": "p-house",
+        "name": kang["name"],
+        "currentPrice": 29000,
+        "dDay": 5,
+        "availability": "TOTAL_SOLD_OUT",
+    }
+    # 예약 가능 대표에도 availability가 실린다.
+    assert _farm(body, "f-hyodon")["featured"]["availability"] == "AVAILABLE"
+
+
+def test_AC_07_3_farm_featured_prefers_available_over_sooner_sold_out(client):
+    # 하우스(10/12)는 총 한도 소진, 레드향(10/31)은 이번 기간 물량을 열어 예약 가능으로.
+    _set_product("p-house", sales_limit_grams=0)
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(StageAllocation)
+            .where(StageAllocation.stage_id == "st-redhyang-1")
+            .values(quantity=10, reserved_count=0)
+        )
+    assert client.get("/api/products/p-redhyang").json()["availability"] == "AVAILABLE"
+
+    kang = _farm(client.get("/api/home").json(), "f-kang")["featured"]
+
+    # 마감이 더 이른 품절 상품보다 예약 가능 상품이 대표다.
+    assert kang["productId"] == "p-redhyang"
+    assert kang["availability"] == "AVAILABLE"
+
+
+def test_AC_06_1_farms_with_sold_out_featured_sort_after_available(client):
+    # 효돈(10/16)이 총 한도 소진이 되면 노지(10/25)만 파는 한라보다 아래, 대표 없는 남원보다 위.
+    _set_product("p-hyodon", sales_limit_grams=0)
+
+    farms = client.get("/api/farms").json()["items"]
+
+    assert [f["farmId"] for f in farms] == ["f-kang", "f-halla", "f-hyodon", "f-namwon"]
+    assert farms[2]["featured"]["productId"] == "p-hyodon"
+    assert farms[2]["featured"]["availability"] == "TOTAL_SOLD_OUT"
+    assert farms[3]["featured"] is None
+    home = client.get("/api/home").json()
+    assert [f["farmId"] for f in home["farms"]] == [f["farmId"] for f in farms]
 
 
 def test_AC_07_3_paused_product_stays_on_farm_page(client):

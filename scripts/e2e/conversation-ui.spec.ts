@@ -159,8 +159,46 @@ test("FEAT-13 AC-13-5: consumer reports an AI answer and both sides see the serv
 
 test("AC-14-3/14-4/17-6/12-12: dashboard keeps chat to one unanswered count, chat opens own collapsed room", async ({
   page,
+  request,
 }, info) => {
   test.setTimeout(120_000);
+  // DEV-318: fulfillment tests may already have harvested every seeded order.
+  // Give this navigation assertion its own reserved order instead of relying on
+  // another test leaving a seeded stage card available.
+  const buyer = { Authorization: `Bearer ${await apiLogin(request, "u-minji", "consumer")}` };
+  const farm = { Authorization: `Bearer ${await apiLogin(request, "u-kang", "producer")}` };
+  const created = await request.post(`${apiUrl}/api/orders`, {
+    headers: { ...buyer, "Idempotency-Key": crypto.randomUUID() },
+    data: {
+      productId: "p-house",
+      optionId: "opt-5",
+      quantity: 1,
+      recipientName: "DEV318 합성 구매자",
+      recipientPhone: "010-1234-5678",
+      postalCode: "63584",
+      address: "제주특별자치도 서귀포시 통합로 1",
+      addressDetail: "101호",
+      consents: {
+        deliveryWindow: true,
+        delayRefund: true,
+        shortage: true,
+        cancelPolicy: true,
+        thirdParty: true,
+      },
+      consentVersion: "dev318-dashboard",
+    },
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const { orderId } = await created.json() as { orderId: string };
+  const deposit = await request.post(`${apiUrl}/api/orders/${orderId}/deposit`, {
+    headers: { ...buyer, "Idempotency-Key": crypto.randomUUID() }, data: {},
+  });
+  expect(deposit.ok(), await deposit.text()).toBeTruthy();
+  const confirmed = await request.post(`${apiUrl}/api/orders/${orderId}/confirm-deposit`, {
+    headers: { ...farm, "Idempotency-Key": crypto.randomUUID() }, data: {},
+  });
+  expect(confirmed.ok(), await confirmed.text()).toBeTruthy();
+  expect((await confirmed.json()).status).toBe("RESERVED");
   await page.setViewportSize({ width: 390, height: 844 });
   await loginProducer(page, "강영수");
   await expect(page.getByRole("heading", { name: "현황", exact: true })).toBeVisible();

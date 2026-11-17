@@ -10,6 +10,7 @@ import {
   Button,
   HeaderBar,
   Input,
+  Notice,
   Screen,
   Scroll,
   Sheet,
@@ -17,13 +18,16 @@ import {
   T,
   tokens,
 } from "@farmclub/ui";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { TextInput, View } from "react-native";
 import { useHideTabBar } from "../../../../lib/session";
 import { goBackOr } from "../../../../lib/nav";
+import { isServerTrouble, serverErrorCode } from "../../../../lib/producerEvents";
+import { track } from "@farmclub/analytics";
 import { OptionBoxRow } from "../../../../lib/OptionBoxRow";
 import { optionBoxesFromProduct } from "../../../../lib/optionBoxes";
+import { soldOutGuide } from "../../../../lib/soldOutGuide";
 const kg = (g: number) =>
   `${(g / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg`;
 function grams(text: string) {
@@ -39,6 +43,14 @@ const statusText = {
   REJECTED: "반려",
   WITHDRAWN: "철회",
 };
+/** 웹에서 그 자리로 스크롤한다(네이티브 View에는 scrollIntoView가 없어 아무 일도 안 한다) */
+function reveal(node: unknown, block: "center" | "nearest" = "nearest") {
+  (node as { scrollIntoView?: (options: object) => void } | null)?.scrollIntoView?.({
+    block,
+  });
+}
+/** 저장·신청 결과(오류·성공 안내)를 보일 자리: 누른 버튼 바로 아래. page = 맨 아래(불러오기 실패) */
+type Where = "save" | "pause" | "request" | "page";
 export default function Sales() {
   useHideTabBar();
   const { id } = useLocalSearchParams<{ id: string }>(),
@@ -49,23 +61,55 @@ export default function Sales() {
     [perOrder, setPerOrder] = useState(""),
     [requested, setRequested] = useState("");
   const [error, setError] = useState(""),
+    // DEV-345: 오류·성공 안내는 누른 버튼 바로 아래에 보인다(PM 11/16)
+    [at, setAt] = useState<Where>("page"),
+    [capExceeded, setCapExceeded] = useState(false),
     [note, setNote] = useState(""),
     [busy, setBusy] = useState(false);
+  const feedbackBox = useRef<View>(null),
+    requestSection = useRef<View>(null),
+    requestInput = useRef<TextInput>(null);
   const [confirm, setConfirm] = useState<
     "request" | "pause" | "withdraw" | null
   >(null);
   const pending = useRef<{ body: string; key: string } | null>(null);
-  async function load() {
+  // 마지막으로 불러와 칸에 넣은 값. 다시 들어와 읽을 때 이 값과 다르면 생산자가 고친 것이라 덮지 않는다(DEV-345)
+  const loaded = useRef({ total: "", perOrder: "" });
+  async function load(keepEdits = false) {
     const [product, requests] = await Promise.all([
       catalog.myProduct(id),
       allPages((cursor) => catalog.capacityRequests(id, { cursor, limit: 50 })),
     ]);
     setP(product);
     setHistory(requests);
-    setTotal(String(product.salesLimitGrams / 1000));
-    setPerOrder(String(product.maxQuantityPerOrder));
+    const prev = loaded.current,
+      next = {
+        total: String(product.salesLimitGrams / 1000),
+        perOrder: String(product.maxQuantityPerOrder),
+      };
+    loaded.current = next;
+    setTotal((cur) => (keepEdits && cur !== prev.total ? cur : next.total));
+    setPerOrder((cur) =>
+      keepEdits && cur !== prev.perOrder ? cur : next.perOrder,
+    );
   }
-  function failure(e: unknown) {
+  /**
+   * 저장·신청에서 생산자에게 보인 오류 안내. 위치·종류만 보낸다(글자 없음, DEV-312).
+   * 화면 검사(kg·박스 수, ApiError가 아닌 Error)는 quantity_invalid, 연결·서버·충돌 실패는 세지 않는다
+   * (생산자가 고칠 409 — 판매 한도 거절은 quantity_invalid, 입금 계좌 없음은 deposit_account_required — 는 센다).
+   */
+  function shownFailure(e: unknown, where: Where = "page") {
+    if (e instanceof Error && !(e instanceof ApiError) && !(e instanceof TypeError))
+      track("form_error_shown", { screen: "product_sales", code: "quantity_invalid" });
+    else if (!isServerTrouble(e))
+      track("form_error_shown", { screen: "product_sales", code: serverErrorCode(e) });
+    failure(e, where);
+  }
+  function failure(e: unknown, where: Where = "page") {
+    setAt(where);
+    setCapExceeded(
+      e instanceof ApiError && e.details.reason === "APPROVED_CAP_EXCEEDED",
+    );
     // 입금 계좌가 없으면 초기 승인 요청을 막는다(DEV-68). 어디서 등록하는지 함께 알린다
     if (e instanceof ApiError && e.details.reason === "NO_FARM_ACCOUNT")
       return setError(`${e.message} (설정 › 농가 프로필 › 입금 계좌)`);
@@ -77,13 +121,34 @@ export default function Sales() {
           : "처리하지 못했어요",
     );
   }
+  // 기간·가격에서 박스를 고치고 돌아오면(DEV-345) 최신 상태로 다시 읽는다. 처음 열 때도 여기서 읽는다.
+  // 지난 결과 안내는 지우고, 생산자가 고친 입력칸은 그대로 둔다
+  useFocusEffect(
+    useCallback(() => {
+      setError("");
+      setNote("");
+      setAt("page");
+      setCapExceeded(false);
+      void load(true).catch((e) => failure(e));
+    }, [id]),
+  );
+  // 버튼 아래 안내가 화면 밖이면 보이는 곳까지 스크롤(웹)
   useEffect(() => {
-    void load().catch(failure);
-  }, [id]);
+    if ((error || note) && at !== "page") reveal(feedbackBox.current);
+  }, [error, note, at]);
+  /** APPROVED_CAP_EXCEEDED에서 ‘물량 추가 신청하기’: 신청 칸으로 옮겨 초점을 둔다 */
+  function openCapacityRequest() {
+    reveal(requestSection.current, "center");
+    requestInput.current?.focus();
+  }
   async function mutate(action: "save" | "pause" | "request" | "withdraw") {
     if (!p || busy) return;
+    const where: Where =
+      action === "save" ? "save" : action === "pause" ? "pause" : "request";
     setBusy(true);
+    setAt(where);
     setError("");
+    setCapExceeded(false);
     setNote("");
     try {
       const input =
@@ -113,13 +178,16 @@ export default function Sales() {
       const body = JSON.stringify({ action, input });
       if (pending.current?.body !== body)
         pending.current = { body, key: newIdempotencyKey() };
-      if (action === "request")
+      if (action === "request") {
         await catalog.requestCapacity(
           id,
           grams(requested),
           p.version,
           pending.current.key,
         );
+        // 서버 CapacityRequest.kind와 같은 기준: 승인 물량이 0이면 첫 신청(DEV-312)
+        track("sale_start_requested", { productId: id, screen: "product_sales", requestKind: p.approvedSupplyGrams === 0 ? "initial" : "increase" });
+      }
       else if (action === "withdraw")
         await catalog.withdrawCapacity(
           id,
@@ -154,7 +222,7 @@ export default function Sales() {
               : "판매 설정을 저장했어요.",
       );
     } catch (e) {
-      failure(e);
+      shownFailure(e, where);
     } finally {
       setBusy(false);
     }
@@ -166,11 +234,32 @@ export default function Sales() {
       setError("");
       setConfirm("request");
     } catch (e) {
-      failure(e);
+      shownFailure(e, "request");
     }
   }
   const editable =
     !!p && p.status !== "PENDING_APPROVAL" && p.status !== "CLOSED";
+  const guide = p ? soldOutGuide(p) : null;
+  /** 그 버튼 아래 오류·성공 안내. 한 번에 한 자리만 보인다 */
+  const feedback = (where: Where) =>
+    (error || note) && at === where ? (
+      <View
+        ref={feedbackBox}
+        accessibilityRole={error ? "alert" : undefined}
+        accessibilityLiveRegion="polite"
+        style={{ gap: 4 }}
+      >
+        {error ? <T color={tokens.color.error}>{error}</T> : <T>{note}</T>}
+        {/* 심사 중인 신청이 있으면 신청 칸이 없어 옮겨 갈 곳이 없다 */}
+        {error && capExceeded && where === "save" && !p?.pendingCapacityRequest ? (
+          <Button
+            label="물량 추가 신청하기"
+            variant="text"
+            onPress={openCapacityRequest}
+          />
+        ) : null}
+      </View>
+    ) : null;
   return (
     <Screen>
       <HeaderBar
@@ -193,13 +282,44 @@ export default function Sales() {
                 }}
               >
                 <T variant="heading">{p.name || "새 상품"}</T>
-                <T muted>
-                  {p.salesPaused
-                    ? "판매 중지 중"
-                    : p.status === "PUBLISHED"
-                      ? "승인된 물량 안에서 자유롭게 판매해요"
-                      : "공급 물량을 확인한 뒤 예약을 시작해요"}
-                </T>
+                {/* 품절이면 상태 줄 대신 아래 안내를 보인다(PM 11/16) */}
+                {guide ? null : (
+                  <T muted>
+                    {p.salesPaused
+                      ? "판매 중지 중"
+                      : p.status === "PUBLISHED"
+                        ? "승인된 물량 안에서 자유롭게 판매해요"
+                        : "공급 물량을 확인한 뒤 예약을 시작해요"}
+                  </T>
+                )}
+                {guide ? (
+                  <Notice
+                    title={guide.title}
+                    body={guide.body}
+                    style={{ backgroundColor: tokens.color.background }}
+                    action={
+                      guide.hint || guide.toStages ? (
+                        <View style={{ gap: 8, paddingTop: 4 }}>
+                          {guide.hint ? (
+                            <T variant="caption" muted>
+                              {guide.hint}
+                            </T>
+                          ) : null}
+                          {guide.toStages ? (
+                            <Button
+                              label="기간·가격에서 박스 늘리기"
+                              variant="outline"
+                              compact
+                              onPress={() =>
+                                router.push(`/products/${id}/stages?from=sales`)
+                              }
+                            />
+                          ) : null}
+                        </View>
+                      ) : undefined
+                    }
+                  />
+                ) : null}
                 {/* DEV-300: 옵션마다 지금 기간 박스당 가격 · 예약+출하 / 판매 박스(모든 기간 합). 옵션끼리 더하지 않는다.
                     11/10 생산자 인터뷰: 옵션별 가격·박스가 주, 아래 kg 항목은 판매 한도 입력과 짝인 보조 */}
                 {p.options.length ? (
@@ -292,6 +412,7 @@ export default function Sales() {
                   loading={busy}
                   disabled={!editable}
                 />
+                {feedback("save")}
                 {p.status === "PUBLISHED" ? (
                   <Button
                     label={p.salesPaused ? "판매 재개" : "판매 중지"}
@@ -300,8 +421,10 @@ export default function Sales() {
                     onPress={() => setConfirm("pause")}
                   />
                 ) : null}
+                {feedback("pause")}
               </View>
               <View
+                ref={requestSection}
                 style={{
                   gap: 16,
                   borderTopWidth: 1,
@@ -353,6 +476,7 @@ export default function Sales() {
                       keyboardType="decimal-pad"
                       editable={!busy}
                       placeholder="예: 1500"
+                      inputRef={requestInput}
                     />
                     {p.missingFields.length && p.approvedSupplyGrams === 0 ? (
                       <T color={tokens.color.error}>
@@ -379,6 +503,7 @@ export default function Sales() {
                     종료된 상품이에요. 다음 수확은 새 상품으로 등록해 주세요.
                   </T>
                 )}
+                {feedback("request")}
               </View>
               {history.length ? (
                 <View style={{ gap: 16 }}>
@@ -409,15 +534,15 @@ export default function Sales() {
               ) : null}
             </>
           ) : null}
-          {error ? <T color={tokens.color.error}>{error}</T> : null}
-          {note ? <T>{note}</T> : null}
+          {feedback("page")}
           <Button
             label="최신 상태 확인"
             variant="text"
             disabled={busy}
             onPress={() => {
               setError("");
-              void load().catch(failure);
+              setNote("");
+              void load().catch((e) => failure(e));
             }}
           />
         </View>

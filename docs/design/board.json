@@ -199,11 +199,13 @@
 
     "share-farm.html": {"x":3000,"y":11236,"w":1200,"h":630,"title":"공유 미리보기 · 농가 링크"},
 
-    "proposal-boards/dev-311-brand-audit.html": {"x":0,"y":16300,"w":1320,"h":3300,"title":"DEV-311 브랜드 진단 (제안)"},
+    "dev-268-first-reservation-audit.html": {"x":0,"y":16400,"w":1280,"h":20600,"title":"DEV-268 첫 예약 동선 점검 · 개선 제안"},
 
-    "proposal-boards/dev-311-brand-directions.html": {"x":1440,"y":16300,"w":1380,"h":8400,"title":"DEV-311 브랜드 방향 A·B·C (제안)"},
+    "proposal-boards/dev-311-brand-audit.html": {"x":1400,"y":16400,"w":1320,"h":3300,"title":"DEV-311 브랜드 진단 (제안)"},
 
-    "proposal-boards/dev-311-brand-integrated.html": {"x":2940,"y":16300,"w":1380,"h":24600,"title":"DEV-311 브랜드 통합안 A + B 가격 계단 (제안)"}
+    "proposal-boards/dev-311-brand-directions.html": {"x":2840,"y":16400,"w":1380,"h":8400,"title":"DEV-311 브랜드 방향 A·B·C (제안)"},
+
+    "proposal-boards/dev-311-brand-integrated.html": {"x":4340,"y":16400,"w":1380,"h":24600,"title":"DEV-311 브랜드 통합안 A + B 가격 계단 (제안)"}
   },
   "order": [
     "scr-01.html",
@@ -304,6 +306,7 @@
     "s-25-salespending.html",
     "s-25-pausesheet.html",
     "s-30-detail-preview.html",
+    "dev-268-first-reservation-audit.html",
     "proposal-boards/dev-311-brand-audit.html",
     "proposal-boards/dev-311-brand-directions.html",
     "proposal-boards/dev-311-brand-integrated.html"
@@ -329,6 +332,6 @@
 
     "tx": {"kind":"title","x":1480,"y":10916,"maxW":4200,"text":"PC · 공유 미리보기 · 아이콘"},
 
-    "t311": {"kind":"title","x":0,"y":16190,"maxW":4320,"text":"DEV-311 브랜드 아이덴티티 제안 (승인 전)"}
+    "t311": {"kind":"title","x":1400,"y":16290,"maxW":4320,"text":"DEV-311 브랜드 아이덴티티 제안 (승인 전)"}
   }
 }

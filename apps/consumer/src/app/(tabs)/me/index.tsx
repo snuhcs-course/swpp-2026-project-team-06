@@ -21,6 +21,7 @@ import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { takeFlash } from "../../../lib/flash";
+import { addressSummary, meHeading } from "../../../lib/meSummary";
 import { useSession } from "../../../lib/session";
 import { useToast } from "../../../lib/toast";
 import { Avatar, openExternal } from "../../../lib/views";
@@ -47,7 +48,6 @@ export default function Me() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [producerSheet, setProducerSheet] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
-  const def = addresses.data?.find((a) => a.isDefault);
   // 다른 화면에서 팔로우·배송지·주문이 바뀌었을 수 있어 돌아올 때마다 다시 읽는다
   const toast = useToast(tokens.height.tabBarClearance);
   useFocusEffect(
@@ -82,6 +82,8 @@ export default function Me() {
       </Screen>
     );
 
+  // DEV-316: 첫 화면에는 닉네임만. 실명·휴대폰·이메일·주소는 하위 화면에서만 보인다
+  const heading = meHeading(user);
   return (
     <Screen>
       <Scroll bottom={tokens.height.tabBarClearance} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
@@ -96,22 +98,13 @@ export default function Me() {
           }}
         >
           <T variant="heading" masked>
-            {user.nickname || user.name || "이름 없음"}
+            {heading}
           </T>
           <T variant="sub" muted>
             {user.isTestAccount ? "테스트 계정" : "카카오 계정"} ·{" "}
             {user.role === "CONSUMER" ? "소비자" : "생산자"}
           </T>
         </View>
-        {!user.isTestAccount ? (
-          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 4 }}>
-            <T variant="sub" muted masked>
-              {[user.nickname ? user.name : null, user.phone, user.email]
-                .filter(Boolean)
-                .join(" · ")}
-            </T>
-          </View>
-        ) : null}
         {user.needsOnboarding ? (
           <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 16 }}>
             <Notice title="가입을 마쳐 주세요" />
@@ -183,8 +176,7 @@ export default function Me() {
             ) : null}
             <ListRow
               label="배송지 관리"
-              sub={def ? `기본 · ${def.address}` : "저장한 배송지가 없어요"}
-              subMasked={!!def}
+              sub={addressSummary(addresses.data?.length ?? 0)}
               onPress={() => router.push("/me/addresses")}
             />
             <ListRow

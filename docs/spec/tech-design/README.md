@@ -156,18 +156,45 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 | `chat_message_sent` | 소비자가 채팅으로 질문(이전 이름 `reply_sent`) | 질문률 |
 | `ai_replied` | AI 응답 | AI 자체 해결률 |
 | `escalated` | 생산자에게 전달 | AI 자체 해결률 |
-| `draft_created` | AI 초안 생성 | AI 초안 게시율 |
-| `draft_published` | 초안 게시(수정 필드 수 포함) | AI 초안 게시율 |
+| `draft_created` | AI 초안 생성. 생산자 앱이 요청한 AI 채우기가 끝날 때 요청마다 최대 한 번(속성: flow, result, durationMs, 자료 경로면 productId, DEV-312) | AI 초안 게시율(result success·partial만), 파일럿: AI 초안 재시도 수 |
+| `draft_published` | 초안 게시(수정 필드 수 포함). 공개는 운영자 승인 뒤라 서버 몫이고 아직 보내지 않는다 | AI 초안 게시율 |
 | `reaction_toggled` | 소식 좋아요 켬·끔(속성: on/off) | 소식 반응(참고 지표, I1은 측정만) |
 | `checkout_submitted` | 주문서 제출 → 입금 안내(주문 생성·입금 대기, 속성: productId, orderId, quantity) | 주문 전환율(퍼널 단계) |
-| `deposit_reported` | 입금 안내에서 ‘입금을 마쳤어요’(속성: orderId) | 주문 전환율(퍼널 단계) |
+| `deposit_reported` | 입금 안내에서 ‘입금을 마쳤어요’(속성: orderId) | 주문 전환율(퍼널 단계), 파일럿: 입금 확인 대기 |
+| `product_editor_opened` | 생산자 앱 새 상품 화면(SCR-24)을 열 때. 자료 분석 경로는 상품마다 화면에서 한 번, 글 경로는 화면을 열 때(속성: flow, 자료 경로면 productId) | 파일럿: 상품 등록 소요 시간 |
+| `draft_requested` | AI 채우기 요청(속성: flow, trigger, 자료 경로면 productId). 자료 경로는 서버가 받아들인 뒤, 글 경로는 응답을 받은 뒤 입력 검증 오류가 아닐 때 | 파일럿: AI 초안 재시도 수 |
+| `sale_start_requested` | 판매·가격 ‘판매 시작 요청’ 또는 물량 신청 성공(속성: productId, screen, requestKind) | 파일럿: 상품 등록 소요 시간 |
+| `deposit_decided` | 출하 처리에서 입금 승인·미승인 성공(속성: orderId, decision, 미승인이면 reasonKind·cancelOrder. 사유 글자 없음) | 파일럿: 주문 처리 시간 |
+| `invoice_saved` | 송장 시트 저장 성공(속성: orderId, hasCarrier, afterShipped. 택배사·송장 번호 없음) | 파일럿: 주문 처리 시간(참고) |
+| `order_shipped` | ‘…건 출하로 바꾸기’에서 주문 한 건이 출하로 바뀔 때마다(속성: orderId, hasCarrier) | 파일럿: 주문 처리 시간 |
+| `producer_reply_sent` | 생산자 채팅 답장 전송 성공, ‘답이 맞아요’ 성공(속성: kind. 본문·소비자 ID 없음, farmclub 문의방 제외) | 파일럿: 전달 질문 응대(참고) |
+| `form_error_shown` | 생산자 앱 화면 검사·서버 검증 오류 안내가 보일 때(속성: screen, code. 안내 글자 없음) | 파일럿: 오류 안내 횟수와 위치 |
 
 앱이 보내는 것과 서버가 보내는 것(ADR 0005, DEV-71):
-- 앱(`packages/analytics`): 화면 전환마다 `$pageview`, `product_viewed`(productId, farmId), `checkout_started`(productId), `checkout_submitted`, `deposit_reported`. 세션 녹화·히트맵도 앱이 켠다.
+- 앱(`packages/analytics`): 화면 전환마다 `$pageview`(네이티브는 `$screen`), `product_viewed`(productId, farmId), `checkout_started`(productId), `checkout_submitted`, `deposit_reported`. 세션 녹화·히트맵도 앱이 켠다.
+- 생산자 앱(DEV-312): `product_editor_opened`·`draft_requested`·`draft_created`·`sale_start_requested`·`deposit_decided`·`invoice_saved`·`order_shipped`·`producer_reply_sent`·`form_error_shown`. 행동 이벤트(`sale_start_requested`·`deposit_decided`·`invoice_saved`·`order_shipped`·`producer_reply_sent`, 자료 경로 `draft_requested`)는 서버 성공 응답 뒤에만 보낸다(출하 전 송장은 화면 저장 뒤). `deposit_decided`·`order_shipped`는 생산자 행동 시각으로만 쓰고, 입금 확인·취소 집계는 서버 `order_paid`·`order_canceled`만 쓴다(겹쳐 세지 않음, ADR 0005). `draft_created`는 앱이 보내고 서버는 보내지 않는다.
 - 서버(`server/app/analytics`, DEV-100): `order_paid`(무통장 입금에서는 생산자·운영자의 입금 확인 시점, DEV-68)·`order_canceled`·`farm_followed` 등 확정 사실.
 - 구매 퍼널(상품 → 주문서 → 입금 안내 → 입금했어요): `product_viewed` → `checkout_started` → `checkout_submitted` → `deposit_reported`. 서버 이벤트가 붙으면 입금 확인 단계 `order_paid`를 뒤에 더한다.
-- 사용자 구분은 내부 `userId`(identify)와 사람 속성 `app`·`role`·`isTestAccount`만. 이벤트 속성은 위 표의 ID·수량·결과만 보내고, URL의 쿼리는 보내기 전에 지운다.
+- 사용자 구분은 내부 `userId`(identify)와 사람 속성 `app`·`role`·`isTestAccount`만. 이벤트 속성은 위 표의 ID·수량·결과·enum·불리언·ms만 보내고, URL의 쿼리는 보내기 전에 지운다.
+- enum 속성은 아래 값만 나간다(`packages/analytics/src/privacy.ts` `ENUM_VALUES`, 그 밖의 값은 `cleanProps`가 버림). `flow`: source(자료 분석 새 상품 화면)·text(글로 초안, 자료 분석이 꺼진 서버). `trigger`: start·retry. `result`: success·partial·failed·canceled. `decision`: approved·rejected. `reasonKind`: preset·custom. `requestKind`: initial(승인 물량 0)·increase. `kind`: forwarded(열린 전달 질문을 인용해 답함)·check_confirmed(‘답이 맞아요’)·check_corrected(확인 요청된 AI 답변을 인용해 바로잡음)·plain(그 밖, 인용 없는 답장 포함. 서버는 인용한 메시지로만 전달을 닫는다). `screen`: product_new·product_edit·product_sell·product_sales·ship. `code`: variety_required·photo_required·options_invalid·delivery_invalid·prices_invalid·shipping_invalid·quantity_invalid·deposit_account_required·carrier_required·tracking_too_long·reason_required·other.
 - 세션 녹화: 입력칸은 모두 가린다. 화면 대부분이 개인정보이거나 입력 화면인 곳은 화면 글자를 모두 가린다: 소비자 `/chats`·`/me/profile`·`/me/addresses`·`/checkout/*/address`·`/orders/*/inquiry`·`/onboarding`·`/auth`, 생산자 `/chats`·`/ship`·`/pending`·`/apply`·`/farm/account`·`/auth`. 그 밖의 화면(내 정보·주문 목록·주문 상세·주문서·입금 안내 등)은 법적으로 개인정보인 글자만 가린다: 소비자 이름·연락처·이메일, 받는 사람·주소·배송 메모(R-15), 송장 번호(조회하면 받는 사람이 드러남), 입금 계좌번호·예금주, 채팅·소식방 메시지, 농가 프로필의 입금 계좌 줄. 판매자 정보(상호·대표·지역·연락처)는 전자상거래법상 공개 표시 항목이고, 취소·환불·입금 미확인 사유는 개인정보가 아니어서 가리지 않는다(DEV-104). 네트워크·콘솔은 녹화하지 않는다.
+
+### 파일럿 지표
+
+실제 농가 2곳 파일럿(UAT 뒤, 다음 이터레이션 베타 전)에서 생산자 쪽을 재는 지표다(DEV-312). 이벤트는 위 표, 한 사람은 내부 `userId`(distinct_id)다. 테스트 계정(`isTestAccount`)과 공식 도메인 밖 접속(DEV-125)은 이미 빠진다.
+
+**읽는 규칙**: 참여 농가가 2곳뿐이라 평균·중앙값·신뢰구간을 내지 않는다. 농가(참여자)마다 숫자와 건별 목록을 그대로 보고하고, 두 농가를 합치지 않는다. 0건·결측은 0으로 메우지 않고 '없음'으로 적는다.
+
+| 지표 | 계산식 | 쓰는 이벤트 | 한계 |
+| --- | --- | --- | --- |
+| 상품 등록 소요 시간 | 자료 경로: 상품(productId)마다 첫 `product_editor_opened` → 같은 상품의 첫 `sale_start_requested`(requestKind initial) 시각 차. 글 경로: 사람마다 `product_editor_opened`(flow text) 하나를 구간 시작으로 보고, 다음 열림 전까지의 첫 `sale_start_requested`(initial)까지 시각 차 | `product_editor_opened`, `sale_start_requested` | 글 경로는 상품 ID가 없어 같은 사람이 새로고침하면 구간이 나뉜다. 임시 저장 뒤 며칠 지나 요청하면 그 시간도 들어가므로 건별로 본다 |
+| AI 초안 재시도 수 | 상품(자료 경로)이나 글 경로 구간마다, 첫 `draft_created`(result success) 전까지의 `draft_requested` 수 − 1. 성공이 없으면 전체 요청 수를 '성공 못 함'으로 따로 적는다. 함께 보는 값: trigger retry 수, result별 건수, durationMs 목록 | `draft_requested`, `draft_created` | 끝나기 전에 화면을 떠나면 `draft_created`가 없다(자료 경로는 서버에서 계속 돈다). 자료 경로 durationMs는 다음 상태 확인(2.5초 간격)에서 끝을 본 시각까지라 약 2.5초(간격과 응답 시간)만큼 길 수 있고, canceled의 durationMs는 생산자가 취소하기까지(개인정보 확인 대기 포함) 걸린 시간을 포함한다. 글 경로는 응답을 기다리는 동안 앱 안에서 다른 화면으로 가면 응답 뒤에 보내지만, 탭을 닫거나 새로고침하면 잡히지 않는다 |
+| 오류 안내 횟수와 위치 | 사람·screen·code별 `form_error_shown` 수. 같은 화면 방문(`$pageview`) 대비 비율도 함께 적는다 | `form_error_shown`, `$pageview` | 연결 끊김·서버 오류(5xx)·이미 바뀐 상태(409, 단 생산자가 고칠 409 — 판매 한도가 승인 물량을 넘거나 예약량보다 작음은 quantity_invalid, 입금 계좌 없음은 deposit_account_required로 센다), 채팅 전송 실패, 새 상품 열기 실패는 세지 않는다. 서버 칸으로 못 나눈 오류는 other(새 상품 화면의 권한·없음 같은 4xx도 들어간다). 출하 처리 화면은 환불 완료·미승인의 실패·사유 누락 안내도 센다. 새 상품 화면을 나가기 전 임시 저장 실패 안내는 세지 않는다 |
+| 주문 처리 시간 | 같은 orderId의 `deposit_decided`(approved) → `order_shipped` 시각 차. 참고로 입금 확인 대기 = 소비자 `deposit_reported` → `deposit_decided` | `deposit_reported`, `deposit_decided`, `order_shipped` | 운영자가 관리 API로 입금을 확인한 주문은 앱 이벤트가 없어 빠진다. 응답만 잃은 출하를 다시 누르면 409라 `order_shipped`가 빠질 수 있다. 소비자가 ‘입금을 마쳤어요’를 누르지 않은 주문은 대기 시간이 없다 |
+| 막힌 지점 | 한 사람의 세션 안에서 (1) 같은 경로 `$pageview`가 30분 안에 3번 이상, (2) 다음 단계로 가지 않고 앞 화면으로 돌아간 `$pageview` 순서(예: `/products/:id/sell` → `/products/source-analysis` → 다시 sell), (3) `form_error_shown` 뒤 같은 화면에 머문 경우를 경로·화면별로 센다. 녹화가 있으면 그 세션을 열어 확인한다 | `$pageview`(네이티브 `$screen`), `form_error_shown`, `product_editor_opened`, `draft_*` | URL 쿼리를 지우므로 `/products/source-analysis`는 새 상품 화면과 예전 자료 작업 화면이 같은 경로다. 한 화면 안 단계(사진 → AI → 다음)는 pageview로 안 보여 `draft_*`·`form_error_shown`으로 보완한다. 생산자 `/ship`·`/chats`는 녹화 글자를 모두 가린다 |
+| 전달 질문 응대(참고) | 사람별 `producer_reply_sent` kind별 수. 답장 수는 check_confirmed(‘답이 맞아요’, 메시지 아님)를 빼고 센다 | `producer_reply_sent` | kind는 화면 값으로 맞춘다: 전달 목록에 질문 메시지 ID가 없어, 서버가 전달할 때 질문과 전달을 같은 시각으로 저장하는 점으로 인용한 질문의 열린 전달을 찾는다. 아직 불러오지 않은 옛 메시지 인용, 응답을 잃은 뒤 ‘다시 보내기’(그사이 전달이 닫혀 보임)는 plain이 될 수 있다 |
+
+AI 초안 게시율은 `draft_published`(서버)가 없어 이번 파일럿에서 계산하지 않는다.
 
 ## 스펙 1.2 데이터·트랜잭션
 

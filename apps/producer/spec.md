@@ -210,3 +210,35 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 현황: 상품 줄 오른쪽 kg은 caption(12) 회색 ‘총 Nkg / Mkg’(두 숫자 모두 단위, 11/10 DEV-296), 옵션 줄(sub 14, 가격·박스 semibold)마다 4px 막대. 대시보드 `stages`가 비면 예전 kg 줄과 6px 막대.
 - 상품 목록: `GET /api/products/mine` 카드의 `options`를 바로 쓴다(카드마다 상세를 읽던 N+1 제거). 옵션이 없으면 예전 kg 줄. ‘승인 · 추가 예약 가능 kg’ 줄은 caption(12) 회색 보조.
 - 물량·판매 설정: 요약 상자 안 옵션 표(body 16, ‘옵션 · 박스당 가격’ / ‘예약+출하 / 판매’, 줄마다 role group 읽기 라벨) 아래 kg 항목을 sub(14) 보조로. kg 항목은 판매 한도 입력과 짝이라 유지.
+
+## DEV-312 PostHog 생산자 이벤트 (2026-11-12)
+이벤트 이름·속성·파일럿 지표 원본은 트래킹 플랜(`docs/spec/tech-design/README.md` "트래킹 플랜"·"파일럿 지표"), 허용 목록·enum은 `packages/analytics/src/privacy.ts`. 기록은 `tasks/DEV-312.md`.
+- 화면은 `track`만 부른다. 연결·서버·409 실패(`isServerTrouble`)는 오류 안내로 세지 않는다. 단 생산자가 고칠 409(판매 한도 거절 APPROVED_CAP_EXCEEDED·CAP_BELOW_COMMITTED → quantity_invalid, 입금 계좌 없음 NO_FARM_ACCOUNT → deposit_account_required)는 센다. 속성은 ID·enum·불리언·ms만이고, 오류 코드·초안 결과·답장 종류는 `src/lib/producerEvents.ts` 순수 함수가 만든다(메시지·사유·송장 번호를 받지 않음). 판매·가격 서버 칸 별칭 표(`SELL_FIELD_GROUPS`)도 여기 한 곳에 두고 `sell.tsx` 칸 강조가 같이 쓴다.
+- 새 상품: `NewProductComposer`(flow source)는 상품마다 열림 한 번, 이 화면에서 받아들여진 run(`api.start`·`api.retry` 응답 id)이 끝난 상태로 바뀔 때만 `draft_created`. 처음 불러온 이미 끝난 run은 보내지 않는다. `manual.tsx`(flow text)는 `createDraft` 응답 뒤 입력 검증 오류가 아니면 요청·끝을 함께 보낸다.
+- 행동 이벤트는 서버 성공 응답 뒤(출하 전 송장은 화면 저장 뒤). `ship.tsx`의 `act`는 성공 콜백(`onDone`)으로 입금 승인·미승인만 보내고 환불 분기는 보내지 않는다. 출하는 성공한 주문마다 `order_shipped`.
+- 채팅: 불러온 메시지의 보낸 쪽·확인 요청 상태·시각만 기억해(본문 없음) 보내기 전 `replyKind`를 정한다. 서버가 인용한 메시지로만 전달을 닫으므로 인용 대상으로 나눈다(인용한 소비자 질문과 같은 시각의 열린 전달이 있으면 forwarded, 서버가 질문과 전달을 같은 시각으로 저장). farmclub 문의방, 답장 수정은 보내지 않는다.
+
+## DEV-326 현황 소비자 페이지 안내 카드 (2026-11-15, DEV-331에서 고정 막대로 바뀜)
+
+아래는 DEV-331 이전 구현 기록이다.
+
+- 현황 맨 위 `lib/ConsumerPageCard.tsx`(승인 농가만, `farms.mine().status === "APPROVED"`). 공용 `Notice`는 `accessibilityRole="alert"`라 상시 안내에 맞지 않아 앱 안 컴포넌트로 둔다.
+- 오른쪽 'farmclub.kr' 버튼은 페이지를 열지 않고 설정 화면 '복사'와 같은 `shareUrl`을 `copyText`로 복사한다. 누르는 영역은 `tokens.touchTarget.min`(48).
+- 닫기는 공용 `readStore`/`writeStore`(웹 localStorage, 앱 SecureStore, 앱 이름공간) 키 `consumer-page-card-closed:<farmId>`(농가별)로 기억한다.
+- 연주황 면은 기준표 accent 옅은 배경 `#FDECE2`, 테두리 `#F6D9C4`(Figma C3).
+
+## DEV-331 현황 고정 공유 막대 (2026-11-15)
+
+- DEV-326 카드(`ConsumerPageCard`)를 `lib/ConsumerShareBar.tsx`로 바꿨다. 스크롤 밖 머리(현황·농가명·날짜) 안에 두어 고정한다. 승인 농가만, 공유 링크(`shareUrl`)가 없으면 띄우지 않는다.
+- 닫기와 그 기억(`consumer-page-card-closed:<farmId>`)은 없앴다. 예전에 닫은 기기에도 막대는 보인다(PM 11/15: 실수로 닫아 링크를 잃지 않게).
+- 막대 전체가 복사 버튼(높이 48, 접근성 이름 ‘소비자에게 우리 농가 공유하기, farmclub.kr 링크 복사’ — 보이는 문구를 이름에 넣는다). 오른쪽 알약은 눈에 보이는 버튼 모양이다.
+
+## DEV-345 품절 안내·저장 결과 위치 (2026-11-17)
+
+화면 서술·문구는 screens.md 판매 설정·SCR-26, 기록은 `tasks/DEV-345.md`.
+- 품절 안내는 `lib/soldOutGuide.ts` 순수 함수(`scripts/test-sold-out-guide.mjs`). 판정은 서버 `availability`를 그대로 쓰고 `PUBLISHED`만 안내한다(승인 전은 한도 0이라 서버가 `TOTAL_SOLD_OUT`을 줌). 박스 소진은 `currentStageId` 기간의 모든 옵션이 `quantity ≤ reservedCount`, 그 기간에 박스를 정한 옵션이 하나도 없으면(옵션 교체) kg 대신 이번 기간 안내.
+- 물량·판매 설정의 오류·성공 안내는 상태 `at`(save·pause·request·page) 한 자리에만 보인다: 누른 버튼 바로 아래, 신청·철회는 ‘물량 추가 신청’ 영역 끝, 불러오기 실패만 맨 아래. 기간·가격도 저장 오류·저장 뒤 안내를 저장 버튼 아래에 둔다(불러오기 실패는 위).
+- 화면 밖이면 웹에서만 `scrollIntoView({ block: "nearest" })`(View ref의 DOM 노드, 네이티브에는 함수가 없어 아무 일도 안 함 — `lib/FieldFeedback.tsx`와 같은 방식). ‘물량 추가 신청하기’는 신청 영역을 `block: "center"`로 옮기고 `Input.inputRef`로 초점.
+- 판매 설정 → ‘기간·가격에서 박스 늘리기’는 `/products/:id/stages?from=sales`로 열고, 기간·가격의 ‘판매 한도 늘리기’는 `from=sales`이고 `router.canGoBack()`이면 `router.back()`(판매 설정→기간→판매 설정으로 스택이 쌓여 뒤로가 맴도는 것을 막음), 아니면 push.
+- 판매 설정은 `useFocusEffect`로 읽는다(처음 열 때·돌아올 때). 다시 들어올 때는 지난 결과 안내(`error`·`note`·`at`·`capExceeded`)를 지우고, 판매 한도·한 주문 최대 칸은 마지막으로 불러온 값과 같을 때만 새 값으로 바꾼다(고친 입력 보존). 저장·중지 등 성공 뒤와 ‘최신 상태 확인’은 예전처럼 서버 값으로 덮는다.
+- 기간·가격 저장 뒤 상품을 다시 읽어 `PUBLISHED`이고 `TOTAL_SOLD_OUT`이면 머문다. 다시 고치거나 기간을 추가·삭제하면 그 안내를 지운다.

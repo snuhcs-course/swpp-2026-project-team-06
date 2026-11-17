@@ -63,16 +63,14 @@ def commit(db, result):
 @router.get("/product-workspaces/{pid}/photos/{photo_id}")
 def workspace_photo(pid: str, photo_id: str, who: ApprovedProducer, db: DB):
     from app.catalog import service as catalog
+    from app.source_analysis.publish import media_type
 
     catalog.load_my_product(db, who[1].id, pid)
     photo = db.get(PublicPhoto, photo_id)
     if photo is None or photo.product_id != pid:
         raise not_found()
-    return Response(
-        Storage().get(photo.storage_key),
-        media_type="image/png",
-        headers={"Cache-Control": "no-store"},
-    )
+    data = Storage().get(photo.storage_key)
+    return Response(data, media_type=media_type(data), headers={"Cache-Control": "no-store"})
 
 
 @router.post("/product-workspaces")
@@ -286,7 +284,7 @@ def source_details(bid: str, sid: str, body: SourceEdit, who: ApprovedProducer, 
 
 @router.post("/product-workspaces/{pid}/photos", status_code=201)
 def upload_page_photo(pid: str, who: ApprovedProducer, db: DB, file: Annotated[UploadFile, File()]):
-    from app.source_analysis.photos import prepare_photo
+    from app.source_analysis.photos import public_photo
     from app.source_analysis.preprocess import PreparationError
 
     _, workspace = w.owned(db, who[1], pid)
@@ -294,7 +292,8 @@ def upload_page_photo(pid: str, who: ApprovedProducer, db: DB, file: Annotated[U
     if not data or len(data) > 20 * 1024 * 1024:
         raise invalid({"file": "사진은 20MB 이하로 올려 주세요."})
     try:
-        prepared = prepare_photo(data)
+        # Served to consumers via /api/source-media once applied: same display-size JPEG (DEV-328).
+        prepared = public_photo(data)
     except PreparationError as exc:
         raise invalid({"file": str(exc)}) from exc
     photo = PublicPhoto(product_id=pid, storage_key=Storage().put(prepared))

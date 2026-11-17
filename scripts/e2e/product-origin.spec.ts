@@ -63,12 +63,24 @@ test("DEV-258 a published product with a blank origin hides the line", async ({ 
   await expect(page.getByTestId("product-origin")).toHaveCount(0);
 });
 
-test("DEV-258 producer origin field says where the origin shows and that it is required", async ({ page }) => {
+test("DEV-329 producer origin field keeps one short example line and the notice link", async ({ page }) => {
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products/p-house/edit`);
-  await expect(
-    page.getByText("구매자 화면에는 상품명 바로 아래 같은 크기로 보이고, 비어 있으면 판매 요청을 할 수 없어요.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByText("예: 제주산, 서귀포시", { exact: true })).toBeVisible();
+  // 긴 설명 두 줄(DEV-121·258)은 PM 11/15 결정으로 칸 아래에서 뺐다. 판매 요청 때 빈 원산지는 여전히 막는다
+  await expect(page.getByText("구매자 화면에는 상품명 바로 아래 같은 크기로 보이고, 비어 있으면 판매 요청을 할 수 없어요.")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "원산지 표시 방법 보기" })).toBeVisible();
+});
+
+test("DEV-329 product edit accepts a decimal measured Brix", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/p-house/edit`);
+  const brix = page.getByLabel("측정 당도", { exact: true });
+  await expect(brix).toHaveAttribute("inputmode", "decimal");
+  await brix.fill("");
+  await brix.pressSequentially("12.5");
+  await expect(brix).toHaveValue("12.5");
+  await brix.blur();
+  await expect(brix).toHaveValue("12.5");
 });

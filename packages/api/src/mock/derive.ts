@@ -78,13 +78,27 @@ export function productCard(d: DB, p: ProductRec): ProductCard {
   };
 }
 
+type Listed = "AVAILABLE" | "TOTAL_SOLD_OUT" | "PERIOD_SOLD_OUT";
+const LISTED: readonly string[] = ["AVAILABLE", "TOTAL_SOLD_OUT", "PERIOD_SOLD_OUT"];
+
+/** 홈 추천·농가 대표 후보(AC-07-3, DEV-327). 예약 가능 상품이 마감 임박순으로 먼저, 품절 상품은 그 뒤.
+ *  판매 중지·예약 시작 전·예약 종료는 뺀다(서버 farms.listed_cards와 같음). */
+export function listedCards(cards: ProductCard[]) {
+  return cards
+    .filter((c) => LISTED.includes(c.availability))
+    .sort(
+      (a, b) =>
+        Number(a.soldOut) - Number(b.soldOut) || (a.dDay ?? 1e6) - (b.dDay ?? 1e6),
+    ) as (ProductCard & { availability: Listed })[];
+}
+
 export function farmCard(d: DB, f: FarmRec): FarmCard {
-  const live = Object.values(d.products)
-    .filter((p) => p.farmId === f.farmId && p.status === "PUBLISHED")
-    .map((p) => productCard(d, p))
-    .filter((c) => !c.soldOut && c.dDay !== null)
-    .sort((a, b) => (a.dDay ?? 99) - (b.dDay ?? 99));
-  const top = live[0];
+  const listed = listedCards(
+    Object.values(d.products)
+      .filter((p) => p.farmId === f.farmId && p.status === "PUBLISHED")
+      .map((p) => productCard(d, p)),
+  );
+  const top = listed[0];
   return {
     ...farmSummary(f),
     featured: top
@@ -93,6 +107,7 @@ export function farmCard(d: DB, f: FarmRec): FarmCard {
           name: top.name,
           currentPrice: top.currentPrice ?? 0,
           dDay: top.dDay ?? 0,
+          availability: top.availability,
         }
       : null,
   };

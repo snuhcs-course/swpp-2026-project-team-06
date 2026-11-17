@@ -67,6 +67,8 @@ import {
   states,
 } from "./SourceWorkspace";
 import { goBackOr } from "./nav";
+import { track } from "@farmclub/analytics";
+import { composerErrorCode, draftResult, isServerTrouble } from "./producerEvents";
 // 서버가 새 상품을 만들 때 이름은 비어 있거나 "새 상품"이다. 이때만 AI 값으로 채운다.
 const DEFAULT_NAMES = ["", "새 상품"];
 // 새 상품의 서버 기본 보관 문구(catalog.create_product). 이 값이면 AI 값으로 바꿔도 된다.
@@ -116,6 +118,7 @@ function FillInput({
   editable = true,
   title = false,
   onBlur,
+  onFocus,
   numeric = false,
 }: {
   label: string;
@@ -126,6 +129,7 @@ function FillInput({
   editable?: boolean;
   title?: boolean;
   onBlur?: () => void;
+  onFocus?: () => void;
   numeric?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
@@ -142,7 +146,10 @@ function FillInput({
       maxLength={maxLength}
       editable={editable}
       onChangeText={value => { feedback.clear(label === "원산지" || label === "상품정보 원산지" ? "origin" : label === "상품명" ? "name" : label); onChange(value); }}
-      onFocus={() => setFocused(true)}
+      onFocus={() => {
+        setFocused(true);
+        onFocus?.();
+      }}
       onBlur={() => {
         setFocused(false);
         onBlur?.();
@@ -182,7 +189,7 @@ export function NewProductComposer() {
   const { toast } = useSession();
   const flushAttachments = useRef<(() => Promise<void>) | null>(null);
   const saveEditor = useRef<
-    ((fresh?: SourceReview, name?: string) => Promise<boolean>) | null
+    ((fresh?: SourceReview, name?: string, freshDrafts?: SourceDraft[]) => Promise<boolean>) | null
   >(null);
   const router = useRouter(),
     navigation = useNavigation(),
@@ -197,6 +204,16 @@ export function NewProductComposer() {
   const [pendingText, setPendingText] = useState(false);
   const [attachDirty, setAttachDirty] = useState(false),
     [editorDirty, setEditorDirty] = useState(false);
+  // DEV-329: 판매페이지에 저장 안 한 수정이 있어도 품종·사이즈·당도 칸을 누르면 그 수정을 먼저 임시 저장하고 바로 입력한다.
+  // 기본 정보 저장은 그 저장이 끝난 뒤에만(두 저장이 같은 배치 버전을 다투지 않게).
+  // 그 임시 저장 중에는 편집기가 busy를 켜도 기본 정보 칸은 잠그지 않는다(포커스된 칸이 읽기 전용이 되면 키보드가 내려간다).
+  const editorSaving = useRef<Promise<boolean> | null>(null);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const focusedKey = useRef("");
+  // blur로 시작한 기본 정보 저장. 판매페이지를 먼저 저장하는 곳은 이것이 끝난 뒤 최신 review로 저장한다.
+  const basicSave = useRef<Promise<void> | null>(null);
+  // 칸 아래 안내. 원인이 사라지면(AI 작업 끝, 판매페이지 저장됨) 저절로 감춘다.
+  const [basicNote, setBasicNote] = useState<{ key: string; kind: "run" | "save" } | null>(null);
   const retryGate = useRetryGate();
   const [validationFields, setValidationFields] = useState<Record<string, string>>({});
   const [footerHeight, setFooterHeight] = useState(100);
@@ -265,6 +282,11 @@ export function NewProductComposer() {
   const touched = useRef(new Set<keyof ProductForm>());
   const brixEdited = useRef(false);
   const activeRun = runs.find((r) => ACTIVE.includes(r.status));
+  // 칸 아래 안내는 원인이 사라지면 지운다(같은 조건이 다시 생겨도 예전 안내가 되살아나지 않게).
+  useEffect(() => {
+    if ((basicNote?.kind === "save" && !editorDirty) || (basicNote?.kind === "run" && !activeRun))
+      setBasicNote(null);
+  }, [basicNote, editorDirty, activeRun]);
   const working = !!activeRun && activeRun.status !== "PRIVACY_REVIEW";
   const allowLeave = useRef(false);
   const saveBeforeLeave = useRef<() => Promise<void>>(async () => {});
@@ -322,6 +344,10 @@ export function NewProductComposer() {
   const lock = useRef(false),
     alive = useRef(true),
     pending = useRef(new Map<string, string>());
+  // 칸 자동 저장 중에는 편집기 busy가 켜지지만 상품명·원산지·보관 칸도 잠그지 않는다(같은 키보드 문제).
+  // 이 칸들은 상품 PATCH 값이라 판매페이지 저장과 버전을 다투지 않는다.
+  // 화면 전체 작업(lock: 임시 저장·다음·나가기)이 시작되면 예외를 끈다(그 사이 입력이 저장에서 빠지지 않게).
+  const fieldsLocked = busy && !(autoSaving && !lock.current);
   const keyFor = (scope: string, body: unknown) => {
     const id = scope + JSON.stringify(body);
     if (!pending.current.has(id)) pending.current.set(id, newIdempotencyKey());
@@ -358,6 +384,9 @@ export function NewProductComposer() {
     void fn()
       .catch((e) => {
         if (alive.current) {
+          // 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312). 연결·서버·충돌 실패는 세지 않는다
+          if (!isServerTrouble(e))
+            track("form_error_shown", { screen: "product_new", code: composerErrorCode(e) });
           if (e instanceof ApiError) {
             setValidationFields(e.details.fields ?? {});
             if (Object.keys(e.details.fields ?? {}).length) { setBuyerPreview(false); setSheetOpen(false); }
@@ -381,6 +410,13 @@ export function NewProductComposer() {
     if (!files[0]) return;
     mutate(async () => {
       try {
+      // 대표 사진 지정(setRepresentative)과 기본 정보 저장도 review 버전을 올린다. 판매페이지 수정을 먼저 저장해야
+      // 옛 버전에 묶여 다시는 저장되지 않는 일이 없다(start()와 같은 순서, DEV-329).
+      // 자동 저장 중에는 busy라 보통 여기 오지 않는다. 그래도 순서를 보장하려고 기다린다(saveAll과 같음).
+      const auto = editorSaving.current;
+      const autoOk = auto ? await auto : false;
+      if (editorDirty && !autoOk && !(await saveEditorFirst()))
+        throw new Error("판매페이지를 저장하지 못해 사진을 바꾸지 않았어요. 판매페이지 위의 안내를 확인해 주세요.");
       await flushBasicInfo.current?.();
       await flushAttachments.current?.();
       const latest = await api.get(batch.id);
@@ -456,6 +492,33 @@ export function NewProductComposer() {
     }, 2500);
     return () => clearInterval(timer);
   }, [batchId, runs, load]);
+  // DEV-312 PostHog: 편집기 열림(상품마다 이 화면에서 한 번), AI 채우기 요청과 끝. 글자는 보내지 않는다.
+  const openedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!productId || openedFor.current === productId) return;
+    openedFor.current = productId;
+    track("product_editor_opened", { flow: "source", productId });
+  }, [productId]);
+  // 이 화면에서 받아들여진 요청의 run만 끝을 기다린다. 처음 불러온, 이미 끝난 run은 보내지 않는다.
+  const waiting = useRef<{ runId: string; at: number; productId?: string } | null>(null);
+  const requested = (runId: string, trigger: "start" | "retry") => {
+    const pid = productId ?? undefined;
+    track("draft_requested", { flow: "source", trigger, productId: pid });
+    waiting.current = { runId, at: Date.now(), productId: pid };
+  };
+  useEffect(() => {
+    const w = waiting.current;
+    const r = w && runs.find((x) => x.id === w.runId);
+    const result = r ? draftResult(r.status) : null;
+    if (!w || !result) return;
+    waiting.current = null;
+    track("draft_created", {
+      flow: "source",
+      result,
+      durationMs: Date.now() - w.at,
+      productId: w.productId,
+    });
+  }, [runs]);
   // 분석 결과의 상품명·보관 방법을 아직 기본값인 칸에만 채운다(가격은 채우지 않음, AC-03-1).
   useEffect(() => {
     if (!review || !target || !product) return;
@@ -541,6 +604,15 @@ export function NewProductComposer() {
   /** 화면의 모든 입력을 비공개로 저장한다. 상품에는 아직 적용하지 않는다. */
   const saveAll = async () => {
     await flushAttachments.current?.();
+    // 판매페이지 수정을 기본 정보보다 먼저 저장한다(start()와 같은 순서). 기본 정보 저장이 배치 버전을 올리면
+    // 수정 중인 편집기는 옛 버전으로 저장하다 거절되기 때문이다(DEV-184·329).
+    // 자동 임시 저장 중에는 busy로 버튼·나가기가 막혀 보통 비어 있다. 그래도 순서를 보장하려고 기다린다.
+    const autoSave = editorSaving.current;
+    const autoSaved = autoSave ? await autoSave : false;
+    if (editorDirty && !autoSaved && !(await saveEditorFirst()))
+      throw new Error(
+        "판매페이지를 저장하지 못했어요. 판매페이지 위의 안내를 확인해 주세요.",
+      );
     await flushBasicInfo.current?.();
     await saveProduct();
     if (!review || !showEditor || !target) return;
@@ -565,15 +637,81 @@ export function NewProductComposer() {
           e.field.state !== "EXCLUDED" &&
           e.field.value !== name,
       );
-    if (editorDirty || !fresh || nameDiffers) {
-      const ok = await saveEditor.current?.(r, name || undefined);
+    // 위에서 이미 저장했더라도 기본 정보 저장이 버전을 올렸으면(!fresh) 한 번 더 저장한다. 그 사이 await(api.get 등)로
+    // 편집기가 다시 렌더링돼 saveRef의 busy·dirty가 갱신된 뒤라 새 서버 값으로 저장된다.
+    if (!fresh || nameDiffers) {
+      const ok = await saveEditor.current?.(r, name || undefined, ds.items);
       if (ok === false)
         throw new Error(
           "상세페이지를 저장하지 못했어요. 상세페이지 위의 안내를 확인해 주세요.",
         );
     }
   };
+  /** 진행 중인 기본 정보 저장을 기다린 뒤, 최신 review를 넘겨 판매페이지 수정을 저장한다(편집기가 새 버전으로 옮겨 저장). */
+  const saveEditorFirst = async () => {
+    await basicSave.current;
+    const [latest, ds] = await Promise.all([api.review(batch!.id), api.drafts(batch!.id)]);
+    return (await saveEditor.current?.(latest, undefined, ds.items)) !== false;
+  };
   saveBeforeLeave.current = saveAll;
+  const noteText =
+    basicNote?.kind === "run"
+      ? activeRun
+        ? activeRun.status === "PRIVACY_REVIEW"
+          ? "이전 분석을 취소하면 입력할 수 있어요"
+          : "AI 작업이 끝나면 입력할 수 있어요"
+        : ""
+      : basicNote?.kind === "save" && editorDirty
+        // 이미 포커스된 칸은 다시 눌러도 재시도가 안 되므로, 실제로 저장되는 길(‘임시 저장’)을 안내한다.
+        ? basicNote.key === "sheetVariety"
+          ? "판매페이지를 저장하지 못했어요. ‘AI로 채우기’를 누르면 먼저 저장해요"
+          : "판매페이지를 저장하지 못했어요. ‘임시 저장’을 눌러 주세요"
+        : "";
+  // 컴포넌트가 아니라 함수로 부른다(렌더마다 새 컴포넌트가 되면 alert가 다시 마운트돼 화면 읽기가 반복된다).
+  const basicNoteFor = (key: string) =>
+    basicNote?.key === key && noteText ? (
+      <View accessibilityRole="alert">
+        <T variant="caption" color={tokens.color.error}>{noteText}</T>
+      </View>
+    ) : null;
+  /** 기본 정보 칸을 누르면: 판매페이지에 저장 안 한 수정이 있으면 먼저 임시 저장한다(DEV-329). */
+  const focusBasic = (key: string) => {
+    focusedKey.current = key;
+    setBasicNote(null);
+    if (activeRun) {
+      setBasicNote({ key, kind: "run" });
+      return;
+    }
+    // 화면 전체 작업(임시 저장·다음·나가기) 중에는 따로 저장을 시작하지 않는다(같은 배치 버전을 다투지 않게).
+    if (lock.current || (busy && !autoSaving)) return;
+    if (editorDirty && !editorSaving.current && saveEditor.current) {
+      setAutoSaving(true);
+      // 실패 안내는 저장이 끝날 때 입력 중인 칸 아래에 띄운다(그 사이 다른 칸으로 옮겼을 수 있다).
+      // 진행 중인 기본 정보 저장을 기다리고 최신 review로 저장한다(saveEditorFirst와 같은 순서)
+      const task = saveEditorFirst().then((ok) => {
+        if (!ok) setBasicNote({ key: focusedKey.current, kind: "save" });
+        return ok;
+      }, () => {
+        setBasicNote({ key: focusedKey.current, kind: "save" });
+        return false;
+      }).finally(() => {
+        editorSaving.current = null;
+        if (alive.current) setAutoSaving(false);
+      });
+      editorSaving.current = task;
+    }
+  };
+  // 기본 정보 저장은 review 버전을 올리지만, 편집기는 서버 편집 값이 그대로면 수정을 새 버전으로 옮긴다
+  // (SourceDetailsEditor). 그래서 그동안 판매페이지 편집기를 잠그지 않는다(잠그면 그쪽 키보드가 내려간다).
+  const saveBasic = () => {
+    basicSave.current = flushBasicInfo.current?.().catch(() => {}) ?? null;
+  };
+  /** 판매페이지 임시 저장이 끝난 뒤에 기본 정보를 저장한다. 실패하면 입력은 남기고 다음 저장 때 함께 저장한다. */
+  const blurBasic = () => {
+    const saving = editorSaving.current;
+    if (saving) void saving.then((ok) => { if (ok) saveBasic(); });
+    else if (!editorDirty) saveBasic();
+  };
   // 화면 전체 작업(mutate) 중에는 하위 컴포넌트의 busy 해제가 버튼을 다시 켜지 않게 한다.
   const editorBusy = (v: boolean) => {
     if (!lock.current) setBusy(v);
@@ -629,19 +767,23 @@ export function NewProductComposer() {
     mutate(async () => {
       if (!batch) return;
       // 재분석 전에 고친 상세페이지를 비공개 저장해 PRODUCER 값으로 남긴다(AC-SRC-11).
-      if (editorDirty && (await saveEditor.current?.()) === false)
+      // 다른 판매페이지 저장과 같은 순서(자동 저장 대기 → 기본 정보 저장 대기 → 최신 review·drafts로 저장)
+      const auto = editorSaving.current;
+      const autoOk = auto ? await auto : false;
+      if (editorDirty && !autoOk && !(await saveEditorFirst()))
         throw new Error(
           "고친 상세페이지를 저장하지 못해 AI로 다시 채우지 않았어요. 위 안내를 확인해 주세요.",
         );
       await flushAttachments.current?.();
       await flushBasicInfo.current?.(true);
       const latest = await api.get(batch.id);
-      await api.start(
+      const started = await api.start(
         batch.id,
         latest.version,
         keyFor("start", [latest.version, {}]),
         {},
       );
+      requested(started.id, "start");
       pending.current.clear();
       setSheetOpen(false);
       await load();
@@ -687,13 +829,14 @@ export function NewProductComposer() {
                 const ids = run.items
                   .filter((i) => ["FAILED", "PARTIAL"].includes(i.status))
                   .map((i) => i.id);
-                await api.retry(
+                const retried = await api.retry(
                   batch!.id,
                   run.id,
                   ids,
                   true,
                   keyFor("retry", [run.id, ids]),
                 );
+                requested(retried.id, "retry");
                 pending.current.clear();
                 await load();
               })
@@ -793,26 +936,30 @@ export function NewProductComposer() {
                 brix: "",
               };
               const values = { ...inputs, brix: displayBrix(inputs.brix) };
-              const locked = busy || !!activeRun || editorDirty;
+              const locked = fieldsLocked || !!activeRun;
               const basicField = (
                 key: BasicInfoKey,
                 label: string,
                 placeholder: string,
                 maxLength: number,
               ) => (
-                <FillInput
-                  label={label}
-                  value={values[key]}
-                  placeholder={placeholder}
-                  maxLength={maxLength}
-                  editable={!locked}
-                  numeric={key === "brix"}
-                  onChange={(v) => {
-                    if (key === "brix") brixEdited.current = true;
-                    basic.change(target.id, key, v);
-                  }}
-                  onBlur={basic.blur}
-                />
+                <View style={{ gap: 4 }}>
+                  <FillInput
+                    label={label}
+                    value={values[key]}
+                    placeholder={placeholder}
+                    maxLength={maxLength}
+                    editable={!locked}
+                    numeric={key === "brix"}
+                    onFocus={() => focusBasic(key)}
+                    onChange={(v) => {
+                      if (key === "brix") brixEdited.current = true;
+                      basic.change(target.id, key, v);
+                    }}
+                    onBlur={blurBasic}
+                  />
+                  {basicNoteFor(key)}
+                </View>
               );
               return (
                 <View testID="product-basic-info">
@@ -847,7 +994,7 @@ export function NewProductComposer() {
                               result: working ? undefined : review?.refinementResults?.[target.id],
                             }]}
                           /></View>
-                          {buyerPreview && !validationFields.representativePhoto ? (coverUrl ? <Photo uri={coverUrl} width="100%" height={244} alt="대표사진" /> : null) : coverUrl || (hasPhoto && !coverFailed) ? (
+                          {buyerPreview && !validationFields.representativePhoto ? <Photo uri={coverUrl} width="100%" height={244} alt="대표사진" /> : coverUrl || (hasPhoto && !coverFailed) ? (
                             !coverUrl ? (
                               <View
                                 testID="hero-photo"
@@ -925,7 +1072,7 @@ export function NewProductComposer() {
                             }
                             title
                             maxLength={40}
-                            editable={!busy}
+                            editable={!fieldsLocked}
                             onChange={(v) => setField("name", v)}
                           />
                         </View>
@@ -938,7 +1085,7 @@ export function NewProductComposer() {
                           value={form.origin}
                           placeholder="원산지를 적어 주세요. 예: 제주 서귀포"
                           maxLength={30}
-                          editable={!busy}
+                          editable={!fieldsLocked}
                           onChange={(v) => setField("origin", v)}
                         />
                         </View>
@@ -1031,7 +1178,6 @@ export function NewProductComposer() {
                       brix: buyerPreview ? undefined : <View style={{ padding: 20, gap: 8 }}>
                         <T weight="semibold">측정 당도 (선택)</T>
                         {basicField("brix", "측정 당도 (°Bx)", "예: 12.5", 8)}
-                        <T variant="caption" muted>측정한 값을 Brix 단위로 입력해 주세요.</T>
                       </View>,
                       info: buyerPreview ? undefined : {
                         origin: (
@@ -1041,7 +1187,7 @@ export function NewProductComposer() {
                               value={form.origin}
                               placeholder="예: 서귀포시"
                               maxLength={30}
-                              editable={!busy}
+                              editable={!fieldsLocked}
                               onChange={(v) => setField("origin", v)}
                             />
                             {/* DEV-121: 원산지 표시 형식과 안내 화면 */}
@@ -1065,13 +1211,16 @@ export function NewProductComposer() {
                               value={form.storage}
                               placeholder="예: 서늘한 곳"
                               maxLength={30}
-                              editable={!busy}
+                              editable={!fieldsLocked}
                               onChange={(v) => setField("storage", v)}
                             />
                           </View>
                         ),
                       },
                       infoOpen: false,
+                      // 새 상품 작성에서는 이 줄의 입력이 사이즈다(무게 kg은 다음 화면). 소비자 화면 이름표는 그대로(DEV-329)
+                      // 구매자 미리보기는 소비자 화면 그대로 '중량·수량'
+                      infoLabels: buyerPreview ? undefined : { size: "사이즈" },
                     }}
                   />
                   {basic.error && !buyerPreview && !sheetOpen ? (
@@ -1130,14 +1279,16 @@ export function NewProductComposer() {
               <View style={{ gap: 8 }}>
                 <T variant="caption">과일 품종명 *</T>
                 <FillInput label="과일 품종명" value={basic.inputs[target?.id ?? ""]?.variety ?? ""}
-                  placeholder="예: 온주밀감" maxLength={100} editable={!busy && !activeRun && !editorDirty}
-                  onChange={(v) => { if (target) basic.change(target.id, "variety", v); setStartError(""); }} onBlur={basic.blur} />
+                  placeholder="예: 온주밀감" maxLength={100} editable={!(fieldsLocked || activeRun)}
+                  onFocus={() => focusBasic("sheetVariety")}
+                  onChange={(v) => { if (target) basic.change(target.id, "variety", v); setStartError(""); }} onBlur={blurBasic} />
+                {basicNoteFor("sheetVariety")}
                 {startError || basic.error ? <View accessibilityRole="alert"><T color={tokens.color.error}>{startError || basic.error}</T></View> : null}
               {!batch.sources.length && !pendingText ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
               <Button
                 label={startLabel}
                 size="producer"
-                loading={busy && !working}
+                loading={busy && !working && !autoSaving}
                 disabled={
                   busy ||
                   // 기본 정보 칸(품종 필수 검사)이 화면에 올라오기 전에는 시작하지 않는다.
@@ -1254,9 +1405,8 @@ export function NewProductComposer() {
           {errorPanel}
           {editorDirty ? (
             <T variant="caption" muted>
-              상세페이지에 저장하지 않은 수정이 있어요. &apos;임시 저장&apos;을
-              누르거나 &apos;AI로 다시 채우기&apos;(먼저 저장해요) 뒤에
-              사진·자료와 품종·사이즈·측정 당도를 바꿀 수 있어요.
+              판매페이지 수정을 &apos;임시 저장&apos;한 뒤에 첨부한 사진·자료를 바꿀 수
+              있어요.
             </T>
           ) : null}
           <T variant="caption" muted>

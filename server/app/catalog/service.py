@@ -1043,11 +1043,14 @@ def update_sales_settings(
     if p.approved_supply_grams == 0 and body.sales_limit_grams != 0:
         raise conflict("APPROVED_CAP_EXCEEDED", "승인 전에는 판매 한도를 늘릴 수 없어요.")
     if body.sales_limit_grams > p.approved_supply_grams:
-        raise conflict("APPROVED_CAP_EXCEEDED", "승인 물량 안에서 판매 한도를 정해 주세요.")
+        raise conflict("APPROVED_CAP_EXCEEDED", "승인 물량을 넘어요. 물량 추가를 신청해 주세요.")
     if body.sales_limit_grams < committed:
         raise conflict("CAP_BELOW_COMMITTED", "이미 예약·출하한 물량보다 줄일 수 없어요.")
     if p.status != "PUBLISHED" and body.sales_paused != p.sales_paused:
         raise conflict("INVALID_TRANSITION", "승인된 상품에서만 중지·재개할 수 있어요.")
+    # 재개 가능 검사는 중지 → 재개할 때만 한다(capacity-1.4 §4, R-27). 품절 상품이 한도·주문당
+    # 상한을 먼저 바꾸는 저장까지 막으면 물량을 늘릴 길이 없어진다(DEV-344).
+    resuming = p.sales_paused and not body.sales_paused
     p.sales_limit_grams = body.sales_limit_grams
     p.max_quantity_per_order = body.max_quantity_per_order
     p.sales_paused = body.sales_paused
@@ -1056,7 +1059,7 @@ def update_sales_settings(
     db.flush()
     refreshed = load_products(db, [p])[0]
     result = sales_state(db, refreshed)
-    if not p.sales_paused and p.status == "PUBLISHED":
+    if resuming:
         remaining = result.remaining_grams
         resumable = any(
             stage.ends_at >= today()

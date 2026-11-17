@@ -125,7 +125,7 @@ test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async ()
   assert.ok(html.includes(`${y}년 ${m}월 ${d}일 변경:`), "version date is a recorded change");
   const toIso = (k) => k.replace(/(\d+)년 (\d+)월 (\d+)일/, (_, a, b, c) => `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`);
   assert.ok(server <= toIso(content.privacyPolicy.effective), "version is not after the privacy effective date");
-  // 시행일이 버전보다 늦으면 마지막 변경 기록이 재동의하지 않는다고 적는다
+  // 시행일이 버전보다 늦으면 시행일 날짜의 변경 기록이 재동의하지 않는다고 적는다
   if (toIso(content.privacyPolicy.effective) !== server)
     assert.match(html, new RegExp(`${content.privacyPolicy.effective} 변경:[^<]*다시 동의를 받지 않습니다`));
 });
@@ -176,6 +176,19 @@ test("DEV-122: PostHog transfer lists every item of Article 28-8(2) and the basi
   assert.ok(html.includes("쿠키·저장소를 막아도 PostHog 전송은 이어질 수 있으니"));
   // 변경 기록과 시행일(시행 7일 전 고지, 제14조)
   assert.ok(html.includes("2026년 11월 13일 변경: PostHog(미국)로의 국외 이전"));
+  // DEV-314의 우편번호 찾기 고지는 시행일을 늦추지 않고 그 변경분만 11-19부터 시행한다
+  assert.equal(content.privacyPolicy.effective, "2026년 11월 13일");
+  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+});
+
+test("DEV-314: privacy policy tells that the postcode search keyword goes to Kakao, without a version bump", () => {
+  const html = pages.pageHtml(content.privacyPolicy);
+  assert.ok(html.includes("배송지 입력의 ‘우편번호 찾기’는 카카오(다음) 우편번호 서비스를 씁니다."));
+  assert.match(html, /입력한 검색어\(도로명·건물명·지번 등\)와 접속 정보\(IP 주소, 기기·브라우저 정보 등\)는 회사 서버를 거치지 않고 카카오가 받아[^<]*회사는 검색어를 받거나 저장하지 않습니다/);
+  assert.match(html, /직접 입력할 수도 있습니다\(2026년 11월 19일부터 시행\)/);
+  // 고지 문구만 바뀌어 동의 버전은 그대로. 문서 시행일(11-13, DEV-122 개정)은 늦추지 않고 이 변경분만 고지 7일 뒤 시행
+  assert.match(html, /2026년 11월 19일 변경: 배송지 입력의 ‘우편번호 찾기’[^<]*다시 동의를 받지 않습니다/);
+  assert.ok(html.includes("이 처리방침은 2026년 11월 13일부터 시행합니다. 다만 2026년 11월 19일 변경분(제2조 ‘우편번호 찾기’ 안내)은 2026년 11월 19일부터 시행합니다."));
   assert.equal(content.privacyPolicy.effective, "2026년 11월 13일");
   assert.equal(content.LEGAL_VERSION, "2026-10-29");
 });

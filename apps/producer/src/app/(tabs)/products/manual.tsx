@@ -13,12 +13,14 @@ import {
   tokens,
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, TextInput, View } from "react-native";
 
 import { useHideTabBar } from "../../../lib/session";
 import { errMsg } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
+import { isServerTrouble } from "../../../lib/producerEvents";
+import { track, type DraftResult } from "@farmclub/analytics";
 
 const MAX = 3000;
 const LABEL: Record<keyof DraftFields, string> = {
@@ -49,22 +51,39 @@ export default function NewProduct() {
   const [failed, setFailed] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // DEV-312 PostHog: 글 경로(자료 분석 꺼짐·Mock) 새 상품 화면 열림. 상품은 '직접 입력'·초안 뒤에 생겨 productId가 없다
+  useEffect(() => {
+    track("product_editor_opened", { flow: "text" });
+  }, []);
 
   async function make() {
     if (!text.trim() || operation.current) return;
     operation.current = true;
+    // 실패 화면의 '다시 해 보기'는 재시도, 그 밖의 '초안 만들기'는 처음 요청(DEV-312)
+    const trigger = failed ? "retry" : "start";
+    const at = Date.now();
+    // 검증 오류는 서버만 알아 응답을 받은 뒤 요청·끝을 함께 보낸다(글자 없음)
+    const finished = (result: DraftResult) => {
+      track("draft_requested", { flow: "text", trigger });
+      track("draft_created", { flow: "text", result, durationMs: Date.now() - at });
+    };
     setBusy(true);
     setFailed(false);
     setError(null);
     try {
       const d = await catalog.createDraft(text);
+      finished(d.failed ? "failed" : "success");
       if (d.failed) setFailed(true);
       else setDraft(d);
     } catch (e) {
       // 실패·시간 초과: 붙여넣은 글은 그대로 두고 직접 입력으로(AC-03-3)
-      if (e instanceof ApiError && e.code === "VALIDATION_ERROR")
+      if (e instanceof ApiError && e.code === "VALIDATION_ERROR") {
+        track("form_error_shown", { screen: "product_new", code: "other" });
         setError(e.message);
-      else setFailed(true);
+      } else {
+        finished("failed");
+        setFailed(true);
+      }
     } finally {
       operation.current = false;
       setBusy(false);
@@ -80,6 +99,7 @@ export default function NewProduct() {
       const p = await catalog.create(draftId);
       router.replace(`/products/${p.productId}/edit`);
     } catch (e) {
+      if (!isServerTrouble(e)) track("form_error_shown", { screen: "product_new", code: "other" });
       setError(errMsg(e, "만들지 못했어요. 다시 시도해 주세요."));
       setCreating(false);
       operation.current = false;

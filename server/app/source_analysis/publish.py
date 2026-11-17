@@ -1,19 +1,20 @@
 """Explicit publication: allow-listed snapshot; never expose source identifiers."""
 
-import io
+import hashlib
 from copy import deepcopy
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from fastapi.responses import Response
-from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.catalog import service as catalog
 from app.core.db import get_db
 from app.core.errors import conflict, invalid, not_found
+from app.core.images import sniff
 from app.source_analysis import service as s
 from app.source_analysis.models import ProductWorkspace, PublicPhoto
+from app.source_analysis.photos import public_photo as display_copy
 from app.source_analysis.storage import Storage
 
 public_router = APIRouter()
@@ -39,7 +40,7 @@ def apply_draft(db, batch, draft, body):
         s.version(source.sanitization_version, expected["sanitizationVersion"])
     if not snap["previewModules"]:
         raise invalid({"modules": "확정된 상세 내용이 필요해요."})
-    # Copy sanitized full original photos into independent keys. EXIF is never copied.
+    # Copy sanitized photos into independent keys as display-size JPEG (DEV-328). No EXIF.
     copied, store = {}, Storage()
     from app.source_analysis.representative import selected
 
@@ -57,10 +58,8 @@ def apply_draft(db, batch, draft, body):
             pages = s.pages_for(db, source)
             if len(pages) != 1 or not pages[0].sanitized_key:
                 raise conflict("PHOTO_NOT_PREPARED", "원본 사진 처리를 완료해 주세요.")
-            with Image.open(io.BytesIO(store.get(pages[0].sanitized_key))) as image:
-                output = io.BytesIO()
-                image.convert("RGB").save(output, format="PNG")
-            photo = PublicPhoto(product_id=product.id, storage_key=store.put(output.getvalue()))
+            data = display_copy(store.get(pages[0].sanitized_key))
+            photo = PublicPhoto(product_id=product.id, storage_key=store.put(data))
             db.add(photo)
             db.flush()
             copied[sid] = photo.id
@@ -96,8 +95,29 @@ def apply_draft(db, batch, draft, body):
     }
 
 
+# Access depends on the product staying published, so only the viewer's own cache
+# may keep a photo, briefly. `private` keeps shared proxies from holding it after an
+# unpublish (there is no CDN in front of the API).
+PUBLIC_CACHE = "private, max-age=300"
+
+
+def media_type(data: bytes) -> str:
+    """Stored bytes decide the type: legacy copies are PNG, DEV-328 copies are JPEG."""
+    return sniff(data) or "application/octet-stream"
+
+
+def etag(photo: PublicPhoto) -> str:
+    # The ETag follows the storage key (recompress writes a new key, so the tag changes).
+    # Hash it so the private key is never exposed.
+    return '"' + hashlib.sha256(photo.storage_key.encode()).hexdigest()[:32] + '"'
+
+
 @public_router.get("/source-media/{photo_id}")
-def public_photo(photo_id: str, db: Annotated[Session, Depends(get_db)]):
+def public_photo(
+    photo_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    if_none_match: Annotated[str | None, Header()] = None,
+):
     photo = db.get(PublicPhoto, photo_id)
     if photo is None:
         raise not_found()
@@ -119,8 +139,10 @@ def public_photo(photo_id: str, db: Annotated[Session, Depends(get_db)]):
     )
     if not referenced:
         raise not_found()
-    return Response(
-        Storage().get(photo.storage_key),
-        media_type="image/png",
-        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
-    )
+    tag = etag(photo)
+    headers = {"Cache-Control": PUBLIC_CACHE, "ETag": tag, "X-Content-Type-Options": "nosniff"}
+    tags = [t.strip().removeprefix("W/") for t in (if_none_match or "").split(",")]
+    if "*" in tags or tag in tags:
+        return Response(status_code=304, headers=headers)
+    data = Storage().get(photo.storage_key)
+    return Response(data, media_type=media_type(data), headers=headers)

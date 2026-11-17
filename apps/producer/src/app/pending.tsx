@@ -194,6 +194,7 @@ export default function Pending() {
               </View>
             ) : (
               <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 40 }}>
+                {/* 첫 화면에는 연락처를 두지 않는다. 번호는 '신청 내용 보기' 시트에서만(DEV-316) */}
                 <Step
                   n={1}
                   title="신청 완료"
@@ -204,7 +205,7 @@ export default function Pending() {
                 <Step
                   n={2}
                   title="전화·방문 확인"
-                  sub={`${a.phone}로 연락드려요`}
+                  sub="신청서에 적은 번호로 연락드려요"
                   state="now"
                 />
                 <Step

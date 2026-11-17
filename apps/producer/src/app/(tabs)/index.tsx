@@ -1,4 +1,4 @@
-// SCR-22 / FEAT-14: order and shipping management only.
+// SCR-22 / FEAT-14: order and shipping management only (plus the pinned consumer share bar under the header, DEV-331).
 // DEV-294: 머리 1단(현황 + 농가·날짜), 할 일 한 줄 목록, 주문 4칸 카드, 예약·출하 물량 줄(Figma 검토본 1:62)
 // DEV-300: 물량은 중량 옵션마다 '5kg  32,000원   예약+출하 N박스 / 판매 M박스'(가격은 지금 기간, 박스는 모든 기간 합), 상품 kg 합계는 보조 글자
 import { allPages, catalog, farms, orders } from "@farmclub/api";
@@ -18,6 +18,7 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
+import { ConsumerShareBar } from "../../lib/ConsumerShareBar";
 import { OptionBoxRow } from "../../lib/OptionBoxRow";
 import {
   optionBoxesFromDashboard,
@@ -309,6 +310,12 @@ export default function Home() {
             weekday: "short",
           })}
         </T>
+        {/* 소비자에게 우리 농가 공유하기(DEV-331): 머리와 함께 고정, 닫기 없음. 승인된 농가만(승인 전에는 소비자 페이지가 없다) */}
+        {farm.data?.status === "APPROVED" && farm.data.shareUrl ? (
+          <View style={{ paddingTop: 6, paddingBottom: tokens.space.xs }}>
+            <ConsumerShareBar farm={farm.data} />
+          </View>
+        ) : null}
       </View>
       <Scroll bottom={tokens.height.tabBarClearance}>
         <View
