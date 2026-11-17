@@ -77,13 +77,31 @@ for (const width of [360, 390, 430]) {
     await expect(page.getByRole("tab", { name: "발견", exact: true })).toHaveCount(0);
     const a = await buy.boundingBox();
     expect(a!.y + a!.height).toBeLessThanOrEqual(844);
-    for (const price of ["36,000원", "29,000원", "68,000원", "55,000원"]) {
+    // DEV-348: 취소선 비교 가격(36,000원·68,000원) 대신 옵션 줄은 ‘지금 예약가’, 마지막 기간 가격은 계단 마지막 칸 아래 한 번
+    for (const price of ["29,000원", "55,000원", "5kg 36,000원"]) {
       const node = page.getByText(price, { exact: true }).first();
       await expect(node).toBeVisible();
       expect(
         await node.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
       ).toBeTruthy();
     }
+    await expect(page.getByText("68,000원", { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByTestId("product-options").getByText("지금 예약가", { exact: true }),
+    ).toHaveCount(2);
+    // AC-07-9 가격 계단(시드 p-house 세 기간)과 AC-07-10 알아 둘 세 줄
+    await expect(page.getByText("일찍 예약할수록 싸요", { exact: true })).toBeVisible();
+    await expect(page.getByText("지금 · 10월 12일까지", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("price-stair-step")).toHaveCount(2);
+    await expect(page.getByText(/^\d+명이 예약했어요$/)).toBeVisible();
+    await expect(page.getByText(/^지금 예약하면 \d+번째예요$/)).toBeVisible();
+    await expect(page.getByText("농가 계좌로 직접 입금해요", { exact: true })).toBeVisible();
+    await expect(page.getByText("11월 30일까지 못 보내면 전액 환불", { exact: true })).toBeVisible();
+    // 취소 규정 한 줄은 세 줄 아래에 그대로(지금 화면의 정보는 빼지 않는다)
+    await expect(
+      page.getByText("출하 전 전액 환불 · 출하 후 단순 변심 반품 불가", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/^제주 서귀포 · 팬 \d+명$/)).toBeVisible();
     await page.screenshot({ path: info.outputPath(`product-${width}.png`) });
     await page.getByRole("link").filter({ hasText: "강씨네 귤밭" }).click();
     await expect(page).toHaveURL(/\/farms\/f-kang$/);
