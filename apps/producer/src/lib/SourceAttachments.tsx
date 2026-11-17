@@ -58,7 +58,8 @@ function Tile({
         })
         .catch(() => {});
     else if (source.pageCount)
-      sourcePageImage(batch, source.id, 1)
+      // DEV-341: 첨부 칸은 작은 사본(짧은 변 480px JPEG)만 받는다
+      sourcePageImage(batch, source.id, 1, { variant: "thumb", source })
         .then((u) => {
           url = u;
           if (active) setUri(u);
@@ -69,7 +70,7 @@ function Tile({
       active = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [batch, source.id, source.revision, source.pageCount]);
+  }, [batch, source.id, source.revision, source.sanitizationVersion, source.pageCount]);
   return (
     <View
       testID="attachment-tile"

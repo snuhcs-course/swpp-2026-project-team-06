@@ -172,7 +172,9 @@ def test_AC_SRC_11_workspace_upload_is_oriented_display_size_jpeg(client, login)
     preview = client.get(f"{WORKSPACES}/p-house/photos/{photo_id}", headers=h)
     assert preview.status_code == 200
     assert preview.headers["content-type"] == "image/jpeg"
-    assert preview.headers["cache-control"] == "no-store"  # private until applied
+    # Private until applied: only the owner's browser may keep it (DEV-341 replaced no-store).
+    assert preview.headers["cache-control"] == "private, max-age=86400"
+    assert "authorization" in preview.headers["vary"].lower()
     image = opened(preview.content)
     assert image.size == (1200, 1600) and not image.getexif()
 

@@ -295,3 +295,18 @@ FEAT-03/04 · AC-SRC-6/9/11. 작업 기록은 `server/tasks/DEV-328.md`.
 | 2026-11-15 | Content-Type은 저장 바이트로 판별(`core.images.sniff`), 마이그레이션 없음. 이전 PNG는 `image/png` 그대로 | 옛 사진과 새 사진이 함께 있어 고정값을 쓸 수 없음 | AC-SRC-6 |
 | 2026-11-15 | `/api/source-media/{id}`는 `private, max-age=300` + ETag(저장 키 해시, 키가 바뀌면 바뀜). 304도 접근 검사 뒤에만, 304에서는 저장소를 읽지 않는다. 생산자 미리보기는 `no-store` 유지 | 접근은 상품 공개 상태에 달려 있어 긴 캐시는 공개 취소 뒤 노출이 길어짐. API 앞에 CDN이 없어 `private`로 공유 프록시 보관을 막음(scan-before-merge 반영) | AC-SRC-9 |
 | 2026-11-15 | 이전 PNG는 사람이 `python -m app.source_analysis.recompress_photos [--backup-done --commit]`로 바꾼다(id 유지, 새 키 쓰고 커밋, 옛 키는 worker cleanup이 지움, R2 백업 확인 필수) | URL·상품 데이터를 바꾸지 않고 운영 실행은 사람이 함 | AC-SRC-6 |
+
+## DEV-341 생산자 사진 미리보기·업로드 가볍게 (2026-11-17)
+
+FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-17 | `GET .../pages/{n}/image`에 `variant=display`(긴 변 1600px JPEG, `public_photo`와 같은 변환)·`thumb`(짧은 변 480px·긴 변 1600px 이하 JPEG)를 더한다. 둘 다 정사각형 `thumbnail((L, L))`라 DEV-328 크기와 같다(4000×3001 → 1600×1200). 기본(`original`)은 무손실 PNG·`no-store` 그대로. `sanitized=false`의 미리보기는 400 | 12MP 사진의 PNG가 16~30MB라 10Mbps에서 대표사진이 50초 뒤 보임. 분석·공개 반영은 PNG를 계속 원천으로 씀 | AC-SRC-6 |
+| 2026-11-17 | 미리보기는 마이그레이션 없이 원본 키에서 정해지는 키(`photos.variant_key`: 같은 prefix + sha256(key:variant:버전) 32자)에 둔다. 상품사진은 업로드 때 한 번 디코딩해 PNG·display·thumb를 함께 쓰고, 없으면(이전 업로드·문서 페이지) 첫 요청 때 PNG에서 만들어 저장한다 | 모델·마이그레이션(고위험) 없이 저장. 가림이 바뀌면 `sanitized_key`가 바뀌어 미리보기 키도 바뀜 | AC-SRC-6 |
+| 2026-11-17 | worker cleanup은 살아 있는 페이지의 미리보기 키를 `used`로 보고, 자료를 지울 때 함께 지운다. 고아가 된 미리보기는 기존 24시간 고아 정리가 지운다. `purge_except`(admin)는 바꾸지 않는다(남은 미리보기는 worker 고아 정리로 지워짐) | 매일 지워졌다 다시 만드는 일을 막음. 고위험 경로를 건드리지 않음 | AC-SRC-5 |
+| 2026-11-17 | 미리보기 캐시: `v=<revision>.<sanitizationVersion>`이 현재와 같으면 `private, max-age=86400`, 다르거나 없으면 `private, no-cache`. 둘 다 ETag(미리보기 키 해시)·`Vary: Authorization`, 304는 소유 검사 뒤에만. `SourceRequestMiddleware`는 라우트가 정한 Cache-Control이 `caching.PREVIEW_CACHE_VALUES`의 두 값과 정확히 같을 때만 그대로 두고 나머지는 계속 `no-store`. ETag·If-None-Match 처리는 `caching.tag_for`·`not_modified` 하나로 공개 사진(`publish`)과 함께 쓴다 | 같은 revision의 바이트는 바뀌지 않음. 같은 브라우저의 다른 로그인은 다시 검증 | AC-SRC-5/6 |
+| 2026-11-17 | 판매페이지 작업 사진 미리보기(`GET product-workspaces/{pid}/photos/{id}`)는 DEV-328의 `no-store` 대신 `private, max-age=86400` + ETag(저장 키 해시) + `Vary: Authorization`. 사진 id 하나는 저장본 하나(변환 명령은 키를 새로 써 ETag가 바뀜) | 편집 화면을 다시 열 때마다 사진을 다시 받던 비용 제거. 소유자 본인 브라우저만 | AC-SRC-11 |
+| 2026-11-17 | 작업 사진 업로드는 잠금 없이 소유·작업 공간을 먼저 확인하고 읽기 트랜잭션을 닫은 뒤(`db.rollback()`, 변환 동안 idle in transaction 방지) JPEG 변환·저장을 하고, `workspace.owned`(advisory lock + FOR UPDATE)로 다시 확인하고 행만 넣는다. 잠금 확인이 실패하면 저장한 파일은 고아 정리가 지운다 | 큰 사진 변환 동안 같은 상품의 저장·반영·다른 업로드가 기다리지 않게 | AC-SRC-11 |
+| 2026-11-17 | 공개 반영(`copy_photo`)은 `page_variant(display)`를 써서 이미 만든 미리보기 바이트를 새 키로 복사한다(같은 변환이라 결과 동일) | 반영 때 12MP PNG를 다시 디코딩하지 않음 | AC-SRC-9 |
+| 2026-11-17 | 감수한 점: 미리보기는 그 브라우저에 최대 하루 남는다(자료를 지우거나 상품 연결을 바꿔도 이미 받은 사본은 `max-age` 동안 그 생산자 브라우저에만 남음, 다른 로그인은 `Vary: Authorization`으로 재검증). 앱 메모리 공유본은 로그인이 바뀌거나 로그아웃하면 지운다. 상품사진 업로드는 미리보기 두 장을 더 만들어 12MP 기준 서버 처리 0.64초→0.79초(로컬 측정) | 여는 시간 49.6초→2.1초(10Mbps)에 비해 작은 비용. 원본·가림 전 이미지는 계속 `no-store` | AC-SRC-5/6 |

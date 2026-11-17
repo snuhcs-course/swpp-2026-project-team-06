@@ -261,7 +261,8 @@ export function NewProductComposer() {
     if (!batch || !coverId) return;
     let alive = true;
     let url = "";
-    void sourcePageImage(batch.id, coverId, 1)
+    // DEV-341: 표시용 JPEG(긴 변 1600px). 편집기의 같은 사진 요청과 공유한다.
+    void sourcePageImage(batch.id, coverId, 1, { variant: "display", source: cover! })
       .then((u) => {
         url = u;
         if (alive) setCoverUrl(u);
@@ -275,7 +276,7 @@ export function NewProductComposer() {
       alive = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [batch?.id, coverId, coverRevision]);
+  }, [batch?.id, coverId, coverRevision, cover?.sanitizationVersion]);
   const [product, setProduct] = useState<MyProduct | null>(null),
     [form, setForm] = useState<ProductForm | null>(null);
   // 생산자가 손댄 칸은 AI가 다시 채우지 않는다.
@@ -422,11 +423,12 @@ export function NewProductComposer() {
       const latest = await api.get(batch.id);
       // Pin the previous fallback before adding a new photo, so failed replacement keeps it.
       const previous = latest.sources.find(x => x.originalPhoto && (x.common || x.targetIds.includes(target.id)));
+      let version = latest.version;
       if (!latest.targets.find(t => t.id === target.id)?.representativeAssetId && previous?.status === "PREPARED") {
-        await api.setRepresentative(batch.id, latest.version, [target.id], previous.id);
+        // 응답의 batch 버전을 바로 쓴다(다시 읽지 않음, DEV-341)
+        version = (await api.setRepresentative(batch.id, latest.version, [target.id], previous.id)).version;
       }
-      const fresh = await api.get(batch.id);
-      const uploaded = await uploadSource(batch.id, fresh.version, [target.id], false, true, files[0]);
+      const uploaded = await uploadSource(batch.id, version, [target.id], false, true, files[0]);
       const deadline = Date.now() + 30000;
       while (alive.current) {
         const current = await api.get(batch.id);
