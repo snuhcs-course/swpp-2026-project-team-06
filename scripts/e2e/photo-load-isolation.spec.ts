@@ -51,6 +51,16 @@ function jpegSize(bytes: Buffer) {
   throw new Error("no SOF marker");
 }
 
+/** DEV-346: 판매페이지 수정 opens the composer; these two tests cover the legacy editor, which
+ * stays as the fallback (old server, multi-target batch, blocked migration). */
+async function legacyEditorOnly(page: Page) {
+  await page.route("**/api/source-analysis/product-workspaces", async (route) => {
+    const body = route.request().postDataJSON() ?? {};
+    delete body.composer;
+    await route.continue({ postData: JSON.stringify(body) });
+  });
+}
+
 function work() {
   const cwd = path.resolve("server");
   execFileSync(
@@ -69,6 +79,7 @@ test("AC-SRC-11 DEV-341: product page editor isolates a failed photo and retries
   test.setTimeout(120_000);
   // The deliberately failed photo request is the only expected console error.
   const clean = monitor(page, [/Failed to load resource: the server responded with a status of 404/]);
+  await legacyEditorOnly(page);
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products/p-house/detail`);
   await expect(page.getByTestId("page-save-state")).toBeVisible();
@@ -135,6 +146,7 @@ test("AC-SRC-11 DEV-341: product page uploads are shrunk to a 1600px JPEG, trans
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
   test.setTimeout(120_000);
   const clean = monitor(page);
+  await legacyEditorOnly(page);
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products/p-house/detail`);
   await expect(page.getByTestId("page-save-state")).toBeVisible();

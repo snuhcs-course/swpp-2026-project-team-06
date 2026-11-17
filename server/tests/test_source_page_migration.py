@@ -1147,3 +1147,44 @@ def test_AC_SRC_9_description_edit_during_an_analysis_keeps_draft_and_analysis(c
     assert opened["composer"] is True and "composerNotice" not in opened
     assert run_status(run_id) == "PRIVACY_REVIEW"
     assert len(drafts(client, login, row["batchId"])) == before
+
+
+def test_AC_SRC_9_page_fingerprint_is_stable_for_stored_pages():
+    # Recorded fingerprints must not change across releases (e.g. DEV-341 light previews): a
+    # different hash would make every published product re-migrate on its next composer open.
+    from types import SimpleNamespace
+
+    from app.source_analysis.workspace import page_source
+
+    product = SimpleNamespace(
+        module_detail={
+            "schemaVersion": 1,
+            "modules": [
+                {
+                    "id": "taste",
+                    "texts": [{"fieldKey": "taste", "value": "새콤달콤해요"}],
+                    "photos": [{"uri": "/api/source-media/src_abc", "alt": "상자"}],
+                    "illustrationId": None,
+                }
+            ],
+        },
+        detail_content=None,
+        description="",
+    )
+    assert page_source(product) == (
+        "a72025daf190ea5989ec0d90e8eb055fc348ae0a0fcb576539034aee6d31bd9a"
+    )
+
+
+def test_AC_SRC_9_untouched_apply_keeps_the_stored_photo_uris_and_fingerprint(client, login):
+    set_modules()
+    row = open_composer(client, login)
+    assert apply_latest(client, login, row).status_code == 200
+    with get_sessionmaker()() as db:
+        from app.source_analysis.workspace import page_source
+
+        product = db.get(Product, "p-house")
+        photos = [p["uri"] for m in product.module_detail["modules"] for p in m["photos"]]
+        assert photos == ["/photos/tangerine-box.jpg", "https://cdn.example.com/size.jpg"]
+        assert db.get(ProductWorkspace, "p-house").page_source == page_source(product)
+    assert "composerNotice" not in open_composer(client, login)
