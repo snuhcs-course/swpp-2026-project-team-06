@@ -9,6 +9,7 @@ import {
   DELIVERY_PENDING_NOTE,
   deliveryText,
   joinMeta,
+  priceUntilText,
   reservedText,
   shippingText,
   time,
@@ -16,7 +17,7 @@ import {
 } from "../packages/ui/src/format.ts";
 import { productStatus } from "../apps/producer/src/lib/productGroups.ts";
 
-const noDanglingLabel = (s) => assert.ok(!/(마감|배송비)\s*$/.test(s), `라벨만 남음: "${s}"`);
+const noDanglingLabel = (s) => assert.ok(!/(마감|이 가격|배송비)\s*$/.test(s), `라벨만 남음: "${s}"`);
 
 test("AC-07-2: brix shows registered value, or '당도 등록 전' with no placeholder number", () => {
   assert.deepEqual(brixText(12), {
@@ -34,11 +35,15 @@ test("AC-07-2: brix shows registered value, or '당도 등록 전' with no place
 
 test("DEV-227 SCR-01: card meta drops empty pieces and never says 0명", () => {
   const meta = (n, d) => joinMeta(reservedText(n), closesText(d));
-  assert.equal(meta(38, 5), "38명 예약 · 마감 D-5");
-  assert.equal(meta(0, 9), "마감 D-9");
+  // DEV-348: ‘마감 D-n’ → ‘이 가격 D-n’(값은 그대로 지금 기간 끝까지 남은 날)
+  assert.equal(meta(38, 5), "38명 예약 · 이 가격 D-5");
+  assert.equal(meta(0, 9), "이 가격 D-9");
   assert.equal(meta(12, null), "12명 예약");
   assert.equal(meta(0, null), "");
-  assert.equal(meta(3, 0), "3명 예약 · 마감 D-day");
+  assert.equal(meta(3, 0), "3명 예약 · 이 가격 D-day");
+  assert.equal(priceUntilText("2026-10-12"), "이 가격은 10월 12일까지");
+  assert.equal(priceUntilText(null), "");
+  assert.equal(priceUntilText(undefined), "");
   for (const [n, d] of [[0, 9], [12, null], [0, null], [null, undefined]]) {
     const s = meta(n, d);
     assert.ok(!s.includes("0명"));

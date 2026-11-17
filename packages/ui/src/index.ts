@@ -79,6 +79,7 @@ export {
   joinMeta,
   reservedText,
   closesText,
+  priceUntilText,
   AVAILABILITY_LABEL,
   unavailableLabel,
   brixText,
