@@ -98,9 +98,17 @@ export const joinMeta = (...parts: (string | null | undefined | false)[]) =>
 export const reservedText = (n: number | null | undefined) =>
   n != null && n > 0 ? `${n}명 예약` : "";
 
-/** "마감 D-9" — 마감일이 없으면 빈 글자 */
+/** 소비자 화면의 팔로워 수 ‘팬 128명’(DEV-348). 예약 수처럼 0명·모름은 빈 글자(M-24, 리뷰 반영) */
+export const fansText = (n: number | null | undefined) =>
+  n != null && n > 0 ? `팬 ${n.toLocaleString("ko-KR")}명` : "";
+
+/** "이 가격 D-9" — 지금 기간(지금 가격)이 끝나기까지. 값이 없으면 빈 글자(DEV-348, UX ②: ‘마감’이 예약 마감으로 읽혀서 사실대로) */
 export const closesText = (n: number | null | undefined) =>
-  n == null ? "" : `마감 ${dday(n)}`;
+  n == null ? "" : `이 가격 ${dday(n)}`;
+
+/** "이 가격은 10월 12일까지" — 상품 상세 받는 시기 보조 줄(DEV-348). 끝날을 모르면 빈 글자 */
+export const priceUntilText = (endsAt: string | null | undefined) =>
+  endsAt ? `이 가격은 ${md(endsAt)}까지` : "";
 
 /** 예약할 수 없는 이유 이름(ia.md 4장 레이블). 소비자 카드·상세·생산자 목록이 같은 표를 쓴다. */
 export const AVAILABILITY_LABEL: Record<string, string> = {

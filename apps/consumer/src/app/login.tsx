@@ -1,6 +1,7 @@
 // SCR-05 로그인 — 테스트 계정 선택(ADR 0009) — design: scr-05
 import { auth, evaluatorBuild, isMock, type TestAccount } from "@farmclub/api";
 import {
+  BrandLogo,
   Button,
   EmptyState,
   LegalFooter,
@@ -18,7 +19,7 @@ import {
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, useWindowDimensions } from "react-native";
 
 import { beginKakaoLogin, kakaoRedirectUri } from "../lib/kakao";
 import { openKakaoAuth } from "../lib/kakaoAuth";
@@ -68,6 +69,12 @@ export default function Login() {
     from?: string;
   }>();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  // 조합형 로고는 생산자 SCR-19(DEV-85)와 같은 자리, 폭 150(DEV-311 결정 ⑤). 좁은 폭에서는 제목 칸 196px(‘예약을 이어 가요’ 177px + 여유)을 남기고 줄인다
+  const logoWidth = Math.min(150, Math.max(96, width - 236));
+  // 관문 시트에서 예약으로 왔으면 제목이 예약을 이어 간다고 말한다(DEV-268 UX ⑤, DEV-356). 그 밖의 진입은 지금 제목 그대로
+  const title =
+    from === "reserve" ? "로그인하고\n예약을 이어 가요" : "로그인하고\n계속해요";
   const { refresh, resume: pending, clearResume } = useSession();
   // 이어서 할 행동은 관문 시트에서 온 로그인(from)만 쓴다. 관문 로그인을 브라우저 뒤로로 나가면 행동이 남는데,
   // 나중에 직접 연 로그인(내 정보 버튼·로그인 풀림 등)이 그 행동을 이어 붙이지 않게 지운다(DEV-222, 결정 25)
@@ -183,9 +190,16 @@ export default function Login() {
         footer={<LegalFooter onOpen={(path) => router.push(path)} />}
       >
         <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 8, gap: 8 }}>
-          <T variant="title" accessibilityRole="header">
-            {"로그인하고\n계속해요"}
-          </T>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <T
+              variant="title"
+              accessibilityRole="header"
+              style={{ flex: 1, minWidth: 0 }}
+            >
+              {title}
+            </T>
+            <BrandLogo variant="full" width={logoWidth} />
+          </View>
           {reason === "signedout" ? (
             <Notice
               title="로그인이 풀렸어요"

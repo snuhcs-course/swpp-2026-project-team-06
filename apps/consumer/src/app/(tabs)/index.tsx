@@ -13,6 +13,7 @@ import {
   Scroll,
   Skeleton,
   SoldOutOverlay,
+  StairMark,
   T,
   tokens,
   useAsync,
@@ -104,6 +105,8 @@ export default function Home() {
           </FeedCarousel>
         )}
         <SectionHead title="제철 상품" />
+        {/* 단계 가격 개념 상자: 홈에 하나, 상품이 없으면 숨김(AC-06-9, DEV-348 UX ②) */}
+        {home.data?.recommended.length ? <StagePriceNote /> : null}
         <View
           accessibilityLabel="제철 상품 목록"
           style={{
@@ -197,6 +200,10 @@ type HomeProduct = {
   photo: string | null;
   currentPrice: number | null;
   referencePrice?: number | null;
+  /** 옵션이 여럿이고 카드 가격이 가장 싸면 ‘~’(productPrices, DEV-348) */
+  priceFrom?: boolean;
+  /** 같은 가격이 이어지는 기간 끝까지 남은 날(productPrices, DEV-348). 없으면 dDay */
+  priceDDay?: number | null;
   soldOut: boolean;
   availability?: string;
   reservedCount: number;
@@ -205,7 +212,8 @@ type HomeProduct = {
   nextStageStartsAt?: string | null;
 };
 
-/** 2열 상품 카드: 사진 정사각 → 농가(14 보조) → 상품명 16 semibold → 가격 16 굵게 + 취소선 → 마감 D-day(DEV-293) */
+/** 2열 상품 카드: 사진 정사각 → 농가(14 보조) → 상품명 16 semibold → 가격 18 굵게(옵션이 여럿이면 ‘~’) + 취소선 14(DEV-293·DEV-348) → 이 가격 D-day → 예약 수(DEV-348).
+ *  취소선은 마지막 기간 가격 앵커로 유지한다(DEV-348 11/17 PM 결정, UX ②의 제거안 취소) */
 function ProductCard({
   width,
   product: p,
@@ -242,10 +250,12 @@ function ProductCard({
       <T weight="semibold" numberOfLines={2}>
         {p.name}
       </T>
+      {/* 가격 18 굵게(옵션이 여럿이면 ‘~’) + 취소선 14 보조(DEV-348 디자인 값) */}
       <Price
-        compact
         inline
+        wrap
         current={p.currentPrice}
+        from={!!p.priceFrom}
         reference={
           typeof p.referencePrice === "number" ? p.referencePrice : undefined
         }
@@ -254,14 +264,14 @@ function ProductCard({
       />
       <CardMeta
         reserved={p.reservedCount}
-        dDay={p.soldOut ? null : p.dDay}
+        dDay={p.soldOut ? null : (p.priceDDay ?? p.dDay)}
         next={p.soldOut ? p.nextStageStartsAt : null}
       />
     </Pressable>
   );
 }
 
-/** 카드 메타 줄: 있는 조각만 잇고, 다 비면 줄도 없다(DEV-227, M-24). 마감은 강조색 12, 예약 수는 보조색 */
+/** 카드 메타: 있는 줄만 두고, 다 비면 아무것도 없다(DEV-227, M-24). ‘이 가격 D-n’은 강조색 12 한 줄, 예약 수는 그 아래 보조색(DEV-348) */
 function CardMeta({
   reserved,
   dDay,
@@ -282,14 +292,49 @@ function CardMeta({
   const count = reservedText(reserved);
   if (!closes && !count) return null;
   return (
-    <T variant="caption" muted numberOfLines={1}>
+    <View>
       {closes ? (
-        <T variant="caption" weight="semibold" color={tokens.color.accent}>
+        <T
+          variant="caption"
+          weight="semibold"
+          color={tokens.color.accent}
+          numberOfLines={1}
+        >
           {closes}
         </T>
       ) : null}
-      {closes && count ? " · " : ""}
-      {count}
-    </T>
+      {count ? (
+        <T variant="caption" muted numberOfLines={1}>
+          {count}
+        </T>
+      ) : null}
+    </View>
+  );
+}
+
+/** 제철 상품 위 개념 상자: 면색, 14/20 두 문장, 왼쪽 정적 계단 표식 28×20(DEV-268 UX ② · DEV-311 홈 통합안) */
+function StagePriceNote() {
+  return (
+    <View
+      testID="stage-price-note"
+      style={{
+        marginHorizontal: tokens.space.gutter,
+        marginBottom: 16,
+        padding: 16,
+        borderRadius: tokens.radius.md,
+        backgroundColor: tokens.color.surface,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+      }}
+    >
+      <StairMark width={28} />
+      <T variant="sub" style={{ flex: 1, minWidth: 0 }}>
+        <T variant="sub" weight="bold">
+          일찍 예약할수록 싸요.
+        </T>{" "}
+        농가가 기간마다 가격을 정하고, 지금 예약하면 지금 가격으로 받아요.
+      </T>
+    </View>
   );
 }

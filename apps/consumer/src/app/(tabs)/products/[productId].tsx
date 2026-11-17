@@ -17,6 +17,7 @@ import {
   Skeleton,
   T,
   tokens,
+  useAsync,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -75,6 +76,12 @@ export default function ProductPage() {
     reload,
     loading,
   } = useFocusedAsync(() => catalog.product(productId), [productId]);
+  // 판매자 줄 ‘팬 n명’(DEV-348): 상품 응답에 팔로워 수가 없어 공개 농가 API를 한 번 더 읽는다. 실패하면 수만 뺀다
+  const farmId = p?.farmId;
+  const farm = useAsync(
+    async () => (farmId ? farms.get(farmId) : null),
+    [farmId],
+  );
   const [sheetOpen, setSheetOpen] = useState(false);
   const [optionId, setOptionId] = useState<string>("");
   const [qty, setQty] = useState(1);
@@ -172,7 +179,7 @@ export default function ProductPage() {
       <Scroll bottom={120}>
         {error ? <LoadError error={error} onRetry={reload} /> : null}
         <ProductPageBody
-          p={p}
+          p={{ ...p, farmFollowerCount: farm.data?.followerCount ?? null }}
           reference={(o) => referencePrice(p, o)}
           mediaUrl={(uri) => (uri.startsWith("/") ? apiUrl + uri : uri)}
           onFarmPress={() => router.push(`/farms/${p.farmId}`)}

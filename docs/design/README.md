@@ -243,6 +243,15 @@ screens.md 1.0과 다르게 정한 것이다. SWPP-81에서 스펙 1.1에 반영
 | 디자인 시스템 | [screens/ds.html](screens/ds.html) | 1400×4700 |
 | 표지 · 화면 체크리스트 | [screens/cover.html](screens/cover.html) | 1240×1880 |
 
+### 제안 보드 (승인 전)
+
+원본은 `proposals/`에 있고, 캔버스에는 `screens/proposal-boards/`의 틀이 원본을 불러와 보인다(Easel은 `screens/` 아래만 읽는다). 승인되기 전에는 위 규칙·토큰을 바꾸지 않는다.
+
+| 프레임 | 파일 | 크기 |
+| --- | --- | --- |
+| 브랜드 아이덴티티 진단 · 방향 A 팬클럽 / B 수확 시계 / C 산지 서명 (DEV-311) | [proposals/dev-311-brand-audit.html](proposals/dev-311-brand-audit.html) · [proposals/dev-311-brand-directions.html](proposals/dev-311-brand-directions.html) | 1320×3300 · 1380×8400 |
+| 브랜드 통합안: A 팬클럽 + B 가격 계단, 승인된 DEV-268 UX 위 (DEV-311) | [proposals/dev-311-brand-integrated.html](proposals/dev-311-brand-integrated.html) | 1380×24600 |
+
 ## 스펙 1.2~1.5 반영 (SWPP-83)
 
 DEV-3(#38~#45)이 글로 정해 두었던 1.2 레이아웃·1.3 레이아웃·1.4 물량 승인을 위 규칙과 화면 목록에 옮겨 그렸다. 기능 기준은 [1.2 계약](../spec/contracts-1.2.md), [화면 구조 1.3](../spec/navigation-1.3.md), [공급 계약 1.4](../spec/capacity-1.4.md), [상세·소식방 1.5](../spec/storefront-1.5.md)이고, 화면·문구·크기는 이 폴더를 따른다.
@@ -252,3 +261,5 @@ DEV-3(#38~#45)이 글로 정해 두었던 1.2 레이아웃·1.3 레이아웃·1.
 - 360/390/430/1440px에서 가로 넘침, 긴 상품명·큰 숫자·사진 여러 장·빈 상태·오류·로딩·키보드를 확인한다. 입력창·키보드·탭 바가 메시지나 저장 버튼을 가리지 않게 안전 영역과 실제 하단 높이를 반영한다.
 
 참고: [Bubble 공식 소개](https://www.dear-u.co/en/pages/business_bubble.php)의 대화 구성, [공식 화면 예시](https://www.dear-u.co/images/renew/sub/bubbleApp03_en.jpg). 자산·로고를 복제하지 않고 Farmclub의 비공개 답장 규칙을 적용한다. 판매 총 한도와 구매 한도 구분은 [Coupang 공식 상품 API](https://developers.coupang.com/ko/api/products/querying-product)의 별도 항목을 참고했다. 실제 기능 기준은 [1.2 계약](../spec/contracts-1.2.md)이다.
+
+- **첫 예약 동선 점검(DEV-268, 제안 단계·승인 전)**: 공유 링크·홈 → 상품 → 로그인 → 주문서 → 입금 안내 → 내 주문을 390 비로그인 첫 방문자로 점검한 문제 18개와 개선 제안 7개(before 캡처 | after 목업). 제안 보드 [proposals/dev-268-first-reservation-audit.html](proposals/dev-268-first-reservation-audit.html), 캔버스 보드 `screens/dev-268-first-reservation-audit.html`(원본을 불러오는 틀)

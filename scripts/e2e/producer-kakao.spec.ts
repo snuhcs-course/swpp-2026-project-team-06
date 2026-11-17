@@ -71,3 +71,29 @@ test("AC-01-16: an unused state without a session still explains the expired req
   await expect(page).toHaveURL(/\/login$/);
   assertClean();
 });
+
+// DEV-78: 카카오 동의로 받은 전화번호(계정 phone)가 가입 신청(SCR-20) 연락처 칸을 미리 채운다. 시드 u-new는 번호가 없어
+// /api/auth/me 응답에만 번호를 얹는다(서버가 카카오 번호를 계정에 넣는 것은 server/tests/test_accounts.py가 본다)
+test("AC-01-16 DEV-78: the Kakao phone prefills the producer application contact and stays editable", async ({
+  page,
+  request,
+}) => {
+  const assertClean = monitor(page);
+  await fakeKakaoLogin(page, request, "u-new");
+  await page.route(`${apiUrl}/api/auth/me`, async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    const user = await response.json();
+    await route.fulfill({ response, json: { ...user, phone: "010-2345-6789" } });
+  });
+  await returnFromKakao(page);
+  await expect(page).toHaveURL(home("/apply"));
+  const phone = page.getByLabel("연락처");
+  await expect(phone).toHaveValue("010-2345-6789");
+  await expect(page.getByLabel("대표자 이름")).toHaveValue("");
+
+  // 고친 값은 그대로 남는다
+  await phone.fill("010-1111-2222");
+  await expect(phone).toHaveValue("010-1111-2222");
+  assertClean();
+});

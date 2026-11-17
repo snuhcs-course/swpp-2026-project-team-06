@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>브랜드 진단 DEV-311</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 레이아웃: 위에 한 줄 결론, 가운데 접점 캡처 6장(번호 표시), 아래 어긋남 표·세 목소리 표·로고가 이미 가진 것.
+   캡처는 DEV-311/current/ 에 있다. 사업자 정보가 보이는 푸터는 잘라 냈다. */
+:root {
+  --bg: #EFEEEA; --panel: #FFFFFF; --ink: #111111; --ink-2: #5E5D59; --rule: #DAD9D4;
+  --mark: #C94F0C; --mark-ink: #FFFFFF; --bad: #B42318; --bad-soft: #FBEAE8; --good: #2F6B3A; --good-soft: #E7F1E8;
+  --warn: #8A5A00; --warn-soft: #FFF3D6;
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+    --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+    --warn: #F2C46B; --warn-soft: #3A2E14; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+  --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+  --warn: #F2C46B; --warn-soft: #3A2E14; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 22px;
+  padding: 32px max(16px, env(safe-area-inset-left, 0px)) 64px; font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1 { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 30px; letter-spacing: -0.01em; margin: 0 0 16px; }
+h3 { font-size: 17px; line-height: 25px; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-size: 13px; line-height: 18px; letter-spacing: 0.04em; color: var(--ink-2); font-weight: 600; }
+.lede { max-width: 72ch; color: var(--ink-2); font-size: 17px; line-height: 26px; }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--ink-2); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; background: var(--rule); padding: 1px 5px; border-radius: 4px; }
+
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.shot { background: var(--panel); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.shot .img { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--rule); background: #fff; }
+.shot img { display: block; width: 100%; height: auto; }
+.shot .crop { height: 420px; }
+.shot .crop img { object-fit: cover; object-position: top; height: 100%; }
+.shot h3 { font-size: 15px; }
+.shot p { font-size: 13px; line-height: 19px; color: var(--ink-2); }
+.pin { position: absolute; width: 26px; height: 26px; border-radius: 999px; background: var(--bad); color: #fff; font-weight: 700; font-size: 13px;
+  display: grid; place-items: center; box-shadow: 0 0 0 3px #fff; transform: translate(-50%, -50%); }
+
+table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 16px; overflow: hidden; font-size: 14px; line-height: 21px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
+th { font-size: 13px; color: var(--ink-2); font-weight: 600; background: var(--bg); }
+td.n { width: 44px; }
+td.n span { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-weight: 700; font-size: 13px; }
+.chip { display: inline-block; font-size: 12px; line-height: 18px; padding: 1px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+.chip.v { background: var(--good-soft); color: var(--good); }
+.chip.e { background: var(--warn-soft); color: var(--warn); }
+.tbl-wrap { overflow-x: auto; border-radius: 16px; }
+.tbl-wrap table { min-width: 760px; }
+
+.voices { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.voice { background: var(--panel); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.voice .sample { height: 72px; display: grid; place-items: center start; border-radius: 10px; background: #fff; border: 1px solid var(--rule); padding: 0 16px; overflow: hidden; }
+.voice dl { margin: 0; display: grid; grid-template-columns: 64px 1fr; gap: 4px 10px; font-size: 13px; line-height: 19px; }
+.voice dt { color: var(--ink-2); }
+.voice dd { margin: 0; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,.12); }
+
+.keep { background: var(--panel); border-radius: 16px; padding: 20px; display: grid; grid-template-columns: 160px 1fr; gap: 20px; align-items: center; }
+.keep img { width: 160px; height: auto; }
+.keep ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 560px) { .keep { grid-template-columns: 1fr; } }
+.foot { font-size: 13px; color: var(--ink-2); line-height: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="head">
+  <div class="eyebrow">DEV-311 · 브랜드 아이덴티티 재정비 · 1/2 진단</div>
+  <h1>로고, 화면, 공유 미리보기가 서로 다른 말투로 말해요</h1>
+  <p class="lede">펠트 질감 로고(10월 19일 승인, 11월 9일 아이콘 적용)는 따뜻하고 손에 잡히는 쪽이고, 앱 화면은 Pretendard·무채색·주황 한 점의 절제된 쪽이며, 카카오톡 공유 미리보기는 로고 승인 전의 소문자 워드마크를 그대로 쓰고 있어요. 각각은 잘 만든 결과지만 한 사람이 링크 → 홈 → 상품 → 로그인 → 홈 화면 아이콘 순서로 만나면 세 회사를 차례로 보는 셈이에요.</p>
+  <div class="meta"><span>기준: <code>origin/main</code> e48b3f1 (2026-11-11)</span><span>캡처: Vercel 기본 주소, 390 폭(홈·상품은 2026-11-10 캡처, 지금은 운영 상품 0개)</span><span>방향 보드: <a href="dev-311-brand-directions.html" style="color:var(--mark)">dev-311-brand-directions.html</a></span></div>
+</header>
+
+<section>
+  <h2>접점별 지금 모습</h2>
+  <div class="shots">
+    <article class="shot">
+      <div class="img crop"><img src="DEV-311/current/consumer-home-2026-11-10.png" alt="소비자 홈 상단 캡처">
+        <span class="pin" style="left:24%;top:4%">2</span><span class="pin" style="left:10%;top:22%">3</span><span class="pin" style="left:8%;top:93%">4</span></div>
+      <h3>소비자 홈 상단</h3><p>글자형 로고 130px. 로고 주황(#FB8F27)과 ‘마감 D-day’·탭 주황(#C94F0C)이 한 화면에 같이 있어요.</p>
+    </article>
+    <article class="shot">
+      <div class="img crop"><img src="DEV-311/current/consumer-product-2026-11-10.png" alt="소비자 상품 상세 상단 캡처">
+        <span class="pin" style="left:50%;top:20%">13</span></div>
+      <h3>상품 상세 상단</h3><p>브랜드 요소 없음. 첫 사진은 하우스 통로 풍경이고, 농가 사람·손은 보이지 않아요.</p>
+    </article>
+    <article class="shot">
+      <div class="img crop"><img src="DEV-311/current/consumer-login.png" alt="소비자 로그인 캡처">
+        <span class="pin" style="left:70%;top:14%">10</span></div>
+      <h3>소비자 로그인</h3><p>로고가 없어요. 카카오 노란 버튼이 화면에서 가장 큰 색이에요.</p>
+    </article>
+    <article class="shot">
+      <div class="img crop"><img src="DEV-311/current/producer-login.png" alt="생산자 로그인 캡처">
+        <span class="pin" style="left:76%;top:26%">10</span></div>
+      <h3>생산자 로그인</h3><p>두 줄 조합형 172×129(DEV-85 승인 배치). 같은 서비스의 두 로그인이 다르게 시작해요.</p>
+    </article>
+    <article class="shot">
+      <div class="img"><img src="DEV-311/assets/og-current.jpg" alt="현재 공유 미리보기 이미지">
+        <span class="pin" style="left:30%;top:14%">5</span><span class="pin" style="left:56%;top:86%">7</span></div>
+      <h3>공유 미리보기 og.jpg (두 앱 같은 파일)</h3><p>10월 8일 만든 소문자 ‘farmclub.’ 워드마크. 생산자 앱도 이 이미지를 써서 농가에게 ‘일찍 예약할수록 싸요’가 보여요. <span class="pin" style="position:static;display:inline-grid;transform:none;box-shadow:none;width:20px;height:20px;font-size:11px">6</span></p>
+    </article>
+    <article class="shot">
+      <div class="img"><img src="DEV-311/current/icons-favicon-16-32-180.png" alt="현재 파비콘 16, 32, 애플 터치 아이콘 180, 생산자 16, 안드로이드 단색 아이콘">
+        <span class="pin" style="left:9%;top:30%">8</span><span class="pin" style="left:57%;top:30%">9</span><span class="pin" style="left:86%;top:24%">11</span></div>
+      <h3>파비콘 16·32, 홈 화면 180, 생산자 16, 안드로이드 단색</h3><p>16·32는 8배·4배로 키워 보였어요. 두 줄 조합형 전체가 정사각 안 64% 폭으로 들어가 글자가 색 띠가 돼요.</p>
+    </article>
+  </div>
+</section>
+
+<section>
+  <h2>어긋남 목록</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th></th><th>무엇이 어긋나나</th><th>어디서 봤나</th><th>신뢰·첫인상에 걸리는 이유</th><th>확인</th></tr></thead>
+    <tbody>
+      <tr><td class="n"><span>1</span></td><td>이름 표기 셋: 그림 속 ‘FARM CLUB’(대문자, 띄어 씀), 메타·채팅 상대·푸터의 ‘farmclub’, 로고 대체 텍스트·관리자 alt의 ‘Farmclub’</td><td><code>BrandLogo.tsx</code> accessibilityLabel, <code>admin.js</code>, <code>public/index.html</code>, <code>ChatBubble.tsx</code></td><td>검색·화면 읽기·카톡 미리보기마다 이름 모양이 달라 같은 서비스인지 한 번 더 확인하게 돼요.</td><td><span class="chip v">검증</span></td></tr>
+      <tr><td class="n"><span>2</span></td><td>주황 둘: 로고 CLUB 평균 #FB8F27, UI 강조 #C94F0C</td><td>홈 헤더 로고와 ‘마감 D-day’·발견 탭이 한 화면</td><td>비슷하지만 다른 주황은 의도로 읽히지 않고 인쇄가 어긋난 것처럼 보여요.</td><td><span class="chip v">검증</span> 픽셀 평균</td></tr>
+      <tr><td class="n"><span>3</span></td><td>로고 글자 대비: FARM 2.78:1, CLUB 2.32:1 (흰 바탕)</td><td>홈 헤더 130px, 펠트 결이 글자 가장자리를 흐림</td><td>WCAG는 로고를 대비 기준에서 빼지만, 화면에서 가장 먼저 읽히는 글자가 가장 흐린 글자예요.</td><td><span class="chip v">검증</span> 수치</td></tr>
+      <tr><td class="n"><span>4</span></td><td>재료가 다름: 로고는 펠트·종이 질감 그림, 화면은 그림자 없는 평면·1px 선</td><td>모든 로고 자리</td><td>로고만 다른 앱에서 가져온 스티커처럼 떠 보여요. 따뜻함이 로고 안에만 머물러요.</td><td><span class="chip v">검증</span> 관찰</td></tr>
+      <tr><td class="n"><span>5</span></td><td>공유 미리보기가 옛 워드마크: 소문자 ‘farmclub.’ + 주황 점, 어둡게 깐 과수원 사진</td><td><code>apps/*/public/og.jpg</code> (2026-10-08), 로고 승인(10-19) 전</td><td>카톡으로 받은 링크와 열어 본 앱의 로고가 달라 첫 접점부터 갈라져요.</td><td><span class="chip v">검증</span></td></tr>
+      <tr><td class="n"><span>6</span></td><td>생산자 공유 미리보기 = 소비자 이미지(파일 해시 같음). og:title은 ‘farmclub 농가 · 예약받는’인데 그림 문구는 ‘일찍 예약할수록 싸요’</td><td><code>apps/producer/public/og.jpg</code></td><td>농가에게 보내는 가입 링크가 소비자 광고처럼 보여요.</td><td><span class="chip v">검증</span></td></tr>
+      <tr><td class="n"><span>7</span></td><td>같은 개념 두 이름: 그림 ‘단계 가격’, 메타 설명 ‘시기별 가격’</td><td>og.jpg 부제, <code>index.html</code> description·manifest</td><td>핵심 약속(일찍 사면 싸다)의 이름이 접점마다 달라요.</td><td><span class="chip v">검증</span></td></tr>
+      <tr><td class="n"><span>8</span></td><td>파비콘·홈 화면 아이콘이 두 줄 조합형 전체: 16px은 귤 점 + 색 띠 두 줄, 32px도 글자 판독 안 됨, 180px에서 글자 높이 약 17px</td><td><code>scripts/generate-brand-icons.mjs</code> (폭 64%)</td><td>탭·홈 화면은 매일 보는 자리인데 무엇인지 알아보기 어려워요. 정사각 위아래 약 30%가 빈 흰색이에요.</td><td><span class="chip v">검증</span> 렌더</td></tr>
+      <tr><td class="n"><span>9</span></td><td>소비자·생산자 앱 아이콘이 같은 그림(<code>icon.png</code> 해시 같음, 웹 아이콘도 같은 원본·같은 배치)</td><td>두 앱 <code>assets/</code>, <code>public/icons/</code></td><td>농가가 두 앱을 다 홈 화면에 두면 어느 쪽인지 이름 글자로만 구별해요.</td><td><span class="chip v">검증</span></td></tr>
+      <tr><td class="n"><span>10</span></td><td>로그인 비대칭: 생산자는 조합형 로고 172×129, 소비자는 로고 없음</td><td><code>apps/*/src/app/login.tsx</code>, 캡처</td><td>소비자는 가입 직전, 카카오 노란 화면으로 넘어가기 바로 앞에서 브랜드를 못 봐요.</td><td><span class="chip v">검증</span></td></tr>
+      <tr><td class="n"><span>11</span></td><td>안드로이드 적응형 아이콘 <code>backgroundColor</code>가 Expo 템플릿 기본값 #E6F4FE(하늘색). 단색 레이어는 회색조 그림이라 테마 아이콘에서 글자까지 한 덩어리 실루엣이 될 수 있음</td><td><code>apps/*/app.json</code>, <code>android-icon-monochrome.png</code></td><td>배경 PNG가 흰색이라 대부분 가려지지만, 테마 아이콘을 켠 기기에서 모양이 뭉개질 수 있어요.</td><td><span class="chip v">검증</span> 설정값 · <span class="chip e">추정</span> 기기 표시</td></tr>
+      <tr><td class="n"><span>12</span></td><td>브라우저 테마색·매니페스트 배경 모두 #FFFFFF. 홈 화면에서 켤 때 흰 바탕 + 작은 조합형(아이콘 512 기반 자동 스플래시)</td><td><code>manifest.webmanifest</code>, <code>index.html</code> theme-color</td><td>앱을 여는 1초가 브랜드 없이 흰 화면이에요.</td><td><span class="chip v">검증</span> 설정값 · <span class="chip e">추정</span> 기기별 스플래시</td></tr>
+      <tr><td class="n"><span>13</span></td><td>사진 쓰는 법 규칙 없음: 공유 카드는 어둡게 깐 과수원, 상품 첫 장은 하우스 통로 풍경, 소식 카드는 사진 있는 것·없는 것이 섞임</td><td>캡처(11-10), <code>docs/design/README.md</code>에 사진 규칙 없음</td><td>‘농가가 직접 판다’가 서비스의 차이인데, 첫 화면에서 농가 사람이 거의 안 보여요.</td><td><span class="chip v">검증</span> 캡처 · 규칙 부재</td></tr>
+      <tr><td class="n"><span>14</span></td><td>사진이 없을 때 빈 자리에 회색조 로고</td><td><code>packages/ui/src/content.tsx</code> (monochrome)</td><td>산지 증거가 있어야 할 자리를 브랜드가 대신 채워요. 작지만 13번과 같은 문제예요.</td><td><span class="chip v">검증</span> 코드</td></tr>
+    </tbody>
+  </table></div>
+  <p class="foot" style="margin-top:12px">관리자 페이지(<code>scripts/admin-web</code>)는 조합형 96×72 + ‘관리자’ 표시로 로고 쪽과 맞아 따로 짚지 않았어요(alt 표기만 1번). 푸터 문구 ‘farmclub은 통신판매중개자…’도 1번에 포함해요. 스플래시는 Expo 설정에 별도 이미지가 없어 12번(웹 설치형 기준)만 적었어요.</p>
+</section>
+
+<section>
+  <h2>세 목소리</h2>
+  <div class="voices">
+    <div class="voice">
+      <div class="sample"><img src="DEV-311/assets/logo-wordmark.png" alt="" style="height:44px"></div>
+      <h3>로고 (팀 승인, DEV-85·DEV-287)</h3>
+      <dl><dt>글자</dt><dd>둥근 대문자, 두 덩어리 FARM / CLUB</dd><dt>색</dt><dd><span class="sw" style="background:#97A15B"></span>#97A15B 올리브 <span class="sw" style="background:#FB8F27"></span>#FB8F27 밝은 주황 + 크림 손잡이</dd><dt>재료</dt><dd>펠트·종이 질감, 일러스트</dd><dt>말투</dt><dd>장난스럽고 다정함</dd></dl>
+    </div>
+    <div class="voice">
+      <div class="sample"><span style="font-size:22px;font-weight:700;color:#111">제철 상품</span>&nbsp;<span style="font-size:14px;font-weight:600;color:#C94F0C">마감 D-2</span></div>
+      <h3>앱 화면 (UI 1.6, DEV-293 기준표)</h3>
+      <dl><dt>글자</dt><dd>Pretendard 22/18/16/14/12, 굵기 400·600·700</dd><dt>색</dt><dd><span class="sw" style="background:#111"></span>#111 <span class="sw" style="background:#F5F5F3"></span>#F5F5F3 <span class="sw" style="background:#C94F0C"></span>#C94F0C 한 곳</dd><dt>재료</dt><dd>평면, 1px 선, 사진이 색을 냄</dd><dt>말투</dt><dd>짧은 해요체, 사실 위주</dd></dl>
+    </div>
+    <div class="voice">
+      <div class="sample" style="background:#2b3326"><span style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.03em">farmclub<span style="color:#F08A3C">.</span></span></div>
+      <h3>공유 미리보기 (2026-10-08)</h3>
+      <dl><dt>글자</dt><dd>Pretendard 굵은 소문자 + 주황 마침표</dd><dt>색</dt><dd>어둡게 깐 사진 위 흰 글자</dd><dt>재료</dt><dd>사진</dd><dt>말투</dt><dd>광고 문구(‘일찍 예약할수록 싸요’)</dd></dl>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>로고가 이미 가진 것</h2>
+  <div class="keep">
+    <img src="DEV-311/assets/logo-icon.png" alt="현재 로고 심볼: 손잡이 위에 올린 귤">
+    <ul>
+      <li><b>손잡이 위의 귤.</b> 공연장 응원봉처럼 보여요. ‘CLUB’과 합쳐 ‘농가의 팬클럽’으로 읽을 수 있어요. 앱에는 이미 팔로우·소식방·팬 답장(DEV-297)이 있어서 이 해석이 기능과 맞아요. (응원봉인지 마이크인지는 그린 사람에게 확인 필요)</li>
+      <li><b>제주 감귤이 바로 보여요.</b> 잎·꼭지·점박이 껍질까지 있어 글자 없이도 무엇을 파는지 알려 줘요. 16px에서도 남는 건 이 귤 원이에요.</li>
+      <li><b>따뜻함.</b> 화면이 절제된 만큼, 로고가 유일하게 손맛을 내는 자리예요. 방향 보드의 세 안은 이 따뜻함을 화면으로 얼마나 끌어올지를 다르게 정해요.</li>
+    </ul>
+  </div>
+</section>
+
+<p class="foot">수치: 대비비는 WCAG 2.x 상대 휘도 공식, 로고 색은 <code>logo-wordmark.png</code> 불투명 픽셀 평균(왼쪽 절반 FARM, 오른쪽 절반 CLUB). 파일 같음은 md5 비교. ‘추정’은 실제 기기에서 확인하지 못한 항목이에요.</p>
+</div>
+</body>
+</html>

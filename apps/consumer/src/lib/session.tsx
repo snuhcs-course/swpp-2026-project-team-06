@@ -22,6 +22,7 @@ import {
   type ReactNode,
 } from "react";
 import { chatViewState } from "./chatViewState";
+import { GateSummary } from "./GateSummary";
 import { ChatSessionController } from "./chatSession";
 
 configureApi({ namespace: "consumer" });
@@ -34,6 +35,13 @@ const GATE_TITLE: Record<GateAction, string> = {
   like: "로그인하고 좋아요를 눌러요",
   tab: "로그인이 필요해요",
 };
+/** 관문 시트 본문. 예약만 ‘고른 것이 그대로 이어진다’는 문장(DEV-268 UX ⑤, DEV-356), 나머지는 지금 문장 그대로 */
+const GATE_BODY_DEFAULT =
+  "팔로우·예약·채팅은 로그인이 필요해요. 로그인하면 지금 보던 화면으로 돌아와요.";
+const gateBody = (action: GateAction) =>
+  action === "reserve"
+    ? "로그인하면 고른 옵션 그대로 주문서로 가요."
+    : GATE_BODY_DEFAULT;
 
 /** 로그인 뒤 이어서 할 행동(screens.md 결정 25, D-17). next 화면이 다시 보이면 그 화면이 꺼내 쓴다 */
 export type Resume = {
@@ -87,6 +95,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const chatSession = useRef<ChatSessionController | null>(null);
   if (!chatSession.current) chatSession.current = new ChatSessionController(chatViewState);
   const [gate, setGate] = useState<Resume | null>(null);
+  // 시트가 닫히는 동안에도 본문·요약이 비지 않게 마지막 관문을 기억한다(본문은 원래 고정 문장이었다)
+  const lastGate = useRef<Resume | null>(null);
+  if (gate) lastGate.current = gate;
+  const shownGate = gate ?? lastGate.current;
   // 관문 시트의 ‘로그인’은 시트를 바로 닫고 로그인 화면으로 간다(DEV-225)
   const gateLeave = useSheetLeave();
   const [resume, setResume] = useState<Resume | null>(null);
@@ -266,10 +278,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         instant={gateLeave.instant}
       >
         <T variant="heading">{gate ? GATE_TITLE[gate.action] : ""}</T>
-        <T variant="body">
-          팔로우·예약·채팅은 로그인이 필요해요. 로그인하면 지금 보던 화면으로
-          돌아와요.
-        </T>
+        {/* 예약이면 고른 옵션·수량 요약(UX ⑤). 닫히는 동안에는 마지막 관문 문구를 그대로 둔다 */}
+        {shownGate?.action === "reserve" && shownGate.data?.optionId ? (
+          <GateSummary
+            next={shownGate.next}
+            optionId={shownGate.data.optionId}
+            quantity={shownGate.data.quantity}
+          />
+        ) : null}
+        <T variant="body">{gateBody(shownGate?.action ?? "tab")}</T>
         <Button
           label="로그인"
           onPress={() => {

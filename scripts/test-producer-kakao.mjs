@@ -58,7 +58,7 @@ test("AC-01-16: login start stores a one-time state that matches the authorize U
     assert.equal(url.searchParams.get("client_id"), config.clientId);
     assert.equal(url.searchParams.get("redirect_uri"), `${origin}/auth/kakao`);
     assert.equal(url.searchParams.get("response_type"), "code");
-    assert.equal(url.searchParams.get("scope"), "account_email");
+    assert.equal(url.searchParams.get("scope"), "account_email,phone_number"); // DEV-78
     const state = url.searchParams.get("state");
     assert.ok(state);
     // 돌아와서 한 번 꺼내면 지워진다(같은 복귀 주소를 다시 열어도 재사용 불가)

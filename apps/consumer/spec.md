@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-348 가격 계단·알아 둘 세 줄·팬 호칭
+홈 카드 가격·취소선은 main 그대로(`productPrices`의 `referencePrice`), 상품 상세도 `referencePrice`를 넘겨 옵션 줄에 ‘지금 예약가 ~~비교 가격~~’(11/17 PM 결정으로 취소선 유지). 카드 메타는 ‘이 가격 D-n’ 한 줄 + ‘n명 예약’ 한 줄, 개념 상자는 추천 상품이 있을 때만. 상품 상세 판매자 줄의 ‘팬 n명’은 상품 응답에 없어 `farms.get(farmId)`를 한 번 더 읽고, 실패하면 수만 뺀다. 소식방 머리도 ‘팬 N명’(버튼·공개 범위 이름 ‘팔로워 전용’은 그대로). FEAT-06 AC-06-9, FEAT-07 AC-07-9·10.
+
 ## DEV-314 우편번호 찾기
 배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.ts`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
 
@@ -194,3 +197,6 @@ Home/product data use useFocusedAsync: useAsync loads initially and on resource 
 ## DEV-340 Chat Back history
 
 Conversation headers use goBackOr with roomBackTarget as the direct-entry fallback. Existing in-app history is consumed with back, rather than adding another forward visit to the source product. A fresh direct URL replaces its fallback.
+
+## DEV-356 로그인·주문서·입금 안내 (2026-11-17)
+로그인(SCR-05)은 제목 왼쪽 · 조합형 `BrandLogo variant="full"` 오른쪽(생산자 SCR-19 배치), 폭은 `min(150, max(96, 창 폭 − 236))`라 390에서 150, 좁은 폭에서도 제목 두 줄. 제목은 `from=reserve`만 ‘로그인하고 예약을 이어 가요’. 관문 시트(`lib/session.tsx`)는 예약 관문에서만 `lib/GateSummary.tsx`(next의 `/products/:id`·data의 optionId·quantity로 상품을 읽음, 순수 계산 `lib/reserveSummary.ts`)와 예약용 본문을 그리고, 닫히는 동안 마지막 관문 문구를 유지한다. 주문서는 `control.placed`(이 주문서로 만든 입금 대기 주문)가 있으면 화면이 다시 보일 때(useFocusEffect) ‘이미 만든 예약’ Notice를 띄우고 첫 줄을 `orders.get` + `placedLine`(lib/orderText.ts)으로 채운다. 강조색은 하단 버튼 하나(‘변경’·총 입금액은 글자색). 입금 안내는 `DepositCard hideAmount`로 ‘입금액’ 줄만 빼고(완료·주문 상세는 그대로) 큰 금액 옆에 복사, 입금자명 안내는 Notice + `depositorNameTitle`(끝 숫자 읽기로 로/으로). FEAT-01 AC-01-21, FEAT-08 AC-08-10, FEAT-09 AC-09-11.

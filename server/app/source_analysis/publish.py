@@ -1,6 +1,5 @@
 """Explicit publication: allow-listed snapshot; never expose source identifiers."""
 
-import hashlib
 from copy import deepcopy
 from typing import Annotated
 
@@ -13,8 +12,9 @@ from app.core.db import get_db
 from app.core.errors import conflict, invalid, not_found
 from app.core.images import sniff
 from app.source_analysis import service as s
+from app.source_analysis.caching import not_modified, tag_for
 from app.source_analysis.models import ProductWorkspace, PublicPhoto
-from app.source_analysis.photos import public_photo as display_copy
+from app.source_analysis.photos import page_variant
 from app.source_analysis.storage import Storage
 
 public_router = APIRouter()
@@ -58,7 +58,8 @@ def apply_draft(db, batch, draft, body):
             pages = s.pages_for(db, source)
             if len(pages) != 1 or not pages[0].sanitized_key:
                 raise conflict("PHOTO_NOT_PREPARED", "원본 사진 처리를 완료해 주세요.")
-            data = display_copy(store.get(pages[0].sanitized_key))
+            # Same bytes as public_photo(PNG); reuses the stored preview when present (DEV-341).
+            data = page_variant(store, pages[0].sanitized_key, "display")
             photo = PublicPhoto(product_id=product.id, storage_key=store.put(data))
             db.add(photo)
             db.flush()
@@ -108,8 +109,7 @@ def media_type(data: bytes) -> str:
 
 def etag(photo: PublicPhoto) -> str:
     # The ETag follows the storage key (recompress writes a new key, so the tag changes).
-    # Hash it so the private key is never exposed.
-    return '"' + hashlib.sha256(photo.storage_key.encode()).hexdigest()[:32] + '"'
+    return tag_for(photo.storage_key)
 
 
 @public_router.get("/source-media/{photo_id}")
@@ -141,8 +141,7 @@ def public_photo(
         raise not_found()
     tag = etag(photo)
     headers = {"Cache-Control": PUBLIC_CACHE, "ETag": tag, "X-Content-Type-Options": "nosniff"}
-    tags = [t.strip().removeprefix("W/") for t in (if_none_match or "").split(",")]
-    if "*" in tags or tag in tags:
+    if not_modified(tag, if_none_match):
         return Response(status_code=304, headers=headers)
     data = Storage().get(photo.storage_key)
     return Response(data, media_type=media_type(data), headers=headers)
