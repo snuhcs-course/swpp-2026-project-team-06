@@ -23,3 +23,23 @@ Design readback and screenshot review establish the represented copy, layout and
 Implementation references: `apps/consumer/src/app/(tabs)/orders/[orderId]/inquiry.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx`, `apps/consumer/src/lib/useOrderDetail.ts`, `apps/consumer/src/lib/views.tsx`, and `packages/ui/src/PrivatePhotos.tsx`.
 
 Verification on 17 November: independent AI review compared the four rendered states with the Linear requirements and source. It identified and then verified corrections for the uploaded-photo preview/delete control, cleared file input, input text/surface colors and SCR-14 offline icon. Final screenshot `farmclub-dev319-final.png` was visually inspected; Figma metadata readback confirmed the board, all four screen IDs, 390 px screen widths, retained draft/photo nodes and the SCR-14 offline icon. The editing pass's final structural readback counted 437 nodes and 92 editable text nodes, all using Noto Sans KR; image nodes were the two 220 × 160 photo previews and a 64 × 64 product photo, with no full-screen image. The source Pretendard text remained unchanged. No consequential requirement mismatch remained in this design review. Human review and repository-documentation merge remain pending. No application tests were rerun for this design/documentation-only update.
+
+
+## DEV-321 — Reservation-result recovery
+
+- Linear: [DEV-321](https://linear.app/sswp6/issue/DEV-321); implementation: [PR #597 / DEV-320](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/597)
+- Requirements: FEAT-08 / FEAT-09 / AC-09-3 / SCR-10
+- Design board: [713:3656 — 예약 결과 복구](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=713-3656)
+- Compared implementation: d2386f363c739745d066a259ebe27a3506f5f7bc
+
+| Editable screen | Represented state and behavior |
+| --- | --- |
+| [713:3662 — unresolved result](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=713-3662) | Notice title `예약 결과를 확인해 주세요`; body `기존 요청의 결과를 확인한 뒤 다음 예약을 진행할 수 있어요. 바꾼 내용은 아직 저장되지 않았어요.` The enabled `예약 결과 확인하기` CTA remains available after quantity/note edits and unchecked consent. It resolves the original request before any new reservation. |
+| [713:3835 — checking result](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=713-3835) | The unresolved Notice is hidden while busy. The disabled action retains its invisible label width and shows a centered spinner, matching Button loading behavior. The edited draft remains visible. |
+| [713:4002 — original reservation recovered](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=713-4002) | Notice title `이미 만든 예약이 있어요`; body `예약 후 바꾼 내용은 저장되지 않았어요. 내용을 바꾸려면 기존 예약을 취소하고 다시 예약해 주세요.` The enabled `입금 안내 보기` opens the original reservation's product, order, option and quantity. The annotation distinguishes original quantity 1 from unsaved edited quantity 2. |
+
+Existing normal checkout and price/stock-conflict frames were preserved. Screens expand the existing scroll content for inspection; the annotation identifies the action bar as fixed in the application. No additional checkout layout or product rule was introduced.
+
+Implementation references: `apps/consumer/src/app/checkout/[productId]/index.tsx` and `packages/ui/src/Button.tsx`.
+
+Verification on 17 November: structured readback found **458 native nodes and 118 editable text layers**, all using the documented Noto Sans KR fallback. The only image fills are three existing 64 × 64 product thumbnails. Independent AI review compared exact copy, draft/consent state, original-request identity, totals and CTA behavior against source. It inspected `farmclub-dev321-final.png` after the spinner was centered and found no actionable issue, clipping or overlap. Human review and documentation merge remain pending. No application tests were rerun for this design/documentation-only update.
