@@ -111,6 +111,7 @@ export type ProductPageSlots = {
 
 export function ProductPageBody({
   p,
+  reference,
   mediaUrl,
   onFarmPress,
   onBack,
@@ -119,9 +120,8 @@ export function ProductPageBody({
 }: {
   p: ProductPageData;
   slots?: ProductPageSlots;
-  /** 예전 취소선 비교 가격. DEV-348에서 취소선을 빼서 쓰지 않는다(마지막 기간 가격은 가격 계단이 보인다).
-   *  생산자 앱 호출부 정리는 후속이라 받기만 한다 */
-  reference?: (optionId: string) => number | null;
+  /** 이전 기간 가격(취소선). 소비자 앱은 api의 referencePrice를 넘긴다. */
+  reference: (optionId: string) => number | null;
   mediaUrl?: (uri: string) => string;
   onFarmPress?: () => void;
   /** 사진 위 뒤로(소비자 상세, 결정 26). 생산자 미리보기는 넘기지 않는다 */
@@ -197,6 +197,7 @@ export function ProductPageBody({
             cur={cur}
             open={open}
             toggle={toggle}
+            reference={reference}
           />
         )}
       </View>
@@ -475,11 +476,13 @@ function SaleRows({
   cur,
   open,
   toggle,
+  reference,
 }: {
   p: ProductPageData;
   cur: ProductPageData["stages"][number] | null;
   open: Open;
   toggle: (k: NonNullable<Open>) => void;
+  reference: (optionId: string) => number | null;
 }) {
   const fee = shippingText(p.shippingFeeType, p.shippingFee);
   return (
@@ -565,11 +568,12 @@ function SaleRows({
                     </T>
                   ) : null}
                 </View>
-                {/* 취소선 정가 대신 ‘지금 예약가’(DEV-348, DEV-268 UX ② · DEV-311 결정 ③) */}
+                {/* 가격 위 한 줄 ‘지금 예약가 ~~36,000원~~’(DEV-348 UX ②). 취소선 비교 가격은 앵커로 유지(11/17 PM) */}
                 <Price
                   align="right"
                   label="지금 예약가"
                   current={value?.price ?? null}
+                  reference={reference(o.optionId)}
                   soldOut={left <= 0}
                   availability={p.availability}
                 />

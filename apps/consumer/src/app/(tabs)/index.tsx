@@ -198,8 +198,9 @@ type HomeProduct = {
   name: string;
   photo: string | null;
   currentPrice: number | null;
-  /** 옵션 중 가장 싼 지금 가격(productPrices, DEV-348). 없으면 currentPrice */
-  lowest?: { price: number; several: boolean } | null;
+  referencePrice?: number | null;
+  /** 옵션이 여럿이고 카드 가격이 가장 싸면 ‘~’(productPrices, DEV-348) */
+  priceFrom?: boolean;
   soldOut: boolean;
   availability?: string;
   reservedCount: number;
@@ -208,8 +209,8 @@ type HomeProduct = {
   nextStageStartsAt?: string | null;
 };
 
-/** 2열 상품 카드: 사진 정사각 → 농가(14 보조) → 상품명 16 semibold → 가격 16 굵게(옵션이 여럿이면 ‘~’) → 이 가격 D-day → 예약 수.
- *  취소선 비교 가격은 할인처럼 읽혀 뺐다(DEV-348, DEV-268 UX ②) */
+/** 2열 상품 카드: 사진 정사각 → 농가(14 보조) → 상품명 16 semibold → 가격 18 굵게(옵션이 여럿이면 ‘~’) + 취소선 14(DEV-293·DEV-348) → 이 가격 D-day → 예약 수(DEV-348).
+ *  취소선은 마지막 기간 가격 앵커로 유지한다(DEV-348 11/17 PM 결정, UX ②의 제거안 취소) */
 function ProductCard({
   width,
   product: p,
@@ -246,11 +247,14 @@ function ProductCard({
       <T weight="semibold" numberOfLines={2}>
         {p.name}
       </T>
+      {/* 가격 18 굵게(옵션이 여럿이면 ‘~’) + 취소선 14 보조(DEV-348 디자인 값) */}
       <Price
-        compact
         inline
-        current={p.lowest?.price ?? p.currentPrice}
-        from={!!p.lowest?.several}
+        current={p.currentPrice}
+        from={!!p.priceFrom}
+        reference={
+          typeof p.referencePrice === "number" ? p.referencePrice : undefined
+        }
         soldOut={p.soldOut}
         availability={p.availability}
       />

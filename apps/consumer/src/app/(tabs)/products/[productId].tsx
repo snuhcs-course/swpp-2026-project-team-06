@@ -1,7 +1,7 @@
 import { apiUrl } from "@farmclub/api";
 // SCR-04 상품 상세 (FEAT-07) — design: scr-04, s-04-soldout, s-04-ended, scr-04-sheet
 import { track } from "@farmclub/analytics";
-import { catalog, farms } from "@farmclub/api";
+import { catalog, farms, referencePrice } from "@farmclub/api";
 import {
   BottomBar,
   Button,
@@ -174,6 +174,7 @@ export default function ProductPage() {
       <Scroll bottom={120}>
         <ProductPageBody
           p={{ ...p, farmFollowerCount: farm.data?.followerCount ?? null }}
+          reference={(o) => referencePrice(p, o)}
           mediaUrl={(uri) => (uri.startsWith("/") ? apiUrl + uri : uri)}
           onFarmPress={() => router.push(`/farms/${p.farmId}`)}
           onBack={() => goBackOr(router, `/farms/${p.farmId}`)}
