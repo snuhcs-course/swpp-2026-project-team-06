@@ -19,6 +19,17 @@ for (const width of [360, 390, 430]) {
     const news = page.getByLabel("농가 소식 가로 목록");
     // DEV-293: 제철 상품은 가로 캐러셀 대신 2열 그리드. 소식만 가로로 넘긴다
     const products = page.getByLabel("제철 상품 목록");
+    // AC-06-9 (DEV-348): 제철 상품 위 개념 상자 한 번, 정적 알약 기둥 표식 셋(28×20, 화면 읽기에서 숨김)
+    const note = page.getByTestId("stage-price-note");
+    await expect(note).toHaveCount(1);
+    await expect(note).toContainText(
+      "일찍 예약할수록 싸요. 농가가 기간마다 가격을 정하고, 지금 예약하면 지금 가격으로 받아요.",
+    );
+    const mark = note.getByTestId("stair-mark");
+    await expect(mark.locator("rect")).toHaveCount(3);
+    const box = await mark.locator("svg").boundingBox();
+    expect(Math.round(box!.width)).toBe(28);
+    expect(Math.round(box!.height)).toBe(20);
     await expect(news).toBeVisible();
     await expect(products).toBeAttached();
     expect(await products.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBeTruthy();
