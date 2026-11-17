@@ -11,6 +11,8 @@ import type { Resume } from "./session";
 
 export const KAKAO_AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize";
 export const KAKAO_REDIRECT_PATH = "/auth/kakao";
+/** 인가 요청 동의 항목(DEV-78). 웹 kakao.ts와 같다. 콘솔에 없는 항목(예: name)을 넣으면 로그인이 실패한다 */
+export const KAKAO_SCOPE = "account_email,phone_number";
 export const APP_SCHEME = "farmclub-consumer";
 export const APP_STATE_PREFIX = "app-";
 
@@ -53,7 +55,8 @@ export function beginKakaoLogin(
     redirect_uri: kakaoRedirectUri(config),
     response_type: "code",
     state: nonce,
-    scope: "account_email",
+    // 웹(kakao.ts)과 같은 동의 항목. 쉼표로 잇는다(DEV-78)
+    scope: KAKAO_SCOPE,
   });
   return `${KAKAO_AUTHORIZE_URL}?${params.toString()}`;
 }

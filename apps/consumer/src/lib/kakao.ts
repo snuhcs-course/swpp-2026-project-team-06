@@ -8,6 +8,8 @@ import type { Resume } from "./session";
 export const KAKAO_AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize";
 /** 복귀 경로. 서버 KAKAO_REDIRECT_PATH·카카오 콘솔 등록 값과 같다 */
 export const KAKAO_REDIRECT_PATH = "/auth/kakao";
+/** 인가 요청 동의 항목(DEV-78). 콘솔에 없는 항목(예: name)을 넣으면 카카오 로그인이 실패한다 */
+export const KAKAO_SCOPE = "account_email,phone_number";
 /** app.json scheme. 앱에서 시작한 로그인의 복귀 주소 */
 export const APP_SCHEME = "farmclub-consumer";
 /** 앱에서 시작한 인가 요청의 state 접두어 */
@@ -88,8 +90,9 @@ export function beginKakaoLogin(
     redirect_uri: kakaoRedirectUri(config),
     response_type: "code",
     state: nonce,
-    // 카카오계정 이메일만 요청(FEAT-01 FQ-01, 콘솔 동의 항목 ‘카카오계정(이메일)’ 필수 동의). 서버는 표시 이름으로만 쓴다
-    scope: "account_email",
+    // 동의 항목 ID는 쉼표로 잇는다(카카오 인가 요청 scope). 콘솔에서 둘 다 필수 동의(FEAT-01 FQ-01).
+    // account_email: 연락용 이메일. phone_number: 온보딩 휴대폰·첫 주문서 연락처 칸 미리 채움(DEV-78). 이름(name)은 신청하지 않았으므로 넣지 않는다
+    scope: KAKAO_SCOPE,
   });
   return `${KAKAO_AUTHORIZE_URL}?${params.toString()}`;
 }
