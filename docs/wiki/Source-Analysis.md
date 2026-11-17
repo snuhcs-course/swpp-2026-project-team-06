@@ -273,3 +273,11 @@ DEV-264 (17 November 2026) changes three stage-2 behaviours, chosen from a loss 
 - **The model gets the product name:** stage 1 and stage 2 now receive the target's product name, which the producer already has to type. Contact data in it is masked by the same `scrub` as all other model input (M-18); basic info is not sent. This replaces the DEV-54 choice to send only an ID. Without a name, a file that sells two products (for example 황금향 and 레드향) either lost every fact or mixed the two products. The evaluation runner sends the gold `product` name in the same place, standing in for the producer's typed name; no other gold field reaches the model.
 
 Stage-2 prompt version: `source-refine-v9-target-name`.
+
+DEV-264 round 3 (18 November 2026), each change validated by its own development run before the next:
+- **New rejections in stage-2 validation:** exaggeration (superlatives, comparisons with other products, calls to action), clear policy text (refund, compensation, returns, sales ended, delivery dates, "selected option … shipped"), and ranges built from two separate values ("13.2Brix 13.5Brix" never becomes 13.2~13.5). Weaker platform and period words still only warn.
+- **Routing and coverage:** stage 2 (`source-refine-v11-routing`) has explicit homes for taglines, cultivar parentage, packaging type, ripening and storage durations, and growing conditions. Stage 1 (`source-v9-coverage`) checks for packing, size grades, taste caveats, growing methods and farm facts. A "keep source wording verbatim" rule was tried and reverted: it kept phrases that should have been dropped, and critical facts fell.
+- **OCR:** a crop that hits the 2,048-token or 150-line cap is read once more with double room. Timeouts are still not retried.
+- **Measurement:** scorer `dev264-number-evidence-v2` fixes "Since 1966," being read as an unsupported number. A semantic-recall add-on (`fact-judge-v1`) asks a frozen judge only about facts that fail the strict match and reports semantic recall next to strict recall.
+
+Stage-2 prompt version: `source-refine-v11-routing`; stage-1: `source-v9-coverage`.
