@@ -232,3 +232,13 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - DEV-326 카드(`ConsumerPageCard`)를 `lib/ConsumerShareBar.tsx`로 바꿨다. 스크롤 밖 머리(현황·농가명·날짜) 안에 두어 고정한다. 승인 농가만, 공유 링크(`shareUrl`)가 없으면 띄우지 않는다.
 - 닫기와 그 기억(`consumer-page-card-closed:<farmId>`)은 없앴다. 예전에 닫은 기기에도 막대는 보인다(PM 11/15: 실수로 닫아 링크를 잃지 않게).
 - 막대 전체가 복사 버튼(높이 48, 접근성 이름 ‘소비자에게 우리 농가 공유하기, farmclub.kr 링크 복사’ — 보이는 문구를 이름에 넣는다). 오른쪽 알약은 눈에 보이는 버튼 모양이다.
+
+## DEV-345 품절 안내·저장 결과 위치 (2026-11-17)
+
+화면 서술·문구는 screens.md 판매 설정·SCR-26, 기록은 `tasks/DEV-345.md`.
+- 품절 안내는 `lib/soldOutGuide.ts` 순수 함수(`scripts/test-sold-out-guide.mjs`). 판정은 서버 `availability`를 그대로 쓰고 `PUBLISHED`만 안내한다(승인 전은 한도 0이라 서버가 `TOTAL_SOLD_OUT`을 줌). 박스 소진은 `currentStageId` 기간의 모든 옵션이 `quantity ≤ reservedCount`, 그 기간에 박스를 정한 옵션이 하나도 없으면(옵션 교체) kg 대신 이번 기간 안내.
+- 물량·판매 설정의 오류·성공 안내는 상태 `at`(save·pause·request·page) 한 자리에만 보인다: 누른 버튼 바로 아래, 신청·철회는 ‘물량 추가 신청’ 영역 끝, 불러오기 실패만 맨 아래. 기간·가격도 저장 오류·저장 뒤 안내를 저장 버튼 아래에 둔다(불러오기 실패는 위).
+- 화면 밖이면 웹에서만 `scrollIntoView({ block: "nearest" })`(View ref의 DOM 노드, 네이티브에는 함수가 없어 아무 일도 안 함 — `lib/FieldFeedback.tsx`와 같은 방식). ‘물량 추가 신청하기’는 신청 영역을 `block: "center"`로 옮기고 `Input.inputRef`로 초점.
+- 판매 설정 → ‘기간·가격에서 박스 늘리기’는 `/products/:id/stages?from=sales`로 열고, 기간·가격의 ‘판매 한도 늘리기’는 `from=sales`이고 `router.canGoBack()`이면 `router.back()`(판매 설정→기간→판매 설정으로 스택이 쌓여 뒤로가 맴도는 것을 막음), 아니면 push.
+- 판매 설정은 `useFocusEffect`로 읽는다(처음 열 때·돌아올 때). 다시 들어올 때는 지난 결과 안내(`error`·`note`·`at`·`capExceeded`)를 지우고, 판매 한도·한 주문 최대 칸은 마지막으로 불러온 값과 같을 때만 새 값으로 바꾼다(고친 입력 보존). 저장·중지 등 성공 뒤와 ‘최신 상태 확인’은 예전처럼 서버 값으로 덮는다.
+- 기간·가격 저장 뒤 상품을 다시 읽어 `PUBLISHED`이고 `TOTAL_SOLD_OUT`이면 머문다. 다시 고치거나 기간을 추가·삭제하면 그 안내를 지운다.
