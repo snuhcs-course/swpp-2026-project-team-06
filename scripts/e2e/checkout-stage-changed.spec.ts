@@ -155,14 +155,14 @@ test("DEV-337 AC-05-5: returning from chat refreshes product price and sold-out 
   const assertClean = monitor(page);
   await loginConsumer(page);
   await page.goto(`${consumerUrl}/products/p-house`);
-  await expect(page.getByText("29,000원", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("product-options").getByText("29,000원", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "채팅", exact: true }).click();
   await expect(page).toHaveURL(/\/chats\/f-kang/);
   await expect(page.getByRole("textbox", { name: "메시지", exact: true })).toBeEditable();
   await setStagePrice(request, 30000);
   await page.getByRole("button", { name: "뒤로", exact: true }).click();
   await expect(page).toHaveURL(/\/products\/p-house$/);
-  await expect(page.getByText("30,000원", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("product-options").getByText("30,000원", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "예약하기", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "채팅", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "메시지", exact: true })).toBeEditable();

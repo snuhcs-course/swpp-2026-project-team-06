@@ -52,7 +52,7 @@ Post-main integration: DEV-356 added the conditional order-metadata line. Update
 - Linear: [DEV-337](https://linear.app/sswp6/issue/DEV-337); implementation: [PR #649](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/649)
 - Requirements: FEAT-07 / FEAT-08 / AC-05-5 / AC-08-8 / R-17
 - Design board: [716:3656 — 가격 최신화와 재확인](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=716-3656)
-- Compared implementation: d2386f363c739745d066a259ebe27a3506f5f7bc
+- Compared implementation: d2386f363c739745d066a259ebe27a3506f5f7bc initially; reconciled with main 923a2eb through merge d24b835d8095a687d1a59d78f8e73158031a244c.
 
 | Editable screen or annotation | Represented state and behavior |
 | --- | --- |
@@ -65,4 +65,7 @@ The board points to [existing home 652:2](https://www.figma.com/design/X8RKiRPZb
 
 Implementation references: `apps/consumer/src/app/(tabs)/index.tsx`, `apps/consumer/src/app/(tabs)/products/[productId].tsx`, `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/src/lib/useFocusedAsync.ts`, and `apps/consumer/src/lib/checkoutConflict.ts`.
 
-Verification on 17 November: structured readback found **333 native nodes and 95 editable text layers**, all using the documented Noto Sans KR fallback. The only image fills are two existing 64 × 64 product thumbnails. Independent AI source/readback review confirmed exact copy, current and old totals, the explicit changed-price action and refresh guards. Visual inspection of `farmclub-dev337-review.png` found no clipping or overlap. All three boards together contain **1,228 native nodes and 305 editable text layers**, with no full-screen raster UI. The original source font remains Pretendard Variable. This follow-up changed no application code; the earlier runtime results remain separately recorded in the assigned-work audit. Human review, merge and deployment remain pending.
+Verification on 17 November: structured readback found **335 native nodes and 97 editable text layers**, all using the documented Noto Sans KR fallback. The only image fills are two existing 64 × 64 product thumbnails. Independent AI source/readback review confirmed exact copy, current and old totals, the explicit changed-price action and refresh guards. Visual inspection of `farmclub-dev337-review.png` found no clipping or overlap. All three boards together contain **1,230 native nodes and 307 editable text layers**, with no full-screen raster UI. The original source font remains Pretendard Variable. This follow-up changed no application code; the earlier runtime results remain separately recorded in the assigned-work audit. Human review, merge and deployment remain pending.
+
+
+Post-main integration: added the existing DEV-356 guidance `누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금` above both price-state CTAs. The final `farmclub-dev337-postmerge.png` and structured readback verify two guidance nodes, unchanged current/reconfirmation totals and the documented font fallback. Independent review found no actionable merge, state or layout issue. The branch integrates main's follower metadata while retaining focused product reload; no shared library or original Figma frame was restyled.

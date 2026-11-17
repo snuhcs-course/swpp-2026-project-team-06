@@ -17,7 +17,7 @@ The complete Linear query for assignee “me” returned 60 issues with no next 
 | DEV-164 | Requires a teammate's independent review and a real eTL receipt. Neither is inferred from the package or an announced submission. The November 6 deadline and preserved snapshot remain historical facts. |
 | DEV-242, DEV-243, DEV-246, DEV-247, DEV-248, DEV-249, DEV-250, DEV-251, DEV-252 | Implementations already merged in PR #482 at 86e541097314a78ffd636cbbb4500abfcaeef41a (6 November 2026 13:25:17 UTC). No duplicate implementation added. Existing issue descriptions still await review/deployment closure evidence; merge alone does not establish native or authenticated production acceptance. |
 
-## Current implementation checks
+## Initial implementation checks (d2386f3)
 
 - Isolated PostgreSQL on loopback port 5446; branch-specific database farmclub_dev336, with a separate test database. No production data mutation.
 - Full server: PGTZ=UTC DATABASE_URL=<isolated-local-db> .venv/bin/python -m pytest -q — **1,835 passed, 1 skipped**. Initial host-timezone formatting failures disappear with CI's UTC database setting; no account code/test assertion changed.
@@ -27,6 +27,16 @@ The complete Linear query for assignee “me” returned 60 issues with no next 
 - Browser: back-rules.spec.ts and checkout-stage-changed.spec.ts — **13/13 passed**, no retries. Failed earlier runs are not counted as passing.
 - Both oracle revisions validate **44 cases**, retaining the original v1.0 digests and failure. A candidate oracle is not a new product-test result.
 - Changed server files pass ruff; diff whitespace check passes.
+
+## Post-main integration checks
+
+Main advanced to 923a2eb while the Figma follow-up was running. Integrated it into this branch with merge d24b835, retaining DEV-348 follower metadata, DEV-356 checkout presentation and DEV-337 focused price reload. Updated the Figma recovered-order metadata and deposit guidance to match that integrated source.
+
+- All five workspace typechecks pass.
+- Mock: **381 passed, 1 skipped** with local test-server permissions. The earlier restricted-listener attempt is not counted as a product failure or successful run.
+- Real API: **7/7 passed** against the same isolated local database.
+- Browser: back-rules, checkout-stage-changed, checkout-deposit-recovery and first-reservation-ux — **21/21 passed**, no retries. The initial 20/21 result exposed a now-ambiguous selector after the price stair was added; it was scoped to product-options without weakening the exact price assertion.
+- Independent merge/source/design review has no remaining actionable findings. The PR remains open for human review; no deployment or physical-device UAT is claimed.
 
 ## Historical package audit (DEV-163)
 
