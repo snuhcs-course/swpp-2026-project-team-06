@@ -203,7 +203,7 @@
 
     "proposal-boards/dev-311-brand-directions.html": {"x":1440,"y":16300,"w":1380,"h":8400,"title":"DEV-311 브랜드 방향 A·B·C (제안)"},
 
-    "proposal-boards/dev-311-brand-integrated.html": {"x":2940,"y":16300,"w":1380,"h":27200,"title":"DEV-311 브랜드 통합안 A + B 가격 계단 (제안)"}
+    "proposal-boards/dev-311-brand-integrated.html": {"x":2940,"y":16300,"w":1380,"h":26300,"title":"DEV-311 브랜드 통합안 A + B 가격 계단 (제안)"}
   },
   "order": [
     "scr-01.html",
