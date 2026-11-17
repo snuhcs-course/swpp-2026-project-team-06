@@ -1183,7 +1183,7 @@ export function NewProductComposer() {
                           maxLength={30}
                           editable={!fieldsLocked && preSale}
                           onChange={(v) => setField("origin", v)}
-                            onLockedPress={preSale ? undefined : openLocked}
+                          onLockedPress={preSale ? undefined : openLocked}
                         />
                         </View>
                       ),
@@ -1287,7 +1287,7 @@ export function NewProductComposer() {
                               maxLength={30}
                               editable={!fieldsLocked && preSale}
                               onChange={(v) => setField("origin", v)}
-                            onLockedPress={preSale ? undefined : openLocked}
+                              onLockedPress={preSale ? undefined : openLocked}
                             />
                             {/* DEV-121: 원산지 표시 형식과 안내 화면 */}
                             <OriginFieldHint />
@@ -1312,7 +1312,7 @@ export function NewProductComposer() {
                               maxLength={30}
                               editable={!fieldsLocked && preSale}
                               onChange={(v) => setField("storage", v)}
-                            onLockedPress={preSale ? undefined : openLocked}
+                              onLockedPress={preSale ? undefined : openLocked}
                             />
                           </View>
                         ),

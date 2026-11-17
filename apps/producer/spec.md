@@ -113,12 +113,20 @@ DEV-84 자료 분석이 꺼진 환경의 복구 경로(운영은 DEV-90에서 �
 상품 목록의 별도 자료로 상세 만들기 버튼은 제거하며 새 상품 버튼을 단일 신규 진입으로 사용한다. 기존 상품의 저장 작업 편집 진입은 유지한다.
 
 ### 상품별 판매페이지 수정 (DEV-58, 2026-10-17)
+- (DEV-346부터 `판매페이지 수정`은 composer로 연다. 이 절의 비공개 수정본 편집기는 composer로 옮기지 못한 페이지·예전 앱·자료 분석이 꺼진 서버의 대체 경로다. 동작은 `docs/spec/source-integration.md` 'DEV-346' 절.)
 - 상품 목록의 `판매페이지 수정`은 해당 상품의 비공개 수정본을 연다. 없으면 현재 `moduleDetail` 또는 `detailContent`를 사진 URI/문구 그대로 보존하여 시작한다. 원본 자료가 없어도 수정할 수 있다.
 - `수정본 저장`은 공개 내용을 변경하지 않는다. `상품에 반영` 확인 후에만 상품 상세가 변경된다. 판매 중인 상품은 구매자 페이지에 즉시 반영되며, 초안/심사 상태는 바꾸지 않는다.
 - 상품 버전이 바뀌면 적용을 거절한다. 수정본을 자동 폐기하지 않고, 사용자가 명시적으로 현재 상품 불러오기를 선택해야 폐기한다. 저장하지 않은 입력에는 이탈 확인을 표시한다.
 - 새 상품은 상품+연결 자료 작업을 한 트랜잭션으로 생성한다. 멱등 키 재시도로 응답 유실 시 중복 생성하지 않는다.
 - API: POST `/api/source-analysis/product-workspaces` (선택 productId), PUT `/{productId}` (version/snapshot), POST `/{productId}/apply` (version). 초기화는 POST의 discardChanges/version으로 명시한다. 승인 농가 소유권·상품/수정본 버전·사진 소유 참조를 검증한다.
 - 생산자 4탭은 유지한다. 공통 좌우20px/카드16px/카드반경16px/터치48px 규격을 사용한다. AI 채팅 기능은 이번 변경 범위에서 제외한다.
+
+
+### 판매페이지 수정 = composer (DEV-346, 구현 결정)
+- `/products/:id/detail`은 `productWorkspace.open(..., composer: true)` 응답이 `composer: true`일 때 `/products/source-analysis?batchId=…&composer=1`로 바꿔 연다(`notice=replaced|replaced-ai`는 한 번 보이고 지움). `composer: false`·예전 서버(400)·자료 분석 꺼짐·Mock은 `ProductPageEditor`(`composerBlocked`면 `warning`). 서버 오류면 '다시 열기'·'기존 편집기로 열기'.
+- 판매 중·승인 대기·종료 상품: composer에서 상품명·원산지·보관·품종·당도·대표사진을 잠그고 상품 값을 보이며, 누르면 상품 편집으로 가는 시트. 반영은 상세만(상품 PATCH 없음, `saveProduct`는 판매 전만). 확인 시트 뒤 SCR-25.
+- 사진 주소: `sourcePhotoUrl`/`productPhotoUrl`(`lib/sourcePhoto.ts`) — 올린 사진은 `sourcePageImage`, 옮겨 온 사진은 주소 그대로(`/api/source-media/`는 생산자 인증 주소). 카드 썸네일(`CardPhoto`)도 같은 규칙.
+- 409 `PAGE_CHANGED`면 오류 줄에 '다시 열기'. '이미 반영한 초안' 세션 기억(DEV-184)은 그대로 둔다.
 
 ### DEV-58 통합 편집
 AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.
