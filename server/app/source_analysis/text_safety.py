@@ -35,14 +35,17 @@ def numbers(value):
 
 
 _RANGE = re.compile(
-    rf"(?P<a>\d+(?:[,.]\d+)*)\s*(?P<ua>{_UNIT})?\s*[~–-]\s*(?P<b>\d+(?:[,.]\d+)*)\s*(?P<ub>{_UNIT})?",
+    rf"(?P<a>\d+(?:[,.]\d+)*)\s*(?P<ua>{_UNIT})?\s*"
+    # DEV-355: Korean range forms too ("1월에서 4월 사이", "3월부터 5월까지").
+    rf"(?:[~–-]|(?:에서|부터)\s*(?=\d[^~–\n]*?(?:까지|사이)))"
+    rf"\s*(?P<b>\d+(?:[,.]\d+)*)\s*(?P<ub>{_UNIT})?",
     re.IGNORECASE,
 )
 
 
 def ranges(value):
-    """Range endpoints written as a~b / a-b, as (a, b). Units are checked by numbers().
-    Two separate values ("13.2Brix 13.5Brix") are not a range."""
+    """Range endpoints written as a~b, a-b, a에서 b 사이 or a부터 b까지, as (a, b).
+    Units are checked by numbers(). Two separate values ("13.2Brix 13.5Brix") are not a range."""
     return {
         (m["a"].replace(",", ""), m["b"].replace(",", "")) for m in _RANGE.finditer(value)
     }
@@ -89,3 +92,28 @@ def has_policy_text(value):
     return _contains(value, SAFETY_LISTS["policy"]) or any(
         pattern.search(value) for pattern in _POLICY_PATTERNS
     )
+
+
+def has_product_lineup(value):
+    """DEV-355: a list of the farm's products is never one product's page text: an explicit
+    list marker, or three or more different citrus variety names in one text."""
+    compact = re.sub(r"\s+", "", value)
+    if _contains(value, SAFETY_LISTS["lineupMarkers"]):
+        return True
+    return sum(1 for name in SAFETY_LISTS["cultivars"] if name in compact) >= 3
+
+
+_OWN_PRODUCT_MODULES = {"hero", "composition", "pieceCount", "specification"}
+
+
+def names_other_product(value, module, target_name):
+    """DEV-355: in the product's own identity/package modules, a citrus variety other than
+    the one in the target name means another product's package leaked in. Only applies when
+    the target name itself names a variety."""
+    if module not in _OWN_PRODUCT_MODULES:
+        return False
+    own = {n for n in SAFETY_LISTS["cultivars"] if n in re.sub(r"\s+", "", target_name or "")}
+    if not own:
+        return False
+    mentioned = {n for n in SAFETY_LISTS["cultivars"] if n in re.sub(r"\s+", "", value)}
+    return bool(mentioned - own)

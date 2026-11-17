@@ -597,7 +597,11 @@ def evaluate_source(row, provider, model, calls, target_name=""):
             )
         stage2_usage = response.usage
         stored, diagnostics = refinement.validate(
-            response.refinement, selected, target["id"], target_count=1
+            response.refinement,
+            selected,
+            target["id"],
+            target_count=1,
+            target_name=target.get("name", ""),
         )
         diagnostics["excluded"].extend(
             {"candidateIds": [c["id"]], "reason": "unused"} for c in all_selected[len(selected) :]

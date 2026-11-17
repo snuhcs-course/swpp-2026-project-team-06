@@ -25,6 +25,8 @@ from app.source_analysis.text_safety import (
     has_period_text,
     has_platform_text,
     has_policy_text,
+    has_product_lineup,
+    names_other_product,
     numbers,
     ranges,
 )
@@ -164,7 +166,7 @@ def enqueue(db, batch, run, items):
     db.flush()
 
 
-def validate(output, candidates, target_id, *, target_count=0):
+def validate(output, candidates, target_id, *, target_count=0, target_name=""):
     """Drop bad texts independently. Never rescue rejected text with raw candidates."""
     by_id = {
         c["id"]: c
@@ -192,6 +194,10 @@ def validate(output, candidates, target_id, *, target_count=0):
                 code = "EXAGGERATION"
             elif has_policy_text(text.value):
                 code = "POLICY_TEXT"
+            elif has_product_lineup(text.value):
+                code = "PRODUCT_LINEUP"
+            elif names_other_product(text.value, module.module, target_name):
+                code = "OTHER_PRODUCT"
             elif scrub(text.value) != text.value:
                 code = "PRIVATE_VALUE"
             elif numbers(text.value) - numbers(
@@ -253,6 +259,8 @@ def validate(output, candidates, target_id, *, target_count=0):
         "EXAGGERATION": "unsupported",
         "UNSUPPORTED_RANGE": "unsupported",
         "POLICY_TEXT": "platform",
+        "PRODUCT_LINEUP": "other_product",
+        "OTHER_PRODUCT": "other_product",
         "PRIVATE_VALUE": "pii",
     }
     for rejected_text in rejected:
@@ -387,7 +395,11 @@ def process(item_id, token):
             guard=check_inputs,
         )
     modules, diagnostics = validate(
-        response.refinement, candidates, target["id"], target_count=target_count
+        response.refinement,
+        candidates,
+        target["id"],
+        target_count=target_count,
+        target_name=target.get("name", ""),
     )
     diagnostics["excluded"].extend(
         {"candidateIds": [c["id"]], "reason": "unused"} for c in all_candidates[len(candidates) :]

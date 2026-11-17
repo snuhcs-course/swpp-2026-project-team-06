@@ -280,6 +280,46 @@ def test_AC_SRC_3_health_phrase_follows_gold_and_neutral_growing_stays():
     assert not has_policy_text("교환 가능한 선물용 박스예요.")
 
 
+@pytest.mark.parametrize(
+    ("quote", "value", "code"),
+    [
+        ("수확 1월 2월 3월 4월", "1월에서 4월 사이에 수확해요", "UNSUPPORTED_RANGE"),
+        ("수확 1월 2월 3월 4월", "3월부터 4월까지 수확해요", "UNSUPPORTED_RANGE"),
+        ("수확 1월~4월", "1월~4월에 수확해요", None),
+        ("2004년부터 운영", "2004년부터 운영해요", None),
+    ],
+)
+def test_AC_SRC_3_korean_range_forms_need_a_range_in_the_quote(quote, value, code):
+    """DEV-355: holdout v2 showed 에서/사이 ranges slipping past the ~/- check."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = quote
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "productionProcess", "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target")[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ([code] if code else [])
+
+
+@pytest.mark.parametrize(
+    ("module", "value", "target_name", "code"),
+    [
+        ("productionProcess", "주 생산품목: 비트차, 비트칩(상시)", "비트차", "PRODUCT_LINEUP"),
+        ("farmStory", "한라봉, 황금향, 레드향, 천혜향 등을 키워요.", "황금향", "PRODUCT_LINEUP"),
+        ("composition", "고당도 레드향 3kg, 5kg", "고당도 황금향", "OTHER_PRODUCT"),
+        ("composition", "고당도 황금향 3kg, 5kg", "고당도 황금향", None),
+        ("summary", "한라봉과 천혜향의 장점을 취한 품종이에요.", "황금향", None),
+        ("composition", "비트칩 50g", "비트차", None),
+    ],
+)
+def test_AC_SRC_3_other_products_never_reach_the_page(module, value, target_name, code):
+    """DEV-355: line-up lists and another product's package are rejected in code."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = value
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": module, "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target", target_name=target_name)[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ([code] if code else [])
+
+
 def fixture_extract(mode, model, chunk, targets, images):
     assert mode == "mock" and images == []
     return ExtractionResponse(
