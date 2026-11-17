@@ -206,8 +206,8 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     <tr><td><b>로그인</b></td><td>소비자 로그인에도 승인 조합형 로고, 제목은 예약에서 왔을 때 문구</td><td>DEV-85 배치(제목 왼쪽, 로고 오른쪽)</td><td>—</td><td>⑤ ‘로그인하고 예약을 이어 가요’</td></tr>
     <tr><td><b>카톡 공유 카드</b></td><td>옛 ‘farmclub.’ 워드마크 카드를 크림 바탕 + 승인 조합형 + 계단 표식 정적 카드 한 장으로</td><td>크림 #FFF4E8, 조합형, 이름 ‘farmclub’ 한 가지</td><td>계단 표식만(가격 숫자는 안 넣음)</td><td>② 개념 문장을 설명 문구로</td></tr>
     <tr><td><b>아이콘</b></td><td>조합형 64% 폭 → 심볼 높이 86%, 크림 바탕 · 생산자 올리브</td><td>A 무브 4 그대로</td><td>—</td><td>—</td></tr>
-    <tr><td><b>주문서</b></td><td>뒤로 왔을 때 ‘이미 만든 예약’ 안내, 상품 줄에 ‘지금 예약가로 잡아 뒀어요’</td><td>—</td><td>표식 + ‘지금 예약가’ 이름 이어 쓰기</td><td>⑥ 이미 만든 예약 · 버튼 위 한 줄 · 강조색 버튼 하나</td></tr>
-    <tr><td><b>입금 안내</b></td><td>금액 한 번 + 복사, 기한 첫 줄, 입금자명 안내 상자(입금 안내의 서버 순번 줄은 11/16 결정으로 후속)</td><td>—</td><td>—</td><td>④ 금액 한 번·기한 첫 줄·입금자명 두 문장</td></tr>
+    <tr><td><b>주문서</b></td><td>지금 화면의 절·입력·동의 항목은 그대로 두고 더하기만: 뒤로 왔을 때 ‘이미 만든 예약’ 안내, 상품 줄에 ‘지금 예약가로 잡아 뒀어요’, 버튼 위 한 줄</td><td>—</td><td>표식 + ‘지금 예약가’ 이름 이어 쓰기</td><td>⑥ 이미 만든 예약 · 버튼 위 한 줄 · 강조색 버튼 하나</td></tr>
+    <tr><td><b>입금 안내</b></td><td>금액 한 번 + 복사, 기한 첫 줄, 입금자명 안내 상자(UX ④). 판매자·고지·하단 버튼 등 나머지는 그대로(서버 순번 줄은 11/16 결정으로 후속)</td><td>—</td><td>—</td><td>④ 금액 한 번·기한 첫 줄·입금자명 두 문장</td></tr>
   </table></div></div>
   <p class="foot">B에서 가져오지 않은 것: 평면 로고 다듬기, ‘수확까지 D-n’ 첫 줄과 홈 수확 타임라인, 상품별 가격표 공유 카드, 로그인의 ‘이 가격’ 상자, 막대 높이 가격 비례, 지금 칸 주황. C는 쓰지 않았어요.</p>
 </section>
@@ -432,32 +432,53 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     </div>
   </div>
 
-  <!-- 주문서 -->
+  <!-- 주문서 (11/16 피드백: 지금 화면의 정보·입력·동의 항목은 하나도 빼지 않음) -->
   <div class="pair" id="p-checkout">
-    <div class="note"><h3>주문서 (입금 안내에서 뒤로 온 경우)</h3>
+    <div class="note"><h3>주문서 (입금 안내에서 뒤로 온 경우, 화면 전체)</h3>
       <ol>
-        <li>돌아오자마자 ‘이미 만든 예약이 있어요’ 안내 + 하단 ‘입금 안내 보기’. <span class="src ux">UX ⑥</span></li>
-        <li>상품 줄 셋째 줄 ‘[표식] 지금 예약가로 잡아 뒀어요’. 상세의 ‘지금 예약가’ 이름을 이어 써요. <span class="src b">B 3</span> <span class="src ux">UX ②</span></li>
-        <li>‘변경’·총 입금액은 #111, 주황은 하단 버튼 하나. 버튼 위 한 줄 ‘누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금’. <span class="src ux">UX ⑥</span></li>
+        <li>지금 화면의 절·입력·동의 항목은 모두 그대로예요: 상품 줄, 받는 곳(이름·‘기본’·연락처·주소와 우편번호·배송 메모 (선택)), 입금 금액(상품 금액·배송비·총 입금액), 예약 전 확인(모두 동의해요 + 필수 5개·보기), 입금 안내·중개자 고지 문장, 이용약관·개인정보 처리방침.</li>
+        <li>더한 것: 맨 위 ‘이미 만든 예약이 있어요’ 상자(주문 번호·상태·기한 + 지금 코드의 ‘옵션·수량을 바꾸려면…’ 문장). <span class="src ux">UX ⑥</span></li>
+        <li>더한 것: 상품 줄 셋째 줄 ‘[표식] 지금 예약가로 잡아 뒀어요’. <span class="src b">B 3</span> <span class="src ux">UX ②</span></li>
+        <li>더한 것: 버튼 위 한 줄 ‘누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금’. 색 정리: ‘변경’·총 입금액은 #111, 주황은 하단 버튼 하나. <span class="src ux">UX ⑥</span></li>
       </ol>
-      <p class="from">지금: DEV-268 로컬 시드 ‘뒤로 온 주문서’ 위 844px(목 로그인 테스트 계정, 시드 주소).</p>
+      <p class="from">지금: DEV-268 로컬 시드 ‘뒤로 온 주문서’ 화면 전체(1180px, 목 로그인 테스트 계정·시드 주소). PNG는 위 844px과 아래 580px 두 쌍으로 잘랐어요.</p>
     </div>
     <div class="duo">
-      <div class="col"><span class="lbl">지금</span><div class="shot" data-shot="checkout-before" style="height:844px"><img class="cap" src="DEV-311/integrated/checkout-before.png" alt="지금 주문서"></div></div>
-      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-shot="checkout-after" style="height:844px"><div class="phone" style="height:844px">
+      <div class="col"><span class="lbl">지금</span><div class="shot" data-clips="checkout-before:top:844,checkout-bottom-before:bottom:580"><img class="cap" src="DEV-311/integrated/checkout-full-before.png" alt="지금 주문서 전체"></div></div>
+      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-clips="checkout-after:top:844,checkout-bottom-after:bottom:580"><div class="phone">
         <div class="hd2"><svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>주문서</div>
         <div class="testbar">테스트 서비스예요 · 실제 입금·배송은 없어요</div>
-        <div class="notice" style="margin:14px 16px 0"><div class="t16 sb">이미 만든 예약이 있어요</div><div class="t14 mut" data-wrap="1" data-wrap-name="주문서 안내 보조">FC-1007-3379 · 입금 대기 · 내일 오전 10:00까지</div></div>
+        <div class="notice" style="margin:14px 16px 0"><div class="t16 sb">이미 만든 예약이 있어요</div><div class="t14 mut" data-wrap="1" data-wrap-name="주문서 안내 보조">FC-1007-3379 · 입금 대기 · 내일 오전 10:00까지</div><div class="t14 mut" style="margin-top:2px">옵션·수량을 바꾸려면 그 예약을 취소하고 다시 예약해 주세요.</div></div>
         <div style="display:flex;gap:14px;align-items:flex-start;padding:16px">
           <div class="ph" style="width:64px;height:64px;border-radius:10px;flex:0 0 auto;background-image:url(../assets/basket.jpg)"></div>
           <div style="flex:1;min-width:0"><div class="t16 sb">하우스 감귤 5kg × 2</div><div class="t14 mut">강씨네 귤밭 · 11월 10일~20일 도착</div><div class="t12 sb stagechip" style="margin-top:4px" data-wrap="1" data-wrap-name="주문서 지금 예약가 줄"><svg class="gly" viewBox="0 0 14 10"><use href="#g1"/></svg>지금 예약가로 잡아 뒀어요</div></div>
           <span class="t14 sb">변경</span>
         </div>
         <div style="height:8px;background:var(--app-surface)"></div>
-        <div class="px" style="padding-top:18px;padding-bottom:18px"><div style="display:flex;justify-content:space-between"><span class="t18">받는 곳</span><span class="t14 sb">변경</span></div><div class="t16" style="margin-top:8px">김민지 · 010-2345-6789</div><div class="t14 mut">서울 마포구 월드컵북로 12, 302호</div></div>
+        <div class="px" style="padding-top:18px;padding-bottom:18px">
+          <div style="display:flex;justify-content:space-between"><span class="t18">받는 곳</span><span class="t14 sb">변경</span></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px"><span class="t16 sb">김민지</span><span class="t12" style="background:var(--app-surface);border-radius:6px;padding:2px 8px;color:#555">기본</span></div>
+          <div class="t16">010-2345-6789</div>
+          <div class="t16" data-wrap="1" data-wrap-name="주문서 주소(우편번호 포함)">서울 마포구 월드컵북로 12, 302호 (04001)</div>
+          <div style="margin-top:12px;border:1px solid var(--app-border);border-radius:12px;min-height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 16px"><span class="t16 mut">배송 메모 (선택)</span><svg class="ico mut" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div>
+        </div>
         <div style="height:8px;background:var(--app-surface)"></div>
-        <div class="px" style="display:flex;justify-content:space-between;align-items:center;padding-top:18px;padding-bottom:18px"><span class="t16 sb">총 입금액</span><span class="t22">58,000원</span></div>
-        <div style="position:absolute;left:0;right:0;bottom:0;border-top:1px solid var(--app-border);padding:10px 16px 20px;background:#fff">
+        <div class="px" style="padding-top:18px;padding-bottom:18px">
+          <div class="t18">입금 금액</div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px"><span class="t16 mut">상품 금액</span><span class="t16">58,000원</span></div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px"><span class="t16 mut">배송비</span><span class="t16">0원</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--app-border)"><span class="t16 b">총 입금액</span><span class="t22">58,000원</span></div>
+        </div>
+        <div style="height:8px;background:var(--app-surface)"></div>
+        <div class="px" style="padding-top:18px;padding-bottom:12px">
+          <div class="t18">예약 전 확인</div>
+          <div style="margin-top:8px"><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex:0 0 auto"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t16 b" style="flex:1">모두 동의해요</span></div></div>
+          <div style="margin-top:4px"><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex:0 0 auto"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t16" style="flex:1">받는 시기 (필수)</span><span class='t14 mut'>보기</span></div><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex:0 0 auto"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t16" style="flex:1">지연 시 환불 (필수)</span><span class='t14 mut'>보기</span></div><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex:0 0 auto"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t16" style="flex:1">흉작·수량 부족 (필수)</span><span class='t14 mut'>보기</span></div><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex:0 0 auto"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t16" style="flex:1">취소·반품 조건 (필수)</span><span class='t14 mut'>보기</span></div><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex:0 0 auto"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t16" style="flex:1">개인정보 제3자 제공 (판매자) (필수)</span><span class='t14 mut'>보기</span></div></div>
+          <p class="t12 mut" style="margin-top:12px">농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면 자동 취소돼요.</p>
+          <p class="t12 mut" style="margin-top:6px">farmclub은 통신판매중개자이고, 상품·배송·환불 책임은 판매자 강씨네 귤밭에 있어요.</p>
+          <div style="display:flex;gap:16px;min-height:48px;align-items:center"><span class="t14">이용약관</span><span class="t14 sb">개인정보 처리방침</span></div>
+        </div>
+        <div style="border-top:1px solid var(--app-border);padding:10px 16px 20px;background:#fff">
           <p class="t14 mut" style="text-align:center" data-wrap="1" data-wrap-name="주문서 버튼 위 한 줄">누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금</p>
           <div class="btn pri" style="margin-top:8px">입금 안내 보기</div>
         </div>
@@ -465,18 +486,19 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
     </div>
   </div>
 
-  <!-- 입금 안내 -->
+  <!-- 입금 안내 (11/16 피드백: 지금 화면 항목 대조) -->
   <div class="pair" id="p-deposit">
-    <div class="note"><h3>입금 안내</h3>
+    <div class="note"><h3>입금 안내 (화면 전체)</h3>
       <ol>
-                <li>기한이 첫 줄, 금액은 큰 숫자 한 번 + 복사. ‘입금액’·‘입금 기한’ 줄은 빼요. <span class="src ux">UX ④</span></li>
-        <li>입금자명 안내는 면색 상자 두 문장 ‘받는 분 통장 표시를 …로 바꿔 보내 주세요’. <span class="src ux">UX ④</span></li>
+        <li>UX ④가 승인한 변경만: 기한을 맨 위 한 줄로, 금액은 큰 숫자 한 번 + 복사(표의 ‘입금액’·‘입금 기한’ 줄을 합침), ‘입금자명: 주문 번호’ 한 줄을 면색 상자 두 문장으로. <span class="src ux">UX ④</span></li>
+        <li>그 밖의 항목은 모두 그대로예요: 상품 줄, 계좌번호 + 복사, 예금주, 입금자명 + 복사, 판매자(이름·대표, 지역·연락처), 통신판매중개자 고지 상자, 구매안전서비스 고지, 하단 ‘입금을 마쳤어요’·‘나중에 입금할게요’.</li>
+        <li>입금을 알린 뒤에는 기한 대신 ‘입금 알림’ 시각을 보이는 지금 규칙(DEV-207)도 그대로예요(첫 줄 문구만 바뀜, 그림은 알리기 전).</li>
       </ol>
-      <p class="from">지금: DEV-268 로컬 시드 위 540px(아래 판매자·고지 절은 두 쪽 모두 이 높이 밖). 계좌·예금주는 시드의 가짜 값이에요. 맨 위 순번 줄(A)은 11/16 결정으로 후속이라 그리지 않았어요.</p>
+      <p class="from">지금: DEV-268 로컬 시드 화면 전체(960px). 판매자 이름·연락처·계좌는 시드의 가짜 값이에요. PNG는 위 540px과 아래 420px 두 쌍. 맨 위 순번 줄(A)은 11/16 결정으로 후속이라 그리지 않았어요.</p>
     </div>
     <div class="duo">
-      <div class="col"><span class="lbl">지금</span><div class="shot" data-shot="deposit-before" style="height:540px"><img class="cap" src="DEV-311/integrated/deposit-before.png" alt="지금 입금 안내"></div></div>
-      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-shot="deposit-after" style="height:540px"><div class="phone" style="height:540px">
+      <div class="col"><span class="lbl">지금</span><div class="shot" data-clips="deposit-before:top:540,deposit-bottom-before:bottom:420"><img class="cap" src="DEV-311/integrated/deposit-full-before.png" alt="지금 입금 안내 전체"></div></div>
+      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-clips="deposit-after:top:540,deposit-bottom-after:bottom:420"><div class="phone">
         <div class="hd2"><svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>입금 안내</div>
         <div class="testbar">테스트 서비스예요 · 실제 돈은 나가지 않아요</div>
         <div class="px" style="padding-top:14px">
@@ -489,7 +511,18 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
           <div class="row48"><span class="t16 mut">예금주</span><span class="t16">강영수 (강씨네 귤밭)</span></div>
           <div class="row48"><span class="t16 mut">입금자명</span><span class="t16 b">FC-1007-3379<span class="copy">복사</span></span></div>
         </div>
-        <div class="notice" style="margin:14px 16px 0"><div class="t16 sb" data-wrap="2" data-wrap-name="입금자명 안내 제목">받는 분 통장 표시를 FC-1007-3379로 바꿔 보내 주세요</div><div class="t14 mut" style="margin-top:2px">농가가 이 이름으로 입금을 찾아요.</div></div>
+        <div class="notice" style="margin:14px 16px 0"><div class="t16 sb" data-wrap="2" data-wrap-name="입금자명 안내 제목">받는 분 통장 표시를 FC-1007-3379로 바꿔 보내 주세요</div><div class="t14 mut" style="margin-top:2px">농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요.</div></div>
+        <div class="px" style="padding-top:28px;padding-bottom:16px">
+          <div class="t18">판매자</div>
+          <div class="t16" style="margin-top:4px">강씨네 귤밭 · 대표 강영수</div>
+          <div class="t14 mut">제주 서귀포 · 010-2222-3333</div>
+          <div class="notice" style="margin-top:12px"><div class="t16 sb">farmclub은 통신판매중개자예요</div><div class="t14 mut" style="margin-top:2px">거래 당사자가 아니에요. 상품·배송·환불의 책임은 판매자인 강씨네 귤밭에 있어요.</div></div>
+          <p class="t12 mut" style="margin-top:12px">구매안전서비스(은행 에스크로이체)는 소비자가 원할 때 자기 은행에서 이용할 수 있어요. 가격은 같아요.</p>
+        </div>
+        <div style="border-top:1px solid var(--app-border);padding:12px 16px 16px;background:#fff">
+          <div class="btn pri">입금을 마쳤어요</div>
+          <div class="t16 b" style="text-align:center;min-height:48px;display:grid;place-items:center;margin-top:4px">나중에 입금할게요</div>
+        </div>
       </div></div></div>
     </div>
   </div>
@@ -505,6 +538,43 @@ th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
   <h2>가격 계단 시안 (11/15 피드백: 더 눈에 들어오게, 장식 없이)</h2>
   <div class="card" style="border-left:6px solid var(--mark)"><h3>결정(11/16): 지금 통합안 유지, V1~V7 미채택</h3><p style="font-size:14px;line-height:21px;color:var(--ink-2)">사용자가 7안을 본 뒤 처음 통합안 계단(테두리 칸 셋, 높이 20·32·44, 지금 칸만 채움, 마지막 칸에 ‘5kg 36,000원’)을 그대로 쓰기로 했어요. 아래 시안은 비교 기록으로 남겨요. 4단계 이상에서 ‘지금 · 날짜’가 두 줄로 꺾이던 것만 고쳤어요(‘지금’을 지금 칸 위 빈자리로 올림).</p></div>
   <p class="lede">통합안의 계단은 테두리 상자 셋 + 검은 칸 하나라 와이어프레임 막대그래프처럼 읽혔어요. 색·그라데이션·그림자를 더하지 않고, 큰 글자와 작은 라벨의 크기 차이, 꽉 찬 면이나 선 하나로 다시 그렸어요. 세 안은 구조가 달라요: V1은 시간 레일, V2는 글자 계단, V3는 이어진 면. 문구는 UX 승인안 그대로이고, 가격은 마지막 기간 ‘5kg 36,000원’ 하나만 보여요.</p>
+  <h3 style="margin-top:8px">3차 (11/16): 결 다듬기 — 구조는 지금 통합안 그대로, 테두리 상자의 딱딱함만 덜기</h3>
+  <div class="duo quad" style="flex-wrap:wrap">
+    <div class="col"><span class="lbl">지금 통합안 · 채택</span><div class="shot" style="height:440px"><div class="phone" style="height:440px" data-frame="cur"></div></div></div>
+    <div class="col"><span class="lbl after">S1 둥근 면</span><div class="shot" data-shot="stair-s1" style="height:440px"><div class="phone" style="height:440px" data-frame="s1"></div></div></div>
+    <div class="col"><span class="lbl after">S2 크림 결</span><div class="shot" data-shot="stair-s2" style="height:440px"><div class="phone" style="height:440px" data-frame="s2"></div></div></div>
+    <div class="col"><span class="lbl after">S3 알약 기둥</span><div class="shot" data-shot="stair-s3" style="height:440px"><div class="phone" style="height:440px" data-frame="s3"></div></div></div>
+    <div class="col"><span class="lbl after">S4 글자를 품은 칸</span><div class="shot" data-shot="stair-s4" style="height:440px"><div class="phone" style="height:440px" data-frame="s4"></div></div></div>
+  </div>
+  <div class="lbl" style="font-size:13px;font-weight:700;color:var(--ink-2)">3차 · 작은 표식</div>
+  <div class="duo quad" style="flex-wrap:wrap">
+    <div class="col"><span class="lbl">지금 통합안 · 채택</span><div class="shot"><div class="glyphpanel" data-glyph="cur"></div></div></div>
+    <div class="col"><span class="lbl after">S1</span><div class="shot" data-shot="glyph-s1"><div class="glyphpanel" data-glyph="s1"></div></div></div>
+    <div class="col"><span class="lbl after">S2</span><div class="shot" data-shot="glyph-s2"><div class="glyphpanel" data-glyph="s2"></div></div></div>
+    <div class="col"><span class="lbl after">S3</span><div class="shot" data-shot="glyph-s3"><div class="glyphpanel" data-glyph="s3"></div></div></div>
+    <div class="col"><span class="lbl after">S4</span><div class="shot" data-shot="glyph-s4"><div class="glyphpanel" data-glyph="s4"></div></div></div>
+  </div>
+  <div class="lbl" style="font-size:13px;font-weight:700;color:var(--ink-2)">3차 · 단계 2개 / 4개 + 지난 단계</div>
+  <div class="duo quad" style="flex-wrap:wrap">
+    <div class="col"><span class="lbl">지금 통합안 · 채택</span><div class="shot"><div class="phone stresspanel" data-stress="cur"></div></div></div>
+    <div class="col"><span class="lbl after">S1</span><div class="shot" data-shot="stress-s1"><div class="phone stresspanel" data-stress="s1"></div></div></div>
+    <div class="col"><span class="lbl after">S2</span><div class="shot" data-shot="stress-s2"><div class="phone stresspanel" data-stress="s2"></div></div></div>
+    <div class="col"><span class="lbl after">S3</span><div class="shot" data-shot="stress-s3"><div class="phone stresspanel" data-stress="s3"></div></div></div>
+    <div class="col"><span class="lbl after">S4</span><div class="shot" data-shot="stress-s4"><div class="phone stresspanel" data-stress="s4"></div></div></div>
+  </div>
+<div class="adj" style="margin-top:12px">
+    <div class="card"><h3>S1 둥근 면</h3><ol class="dl"><li>테두리를 없애고 면만. 위 모서리 10, 아래 2, 칸 사이 4px.</li><li>뒤 칸 #F1F0EC, 지금 칸 #111. 높이 20·32·44, 라벨·문구는 지금 통합안 그대로.</li><li>상자의 각진 선이 사라져 와이어프레임 느낌이 가장 많이 줄어요.</li></ol><div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>#111 / 흰 18.88 · 뒤 칸 #F1F0EC / 흰 1.14(면 경계는 약함, 정보는 날짜 글자) · 지난 칸 ‘마감’ #6B6B6B / #F7F6F3 4.93</td></tr><tr><td>최소 글자</td><td>12(라벨, 지금과 같음)</td></tr><tr><td>390 줄바꿈</td><td>3·2·4단계 라벨 모두 한 줄(마지막 칸 두 줄은 의도)</td></tr><tr><td>개발</td><td>PriceStair의 테두리→면, 반경 값만 · 추가 0일</td></tr><tr><td>솔직히</td><td>가장 무난해요. 다만 뒤 칸이 너무 옅어 밝은 화면에서는 계단이 흐릴 수 있어요</td></tr></table></div></div>
+    <div class="card"><h3>S2 크림 결</h3><ol class="dl"><li>S1 모양에 뒤 칸을 로고 손잡이 크림 #F1E2CF로, 지금 칸을 로고 올리브 #56652A로.</li><li>크림 #FFF4E8은 흰 바탕과 1.08:1이라 칸이 거의 안 보여서, 한 단 짙은 손잡이 크림을 썼어요.</li><li>올리브를 고른 이유: 크림 옆에서 #111은 너무 세서 따로 놀고, 올리브는 로고 FARM 글자와 같은 계열이라 브랜드 온기가 생겨요.</li></ol><div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>올리브 / 흰 6.38 · 올리브 / 크림 5.02 · 크림 #F1E2CF / 흰 1.27</td></tr><tr><td>최소 글자</td><td>12</td></tr><tr><td>390 줄바꿈</td><td>모두 한 줄</td></tr><tr><td>개발</td><td>색 값 둘이 UI에 새로 들어와요(올리브·크림, 토큰 2개) · 0.5일</td></tr><tr><td>솔직히</td><td>따뜻하지만 화면에서 올리브가 이 자리 하나뿐이라 왜 여기만 초록인지 설명이 필요해요. 빵·흙 같은 인상이 날 수 있어요</td></tr></table></div></div>
+    <div class="card"><h3>S3 알약 기둥</h3><ol class="dl"><li>칸 폭의 44% 캡슐 기둥 셋, 완전 둥근 끝, 가운데 정렬, 라벨도 가운데.</li><li>뒤 기둥 #EAE8E2, 지금 기둥 #111.</li><li>여백이 많아 가벼워요.</li></ol><div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>#111 / 흰 18.88 · #EAE8E2 / 흰 1.23</td></tr><tr><td>최소 글자</td><td>12</td></tr><tr><td>390 줄바꿈</td><td>모두 한 줄</td></tr><tr><td>개발</td><td>쉬움 · 0.5일</td></tr><tr><td>솔직히</td><td><b>유치해 보여요.</b> 높이 20~44에 완전 둥근 끝이라 기둥이 아니라 알약·타원 덩어리로 읽히고, 14px 표식은 휴대폰 신호 막대처럼 보여요. 권하지 않아요</td></tr></table></div></div>
+    <div class="card"><h3>S4 글자를 품은 칸</h3><ol class="dl"><li>높이 차를 줄이고(28·36·44) 모서리 8, 지금 칸 안에 흰 ‘지금’ 12 굵게. 칸 아래에는 날짜만.</li><li>근거: 딱딱함은 그림과 글자가 따로 노는 데서도 오니, ‘지금’을 칸 안에 넣어 둘을 하나로 묶었어요.</li><li>완만한 높이 차라 막대그래프보다 단 셋으로 읽혀요.</li></ol><div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>흰 / #111 18.88 · #F1F0EC / 흰 1.14</td></tr><tr><td>최소 글자</td><td>12</td></tr><tr><td>390 줄바꿈</td><td>모두 한 줄(4단계도 ‘지금’이 칸 안이라 칸 위로 안 올림)</td></tr><tr><td>개발</td><td>쉬움 · 0.5일</td></tr><tr><td>솔직히</td><td>검정 칸에 흰 글자라 탭이나 누르는 버튼처럼 보여요. 바로 아래 옵션 시트·하단 버튼과 헷갈릴 수 있어요</td></tr></table></div></div>
+    <div class="card" style="border-left:6px solid var(--mark);grid-column:1/-1"><h3>3차 추천 · S1 둥근 면 (따뜻함을 원하면 S2)</h3><ol class="dl">
+      <li><b>S1.</b> 지금 통합안의 구조·색·문구를 그대로 두고 테두리만 면으로 바꿔서, 사용자가 싫어한 각진 상자 느낌이 가장 많이 사라져요. 새 색 0, 구현은 PriceStair 스타일 값만이에요.</li>
+      <li><b>S2</b>는 브랜드 온기가 생기지만 올리브·크림이 UI에 새로 들어와요. 이 자리만 초록이 되는 게 괜찮으면 고를 만해요.</li>
+      <li>S3는 유치해 보이고, S4는 버튼처럼 보여서 권하지 않아요.</li>
+    </ol></div>
+</div>
+
+  <h3 style="margin-top:20px">1차·2차 (11/15~16, 기록)</h3>
   <div class="duo quad" style="flex-wrap:wrap">
     <div class="col"><span class="lbl">지금 통합안 · 채택</span><div class="shot" data-shot="stair-current" style="height:440px"><div class="phone" style="height:440px" data-frame="cur"></div></div></div>
     <div class="col"><span class="lbl after">V1 레일</span><div class="shot" data-shot="stair-v1" style="height:440px"><div class="phone" style="height:440px" data-frame="v1"></div></div></div>
@@ -940,6 +1010,40 @@ function stairV7(S, set) {
 }
 Object.assign(STAIRS, { v4: stairV4, v5: stairV5, v6: stairV6, v7: stairV7 });
 
+// ===== 3차 S1~S4: 지금 통합안 구조(칸 셋, 기간 순서 높이, 지금 칸만 채움, 마지막 칸에 가격)는 그대로, 결만 부드럽게 =====
+const SOFT = {
+  s1: { rest: '#F1F0EC', now: '#111', radius: '10px 10px 2px 2px', gap: 4, hs: [20, 32, 44] },
+  s2: { rest: '#F1E2CF', now: '#56652A', radius: '10px 10px 2px 2px', gap: 4, hs: [20, 32, 44] },
+  s3: { rest: '#EAE8E2', now: '#111', radius: '999px', gap: 0, hs: [20, 32, 44], pill: 0.44 },
+  s4: { rest: '#F1F0EC', now: '#111', radius: '8px', gap: 4, hs: [28, 36, 44], chip: true },
+};
+function stairSoft(v) {
+  return (S, set) => {
+    const o = SOFT[v], n = S.stages.length, ni = nowIdx(S), split = n >= 4 && !o.chip;
+    const h = i => Math.round(o.hs[0] + (o.hs[2] - o.hs[0]) * (n > 1 ? i / (n - 1) : 1));
+    const nm = (k, max) => `data-wrap="${max}" data-wrap-v="${v}" data-wrap-name="${v.toUpperCase()} ${set === 'base' ? '' : set === 'two' ? '2단 ' : '4단 '}${k}"`;
+    const bars = S.stages.map((s, i) => {
+      const bg = s.past ? '#F7F6F3' : i === ni ? o.now : o.rest;
+      const w = o.pill ? `width:${Math.round(o.pill * 100)}%;margin:0 auto;` : '';
+      let inner = '';
+      if (o.chip && i === ni) inner = `<span style="color:#fff;font-size:12px;line-height:16px;font-weight:700;padding:6px 8px;display:block">지금</span>`;
+      if (s.past) inner = `<span class="t12 mut" style="display:block;padding:${o.pill ? 0 : 4}px ${o.pill ? 0 : 6}px;${o.pill ? 'text-align:center;line-height:' + h(i) + 'px' : ''}">${o.pill ? '' : '마감'}</span>`;
+      const bar = `<div style="${w}height:${h(i)}px;background:${bg};border-radius:${o.radius};overflow:hidden">${inner}</div>`;
+      return i === ni && split ? `<div style="display:flex;flex-direction:column;justify-content:flex-end;gap:2px"><div class="lab now" style="${o.pill ? 'text-align:center' : ''}" ${nm('‘지금’ (칸 위)', 1)}>지금</div>${bar}</div>` : bar;
+    }).join('');
+    const al = o.pill ? 'text-align:center;' : '';
+    const labs = S.stages.map((s, i) => {
+      if (s.past) return `<div class="lab" style="${al}">${o.pill ? '마감' : ''}</div>`;
+      if (i === ni) return `<div class="lab now" style="${al}" ${nm('지금 라벨', 1)}>${o.chip || split ? s.until : '지금 · ' + s.until}</div>`;
+      return s.price ? `<div class="lab" style="${al}" ${nm('마지막 라벨', 2)}>${s.from}<br>${s.price}</div>` : `<div class="lab" style="${al}" ${nm('가운데 라벨', 1)}>${s.from}</div>`;
+    }).join('');
+    return `<div class="t14 sb">${CAP}</div>
+      <div class="stair" style="display:grid;grid-template-columns:repeat(${n},1fr);gap:${o.gap}px;align-items:end;margin-top:8px;height:${o.hs[2] + (split ? 18 : 0)}px">${bars}</div>
+      <div class="stair" style="display:grid;grid-template-columns:repeat(${n},1fr);gap:${o.gap}px;margin-top:6px;align-items:start">${labs}</div>`;
+  };
+}
+Object.assign(STAIRS, { s1: stairSoft('s1'), s2: stairSoft('s2'), s3: stairSoft('s3'), s4: stairSoft('s4') });
+
 const OPTCARD = `<div style="margin:16px 16px 0;border:1px solid var(--app-border);border-radius:16px">
   <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--app-border)"><div><div class="t16 sb">5kg</div><div class="t14 mut">35박스 남음</div></div><div style="text-align:right"><div class="t12 mut">지금 예약가</div><div class="t18">29,000원</div></div></div>
   <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px"><div><div class="t16 sb">10kg</div><div class="t14 mut">14박스 남음</div></div><div style="text-align:right"><div class="t12 mut">지금 예약가</div><div class="t18">55,000원</div></div></div></div>`;
@@ -951,7 +1055,7 @@ document.querySelectorAll('[data-frame]').forEach(el => {
 document.querySelectorAll('[data-stress]').forEach(el => {
   const v = el.dataset.stress;
   el.innerHTML = `<div class="px" style="padding:16px"><div class="t12 mut" style="margin-bottom:10px">단계 2개</div>${STAIRS[v](STAIR_SETS.two, 'two')}
-    <div class="hr" style="margin:20px 0 16px"></div><div class="t12 mut" style="margin-bottom:10px">${['v4','v5','v6','v7'].includes(v) ? '단계 4개 · 지난 단계 1개 · 11월 30일까지 · D-54' : '단계 4개 · 11월 30일까지 · D-54'}</div>${['v4','v5','v6','v7'].includes(v) ? STAIRS[v](STAIR_SETS.fourpast, 'fourpast') : STAIRS[v](STAIR_SETS.four, 'four')}</div>`;
+    <div class="hr" style="margin:20px 0 16px"></div><div class="t12 mut" style="margin-bottom:10px">${/^(v[4-7]|s[1-4])$/.test(v) ? '단계 4개 · 지난 단계 1개 · 11월 30일까지 · D-54' : '단계 4개 · 11월 30일까지 · D-54'}</div>${/^(v[4-7]|s[1-4])$/.test(v) ? STAIRS[v](STAIR_SETS.fourpast, 'fourpast') : STAIRS[v](STAIR_SETS.four, 'four')}</div>`;
 });
 // 작은 표식 14×10 (viewBox 0 0 14 10). c = 색
 const GLYPH = {
@@ -967,6 +1071,12 @@ Object.assign(GLYPH, {
   v7: c => `<path d="M0 10V5.5H7V3H10.5V0H14V10Z" fill="${c}" fill-opacity=".28"/><rect x="0" y="5.5" width="7" height="4.5" fill="${c}"/>`,
 });
 
+Object.assign(GLYPH, {
+  s1: c => `<rect x="0" y="6" width="4" height="4" rx=".8" fill="${c}"/><rect x="5" y="3" width="4" height="7" rx=".8" fill="${c}" fill-opacity=".28"/><rect x="10" y="0" width="4" height="10" rx=".8" fill="${c}" fill-opacity=".28"/>`,
+  s2: c => `<rect x="0" y="6" width="4" height="4" rx=".8" fill="${c}"/><rect x="5" y="3" width="4" height="7" rx=".8" fill="${c}" fill-opacity=".2"/><rect x="10" y="0" width="4" height="10" rx=".8" fill="${c}" fill-opacity=".2"/>`,
+  s3: c => `<rect x="0.5" y="5" width="3" height="5" rx="1.5" fill="${c}"/><rect x="5.5" y="2.5" width="3" height="7.5" rx="1.5" fill="${c}" fill-opacity=".28"/><rect x="10.5" y="0" width="3" height="10" rx="1.5" fill="${c}" fill-opacity=".28"/>`,
+  s4: c => `<rect x="0" y="3" width="4" height="7" rx="1" fill="${c}"/><rect x="5" y="1.5" width="4" height="8.5" rx="1" fill="${c}" fill-opacity=".28"/><rect x="10" y="0" width="4" height="10" rx="1" fill="${c}" fill-opacity=".28"/>`,
+});
 function glyphSvg(v, c, w, h) { return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 14 10">${GLYPH[v](c)}</svg>`; }
 async function glyphZoom(v, c, w, h, bg, k) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.className = 'zoom'; cv.style.width = w * k + 'px'; cv.style.height = h * k + 'px';
