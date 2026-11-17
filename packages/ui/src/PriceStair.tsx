@@ -1,5 +1,5 @@
 // 가격 계단(SCR-04, FEAT-07 AC-07-9, DEV-348). DEV-311 통합안 11/17 최종: 테두리 칸, 높이는 기간 순서,
-// 지금 칸만 채움, 가격은 마지막 칸 아래 하나. 계산은 stairSteps.ts.
+// 지금 칸만 채움. 칸마다 날짜와 그 기간 가격(11/17 PM 결정으로 마지막 칸만 → 모든 칸), 같은 가격은 한 칸. 계산은 stairSteps.ts.
 import { View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
@@ -15,17 +15,18 @@ const BORDER = 1.5;
 export function PriceStair({ p }: { p: StairInput }) {
   const stair = priceStair(p, { md, won });
   if (!stair) return null;
-  const { steps, nowAbove, nowLabel, lastPrice } = stair;
-  const last = steps.length - 1;
+  const { steps, nowAbove, nowLabel, basis } = stair;
   const spoken = [
-    "일찍 예약할수록 싸요",
-    `지금 가격은 ${steps[0].date || "지금 기간"}`,
-    ...steps.slice(1).map((s, i) => (i + 1 === last ? `${s.date} ${lastPrice}` : s.date)),
+    `일찍 예약할수록 싸요, ${basis} 기준`,
+    ...steps.map((s) => (s.now ? `지금 ${s.date} ${s.price}` : `${s.date} ${s.price}`)),
   ].join(", ");
   return (
     <View testID="price-stair" accessible accessibilityLabel={spoken}>
       <T variant="sub" weight="semibold">
         일찍 예약할수록 싸요
+        <T variant="sub" muted weight="regular">
+          {` · ${basis} 기준`}
+        </T>
       </T>
       <View
         testID="price-stair-bars"
@@ -60,23 +61,16 @@ export function PriceStair({ p }: { p: StairInput }) {
           </View>
         ))}
       </View>
+      {/* 칸마다 날짜 + 그 기간 가격(DEV-348 11/17 PM 결정). 지금 칸은 굵게 #111, 뒤 칸은 보조색 */}
       <View style={{ flexDirection: "row", gap: GAP, marginTop: GAP }}>
         {steps.map((s, i) => (
-          <View key={i} style={{ flex: 1, minWidth: 0 }}>
-            {s.now ? (
-              <T variant="caption" weight="semibold">
-                {nowLabel}
-              </T>
-            ) : (
-              <T variant="caption" muted>
-                {s.date}
-              </T>
-            )}
-            {i === last ? (
-              <T variant="caption" muted>
-                {lastPrice}
-              </T>
-            ) : null}
+          <View key={i} testID="price-stair-label" style={{ flex: 1, minWidth: 0 }}>
+            <T variant="caption" weight={s.now ? "semibold" : "regular"} muted={!s.now}>
+              {s.now ? nowLabel : s.date}
+            </T>
+            <T variant="caption" weight={s.now ? "semibold" : "regular"} muted={!s.now}>
+              {s.price}
+            </T>
           </View>
         ))}
       </View>
