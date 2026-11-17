@@ -82,6 +82,8 @@ def judge(facts, sections):
                 "provider": {
                     "require_parameters": True,
                     "allow_fallbacks": False,
+                    # PM condition (11/17): only providers that neither store nor train on inputs.
+                    "data_collection": "deny",
                     "max_price": {"prompt": inp, "completion": out},
                 },
             },
