@@ -387,3 +387,21 @@ test("AC-15-8/AC-06-8: unfollowed consumer keeps only own replies, re-follow res
   assert.deepEqual(await ids(), before);
   assert.ok((await listed()).includes("f-kang"));
 });
+
+test("AC-06-9: home card price is the cheapest current option with '~' only when there are several (DEV-348)", async () => {
+  reset();
+  const {
+    lowestPrice,
+  } = require("../.expo/mock-build/packages/api/src/productPresentation.js");
+  const p = await ok("GET", "/api/products/p-house");
+  // 시드 p-house: 지금 기간 5kg 29,000원 · 10kg 55,000원
+  assert.deepEqual(lowestPrice(p), { price: 29000, several: true });
+  const one = { ...p, options: p.options.slice(0, 1) };
+  assert.deepEqual(lowestPrice(one), { price: 29000, several: false });
+  // 첫 옵션이 가장 싸지 않아도 가장 싼 값(‘~’는 ‘부터’라는 뜻)
+  assert.equal(lowestPrice({ ...p, options: [...p.options].reverse() }).price, 29000);
+  // 지금 기간이 없으면 계산하지 않는다(카드는 기존 currentPrice와 빈 값 규칙을 쓴다)
+  assert.equal(lowestPrice({ ...p, currentStageId: null }), null);
+  assert.equal(lowestPrice({ ...p, currentStageId: "missing" }), null);
+  assert.equal(lowestPrice({ ...p, options: [] }), null);
+});
