@@ -53,6 +53,12 @@ Improvement is claimed only on the same denominator, with no safety regression, 
 
 Model and provider, prompt/code commit, scorer and runner digest, dataset digest, fixture revision, `FIXED_NOW`, seed 1542026, environment. Subject code/prompt may change between arms; nothing else.
 
+**Version note (2026-11-17, DEV-264):** from the round-2 draft run (`source-i4-b2-*`) the evaluation sends the target product name to the model, because the product now does (masked, M-18). The name comes from the gold `product` field as a stand-in for the producer's typed name; no other gold field reaches the model. The before arm (`source-i4-b0-*`) and round 1 (`source-i4-b1-*`) ran without a name, as the product did then. The before/after difference therefore includes this product change.
+
+**Version note (2026-11-17, scorer `dev264-number-evidence-v2`):** number tokens now allow commas only as thousands separators, so "Since 1966," is read as 1966, not as an unsupported "1966,". All draft arms (b0, b1, b2) were rescored offline; only b2 changed (unsupported 1 → 0, support proxy +1).
+
+**Version note (2026-11-18, semantic recall):** `semantic_recall` with judge `fact-judge-v1` (`server/app/ai/fact_judge.py`, Gemini 3 Flash Preview, temperature 0) is frozen from the DEV-264 final arms. It judges only facts that fail the strict match; unknown counts as a miss. It is reported next to strict recall, never instead of it, and is not a pass line. On holdout it runs only with PM approval.
+
 ## 6. Schedule
 
 11/11 baseline (`i4-b0`) → 11/13 → 11/16 → 11/19 final, same manifest. Human review: chat — Zahra reviews every FAIL and 10 random PASS per cohort; draft — owner to agree (proposed Jinwoo, with real producer materials).

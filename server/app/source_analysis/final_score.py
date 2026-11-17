@@ -40,8 +40,9 @@ NUMBER_UNIT = (
     r"kg|mg|[μµ]g|g|brix|cm|mm|ml|l|m|톤|리터|년|개월|월|일|시간|분|초|"
     r"과|개|상자|박스|%|도|회|명|배"
 )
-MEASUREMENT_VERSION = "dev193-number-evidence-v1"
-NUMBER_VALUE = r"[+-]?\d[\d,]*(?:\.\d+)?"
+# DEV-264 v2: commas only as thousands separators, so "Since 1966," reads as 1966.
+MEASUREMENT_VERSION = "dev264-number-evidence-v2"
+NUMBER_VALUE = r"[+-]?\d+(?:,\d{3})*(?:\.\d+)?"
 RANGE_SEPARATOR = r"(?:[~–-]|부터|에서)"
 NUMBER_RE = re.compile(
     # Korean particles also connect independent facts or subtraction operands.

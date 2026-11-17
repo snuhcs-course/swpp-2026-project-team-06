@@ -279,6 +279,17 @@ def load_gold(
     return references, gold_files
 
 
+def product_names(references, gold_files):
+    """DEV-264: the product sends the producer-typed name to the model. The gold `product` is
+    its only stand-in here; no other gold field reaches the model."""
+    names = {}
+    for path in [ROOT / r["path"] for r in references] + [Path(p) for p in gold_files]:
+        raw = read_json(path)
+        for source in raw["sources"] if isinstance(raw, dict) else raw:
+            names[source["id"]] = source.get("product") or ""
+    return names
+
+
 def estimate(rows, provider, model):
     """Planning estimate, NOT a quote: 4k input/configured output per page and refine.
 
@@ -432,7 +443,7 @@ def evidence_text(local_text, chunk, diagnostics):
     return "\n;\n".join(dict.fromkeys(t for t in (local_text, transcript) if t))
 
 
-def evaluate_source(row, provider, model, calls):
+def evaluate_source(row, provider, model, calls, target_name=""):
     started = time.perf_counter()
     first_entry = len(calls.entries)
     metric = {k: row[k] for k in ("id", "format", "inputSha256")}
@@ -448,7 +459,7 @@ def evaluate_source(row, provider, model, calls):
         pages = parse(row["data"], row["mime"])
         metric["preprocessMs"] = (time.perf_counter() - started) * 1000
         metric.update({k: pages[0][k] for k in ("pagesAnalysed", "pagesSkipped") if k in pages[0]})
-        target = {"id": "eval-target"}
+        target = {"id": "eval-target", "name": scrub(target_name)}
         chunk = {
             "sourceId": row["id"],
             "sourceRevision": 1,
@@ -1127,6 +1138,7 @@ def main(argv=None):
         references, gold_files = load_gold(
             args.split, args.subset, dev_dir, holdout_dir, rows, args.holdout_version
         )
+        names = product_names(references, gold_files)
         # Preflight OCR before spending or consuming the holdout attempt. No network provisioning.
         if any(r["mime"] != "text/plain" for r in rows):
             from app.source_analysis.preprocess import _ocr_engine
@@ -1181,7 +1193,9 @@ def main(argv=None):
                         )
                     )
                 else:
-                    result = evaluate_source(row, args.provider, model, calls)
+                    result = evaluate_source(
+                        row, args.provider, model, calls, names.get(row["id"], "")
+                    )
                     results.append(result)
                     if result[1].get("errorCode") in {"BUDGET_EXCEEDED", "PROVIDER_AUTH"}:
                         aborted = result[1]["errorCode"]
@@ -1211,6 +1225,7 @@ def main(argv=None):
                 "maxUsd": args.max_usd,
                 "sourceMaxOutputTokens": cfg.source_max_output_tokens,
                 "measurementVersion": final_score.MEASUREMENT_VERSION,
+                "targetName": "gold product (stand-in for the producer-typed name, DEV-264)",
                 "estimate": planned,
                 "goldFiles": list(map(str, gold_files)),
                 "sources": [r[1] for r in results],
