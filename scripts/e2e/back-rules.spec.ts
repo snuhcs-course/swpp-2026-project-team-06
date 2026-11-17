@@ -12,7 +12,7 @@ import { consumerUrl, loginConsumer, loginProducer, monitor, producerUrl } from 
 test.use({ viewport: { width: 390, height: 844 } });
 
 async function tab(page: Page, label: string) {
-  await page.getByText(label, { exact: true }).last().click();
+  await page.getByRole("tab", { name: new RegExp(`^${label}(,|$)`) }).click();
 }
 // 헤더 뒤로(입력 화면은 '닫기')
 const backButton = (page: Page) => page.getByRole("button", { name: /^(뒤로|닫기)$/ }).first();
@@ -30,11 +30,13 @@ test("DEV-224 HE-01: a room opened from a product goes back to it, and the chat 
   await expect(page).toHaveURL(/\/chats\/f-kang\?.*productId=p-house/);
   await back(page);
   await expect(page).toHaveURL(/\/products\/p-house$/);
-  // DEV-293: 상품 상세는 구매 화면이라 탭 바가 없다. 판매자 줄 → 농가 정보(발견 탭, 탭 바 있음)에서 채팅 탭을 누른다
-  await page.getByRole("link", { name: /^강씨네 귤밭/ }).click();
-  await expect(page).toHaveURL(/\/farms\/f-kang$/);
-  await page.getByRole("button", { name: "강씨네 귤밭 농가 보기" }).click();
-  await expect(page).toHaveURL(/\/farms\/f-kang\/info$/);
+  // DEV-340 / FEAT-12 HE-01: chat Back consumes history instead of adding
+  // another product visit. A second Back must leave the product, never reopen chat.
+  await back(page);
+  await expect(page).toHaveURL(/\/(?:farms\/f-kang)?$/);
+  // Direct product entry falls back to its farm; test the tab-root action
+  // from a fresh home visit because farm rooms deliberately hide the tabs.
+  await page.goto(consumerUrl);
   await tab(page, "채팅");
   await expect(page).toHaveURL(/\/chats$/);
   // 채팅 탭 안에서 연 방의 뒤로는 목록
@@ -131,5 +133,22 @@ test("DEV-224 d1: a link to a farm that does not exist shows the not-found scree
   await expect(page.getByText("소식방", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "농가 둘러보기" }).click();
   await expect(page).toHaveURL(/\/farms$/);
+  assertClean();
+});
+
+
+test("DEV-340 HE-01: repeated product → chat → Back twice returns home", async ({ page }) => {
+  const assertClean = monitor(page);
+  await loginConsumer(page);
+  for (let visit = 0; visit < 2; visit++) {
+    await page.getByRole("link", { name: "하우스 감귤 5kg / 10kg 상품 상세", exact: true }).click();
+    await expect(page).toHaveURL(/\/products\/p-house$/);
+    await page.getByRole("button", { name: "채팅", exact: true }).click();
+    await expect(page).toHaveURL(/\/chats\/f-kang\?.*productId=p-house/);
+    await back(page);
+    await expect(page).toHaveURL(/\/products\/p-house$/);
+    await back(page);
+    await expect(page).toHaveURL(new RegExp(`${consumerUrl}/$`));
+  }
   assertClean();
 });

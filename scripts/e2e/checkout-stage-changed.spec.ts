@@ -136,3 +136,62 @@ test("AC-08-9: sales paused while the checkout is open → disabled button, '다
   await expect(page.getByRole("button", { name: /^[\d,]+원 예약하기$/ })).toBeEnabled();
   assertClean();
 });
+
+
+test("DEV-337 AC-05-5: returning to home refreshes its current price without a reload", async ({ page, request }) => {
+  const assertClean = monitor(page);
+  await loginConsumer(page);
+  await page.goto(consumerUrl);
+  const card = page.getByRole("link", { name: "하우스 감귤 5kg / 10kg 상품 상세", exact: true });
+  await expect(card.getByText("29,000원", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "내 정보" }).click();
+  await setStagePrice(request, 30000);
+  await page.getByRole("tab", { name: "발견" }).click();
+  await expect(card.getByText("30,000원", { exact: true })).toBeVisible();
+  assertClean();
+});
+
+test("DEV-337 AC-05-5: returning from chat refreshes product price and sold-out CTA", async ({ page, request }) => {
+  const assertClean = monitor(page);
+  await loginConsumer(page);
+  await page.goto(`${consumerUrl}/products/p-house`);
+  await expect(page.getByTestId("product-options").getByText("29,000원", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "채팅", exact: true }).click();
+  await expect(page).toHaveURL(/\/chats\/f-kang/);
+  await expect(page.getByRole("textbox", { name: "메시지", exact: true })).toBeEditable();
+  await setStagePrice(request, 30000);
+  await page.getByRole("button", { name: "뒤로", exact: true }).click();
+  await expect(page).toHaveURL(/\/products\/p-house$/);
+  await expect(page.getByTestId("product-options").getByText("30,000원", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "예약하기", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "채팅", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "메시지", exact: true })).toBeEditable();
+  await setPaused(request, true);
+  await page.getByRole("button", { name: "뒤로", exact: true }).click();
+  await expect(page).toHaveURL(/\/products\/p-house$/);
+  await expect(page.getByText("판매 일시 중지", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "예약하기", exact: true })).toBeDisabled();
+  assertClean();
+});
+
+test("DEV-337 AC-08-8: initial checkout explains a price changed since product review", async ({ page, request }) => {
+  const assertClean = monitor(page);
+  await loginConsumer(page);
+  await setStagePrice(request, 30000);
+  await page.goto(`${consumerUrl}/checkout/p-house?optionId=opt-5&quantity=1&seenUnitPrice=29000`);
+  await expect(page.getByText("가격이 바뀌었어요", { exact: true })).toBeVisible();
+  await expect(page.getByText("29,000원 → 30,000원 · 아래 총 입금액을 확인해 주세요.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "30,000원 예약하기", exact: true })).toBeDisabled();
+  assertClean();
+});
+
+
+test("DEV-337 AC-08-8: malformed reviewed-price links cannot spoof a price-change notice", async ({ page, request }) => {
+  await loginConsumer(page);
+  await setStagePrice(request, 30000);
+  for (const seen of ["-1", "1.5", "Infinity", "not-a-price", "0"]) {
+    await page.goto(`${consumerUrl}/checkout/p-house?optionId=opt-5&quantity=1&seenUnitPrice=${encodeURIComponent(seen)}`);
+    await expect(page.getByRole("button", { name: "30,000원 예약하기", exact: true })).toBeVisible();
+    await expect(page.getByText("가격이 바뀌었어요", { exact: true })).toHaveCount(0);
+  }
+});

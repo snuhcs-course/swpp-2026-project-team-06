@@ -194,8 +194,7 @@ export default function Chat() {
         right={<Button label="농가 보기" variant="text" onPress={() => router.push(`/farms/${farmId}` as Href)} />}
         onBack={() => {
           const target = roomBackTarget(params);
-          if (target) router.navigate(target as Href);
-          else goBackOr(router, "/chats?view=private");
+          goBackOr(router, target ?? "/chats?view=private");
         }}
       />
       <View style={{ paddingHorizontal: 12, gap: 8 }}>

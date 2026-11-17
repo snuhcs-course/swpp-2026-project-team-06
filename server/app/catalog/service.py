@@ -761,8 +761,18 @@ def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) ->
     if body.version != p.version:
         raise conflict("STALE_VERSION", "최신 상품을 다시 불러와 주세요.")
     option_ids = {o.id for o in item.options}
-    stages = body.stages
+    stages = sorted(body.stages, key=lambda stage: stage.starts_at)
+    old = item.stages
+    old_by_id = {stage.id: stage for stage in old}
+    incoming = {}
     fields: dict[str, str] = {}
+    for i, stage in enumerate(stages):
+        if stage.stage_id is not None:
+            if stage.stage_id not in old_by_id or stage.stage_id in incoming:
+                fields[f"stages.{i}.stageId"] = "기존 기간 ID를 확인해 주세요"
+            incoming[stage.stage_id] = (i, stage)
+    if fields:
+        raise invalid(fields, "기간 ID를 확인해 주세요. 저장하지 않았어요.")
     if not stages:
         fields["stages"] = "단계를 하나 이상 정해 주세요"
     for i, s in enumerate(stages):
@@ -785,13 +795,14 @@ def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) ->
     if stages and p.delivery_start and stages[-1].ends_at >= p.delivery_start:
         fields["stages.period"] = "마지막 단계는 받는 시기 시작 전에 끝나야 해요"
 
-    old = item.stages
-    for i, s in enumerate(old):
+    for s in old:
         from app.orders.models import Order
 
         used = db.scalar(select(Order.id).where(Order.stage_id == s.id).limit(1)) is not None
-        dates_changed = i >= len(stages) or (
-            stages[i].starts_at != s.starts_at or stages[i].ends_at != s.ends_at
+        match = incoming.get(s.id)
+        replacement = match[1] if match is not None else None
+        dates_changed = replacement is None or (
+            replacement.starts_at != s.starts_at or replacement.ends_at != s.ends_at
         )
         if used and dates_changed:
             raise conflict(
@@ -802,27 +813,28 @@ def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) ->
         }
         if not any(reserved.values()):
             continue
-        if i >= len(stages):
-            fields[f"stages.{i}"] = "예약이 있는 단계는 지울 수 없어요"
+        if match is None:
+            fields["stages"] = "예약이 있는 단계는 지울 수 없어요"
             continue
+        i, replacement = match
         for oid, count in reserved.items():
-            new = stages[i].options.get(oid)
+            new = replacement.options.get(oid)
             if new is not None and new.quantity < count:
                 fields[f"stages.{i}.{oid}.quantity"] = f"이미 {count}박스 예약됐어요"
     if fields:
         raise invalid(fields, "고칠 칸이 있어요. 저장하지 않았어요.")
 
     for i, s in enumerate(stages):
-        if i < len(old):
-            row = old[i]
-            row.seq, row.name = i + 1, s.name or f"{i + 1}단계"
+        if s.stage_id is not None:
+            row = old_by_id[s.stage_id]
+            row.seq, row.name = i + 1, f"{i + 1}단계"
             row.starts_at, row.ends_at = s.starts_at, s.ends_at
         else:
             row = Stage(
                 id=new_id("st"),
                 product_id=p.id,
                 seq=i + 1,
-                name=s.name or f"{i + 1}단계",
+                name=f"{i + 1}단계",
                 starts_at=s.starts_at,
                 ends_at=s.ends_at,
             )
@@ -843,7 +855,9 @@ def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) ->
                 )
             else:
                 alloc.quantity = v.quantity
-    for row in old[len(stages) :]:
+    for row in old:
+        if row.id in incoming:
+            continue
         db.execute(delete(StagePrice).where(StagePrice.stage_id == row.id))
         db.execute(delete(StageAllocation).where(StageAllocation.stage_id == row.id))
         db.delete(row)

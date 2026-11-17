@@ -320,3 +320,23 @@ Optional source jobs require `SOURCE_ANALYSIS_ENABLED=true`, an API and worker w
 | Product contracts | `docs/spec/functional/`, `docs/spec/source-integration.md`, `docs/spec/source-editor.md`, `docs/spec/conversation-ui-1.6.md` |
 
 Where older source documents contain dated decisions, use their current-contract notices and the implemented code at this document's commit. Diagram sources (`images/i2-*.dot`) are retained alongside exported figures for future maintenance.
+
+
+### Reservation period identity (DEV-336, AC-05-4)
+
+Period updates match existing rows by stageId, reject unknown or duplicate IDs, and delete only omitted IDs. Rows without an ID create new periods. Date order determines sequential labels; reservations and order snapshots remain attached to the original period ID. Date/deletion locks and allocated-stock checks use that ID.
+
+
+### Consumer price freshness (DEV-337, AC-08-8)
+
+Returning to home/product reloads current prices and availability. Product reservation stays disabled during refresh/failure, with retry on failure. Checkout displays an informational old/new unit-price notice when its initial authoritative load differs from the product price. Subsequent changes still use the existing server conflict response and explicit “Reserve at updated price” action, preserving form inputs.
+
+
+### Chat navigation history (DEV-340, FEAT-12)
+
+A conversation header consumes an existing back-stack entry. If opened directly, it replaces the route with the product, farm-info or order fallback. Repeated product → chat → Back → Back leaves the product rather than returning to the same chat.
+
+
+### Message order and oracle version (DEV-244, AC-12-8)
+
+Private 1:1 messages, page boundaries and read watermarks follow persisted sequence, including equal timestamps and opposing lexical IDs. Dates still derive from createdAt. News pagination retains its timestamp/ID contract. The prospective v1.1 oracle in docs/evaluation/i3-journeys/versions/v1.1 preserves the complete frozen v1.0 record and historical failure, and awaits PM adoption for future UAT.
