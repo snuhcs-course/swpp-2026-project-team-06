@@ -1,6 +1,7 @@
 export { hasMoney, hasHealthClaim, hasPlatformText, hasPeriodText } from "./sourceTextSafety";
 import { ApiError, apiUrl, getToken, isMock, request } from "./client";
 import { blobUrl } from "./objectUrl";
+import { privatePhotoBlob } from "./privatePhoto";
 import { appendFile, type UploadFile } from "./upload";
 export type SourceBasicInfo = {
   variety: string;
@@ -364,11 +365,25 @@ export async function uploadSource(
   if (!res.ok) throw new ApiError(res.status, body);
   return body as SourceAsset;
 }
-export async function sourcePageImage(bid: string, sid: string, page: number) {
-  const res = await fetch(
-    `${apiUrl}${at(bid)}/sources/${sid}/pages/${page}/image`,
-    { headers: { Authorization: `Bearer ${getToken() ?? ""}` } },
+/**
+ * 자료 페이지 이미지 주소(웹 blob URL / 네이티브 data URL). 다 쓰면 받은 쪽이 해제한다.
+ * DEV-341: 화면 표시는 `display`(긴 변 1600px JPEG)·첨부 칸은 `thumb`만 받는다. 원본 PNG(16~30MB)를
+ * 화면에서 받는 길은 두지 않으므로 `preview`는 필수다(빠뜨리면 타입 검사에서 막힘).
+ * 자료 revision을 주소에 넣어 같은 revision은 브라우저 캐시·메모리 공유로 다시 받지 않는다.
+ */
+export async function sourcePageImage(
+  bid: string,
+  sid: string,
+  page: number,
+  preview: {
+    variant: "display" | "thumb";
+    source: Pick<SourceAsset, "revision" | "sanitizationVersion">;
+  },
+) {
+  const query = `?variant=${preview.variant}&v=${preview.source.revision}.${preview.source.sanitizationVersion}`;
+  return blobUrl(
+    await privatePhotoBlob(
+      `${apiUrl}${at(bid)}/sources/${sid}/pages/${page}/image${query}`,
+    ),
   );
-  if (!res.ok) throw new ApiError(res.status, await res.json());
-  return blobUrl(await res.blob());
 }

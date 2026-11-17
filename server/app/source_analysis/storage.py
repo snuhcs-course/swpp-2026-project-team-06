@@ -37,13 +37,23 @@ class Storage:
 
     def put(self, data: bytes, prefix: str | None = None):
         key = (prefix or uuid4().hex) + "/" + uuid4().hex
+        self.put_at(key, data)
+        return key
+
+    def put_at(self, key: str, data: bytes):
+        """Write a server-derived key (e.g. a display variant of another key, DEV-341)."""
         path = self.path(key)
         if self.client:
             self.client.put_object(Bucket=self.settings.source_r2_bucket, Key=key, Body=data)
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-        return key
+            # Write then rename so a concurrent reader never sees a half-written file.
+            temp = path.with_name(f".{path.name}.{uuid4().hex}")
+            try:
+                temp.write_bytes(data)
+                temp.replace(path)
+            finally:
+                temp.unlink(missing_ok=True)  # only left behind when writing failed
 
     def get(self, key):
         path = self.path(key)
@@ -52,6 +62,20 @@ class Storage:
                 "Body"
             ].read()
         return path.read_bytes()
+
+    def get_optional(self, key):
+        """Bytes, or None when the key was never written or was already cleaned up."""
+        path = self.path(key)
+        if self.client:
+            from botocore.exceptions import ClientError
+
+            try:
+                return self.get(key)
+            except ClientError as exc:
+                if exc.response.get("Error", {}).get("Code") in ("NoSuchKey", "404"):
+                    return None
+                raise
+        return path.read_bytes() if path.is_file() else None
 
     def delete(self, key):
         path = self.path(key)

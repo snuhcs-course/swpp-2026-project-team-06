@@ -1,5 +1,6 @@
 """Product photos: image preparation without OCR, description-only placement."""
 
+import hashlib
 import io
 
 from PIL import Image, ImageOps
@@ -27,7 +28,16 @@ PUBLIC_MAX_EDGE = 1600
 PUBLIC_JPEG_QUALITY = 82
 
 
-def _encode(data, save):
+# DEV-341: private producer previews of a page image. `display` is the same size/format as the
+# consumer copy (editor, cover); `thumb` fits attachment tiles (square `cover` crop of ~170 CSS px
+# at 3x needs a short edge near 480px). The lossless PNG stays the analysis/publication source.
+THUMB_SHORT_EDGE = 480
+VARIANTS = ("display", "thumb")
+# Bump when variant encoding changes so old derived files are ignored (and later cleaned up).
+VARIANT_VERSION = 1
+
+
+def _open(data):
     from pillow_heif import register_heif_opener
 
     from app.source_analysis.preprocess import PreparationError
@@ -37,35 +47,90 @@ def _encode(data, save):
         with Image.open(io.BytesIO(data)) as raw:
             if raw.width * raw.height > 40_000_000 or getattr(raw, "n_frames", 1) != 1:
                 raise PreparationError("IMAGE_LIMIT")
-            image = ImageOps.exif_transpose(raw).convert("RGB")
-            out = io.BytesIO()
-            save(image, out)
-            return out.getvalue()
+            return ImageOps.exif_transpose(raw).convert("RGB")
     except PreparationError:
         raise
     except Exception as exc:
         raise PreparationError("INVALID_IMAGE") from exc
 
 
+def _jpeg(image, long_edge):
+    """Progressive JPEG whose long edge is at most `long_edge` (never enlarged).
+
+    A square `thumbnail` box keeps DEV-328 `public_photo` sizes (4000x3001 -> 1600x1200).
+    The caller's image is not modified.
+    """
+    image = image.copy()
+    image.thumbnail((long_edge, long_edge), Image.Resampling.LANCZOS)
+    out = io.BytesIO()
+    image.save(out, "JPEG", quality=PUBLIC_JPEG_QUALITY, optimize=True, progressive=True)
+    return out.getvalue()
+
+
+def _png(image):
+    out = io.BytesIO()
+    image.save(out, "PNG")
+    return out.getvalue()
+
+
+def _display(image):
+    return _jpeg(image, PUBLIC_MAX_EDGE)
+
+
+def _thumb(image):
+    long, short = max(image.width, image.height), min(image.width, image.height)
+    # Long edge that makes the short edge <= THUMB_SHORT_EDGE, capped like the display copy.
+    return _jpeg(image, min(PUBLIC_MAX_EDGE, max(1, round(long * THUMB_SHORT_EDGE / short))))
+
+
+ENCODERS = {"display": _display, "thumb": _thumb}
+
+
 def prepare_photo(data):
     """Private lossless analysis copy (EXIF orientation applied, metadata dropped)."""
-    return _encode(data, lambda image, out: image.save(out, "PNG"))
+    return _png(_open(data))
 
 
 def public_photo(data):
     """Consumer copy: long edge <= PUBLIC_MAX_EDGE, progressive JPEG without EXIF/XMP/ICC."""
+    return _display(_open(data))
 
-    def save(image, out):
-        image.thumbnail((PUBLIC_MAX_EDGE, PUBLIC_MAX_EDGE), Image.Resampling.LANCZOS)
-        image.save(out, "JPEG", quality=PUBLIC_JPEG_QUALITY, optimize=True, progressive=True)
 
-    return _encode(data, save)
+def variant_key(key, variant):
+    """Deterministic storage key of a page image's preview variant (no schema change, DEV-341).
+
+    Same prefix as the source key; the name is a hash so it never collides with `Storage.put`.
+    """
+    if variant not in VARIANTS:
+        raise ValueError("Unknown image variant")
+    prefix = key.split("/", 1)[0]
+    digest = hashlib.sha256(f"{key}:{variant}:{VARIANT_VERSION}".encode()).hexdigest()[:32]
+    return f"{prefix}/{digest}"
+
+
+def variant_keys(key):
+    return [variant_key(key, v) for v in VARIANTS]
+
+
+def page_variant(store, key, variant):
+    """Preview bytes for a stored page image; made from the stored image on first use."""
+    vkey = variant_key(key, variant)
+    data = store.get_optional(vkey)
+    if data is None:
+        data = ENCODERS[variant](_open(store.get(key)))
+        store.put_at(vkey, data)
+    return data
 
 
 def ready_photo(db, source, data):
     from app.source_analysis.preprocess import PREPROCESS_VERSION
 
-    key = Storage().put(prepare_photo(data))
+    store = Storage()
+    image = _open(data)  # Decode once for the analysis PNG and both previews.
+    key = store.put(_png(image))
+    # Previews are written with the upload so the composer's first view is a small JPEG (DEV-341).
+    for variant in VARIANTS:
+        store.put_at(variant_key(key, variant), ENCODERS[variant](image))
     source.status = "PREPARED"
     source.page_count = 1
     source.sanitization_version += 1

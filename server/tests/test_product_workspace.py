@@ -180,7 +180,9 @@ def test_AC_SRC_5_private_product_photo_requires_owner(client, login):
     response = client.get(url, headers=login("u-kang"))
     assert response.status_code == 200
     assert response.content == b"image-fixture"
-    assert response.headers["cache-control"] == "no-store"
+    # DEV-341: the owner's browser may keep it; other logins revalidate (Vary: Authorization).
+    assert response.headers["cache-control"] == "private, max-age=86400"
+    assert "authorization" in response.headers["vary"].lower()
     assert (
         client.get(BASE + f"/p-other/photos/{photo_id}", headers=login("u-kang")).status_code == 404
     )
