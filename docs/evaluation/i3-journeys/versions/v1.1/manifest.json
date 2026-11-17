@@ -16,7 +16,7 @@
   "build_environment": "Pending DEV-165 fixture/build baseline; record at execution",
   "measured_results": null,
   "sha256": {
-    "matrix.csv": "278ba54682f54db750dc42c6a8e0894083f0b7ca82ef95ce83e69a4efa4c716f",
+    "matrix.csv": "39e3ecf658e1030420f030bf2f9513d93a74e61fff780a0b5326741173aac1aa",
     "protocol.md": "e11951e656b13b3a18d420d6a2f833153514406dce796a37d8a14f2237d38868"
   },
   "supersedes": "DEV-152-I3-v1.0",
