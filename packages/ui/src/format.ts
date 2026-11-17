@@ -98,6 +98,10 @@ export const joinMeta = (...parts: (string | null | undefined | false)[]) =>
 export const reservedText = (n: number | null | undefined) =>
   n != null && n > 0 ? `${n}명 예약` : "";
 
+/** 소비자 화면의 팔로워 수 ‘팬 128명’(DEV-348). 예약 수처럼 0명·모름은 빈 글자(M-24, 리뷰 반영) */
+export const fansText = (n: number | null | undefined) =>
+  n != null && n > 0 ? `팬 ${n.toLocaleString("ko-KR")}명` : "";
+
 /** "이 가격 D-9" — 지금 기간(지금 가격)이 끝나기까지. 값이 없으면 빈 글자(DEV-348, UX ②: ‘마감’이 예약 마감으로 읽혀서 사실대로) */
 export const closesText = (n: number | null | undefined) =>
   n == null ? "" : `이 가격 ${dday(n)}`;

@@ -8,6 +8,7 @@ import {
   closesText,
   DELIVERY_PENDING_NOTE,
   deliveryText,
+  fansText,
   joinMeta,
   priceUntilText,
   reservedText,
@@ -106,4 +107,11 @@ test("DEV-227: in-day times have no leading zero (news room uses time())", () =>
   assert.equal(time("2026-10-07T03:05:00Z"), "오후 12:05");
   assert.equal(time("2026-10-06T15:05:00Z"), "오전 12:05");
   assert.ok(!/ 0\d:/.test(time("2026-10-07T00:40:00Z")));
+});
+
+test("DEV-348: fan count says '팬 n명' from 1 and hides 0 like the reservation count", () => {
+  assert.equal(fansText(128), "팬 128명");
+  assert.equal(fansText(1200), "팬 1,200명");
+  for (const empty of [0, null, undefined]) assert.equal(fansText(empty), "");
+  assert.equal(joinMeta("제주 서귀포", fansText(0)), "제주 서귀포");
 });

@@ -23,6 +23,7 @@ import {
   deliveryText,
   joinMeta,
   md,
+  fansText,
   optionLeft,
   priceUntilText,
   shippingText,
@@ -362,7 +363,7 @@ function SellerRow({
   fans?: number | null;
   onPress?: () => void;
 }) {
-  const meta = joinMeta(region, fans != null ? `팬 ${fans.toLocaleString("ko-KR")}명` : "");
+  const meta = joinMeta(region, fansText(fans));
   return (
     <Pressable
       accessibilityRole="link"

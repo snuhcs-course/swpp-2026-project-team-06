@@ -80,6 +80,7 @@ export {
   reservedText,
   closesText,
   priceUntilText,
+  fansText,
   AVAILABILITY_LABEL,
   unavailableLabel,
   brixText,
