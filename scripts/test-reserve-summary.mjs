@@ -53,3 +53,7 @@ test("AC-01-21: product line keeps the checkout short-name rule", () => {
   assert.equal(r.productLine("하우스 감귤 5kg", "5kg", 1), "하우스 감귤 5kg × 1");
   assert.equal(r.shortName("노지 감귤 10kg / 5kg"), "노지 감귤");
 });
+
+test("AC-01-21: no current stage also leaves the arrival window out, like the checkout row", () => {
+  assert.equal(r.reserveSummary({ ...p, currentStageId: null }, "opt-5", "1", period).sub, "강씨네 귤밭");
+});

@@ -24,7 +24,7 @@ export function productIdFromNext(next: string | null | undefined): string | nul
 export type ReserveSummary = {
   title: string;
   sub: string;
-  /** 지금 기간 가격 × 수량. 지금 예약 기간이 없거나 가격이 없으면 null(금액을 지어내지 않음, M-24) */
+  /** 지금 기간 가격 × 수량(주문서의 ‘상품 금액’, 배송비 제외). 지금 예약 기간이 없거나 가격이 없으면 null(금액을 지어내지 않음, M-24) */
   amount: number | null;
 };
 
@@ -40,7 +40,8 @@ export function reserveSummary(
   if (!opt || !Number.isInteger(qty) || qty < 1) return null;
   const stage = p.stages.find((s) => s.stageId === p.currentStageId);
   const unit = stage?.options[opt.optionId]?.price;
-  const when = p.deliveryWindow?.start && p.deliveryWindow?.end
+  // 지금 예약 기간이 없으면 주문서 상품 줄처럼 받는 시기를 말하지 않는다(그 줄은 ‘지금은 예약 기간이 아니에요’)
+  const when = stage && p.deliveryWindow?.start && p.deliveryWindow?.end
     ? ` · ${period(p.deliveryWindow.start, p.deliveryWindow.end)} 도착`
     : "";
   return {

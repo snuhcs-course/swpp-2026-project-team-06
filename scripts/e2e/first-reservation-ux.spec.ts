@@ -64,6 +64,8 @@ test("DEV-356 AC-01-21 AC-01-12: reserve gate shows the chosen option and login 
   await expect(summary).toContainText(/하우스 감귤 \S+ × 2/);
   await expect(summary).toContainText("강씨네 귤밭");
   await expect(summary).toContainText(/[\d,]+원/);
+  // 배송비를 뺀 금액이라 ‘상품 금액’ 라벨을 붙인다
+  await expect(summary).toContainText("상품 금액");
   await expect(page.getByText("로그인하면 고른 옵션 그대로 주문서로 가요.")).toBeVisible();
   await page.getByRole("button", { name: "로그인", exact: true }).click();
 
@@ -79,6 +81,20 @@ test("DEV-356 AC-01-21 AC-01-12: reserve gate shows the chosen option and login 
   expect((await heading.boundingBox())!.height).toBeLessThanOrEqual(lineHeight * 2 + 1);
   await page.getByRole("button", { name: "김민지로 로그인" }).click();
   await expect(page).toHaveURL(/\/checkout\/p-house\?optionId=opt-\w+&quantity=2/);
+  assertClean();
+});
+
+test("DEV-356 AC-01-21: gates other than reserve keep their sheet body and show no summary", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const assertClean = monitor(page);
+  await page.goto(`${consumerUrl}/products/p-house`);
+  await page.getByRole("button", { name: "채팅", exact: true }).click();
+  await expect(page.getByText("로그인하고 물어봐요")).toBeVisible();
+  await expect(
+    page.getByText("팔로우·예약·채팅은 로그인이 필요해요. 로그인하면 지금 보던 화면으로 돌아와요."),
+  ).toBeVisible();
+  await expect(page.getByTestId("gate-summary")).toHaveCount(0);
+  await expect(page.getByText("로그인하면 고른 옵션 그대로 주문서로 가요.")).toHaveCount(0);
   assertClean();
 });
 
@@ -141,6 +157,19 @@ test("DEV-356 AC-09-11 AC-08-10: deposit shows the amount once, keeps the deadli
   await expect(page.getByText(/내용을 바꾸려면 기존 예약을 취소하고 다시 예약해 주세요/)).toBeVisible();
   await expect(page.getByText("지금 예약가로 잡아 뒀어요")).toBeVisible();
   await expectCheckoutKeepsEverything(page);
+  // 이미 만든 예약이면 버튼 위 ‘24시간 안에 입금’ 줄은 없다(기한이 이미 흐르는 중)
+  await expect(page.getByText("누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금")).toHaveCount(0);
+  // 수량을 바꾸면 잡지 않은 수량을 잡았다고 하지 않는다(상자는 그대로), 되돌리면 다시 보인다
+  await page.getByRole("button", { name: "옵션·수량 변경" }).click();
+  await page.getByRole("button", { name: "더하기" }).click();
+  await page.getByRole("button", { name: "바꾸기" }).click();
+  await expect(page.getByText(/하우스 감귤 \S+ × 3/).first()).toBeVisible();
+  await expect(page.getByText("지금 예약가로 잡아 뒀어요")).toHaveCount(0);
+  await expect(page.getByText("이미 만든 예약이 있어요")).toBeVisible();
+  await page.getByRole("button", { name: "옵션·수량 변경" }).click();
+  await page.getByRole("button", { name: "빼기" }).click();
+  await page.getByRole("button", { name: "바꾸기" }).click();
+  await expect(page.getByText("지금 예약가로 잡아 뒀어요")).toBeVisible();
   await page.getByRole("button", { name: "입금 안내 보기" }).click();
   await expect(page).toHaveURL(/\/checkout\/p-house\/pay/);
   // 스택에 남은 앞 입금 안내는 숨겨져 있어 보이는 것만 본다
