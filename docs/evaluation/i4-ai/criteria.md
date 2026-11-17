@@ -11,7 +11,7 @@ Metrics and datasets were frozen at branch commit `e8f29e7`, before the first ba
 | Chat | 11/05 sealed holdout (30 cases) | — | **Exposed** (answerable 1/15 already known); not reused as independent evidence |
 | Draft | Synthetic 23 (current `synthetic.CASES`; I3 R4 had 20) + public dev sources (`source-dev-i3-private`) | Development | Known |
 | Draft | Holdout v1.1 | — | **Exposed** (run once) |
-| Draft | Holdout v2 (`source-holdout-v2-private`, PM-owned) | Final unseen check, run once on the final I4 version (~11/18–19) | Sealed only if the earlier incomplete v2 attempt showed no per-source results; otherwise a new version (PM) |
+| Draft | Holdout v2 (`source-holdout-v2-private`, PM-owned) | Final unseen check, run once on the final I4 version (~11/18–19) | **Sealed** (PM confirmed 2026-11-16: the earlier incomplete v2 attempt showed no per-source results) |
 
 **Version note (2026-11-15):** this table first said "public 12 (DEV-170)". The folder the PM shared on 11/15 holds 24 sources by the runner's count (`final_eval --subset public`). The public-set denominator is **24**, fixed from the follow-up public run onward. Every arm compares on the same 24. The synthetic 23 is unchanged.
 
@@ -85,4 +85,4 @@ Not run in this PR. Each one comes in its own follow-up PR, frozen before its fi
    - First check the scorer itself: the gold text must score 100%.
    - Then score an LLM paraphrase of the gold. The drop in strict recall is the scorer's built-in underestimate.
 8. **Groundedness judge.** Each output sentence is marked supported / unsupported / unknown against the source. Today only numbers and units are checked, so a claim with no number in it ("무농약으로 키웠어요") is not caught.
-9. **Format coverage.** Render the synthetic texts into images, long images and PDFs with code, and score them on the same gold. Today `long_image` has 0 sources, and 20 of 23 sources are text.
+9. **Format coverage.** Render the synthetic texts into images, long images and PDFs with code, and score them on the same gold. In the synthetic set, `long_image` has 0 sources and 20 of 23 sources are text (the public set has 4 long images and 6 PDFs).
