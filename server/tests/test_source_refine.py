@@ -250,6 +250,35 @@ def test_AC_SRC_2_prompt_routes_commonly_misplaced_facts():
         assert line in PROMPT
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "상품 파손이나 상한 귤이 발생할 경우 부분 보상 또는 환불 처리를 도와드립니다.",
+        "3kg 중과 선택 시 12과~15과 랜덤 발송됩니다.",
+        "요청이 없을 시 14과~19과 랜덤 발송됩니다.",
+        "판매가 올해 종료되었습니다.",
+        "반품 시 연락 주세요",
+    ],
+)
+def test_AC_SRC_3_clear_policy_text_is_rejected(value):
+    """DEV-264: refund/compensation, order options and sales status never reach the page."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = value
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "delivery", "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target")[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ["POLICY_TEXT"]
+
+
+def test_AC_SRC_3_health_phrase_follows_gold_and_neutral_growing_stays():
+    from app.source_analysis.text_safety import has_health_claim, has_policy_text
+
+    assert has_health_claim("물댄동산농장의 귤은 건강함을 담아 키웠습니다.")
+    assert not has_health_claim("건강하게 키운 감귤")
+    assert not has_policy_text("제주 농장에서 택배로 직접 보내요.")
+    assert not has_policy_text("교환 가능한 선물용 박스예요.")
+
+
 def fixture_extract(mode, model, chunk, targets, images):
     assert mode == "mock" and images == []
     return ExtractionResponse(
@@ -1624,7 +1653,8 @@ def test_AC_SRC_3_safety_lists_utf8_independent_of_locale(monkeypatch):
 @pytest.mark.parametrize(
     "value,code",
     [
-        ("반품 시 연락 주세요", "PLATFORM_TEXT"),
+        # DEV-264: 반품/환불/보상 are now rejected (POLICY_TEXT); weaker words still warn.
+        ("교환 문의는 채팅으로 주세요", "PLATFORM_TEXT"),
         ("고객센터 평일 10시~5시", "PLATFORM_TEXT"),
         ("1-3일 이내 도착", "PERIOD_TEXT"),
     ],

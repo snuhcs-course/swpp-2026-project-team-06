@@ -24,6 +24,7 @@ from app.source_analysis.text_safety import (
     has_money,
     has_period_text,
     has_platform_text,
+    has_policy_text,
     numbers,
     ranges,
 )
@@ -189,6 +190,8 @@ def validate(output, candidates, target_id, *, target_count=0):
                 code = "HEALTH_CLAIM"
             elif has_exaggeration(text.value):
                 code = "EXAGGERATION"
+            elif has_policy_text(text.value):
+                code = "POLICY_TEXT"
             elif scrub(text.value) != text.value:
                 code = "PRIVATE_VALUE"
             elif numbers(text.value) - numbers(
@@ -249,6 +252,7 @@ def validate(output, candidates, target_id, *, target_count=0):
         "HEALTH_CLAIM": "health",
         "EXAGGERATION": "unsupported",
         "UNSUPPORTED_RANGE": "unsupported",
+        "POLICY_TEXT": "platform",
         "PRIVATE_VALUE": "pii",
     }
     for rejected_text in rejected:

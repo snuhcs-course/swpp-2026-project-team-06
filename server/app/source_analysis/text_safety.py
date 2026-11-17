@@ -78,3 +78,14 @@ def has_exaggeration(value):
     return _contains(value, SAFETY_LISTS["exaggeration"]) or any(
         pattern.search(value) for pattern in _EXAGGERATION_PATTERNS
     )
+
+
+_POLICY_PATTERNS = [re.compile(p) for p in SAFETY_LISTS["policyPatterns"]]
+
+
+def has_policy_text(value):
+    """DEV-264: unambiguous order/refund/sales-status policy. Weaker platform and period
+    words stay warnings (spec source-analysis.md)."""
+    return _contains(value, SAFETY_LISTS["policy"]) or any(
+        pattern.search(value) for pattern in _POLICY_PATTERNS
+    )
