@@ -6,7 +6,7 @@ Prepared 17 November 2026 for DEV-277 / DEV-271. This is an evidence-backed cont
 
 I asked Codex to review all issues assigned to me, implement the pending code tasks on a new branch, commit each task separately and open a PR. The resulting branch is minsunkim/dev-336-assigned-uat-fixes. DEV-336 preserves reservation-period identity and order locks; DEV-337 refreshes consumer prices when returning to a screen and retains checkout price reconfirmation; DEV-340 fixes the product/chat Back loop. DEV-244 prepares a versioned sequence-order oracle without rewriting its original failed result. Per-issue task files and commits retain the implementation decisions.
 
-Tools/model: Codex, GPT-6.1-sol; Linear for requirements/status; Git/GitHub for source history and the PR; local PostgreSQL, pytest, Mock contracts, TypeScript and Playwright for verification. No paid product-AI call was needed for these fixes.
+Tools/model: Codex, GPT-6.1-sol; Linear for requirements/status; Figma for editable design synchronization; Git/GitHub for source history and the PR; local PostgreSQL, pytest, Mock contracts, TypeScript and Playwright for verification. No paid product-AI call was needed for these fixes.
 
 ## Representative actual prompt
 
@@ -24,10 +24,12 @@ The agent's first invalid-ID test compared two different response shapes: the pr
 
 Initial browser assertions assumed paused products still display prices, that a farm room exposes tabs, and that the chat tab's accessible name excludes its unread count. Inspection of the actual UI and current components corrected these assumptions. Final cases independently verify live price refresh, disabled reservation during a pause, the accessible tab-root action, direct-entry fallbacks, repeated Back navigation and the existing explicit price-change gate. The failed runs remain local; only the final measured results are described as passing.
 
+After the user restored Figma access, the editing service could not load Pretendard Variable or override text properties bound to that missing font. The agent verified the app’s explicit Noto Sans KR fallback, created editable state copies with that supported family, and preserved the source screens/library. Independent design review caught missing uploaded-photo preview/delete controls and the wrong timeout icon; these and a loading-indicator alignment issue were corrected before final visual/readback verification. The font/component-copy limitation remains explicit in the design evidence.
+
 ## Verification and human boundary
 
 The final local gates are 1,835 server tests passed / 1 skipped with the UTC database setting used by CI; 339 Mock tests passed / 1 skipped; all five workspace typechecks; seven real API integration scenarios; and 13 browser cases. The original v1.0 and proposed v1.1 matrix validators each validate 44 cases. These are local synthetic checks, not participant UAT, production deployment or native-device acceptance.
 
-The user provided the requirements and later directed that Figma work be put on hold. No personal diff review or manual code correction by the user has been observed in this session. Human review, PM adoption of the prospective oracle, production UAT reset, participant UAT and submission evidence remain distinct requirements.
+The user provided the requirements, initially held Figma work, then verified access and resumed it. DEV-319/321/337 now have reviewed editable design states linked in figma-recovery-2026-11-17.md. No personal diff review or manual code correction by the user has been observed in this session. Human review, PM adoption of the prospective oracle, production UAT reset, participant UAT and submission evidence remain distinct requirements.
 
-Effort: Agent approximately 1.5h of elapsed session time, estimated from recorded work timestamps and including an interruption; active model time was not isolated. Human time is unconfirmed. Tokens are not supplied by the session and are left unrecorded. No time-saved or productivity percentage is inferred.
+Effort: Agent approximately 2h of elapsed session time (approximately 1.5h implementation plus 0.5h resumed Figma work), estimated from recorded work timestamps and including an interruption; active model time was not isolated. Human time is unconfirmed. Tokens are not supplied by the session and are left unrecorded. No time-saved or productivity percentage is inferred.

@@ -5,7 +5,7 @@ The complete Linear query for assignee “me” returned 60 issues with no next 
 | Assigned open issues | Verified disposition / next action |
 | --- | --- |
 | DEV-336 | Stage identity, reservation counts, order locks, invalid IDs and sequential labels implemented and locally tested. Production p-uat-1a reset is a human-operated November 18 setup step. |
-| DEV-337 | Home/product focus refresh and availability guard implemented; initial checkout price mismatch notice added; existing explicit server conflict reconfirmation verified. Figma synchronization is on hold. |
+| DEV-337 | Home/product focus refresh and availability guard implemented; initial checkout price mismatch notice added; existing explicit server conflict reconfirmation verified. [Figma price/focus states](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=716-3656) are synchronized and independently reviewed; human review/merge remain pending. |
 | DEV-340 | Chat header consumes back history; direct URLs replace the source fallback. Repeated home/product/chat/back/back and direct-entry cases pass. |
 | DEV-244 | Existing sequence behavior documented; prospective v1.1 matrix and digests prepared. Original v1.0 files/results unchanged. PM adoption for UAT remains required. |
 | DEV-277 | Actual contribution draft is i4-minsun-ai-contribution.md. Link to DEV-271 and author final confirmation remain separate from writing the draft. |

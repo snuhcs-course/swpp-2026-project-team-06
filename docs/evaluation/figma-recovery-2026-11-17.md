@@ -43,3 +43,24 @@ Existing normal checkout and price/stock-conflict frames were preserved. Screens
 Implementation references: `apps/consumer/src/app/checkout/[productId]/index.tsx` and `packages/ui/src/Button.tsx`.
 
 Verification on 17 November: structured readback found **458 native nodes and 118 editable text layers**, all using the documented Noto Sans KR fallback. The only image fills are three existing 64 × 64 product thumbnails. Independent AI review compared exact copy, draft/consent state, original-request identity, totals and CTA behavior against source. It inspected `farmclub-dev321-final.png` after the spinner was centered and found no actionable issue, clipping or overlap. Human review and documentation merge remain pending. No application tests were rerun for this design/documentation-only update.
+
+
+## DEV-337 — Price freshness and reconfirmation
+
+- Linear: [DEV-337](https://linear.app/sswp6/issue/DEV-337); implementation: [PR #649](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/649)
+- Requirements: FEAT-07 / FEAT-08 / AC-05-5 / AC-08-8 / R-17
+- Design board: [716:3656 — 가격 최신화와 재확인](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=716-3656)
+- Compared implementation: d2386f363c739745d066a259ebe27a3506f5f7bc
+
+| Editable screen or annotation | Represented state and behavior |
+| --- | --- |
+| [716:3662 — different initial checkout price](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=716-3662) | `가격이 바뀌었어요` with `25,000원 → 27,000원 · 아래 총 입금액을 확인해 주세요.` The authoritative unit price and total are 27,000 won; the normal action is `27,000원 예약하기`. This initial-load notice is informational and adds no second checkbox or confirmation stage. |
+| [716:3835 — price changes after checkout opens](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=716-3835) | `가격이 바뀌었어요` with `5kg 한 상자 25,000원 → 27,000원. 입력한 내용은 그대로 두었어요. 바뀐 금액으로 예약할지 확인해 주세요.` The current total is 27,000 won; `처음 본 합계` retains struck-through 25,000 won. Only `바뀐 금액으로 예약하기` resubmits after the first request was rejected before order creation. Recipient, note, quantity and consent remain. |
+| [716:4013 — product refresh loading elements](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=716-4013) | Disabled `예약하기` while the product refresh is pending. This is a labeled state-element panel, not a replacement product layout. |
+| [716:4019 — product refresh failure elements](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=716-4019) | Common LoadError / `다시 시도` and disabled `예약하기`. The annotation retains the previous product information and blocks reservation until a successful reload. |
+
+The board points to [existing home 652:2](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=652-2) and [product detail 658:2](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=658-2). It records refetch on return without requiring browser refresh, preserves the reviewed checkout snapshot during address-screen trips, and avoids a redundant notice when the initial price already matches. Original normal, price and stock-conflict screens were not modified.
+
+Implementation references: `apps/consumer/src/app/(tabs)/index.tsx`, `apps/consumer/src/app/(tabs)/products/[productId].tsx`, `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/src/lib/useFocusedAsync.ts`, and `apps/consumer/src/lib/checkoutConflict.ts`.
+
+Verification on 17 November: structured readback found **333 native nodes and 95 editable text layers**, all using the documented Noto Sans KR fallback. The only image fills are two existing 64 × 64 product thumbnails. Independent AI source/readback review confirmed exact copy, current and old totals, the explicit changed-price action and refresh guards. Visual inspection of `farmclub-dev337-review.png` found no clipping or overlap. All three boards together contain **1,228 native nodes and 305 editable text layers**, with no full-screen raster UI. The original source font remains Pretendard Variable. This follow-up changed no application code; the earlier runtime results remain separately recorded in the assigned-work audit. Human review, merge and deployment remain pending.
