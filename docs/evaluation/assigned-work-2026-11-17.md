@@ -23,7 +23,7 @@ The complete Linear query for assignee “me” returned 60 issues with no next 
 - Mock: npm run test:mock — **339 passed, 1 skipped**.
 - Workspace types: npm run typecheck — all five workspaces passed after installing the locked dependencies and regenerating route types through normal app startup.
 - Real API integration: **7/7 scenarios passed**.
-- Browser: back-rules.spec.ts and checkout-stage-changed.spec.ts — **12/12 passed**, no retries. Failed earlier runs are not counted as passing.
+- Browser: back-rules.spec.ts and checkout-stage-changed.spec.ts — **13/13 passed**, no retries. Failed earlier runs are not counted as passing.
 - Both oracle revisions validate **44 cases**, retaining the original v1.0 digests and failure. A candidate oracle is not a new product-test result.
 - Changed server files pass ruff; diff whitespace check passes.
 

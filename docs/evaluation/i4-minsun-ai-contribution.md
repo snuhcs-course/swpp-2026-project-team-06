@@ -26,7 +26,7 @@ Initial browser assertions assumed paused products still display prices, that a 
 
 ## Verification and human boundary
 
-The final local gates are 1,835 server tests passed / 1 skipped with the UTC database setting used by CI; 339 Mock tests passed / 1 skipped; all five workspace typechecks; seven real API integration scenarios; and 12 browser cases. The original v1.0 and proposed v1.1 matrix validators each validate 44 cases. These are local synthetic checks, not participant UAT, production deployment or native-device acceptance.
+The final local gates are 1,835 server tests passed / 1 skipped with the UTC database setting used by CI; 339 Mock tests passed / 1 skipped; all five workspace typechecks; seven real API integration scenarios; and 13 browser cases. The original v1.0 and proposed v1.1 matrix validators each validate 44 cases. These are local synthetic checks, not participant UAT, production deployment or native-device acceptance.
 
 The user provided the requirements and later directed that Figma work be put on hold. No personal diff review or manual code correction by the user has been observed in this session. Human review, PM adoption of the prospective oracle, production UAT reset, participant UAT and submission evidence remain distinct requirements.
 

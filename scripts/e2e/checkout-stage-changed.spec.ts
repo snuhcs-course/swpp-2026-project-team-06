@@ -184,3 +184,14 @@ test("DEV-337 AC-08-8: initial checkout explains a price changed since product r
   await expect(page.getByRole("button", { name: "30,000원 예약하기", exact: true })).toBeDisabled();
   assertClean();
 });
+
+
+test("DEV-337 AC-08-8: malformed reviewed-price links cannot spoof a price-change notice", async ({ page, request }) => {
+  await loginConsumer(page);
+  await setStagePrice(request, 30000);
+  for (const seen of ["-1", "1.5", "Infinity", "not-a-price", "0"]) {
+    await page.goto(`${consumerUrl}/checkout/p-house?optionId=opt-5&quantity=1&seenUnitPrice=${encodeURIComponent(seen)}`);
+    await expect(page.getByRole("button", { name: "30,000원 예약하기", exact: true })).toBeVisible();
+    await expect(page.getByText("가격이 바뀌었어요", { exact: true })).toHaveCount(0);
+  }
+});

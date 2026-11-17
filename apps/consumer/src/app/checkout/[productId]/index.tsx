@@ -443,7 +443,8 @@ export default function Checkout() {
       <TestBand text="테스트 서비스예요 · 실제 입금·배송은 없어요" />
       <Scroll bottom={170}>
         {!view && p && unit > 0 && params.seenUnitPrice &&
-          Number.isFinite(Number(params.seenUnitPrice)) &&
+          Number.isSafeInteger(Number(params.seenUnitPrice)) &&
+          Number(params.seenUnitPrice) > 0 &&
           Number(params.seenUnitPrice) !== unit && optionId === params.optionId ? (
           <Notice
             style={{ margin: tokens.space.gutter, marginBottom: 0 }}
