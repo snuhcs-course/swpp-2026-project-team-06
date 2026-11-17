@@ -7,6 +7,8 @@ import type { KakaoConfig } from "@farmclub/api";
 export const KAKAO_AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize";
 /** 복귀 경로. 서버 KAKAO_REDIRECT_PATH·카카오 콘솔 등록 값과 같다 */
 export const KAKAO_REDIRECT_PATH = "/auth/kakao";
+/** 인가 요청 동의 항목(DEV-78). 콘솔에 없는 항목(예: name)을 넣으면 카카오 로그인이 실패한다 */
+export const KAKAO_SCOPE = "account_email,phone_number";
 /** app.json scheme. 앱에서 시작한 로그인의 복귀 주소 */
 export const APP_SCHEME = "farmclub-producer";
 /** 앱에서 시작한 인가 요청의 state 접두어 */
@@ -89,8 +91,9 @@ export function beginKakaoLogin(config: KakaoConfig): string | null {
     redirect_uri: kakaoRedirectUri(config),
     response_type: "code",
     state: nonce,
-    // 소비자 앱과 같은 동의 항목(카카오계정 이메일). 대표자 이름·연락처는 가입 신청(SCR-20)에서 받는다
-    scope: "account_email",
+    // 소비자 앱과 같은 동의 항목(동의 항목 권한은 카카오 앱 단위). 쉼표로 잇는다.
+    // 전화번호는 가입 신청(SCR-20) 연락처 칸을 미리 채운다(DEV-78). 대표자 이름은 SCR-20에서 받고 name은 신청하지 않았다
+    scope: KAKAO_SCOPE,
   });
   return `${KAKAO_AUTHORIZE_URL}?${params.toString()}`;
 }
