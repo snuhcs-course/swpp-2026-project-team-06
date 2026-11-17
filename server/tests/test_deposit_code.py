@@ -615,3 +615,40 @@ def test_AC_12_18_unfollowed_buyer_may_send_a_thread_photo_in_a_producer_opened_
     assert client.get(f"/api/messaging/attachments/{aid}", headers=producer).status_code == 200
     # 입금 대기 주문 단위 사진은 받지 않는다
     assert upload(client, buyer, png(), orderId=order["orderId"]).status_code == 404
+
+
+def test_AC_12_18_cancel_during_the_ai_call_is_caught_by_the_save_time_recheck(
+    client, login, monkeypatch
+):
+    """주문 없이 보낸 보통 메시지의 저장 직전 재확인은 주문을 DB에서 다시 읽는다.
+
+    AI 호출 중에 주문이 돈 없이 취소되면 팔로우하지 않은 구매자의 메시지는 저장하지 않는다."""
+    from app.ai import service as ai
+
+    buyer = _buyer(client)
+    order = _awaiting(client, buyer)
+    # 메시지 없이 열기만 해 대화가 AUTO로 남는다(AI가 답을 시도한다)
+    started = client.post(
+        "/api/messaging/producer/chats",
+        headers=login("u-kang") | key(),
+        json={"orderId": order["orderId"]},
+    )
+    assert started.status_code == 200, started.text
+    original = ai.answer_question
+    called = []
+
+    def cancel_then_answer(*args, **kwargs):
+        called.append(True)
+        with get_sessionmaker()() as session, session.begin():
+            row = session.get(Order, order["orderId"])
+            row.status, row.cancel_reason = "CANCELED", "입금 기한 초과"
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ai, "answer_question", cancel_then_answer)
+    sent = client.post(
+        "/api/messaging/chats/f-kang/messages",
+        headers=buyer | key(),
+        json={"text": "당도는 얼마예요?"},
+    )
+    assert called, "AI 호출 중에 취소가 일어나야 하는 시나리오"
+    assert sent.status_code == 403, sent.text

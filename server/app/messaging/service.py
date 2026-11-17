@@ -822,12 +822,16 @@ def _set_mode(t: Thread, mode: str) -> None:
         t.version += 1
 
 
-def _may_send_without_order(db: Session, consumer_id: str, thread: Thread) -> bool:
+def _may_send_without_order(
+    db: Session, consumer_id: str, thread: Thread, *, fresh: bool = False
+) -> bool:
     """주문 없이 보내는 보통 메시지: 팔로우했거나, 생산자가 그 소비자의 주문으로 연 대화
-    (DEV-342)."""
+    (DEV-342). `fresh`면 주문을 DB에서 다시 읽는다(저장 직전 재확인)."""
     from app.farms import service as farms
 
-    return farms.is_following(db, consumer_id, thread.farm_id) or has_producer_context(db, thread)
+    return farms.is_following(db, consumer_id, thread.farm_id) or has_producer_context(
+        db, thread, fresh=fresh
+    )
 
 
 def _has_inquiries(db: Session, thread_id: str) -> bool:
@@ -1392,7 +1396,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     if body.order_id:
         # Do not commit with a stale order identity after an external AI call.
         require_paid_order(db, consumer.id, farm_id, body.order_id, fresh=True)
-    elif not _may_send_without_order(db, consumer.id, thread):
+    elif not _may_send_without_order(db, consumer.id, thread, fresh=True):
         raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
     unchanged = (
         _effective_mode(thread),

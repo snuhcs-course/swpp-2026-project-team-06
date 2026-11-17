@@ -32,7 +32,9 @@ def require_paid_order(
     return order
 
 
-def eligible_order_ids(db: Session, thread: Thread, *, sources=("CONSUMER",)) -> list[str]:
+def eligible_order_ids(
+    db: Session, thread: Thread, *, sources=("CONSUMER",), fresh: bool = False
+) -> list[str]:
     """Read-only, including legitimate historical inquiries without backfill.
 
     Default: the chat's linked orders (consumer-origin contexts and inquiries).
@@ -50,6 +52,11 @@ def eligible_order_ids(db: Session, thread: Thread, *, sources=("CONSUMER",)) ->
     result = []
     for order_id in recorded:
         order = orders.get_chat_order_of(db, thread.consumer_id, order_id)
+        if fresh and order is not None:
+            # 저장 직전 다시 확인: 그사이(AI 호출 중) 취소·상태 변경을 놓치지 않게
+            # DB에서 다시 읽는다
+            db.refresh(order)
+            order = orders.get_chat_order_of(db, thread.consumer_id, order_id)
         if order is not None and orders.order_belongs_to_farm(db, order, thread.farm_id):
             result.append(order_id)
     return sorted(result)
@@ -60,7 +67,7 @@ def has_order_context(db: Session, thread: Thread) -> bool:
     return bool(eligible_order_ids(db, thread, sources=("CONSUMER", PRODUCER)))
 
 
-def has_producer_context(db: Session, thread: Thread) -> bool:
+def has_producer_context(db: Session, thread: Thread, *, fresh: bool = False) -> bool:
     """A producer opened this chat from the buyer's current order: the buyer may answer with
-    ordinary messages even without following (DEV-342)."""
-    return bool(eligible_order_ids(db, thread, sources=(PRODUCER,)))
+    ordinary messages even without following (DEV-342). `fresh` re-reads the orders."""
+    return bool(eligible_order_ids(db, thread, sources=(PRODUCER,), fresh=fresh))
