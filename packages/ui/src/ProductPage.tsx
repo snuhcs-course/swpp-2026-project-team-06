@@ -13,7 +13,8 @@ import { DetailStory } from "./DetailStory";
 import { Icon } from "./Icon";
 import { ModuleStory } from "./ModuleStory";
 import { Photo } from "./content";
-import { PriceStair } from "./PriceStair";
+import { PriceStair, stairBasisOptionId } from "./PriceStair";
+import { priceHoldsUntil } from "./stairSteps";
 import { Price } from "./Storefront";
 import { T } from "./Text";
 import {
@@ -492,7 +493,11 @@ function SaleRows({
         label={deliveryText(p.deliveryWindow, lastReservationEnd(p))}
         sub={joinMeta(
           fee,
-          p.soldOut ? "" : priceUntilText(cur?.endsAt) || closesText(p.dDay),
+          // 계단 ‘지금 · ○월 ○일까지’와 같은 날: 같은 가격이 이어지면 그 구간의 끝(리뷰 반영)
+          p.soldOut
+            ? ""
+            : priceUntilText(priceHoldsUntil(p, stairBasisOptionId(p))) ||
+                closesText(p.dDay),
         )}
         open={open === "window"}
         onPress={() => toggle("window")}
@@ -582,7 +587,7 @@ function SaleRows({
           })}
         </View>
       )}
-      {/* 가격 계단: 지금 기간부터 마지막 기간까지, 가격은 마지막 칸 하나(AC-07-9, DEV-348) */}
+      {/* 가격 계단: 지금 기간부터 마지막 기간까지, 칸마다 그 기간 가격, 같은 가격은 한 칸(AC-07-9, DEV-348) */}
       <PriceStair p={p} />
       {/* 알아 둘 세 줄(AC-07-10, DEV-348 UX ①) */}
       <TrustRows p={p} />

@@ -65,30 +65,60 @@ function startOf(stages: StairStageInput[], i: number) {
   return d.toISOString().slice(0, 10);
 }
 
-/**
- * 칸은 첫 옵션 가격이 실제로 오르는 곳에서만 나눈다(DEV-348 11/17 PM 결정 ‘가 + 다’): 이어지는 기간의 가격이 같으면 한 칸.
- * 계단을 그릴 수 없으면 null:
- * 예약할 수 없음 · 지금 기간 없음 · 남은 기간에 첫 옵션 가격이 빈 곳이 있음 · 합친 뒤 칸이 하나뿐 ·
- * 어느 칸이라도 앞 칸보다 싸짐(‘일찍 예약할수록 싸요’가 사실이 아니게 되므로, 마지막 가격이 높지 않으면 안 그리던 규칙을 넓힘).
- * 지난 기간은 예약할 수 없으니 그리지 않고, 지금 칸이 언제나 맨 왼쪽이다.
- */
-export function priceStair(p: StairInput, { md, won }: StairFormat): Stair | null {
-  if (p.soldOut || !p.currentStageId) return null;
-  const option = p.options[0];
-  if (!option) return null;
-  const sorted = [...p.stages].sort(order);
-  const at = sorted.findIndex((s) => s.stageId === p.currentStageId);
-  if (at < 0) return null;
-  const ahead = sorted.slice(at);
-  const prices = ahead.map((s) => s.options[option.optionId]?.price);
+/** 지금 기간부터 같은 가격이 이어지는 기간을 묶는다: [첫 기간 index, 끝 기간 index, 가격]. 가격이 빈 기간이 있으면 null */
+function priceGroups(ahead: StairStageInput[], optionId: string) {
+  const prices = ahead.map((s) => s.options[optionId]?.price);
   if (prices.some((v) => v == null)) return null;
-  // 같은 가격이 이어지는 기간을 한 칸으로: [첫 기간 index, 끝 기간 index, 가격]
   const groups: { first: number; last: number; price: number }[] = [];
   prices.forEach((price, i) => {
     const g = groups[groups.length - 1];
     if (g && g.price === price) g.last = i;
     else groups.push({ first: i, last: i, price: price as number });
   });
+  return groups;
+}
+
+function aheadOf(p: StairInput) {
+  if (!p.currentStageId) return null;
+  const sorted = [...p.stages].sort(order);
+  const at = sorted.findIndex((s) => s.stageId === p.currentStageId);
+  return at < 0 ? null : { sorted, at, ahead: sorted.slice(at) };
+}
+
+/**
+ * 지금 가격이 끝나는 날(리뷰 반영, DEV-348): 지금 기간부터 같은 가격이 이어지면 그 마지막 기간의 끝날.
+ * 상세 받는 시기 줄 ‘이 가격은 ○월 ○일까지’와 계단 ‘지금 · ○월 ○일까지’가 같은 날을 쓰게 한다. 모르면 null
+ */
+export function priceHoldsUntil(p: StairInput, basisOptionId?: string): string | null {
+  const option = p.options.find((o) => o.optionId === basisOptionId) ?? p.options[0];
+  const a = aheadOf(p);
+  if (!option || !a) return null;
+  const prices = a.ahead.map((s) => s.options[option.optionId]?.price);
+  if (prices[0] == null) return a.ahead[0].endsAt ?? null;
+  let last = 0;
+  while (last + 1 < prices.length && prices[last + 1] === prices[0]) last++;
+  return a.ahead[last].endsAt ?? null;
+}
+
+/**
+ * 칸은 기준 옵션(지금 살 수 있는 첫 옵션, 호출하는 쪽이 넘김. 없으면 첫 옵션) 가격이 실제로 오르는 곳에서만 나눈다(DEV-348 11/17 PM 결정 ‘가 + 다’): 이어지는 기간의 가격이 같으면 한 칸.
+ * 계단을 그릴 수 없으면 null:
+ * 예약할 수 없음 · 지금 기간 없음 · 남은 기간에 기준 옵션 가격이 빈 곳이 있음 · 합친 뒤 칸이 하나뿐 ·
+ * 어느 칸이라도 앞 칸보다 싸짐(‘일찍 예약할수록 싸요’가 사실이 아니게 되므로, 마지막 가격이 높지 않으면 안 그리던 규칙을 넓힘).
+ * 지난 기간은 예약할 수 없으니 그리지 않고, 지금 칸이 언제나 맨 왼쪽이다.
+ */
+export function priceStair(
+  p: StairInput,
+  { md, won }: StairFormat,
+  basisOptionId?: string,
+): Stair | null {
+  if (p.soldOut) return null;
+  const option = p.options.find((o) => o.optionId === basisOptionId) ?? p.options[0];
+  const a = aheadOf(p);
+  if (!option || !a) return null;
+  const { sorted, at, ahead } = a;
+  const groups = priceGroups(ahead, option.optionId);
+  if (!groups) return null;
   const n = groups.length;
   if (n < 2) return null;
   if (groups.some((g, i) => i > 0 && g.price < groups[i - 1].price)) return null;
@@ -113,6 +143,7 @@ export function priceStair(p: StairInput, { md, won }: StairFormat): Stair | nul
   return {
     steps,
     nowAbove,
+    // 날짜를 모르면 빈 줄을 두지 않는다: 칸 아래는 ‘지금’만(4칸 이상이면 ‘지금’이 이미 칸 위라 빈 글자 → 줄 생략)
     nowLabel: nowAbove ? nowDate : nowDate ? `지금 · ${nowDate}` : "지금",
     basis: option.label,
   };

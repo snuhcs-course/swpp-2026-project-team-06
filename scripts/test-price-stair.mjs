@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { md, won } from "../packages/ui/src/format.ts";
-import { priceStair } from "../packages/ui/src/stairSteps.ts";
+import { priceHoldsUntil, priceStair } from "../packages/ui/src/stairSteps.ts";
 
 const fmt = { md, won };
 const options = [
@@ -185,4 +185,48 @@ test("AC-07-9: price uses the first option (the card price basis); start date fa
     tenFirst.steps.map((x) => x.price),
     ["58,000원", "66,000원", "72,000원"],
   );
+});
+
+test("AC-07-9: the basis option is the one passed in (first buyable option); its prices draw the stair and title (DEV-348 review)", () => {
+  // 첫 옵션(5kg)이 이번 기간 품절이면 부르는 쪽(PriceStair)이 살 수 있는 첫 옵션(10kg)을 넘긴다. 마지막 칸 가격 = 그 옵션 줄의 취소선 가격
+  const s = priceStair(input(three), fmt, "opt-10");
+  assert.equal(s.basis, "10kg");
+  assert.deepEqual(
+    s.steps.map((x) => x.price),
+    ["58,000원", "66,000원", "72,000원"],
+  );
+  // 모르는 옵션이면 첫 옵션
+  assert.equal(priceStair(input(three), fmt, "missing").basis, "5kg");
+});
+
+test("AC-07-9: unknown dates leave no empty label lines; 'now' stays (DEV-348 review)", () => {
+  const noDates = three.map(({ startsAt, endsAt, ...s }) => s);
+  const s = priceStair(input(noDates), fmt);
+  assert.deepEqual(
+    s.steps.map((x) => x.date),
+    ["", "", ""],
+  );
+  assert.equal(s.nowLabel, "지금");
+  const four = [0, 1, 2, 3].map((i) => ({ stageId: `st-${i}`, seq: i, options: { "opt-5": { price: 30000 + i * 1000 } } }));
+  const f = priceStair(input(four), fmt);
+  assert.equal(f.nowAbove, true);
+  assert.equal(f.nowLabel, ""); // ‘지금’은 칸 위에 이미 있으니 칸 아래 날짜 줄은 그리지 않는다(PriceStair가 빈 글자를 건너뜀)
+});
+
+test("AC-07-9: 'this price until' uses the end of the same-price span, matching the stair's now label (DEV-348 review)", () => {
+  assert.equal(priceHoldsUntil(input(three)), "2026-10-12");
+  const sameNow = [
+    stage(1, "2026-10-01", "2026-10-12", 29000),
+    stage(2, "2026-10-13", "2026-11-05", 29000),
+    stage(3, "2026-11-06", "2026-11-09", 36000),
+  ];
+  assert.equal(priceHoldsUntil(input(sameNow)), "2026-11-05");
+  assert.equal(priceStair(input(sameNow), fmt).nowLabel, `지금 · ${md(priceHoldsUntil(input(sameNow)))}까지`);
+  // 같은 가격이 끝까지 이어지면 마지막 기간 끝
+  const flat = sameNow.map((s) => ({ ...s, options: { "opt-5": { price: 29000 }, "opt-10": { price: 58000 } } }));
+  assert.equal(priceHoldsUntil(input(flat)), "2026-11-09");
+  // 기준 옵션별로 따로: 10kg은 58,000 → 58,000 → 72,000
+  assert.equal(priceHoldsUntil(input(sameNow), "opt-10"), "2026-11-05");
+  assert.equal(priceHoldsUntil(input(three, null)), null);
+  assert.equal(priceHoldsUntil(input(three, "missing")), null);
 });

@@ -4,7 +4,7 @@ import { View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
 import { T } from "./Text";
-import { md, won } from "./format";
+import { md, optionLeft, won } from "./format";
 import { priceStair, STAIR_MAX, type StairInput } from "./stairSteps";
 import { tokens } from "./tokens";
 
@@ -12,8 +12,15 @@ import { tokens } from "./tokens";
 const GAP = 6;
 const BORDER = 1.5;
 
-export function PriceStair({ p }: { p: StairInput }) {
-  const stair = priceStair(p, { md, won });
+/** 계단·‘이 가격은 ○월 ○일까지’의 기준 옵션: 지금 살 수 있는 첫 옵션(옵션 시트 기본값 defaultOptionId·옵션 줄 취소선과 같은 조건). 없으면 첫 옵션 */
+export function stairBasisOptionId(p: StairProduct) {
+  return p.options.find((o) => optionLeft(p, o.optionId) > 0)?.optionId ?? p.options[0]?.optionId;
+}
+
+type StairProduct = StairInput & Parameters<typeof optionLeft>[0];
+
+export function PriceStair({ p }: { p: StairProduct }) {
+  const stair = priceStair(p, { md, won }, stairBasisOptionId(p));
   if (!stair) return null;
   const { steps, nowAbove, nowLabel, basis } = stair;
   const spoken = [
@@ -65,9 +72,12 @@ export function PriceStair({ p }: { p: StairInput }) {
       <View style={{ flexDirection: "row", gap: GAP, marginTop: GAP }}>
         {steps.map((s, i) => (
           <View key={i} testID="price-stair-label" style={{ flex: 1, minWidth: 0 }}>
-            <T variant="caption" weight={s.now ? "semibold" : "regular"} muted={!s.now}>
-              {s.now ? nowLabel : s.date}
-            </T>
+            {/* 날짜를 모르면 빈 줄을 남기지 않는다(리뷰 반영) */}
+            {(s.now ? nowLabel : s.date) ? (
+              <T variant="caption" weight={s.now ? "semibold" : "regular"} muted={!s.now}>
+                {s.now ? nowLabel : s.date}
+              </T>
+            ) : null}
             <T variant="caption" weight={s.now ? "semibold" : "regular"} muted={!s.now}>
               {s.price}
             </T>
