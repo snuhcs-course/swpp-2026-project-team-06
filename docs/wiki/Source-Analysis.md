@@ -285,6 +285,11 @@ DEV-264 round 3 (18 November 2026), each change validated by its own development
 - **Measurement:** scorer `dev264-number-evidence-v2` fixes "Since 1966," being read as an unsupported number. A semantic-recall add-on (`fact-judge-v1`) asks a frozen judge only about facts that fail the strict match and reports semantic recall next to strict recall.
 
 Stage-2 prompt version: `source-refine-v11-routing`; stage-1: `source-v9-coverage`.
+
+## DEV-355 deterministic draft safety checks (November 18)
+
+Stage-2 validation now rejects unsupported Korean range rewrites (`a에서 b 사이`, `a부터 b까지`), farm product line-ups, and a different citrus variety in the target product's identity or package modules. The evaluation runner's `--stage2-model` option changes only stage 2; its estimate and metadata report both models. DEV-355 uses the 24 public development sources and 23 synthetic cases, reports two-run means, and does not reuse holdout v2. A PDF stage-1 follow-up keeps harvest/production years and seasons, and farm-history durations, in their factual fields; only explicit past-sale periods, prices, inventory or promotions use `historicalSales` and `historical=true` (`source-v10-historical-scope`).
+
 ## Light producer photo previews (DEV-341, November 17)
 
 Producer screens never download the lossless analysis PNG (DEV-341): the cover and editor use a display preview (long edge at most 1600px JPEG) and attachment tiles a thumbnail (short edge at most 480px), both made from the sanitized image and created at photo upload. Previews are cached only in the producer's own browser per source revision (`private, max-age=86400`, ETag, `Vary: Authorization`), shared between screens, time out instead of hanging, and a failed photo can be retried on its own. Originals and unredacted pages stay `no-store`. The product page editor shrinks photos to a 1600px JPEG before upload, and the server encodes them outside the product lock. Adding photos shows progress only on the add control that started the upload.

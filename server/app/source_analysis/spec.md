@@ -314,6 +314,16 @@ FEAT-03/04 · AC-SRC-6/9/11. 작업 기록은 `server/tasks/DEV-328.md`.
 | 2026-11-18 | OCR 조각이 출력 한도(`INCOMPLETE_OCR`)나 줄 한도(`INVALID_OCR`)에 걸리면 한 번만 두 배 한도(4,096토큰·300줄)로 다시 읽는다. 시간 초과·연결 오류(`REQUEST_UNCERTAIN`)는 이미 과금됐을 수 있어 재시도하지 않는다(11-02 "자동 재시도 없음"의 좁은 예외) | 같은 PDF 쪽이 세 번 연속 같은 한도로 실패 — 일시 오류가 아님 | AC-SRC-5 |
 | 2026-11-18 | 평가 전용: 채점기 `dev264-number-evidence-v2`(숫자 쉼표는 천 단위만), 의미 재현율 `semantic_recall` + `app/ai/fact_judge.py` `fact-judge-v1`(엄격 실패 사실만 판정, unknown은 놓침, holdout은 `--allow-holdout`). 평가는 지출 장부가 깨끗한 로컬 DB에서 돌린다(`farmclub_i3` 장부가 $5 한도에 차 있었음) | 측정 정확도·holdout 시도 보호 | AC-SRC-2 |
 
+## DEV-355 결정적 초안 안전 검사·평가 모델 분리 (2026-11-18)
+
+FEAT-03 · AC-SRC-2/3. 작업 기록은 `server/tasks/DEV-355.md`.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-18 | `text_safety`가 한국어 `에서/부터 … 사이/까지` 범위를 검출하고, 농가 품목 목록·대상 상품과 다른 품종의 정체성/포장 문구를 stage-2 검증에서 거절한다. prompt는 그대로 둔다 | holdout v2에서 불안정한 금지·무근거 출력을 결정적 코드로 막기 | AC-SRC-3 |
+| 2026-11-18 | `final_eval --stage2-model`은 stage 1의 `--model`을 유지하고 stage 2만 덮어쓴다. 추정 비용과 metadata는 두 모델을 분리해 기록한다 | 더 강한 stage-2 모델 비교가 stage-1 변화를 섞지 않도록 | AC-SRC-2 |
+| 2026-11-18 | stage-1 prompt `source-v10-historical-scope`는 과거 판매 사실에만 `historical=true`를 쓰며, 수확/생산 연도·시즌이나 농가 연혁은 일반 field에 보존한다 | PDF f1에서 historical flag와 composition field가 충돌한 후보가 검증에서 거절됨 | AC-SRC-2 |
+
 ## DEV-341 생산자 사진 미리보기·업로드 가볍게 (2026-11-17)
 
 FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
