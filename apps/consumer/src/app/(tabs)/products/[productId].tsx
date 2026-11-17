@@ -74,6 +74,12 @@ export default function ProductPage() {
     error,
     reload,
   } = useAsync(() => catalog.product(productId), [productId]);
+  // 판매자 줄 ‘팬 n명’(DEV-348): 상품 응답에 팔로워 수가 없어 공개 농가 API를 한 번 더 읽는다. 실패하면 수만 뺀다
+  const farmId = p?.farmId;
+  const farm = useAsync(
+    async () => (farmId ? farms.get(farmId) : null),
+    [farmId],
+  );
   const [sheetOpen, setSheetOpen] = useState(false);
   const [optionId, setOptionId] = useState<string>("");
   const [qty, setQty] = useState(1);
@@ -167,7 +173,7 @@ export default function ProductPage() {
       {/* 머리 없이 사진이 곧 머리: 사진 위 뒤로·공유(결정 26, DEV-293) */}
       <Scroll bottom={120}>
         <ProductPageBody
-          p={p}
+          p={{ ...p, farmFollowerCount: farm.data?.followerCount ?? null }}
           reference={(o) => referencePrice(p, o)}
           mediaUrl={(uri) => (uri.startsWith("/") ? apiUrl + uri : uri)}
           onFarmPress={() => router.push(`/farms/${p.farmId}`)}
