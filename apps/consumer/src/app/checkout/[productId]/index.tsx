@@ -58,6 +58,7 @@ import { isRemoteArea } from "../../../lib/postcode";
 import { useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
 import { placedLine } from "../../../lib/orderText";
+import { placedView } from "../../../lib/placedNotice";
 import { productLine } from "../../../lib/reserveSummary";
 import { LoadError, OptionSheet } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
@@ -142,17 +143,21 @@ export default function Checkout() {
   const [placedResult, setPlacedResult] = useState<{ scope: string; value: Placed | null } | null>(null);
   const placed = placedResult?.scope === scope ? placedResult.value : null;
   const setPlaced = (value: Placed | null) => setPlacedResult({ scope, value });
-  // 입금 안내에서 뒤로 와 이 주문서가 다시 보이면 이미 만든 예약을 알린다(DEV-268 UX ⑥, DEV-356, AC-08-10).
-  // 이 주문서로 입금 대기 주문을 만든 적(control.placed)이 있을 때만이고, 버튼은 기존 ‘입금 안내 보기’
-  useFocusEffect(
-    useCallback(() => {
-      if (control.placed) setPlacedResult({ scope, value: control.placed });
-    }, [control, scope]),
-  );
   // 안내 첫 줄 ‘주문 번호 · 상태 · 기한’은 그 주문을 읽어 채운다. 못 읽으면 첫 줄만 뺀다
   const placedOrder = useAsync(
     () => (placed ? orders.get(placed.orderId) : Promise.resolve(null as Order | null)),
     [placed?.orderId],
+  );
+  const reloadPlacedOrder = placedOrder.reload;
+  // 입금 안내에서 뒤로 와 이 주문서가 다시 보이면 이미 만든 예약을 알린다(DEV-268 UX ⑥, DEV-356, AC-08-10).
+  // 이 주문서로 입금 대기 주문을 만든 적(control.placed)이 있을 때만이고, 버튼은 기존 ‘입금 안내 보기’.
+  // 다시 보일 때마다 그 주문을 다시 읽어 상태·기한(취소·입금 알림)을 맞춘다
+  useFocusEffect(
+    useCallback(() => {
+      if (!control.placed) return;
+      setPlacedResult({ scope, value: control.placed });
+      void reloadPlacedOrder();
+    }, [control, scope, reloadPlacedOrder]),
   );
   const [recoveryScope, setRecoveryScope] = useState<string | null>(null);
   const recovering = recoveryScope === scope && !!control.recovery;
@@ -238,6 +243,9 @@ export default function Checkout() {
   const canPay =
     recovering || leaving ||
     (!!recipient && allAgreed && !!p && (view ? view.primary.enabled : true));
+
+  // 이미 만든 예약의 상자·‘잡아 뒀어요’·버튼 위 한 줄(placedView: 입금 대기일 때만 상자, 옵션·수량이 같을 때만 캡션)
+  const pv = placedView(placed, placedOrder.data, opt?.optionId, qty);
 
   // 예약 버튼이 꺼진 이유: 화면 읽기에만 알린다(눈에 보이는 문구·토스트 없음, DEV-293 PM 결정)
   const disabledHint = reserveDisabledHint(!!recipient, agreed, consentTotal);
@@ -489,7 +497,7 @@ export default function Checkout() {
         ) : null}
 
         {/* 이 주문서로 만든 입금 대기 예약이 있을 때(DEV-291). 제목 + 한 문장, 이동은 하단 버튼(DEV-293, Figma 11:133 ②) */}
-        {placed ? (
+        {placed && pv.box ? (
           <Notice
             style={{ margin: tokens.space.gutter, marginBottom: 0 }}
             title="이미 만든 예약이 있어요"
@@ -535,7 +543,7 @@ export default function Checkout() {
                     : `${period(p.deliveryWindow.start, p.deliveryWindow.end)} 도착`}
               </T>
               {/* 이미 만든 예약이면 그 가격으로 물량을 잡아 둔 상태(UX ②·⑥, DEV-311 통합안). 앞 계단 표식은 DEV-348 뒤 */}
-              {placed ? (
+              {pv.held ? (
                 <T variant="caption" weight="semibold" numberOfLines={1}>
                   지금 예약가로 잡아 뒀어요
                 </T>
@@ -821,14 +829,14 @@ export default function Checkout() {
         ) : null}
       </Scroll>
 
-      {/* 금액이 들어간 버튼 하나(DEV-293). 그 위 한 줄은 충돌 안내가 있으면 그 안내, 없으면 누르면 생길 일(UX ⑥, DEV-356) */}
+      {/* 금액이 들어간 버튼 하나(DEV-293). 그 위 한 줄은 충돌 안내가 있으면 그 안내, 없으면 예약 전에만 누르면 생길 일(UX ⑥, DEV-356) */}
       <BottomBar
         summary={
           view?.summary ? (
             <T variant="sub" style={{ flex: 1 }}>
               {view.summary}
             </T>
-          ) : recovering ? undefined : (
+          ) : recovering || !pv.hint ? undefined : (
             <T variant="sub" muted style={{ flex: 1, textAlign: "center" }}>
               누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금
             </T>
