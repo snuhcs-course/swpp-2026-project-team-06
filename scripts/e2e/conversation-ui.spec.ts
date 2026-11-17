@@ -30,6 +30,11 @@ for (const width of [360, 390, 430]) {
     const box = await mark.locator("svg").boundingBox();
     expect(Math.round(box!.width)).toBe(28);
     expect(Math.round(box!.height)).toBe(20);
+    // DEV-348 홈 카드: 옵션이 여럿인 p-house는 ‘29,000원~’ 옆에 취소선 ‘36,000원’
+    const house = products.getByRole("link", { name: "하우스 감귤 5kg / 10kg 상품 상세" });
+    await expect(house.getByText("29,000원~", { exact: true })).toBeVisible();
+    const cardStrike = house.getByText("36,000원", { exact: true });
+    expect(await cardStrike.evaluate((el) => getComputedStyle(el).textDecorationLine)).toContain("line-through");
     await expect(news).toBeVisible();
     await expect(products).toBeAttached();
     expect(await products.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBeTruthy();
@@ -88,22 +93,33 @@ for (const width of [360, 390, 430]) {
     await expect(page.getByRole("tab", { name: "발견", exact: true })).toHaveCount(0);
     const a = await buy.boundingBox();
     expect(a!.y + a!.height).toBeLessThanOrEqual(844);
-    // DEV-348: 취소선 비교 가격(36,000원·68,000원) 대신 옵션 줄은 ‘지금 예약가’, 마지막 기간 가격은 계단 마지막 칸 아래 한 번
-    for (const price of ["29,000원", "55,000원", "5kg 36,000원"]) {
+    // 취소선 비교 가격(마지막 기간 36,000원·68,000원)은 앵커로 유지(DEV-348 11/17 PM). 옵션 줄 가격 위 ‘지금 예약가 ~~36,000원~~’ 한 줄
+    for (const price of ["36,000원", "29,000원", "68,000원", "55,000원"]) {
       const node = page.getByText(price, { exact: true }).first();
       await expect(node).toBeVisible();
       expect(
         await node.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
       ).toBeTruthy();
     }
-    await expect(page.getByText("68,000원", { exact: true })).toHaveCount(0);
-    await expect(
-      page.getByTestId("product-options").getByText("지금 예약가", { exact: true }),
-    ).toHaveCount(2);
-    // AC-07-9 가격 계단(시드 p-house 세 기간)과 AC-07-10 알아 둘 세 줄
-    await expect(page.getByText("일찍 예약할수록 싸요", { exact: true })).toBeVisible();
-    await expect(page.getByText("지금 · 10월 12일까지", { exact: true })).toBeVisible();
+    const options = page.getByTestId("product-options");
+    await expect(options.getByText("지금 예약가", { exact: true })).toHaveCount(2);
+    const struck = options.getByText("36,000원", { exact: true });
+    expect(await struck.evaluate((el) => getComputedStyle(el).textDecorationLine)).toContain("line-through");
+    const [label, strike] = [
+      await options.getByText("지금 예약가", { exact: true }).first().boundingBox(),
+      await struck.boundingBox(),
+    ];
+    expect(Math.abs(label!.y + label!.height - (strike!.y + strike!.height))).toBeLessThan(3);
+    // AC-07-9 가격 계단(시드 p-house 세 기간): 칸마다 날짜와 그 기간 가격, 차액 문구 없음
+    const stair = page.getByTestId("price-stair");
+    await expect(stair.getByText("일찍 예약할수록 싸요 · 5kg 기준", { exact: true })).toBeVisible();
     await expect(page.getByTestId("price-stair-step")).toHaveCount(2);
+    await expect(stair.getByTestId("price-stair-label")).toHaveText([
+      "지금 · 10월 12일까지29,000원",
+      "10월 13일부터33,000원",
+      "11월 6일부터36,000원",
+    ]);
+    await expect(stair.getByText(/이득|차이/)).toHaveCount(0);
     await expect(page.getByText(/^\d+명이 예약했어요$/)).toBeVisible();
     await expect(page.getByText(/^지금 예약하면 \d+번째예요$/)).toBeVisible();
     await expect(page.getByText("농가 계좌로 직접 입금해요", { exact: true })).toBeVisible();
