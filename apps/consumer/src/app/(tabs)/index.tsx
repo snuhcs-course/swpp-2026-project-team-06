@@ -104,7 +104,7 @@ export default function Home() {
           </FeedCarousel>
         )}
         <SectionHead title="제철 상품" />
-        {/* 단계 가격 개념 상자: 처음 온 사람에게 한 번만, 상품이 없으면 숨김(AC-06-9, DEV-348 UX ②) */}
+        {/* 단계 가격 개념 상자: 홈에 하나, 상품이 없으면 숨김(AC-06-9, DEV-348 UX ②) */}
         {home.data?.recommended.length ? <StagePriceNote /> : null}
         <View
           accessibilityLabel="제철 상품 목록"
@@ -201,6 +201,8 @@ type HomeProduct = {
   referencePrice?: number | null;
   /** 옵션이 여럿이고 카드 가격이 가장 싸면 ‘~’(productPrices, DEV-348) */
   priceFrom?: boolean;
+  /** 같은 가격이 이어지는 기간 끝까지 남은 날(productPrices, DEV-348). 없으면 dDay */
+  priceDDay?: number | null;
   soldOut: boolean;
   availability?: string;
   reservedCount: number;
@@ -250,6 +252,7 @@ function ProductCard({
       {/* 가격 18 굵게(옵션이 여럿이면 ‘~’) + 취소선 14 보조(DEV-348 디자인 값) */}
       <Price
         inline
+        wrap
         current={p.currentPrice}
         from={!!p.priceFrom}
         reference={
@@ -260,7 +263,7 @@ function ProductCard({
       />
       <CardMeta
         reserved={p.reservedCount}
-        dDay={p.soldOut ? null : p.dDay}
+        dDay={p.soldOut ? null : (p.priceDDay ?? p.dDay)}
         next={p.soldOut ? p.nextStageStartsAt : null}
       />
     </Pressable>

@@ -403,3 +403,40 @@ test("AC-06-9: home card adds '~' only for several options when the card price i
   assert.equal(priceFrom({ ...p, currentStageId: null }), false);
   assert.equal(priceFrom({ ...p, options: [] }), false);
 });
+
+test("AC-06-9: '~' follows the same buyable rule as the strikethrough (first option sold out or not enough stock → no '~') (DEV-348 review)", async () => {
+  reset();
+  const { priceFrom, referencePrice } = require("../.expo/mock-build/packages/api/src/productPresentation.js");
+  const p = await ok("GET", "/api/products/p-house");
+  const soldFirst = structuredClone(p);
+  const v = soldFirst.stages.find((s) => s.stageId === soldFirst.currentStageId).options[soldFirst.options[0].optionId];
+  v.reservedCount = v.quantity;
+  assert.equal(referencePrice(soldFirst), null);
+  assert.equal(priceFrom(soldFirst), false);
+  // 남은 g이 첫 옵션 한 상자(5kg)보다 적으면 둘 다 없음
+  assert.equal(referencePrice({ ...p, remainingGrams: 4999 }), null);
+  assert.equal(priceFrom({ ...p, remainingGrams: 4999 }), false);
+  assert.equal(priceFrom({ ...p, soldOut: true }), false);
+  // 둘째 옵션만 살 수 없으면 살 수 있는 옵션이 하나뿐이라 ‘~’ 없음(취소선은 그대로)
+  const soldSecond = structuredClone(p);
+  const w = soldSecond.stages.find((s) => s.stageId === soldSecond.currentStageId).options[soldSecond.options[1].optionId];
+  w.reservedCount = w.quantity;
+  assert.equal(priceFrom(soldSecond), false);
+  assert.equal(referencePrice(soldSecond), 36000);
+});
+
+test("AC-06-9: home 'this price D-n' runs to the end of the same-price span (DEV-348 review)", async () => {
+  reset();
+  const { priceDDay } = require("../.expo/mock-build/packages/api/src/productPresentation.js");
+  const p = await ok("GET", "/api/products/p-house");
+  // 시드: 다음 기간 가격이 오르니 서버 dDay 그대로
+  assert.equal(priceDDay(p), p.dDay);
+  // 다음 기간(10/13~11/05)도 첫 옵션이 같은 가격이면 그 끝까지(10/12 → 11/05, 24일 더)
+  const same = structuredClone(p);
+  const sorted = [...same.stages].sort((a, b) => a.seq - b.seq);
+  const opt = same.options[0].optionId;
+  sorted[1].options[opt].price = sorted[0].options[opt].price;
+  assert.equal(priceDDay(same), p.dDay + 24);
+  assert.equal(priceDDay({ ...p, dDay: null }), null);
+  assert.equal(priceDDay({ ...p, currentStageId: "missing" }), null);
+});

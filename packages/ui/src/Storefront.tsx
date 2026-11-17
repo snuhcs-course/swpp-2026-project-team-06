@@ -21,6 +21,7 @@ export function Price({
   align = "left",
   label,
   from = false,
+  wrap = false,
 }: {
   current: number | null;
   reference?: number | null;
@@ -35,6 +36,8 @@ export function Price({
   label?: string;
   /** 가격 뒤 ‘~’(옵션이 여럿인 홈 카드 ‘29,000원~’, DEV-348). 취소선은 그 옆에 그대로 */
   from?: boolean;
+  /** inline에서 한 줄에 안 들면 취소선을 다음 줄로 내린다(360 폭 홈 카드 6자리 가격 ‘136,000원~ ~~150,000원~~’, DEV-348 리뷰 반영) */
+  wrap?: boolean;
 }) {
   const right = align === "right";
   if (soldOut || current === null)
@@ -81,10 +84,11 @@ export function Price({
           alignItems: "baseline",
           gap: 6,
           flexShrink: 0,
+          ...(wrap ? { flexWrap: "wrap" as const, rowGap: 0 } : {}),
         }}
       >
-        {main}
-        {strike}
+        {wrap ? <View style={{ flexShrink: 0 }}>{main}</View> : main}
+        {wrap && strike ? <View style={{ flexShrink: 0 }}>{strike}</View> : strike}
       </View>
     );
   return (
