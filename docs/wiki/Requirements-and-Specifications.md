@@ -206,7 +206,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 **AC-01-21: The reserve login keeps what I chose (DEV-356)**
 - **GIVEN** I am not logged in and picked an option and quantity on a product page
 - **WHEN** I tap "To checkout" and the login sheet opens
-- **THEN** the sheet shows a summary of my choice (product, option × quantity, farm and arrival window, current price × quantity) and says logging in takes me to checkout with that option
+- **THEN** the sheet shows a summary of my choice (product, option × quantity, farm and arrival window, and the current price × quantity labeled "product amount" because shipping is not included) and says logging in takes me to checkout with that option
 - **AND** the login screen then reads "Log in and continue your reservation" next to the approved combined logo (150 wide at 390); other sheets and a directly opened login keep their current wording
 
 ### FEAT-02: Farm profile and story
@@ -429,7 +429,8 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 **AC-08-10: Back from deposit instructions shows the reservation I already made (DEV-356)**
 - **GIVEN** I reserved on the checkout and reached the deposit instructions
 - **WHEN** I go back to the checkout
-- **THEN** the top of the checkout says a reservation already exists, with its order number, status and deadline and the existing sentence about canceling it to change anything; the product row adds "held at the current reservation price"; the button opens that order's deposit instructions
+- **THEN** while that order is still awaiting a deposit, the top of the checkout says a reservation already exists, with its order number, status and deadline and the existing sentence about canceling it to change anything; the product row adds "held at the current reservation price" only while the option and quantity on screen match that order; the button opens that order's deposit instructions and the line above it is gone
+- **AND** a canceled or expired order shows neither the box nor the "held" line
 - **AND** every field, consent and notice on the checkout stays (default-address tag, postal code, delivery note, product amount, shipping, all five consents, deposit and intermediary notices, terms links) and no second order is created; before reserving, one line above the button says pressing it shows the farm's account and the 24-hour deposit window
 
 **Checkout edits after an uncertain deposit request (DEV-320, FEAT-08 E2)**
