@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-348 가격 계단·알아 둘 세 줄·팬 호칭
+홈 카드 가격은 `productPrices`가 이미 읽는 상품 상세에서 계산한 `lowest`(지금 기간 옵션 중 최저가·옵션이 둘 이상인지)로 ‘29,000원~’을 보이고, 실패하면 `currentPrice`만 쓴다. 취소선 비교 가격(`referencePrice`)은 홈 카드·상품 상세에 넘기지 않는다. 카드 메타는 ‘이 가격 D-n’ 한 줄 + ‘n명 예약’ 한 줄, 개념 상자는 추천 상품이 있을 때만. 상품 상세 판매자 줄의 ‘팬 n명’은 상품 응답에 없어 `farms.get(farmId)`를 한 번 더 읽고, 실패하면 수만 뺀다. 소식방 머리도 ‘팬 N명’(버튼·공개 범위 이름 ‘팔로워 전용’은 그대로). FEAT-06 AC-06-9, FEAT-07 AC-07-9·10.
+
 ## DEV-314 우편번호 찾기
 배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.ts`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
 
