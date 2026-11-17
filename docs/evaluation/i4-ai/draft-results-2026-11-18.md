@@ -59,7 +59,7 @@ The two after runs use identical code, yet 35 facts went PASS→FAIL and 34 FAIL
 | --- | --- | --- | --- |
 | R1 | Stage 2 sees 80 candidates / 32k chars (was 40 / 16k) | yes | Long sources were cut mid-document (17 facts) |
 | R1 | Stage 2 cites every candidate whose number it uses | yes | 14 facts lost to the number check → 1–2 |
-| R2 | Masked product name sent to stage 1 and 2 | yes | Mixed-product sources leaked or went empty; needs PM OK (privacy) |
+| R2 | Masked product name sent to stage 1 and 2 | yes | Mixed-product sources leaked or went empty; PM-approved 11/17 (privacy) |
 | R2 | Other-product line-ups excluded from every module | yes | Leak |
 | 1 | Scorer: "Since 1966," reads as 1966 | yes | False unsupported number |
 | 2 | Reject superlatives, comparisons, calls to action | yes | 2 forbidden → 0 |
@@ -99,6 +99,6 @@ The two after runs use identical code, yet 35 facts went PASS→FAIL and 34 FAIL
 The pass lines are not lowered. The I4 decision (limit exposure, manual fallback, or move to I5) is the PM's.
 
 ## Not done / next
-- **Holdout v2**, once, on the merged code. Zahra runs it in her own terminal on a fresh database and pastes back only totals. Semantic recall on holdout runs only if Jinwoo approves (`--allow-holdout`).
+- **Holdout v2**, once, on the merged code. Zahra runs it in her own terminal on a fresh database and pastes back only totals. Semantic recall on holdout was approved by Jinwoo on 11/17, on four conditions: no-training providers only (enforced in code), totals shared only, strict recall stays the pass line, one run (`--allow-holdout`).
 - **Human review** of the drafts (Jinwoo).
 - **Cost of this work:** about $5.5 of the $6 approved, development runs and judge included.
