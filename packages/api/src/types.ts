@@ -604,6 +604,8 @@ export type Order = Recipient & {
   releasedQuantity: number;
   orderId: string;
   orderNo: string;
+  /** 입금자명(짧은 입금 코드, DEV-342 · R-28): 닉네임 앞 3글자 + 숫자 2자리, 6자 이내. 입금 안내 전·옛 주문은 null → 주문 번호를 보인다 */
+  depositCode: string | null;
   productId: string;
   productName: string;
   farmId: string;
@@ -700,6 +702,8 @@ export type ProducerOrder = Recipient & {
   trackingVersion: number;
   orderId: string;
   orderNo: string;
+  /** 입금자명(DEV-342). 통장 ‘받는 분 통장 표시’와 대조한다. 옛 주문은 null → 주문 번호 */
+  depositCode: string | null;
   productId: string;
   /** 예약 기간(DEV-231) */
   stageId: string;

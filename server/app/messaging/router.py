@@ -374,10 +374,14 @@ def producer_start(
     return run_idempotent(
         db,
         user.id,
-        f"producer-start:{body.consumer_id}",
+        f"producer-start-order:{body.order_id}"
+        if body.order_id is not None
+        else f"producer-start:{body.consumer_id}",
         key,
         body,
-        lambda: service.producer_start(db, farm, body.consumer_id, body.room_reply_id),
+        lambda: service.producer_start(
+            db, farm, body.consumer_id, body.room_reply_id, body.order_id
+        ),
     )
 
 

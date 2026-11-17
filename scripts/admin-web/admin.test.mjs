@@ -184,6 +184,8 @@ test("중계는 사용자 상세와 주문 처리 버튼 경로만 넘긴다 (DE
   for (const [path, method] of [
     ["/admin/users/u-g4", "GET"],
     ["/admin/users/by-order/FC-1021-1234", "GET"],
+    // 입금자명(DEV-342)은 한글이라 퍼센트 인코딩해 보낸다
+    [`/admin/users/by-order/${encodeURIComponent("김민지76")}`, "GET"],
     ["/admin/orders/o-g4/confirm-deposit", "POST"],
     ["/admin/orders/o-g4/refund", "POST"],
     ["/admin/orders/o-g4/refunds", "GET"],
@@ -193,6 +195,8 @@ test("중계는 사용자 상세와 주문 처리 버튼 경로만 넘긴다 (DE
   }
   for (const path of [
     "/admin/users/u-g4/orders", "/admin/users/by-order/o-1/x", "/admin/orders/expire-deposits",
+    // 인코딩한 점·빗금·공백으로 경로를 바꾸지 못한다(DEV-342)
+    "/admin/users/by-order/%2e%2e", "/admin/users/by-order/a%2Fb", "/admin/users/by-order/a%20b",
     "/admin/orders/o-g4", "/admin/orders/o-g4/refund?amount=1", "/admin/users/../orders",
   ]) {
     assert.equal((await go(path, "POST")).status, 400, path);

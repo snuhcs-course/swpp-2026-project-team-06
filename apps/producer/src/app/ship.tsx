@@ -6,6 +6,7 @@ import {
   CARRIERS,
   carrierLabel,
   allPages,
+  messaging,
   orders,
   newIdempotencyKey,
   serverNow,
@@ -40,8 +41,9 @@ import { Pressable, ScrollView, View } from "react-native";
 
 import { isConnectionError, useSession } from "../lib/session";
 import { LoadError, ORDER_STATUS, errMsg } from "../lib/views";
-import { orderItemParts, orderWho } from "../lib/orderWho";
+import { depositCheckMessage, depositorName, orderItemParts, orderWho } from "../lib/orderWho";
 import { goBackOr } from "../lib/nav";
+import { setChatDraft } from "../lib/chatDraft";
 import { track, type FormErrorCode } from "@farmclub/analytics";
 
 /** 출하 처리 화면의 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312) */
@@ -65,7 +67,7 @@ const CUSTOM = "직접 입력";
 const DEPOSIT_REASONS = [
   "입금이 아직 들어오지 않았어요",
   "금액이 달라요",
-  "입금자명이 주문 번호와 달라요",
+  "입금자명이 달라요",
 ];
 const REFUND_REASONS = [
   "환불받을 계좌를 확인해야 해요",
@@ -334,6 +336,23 @@ export default function Ship() {
           `${o.orderNo} 환불 완료로 기록했어요`,
           () => void approve(o),
         );
+
+  // 입금 대기 줄 ‘채팅하기’(DEV-342): 그 주문의 소비자와 대화를 열고 확인 글을 입력칸에만 넣는다(보내지 않음)
+  async function chatAbout(o: ProducerOrder) {
+    if (busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const thread = await messaging.producerStartForOrder(o.orderId);
+      setChatDraft(thread.consumerId, depositCheckMessage(o));
+      router.push({ pathname: "/chats/[consumerId]", params: { consumerId: thread.consumerId } });
+    } catch (e) {
+      if (isConnectionError(e)) failToast(e, () => void chatAbout(o));
+      else setNotice(errMsg(e, "대화를 열지 못했어요. 다시 눌러 주세요."));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function openReject(o: ProducerOrder) {
     setReject({
@@ -712,13 +731,22 @@ export default function Ship() {
                   </T>
                 </View>
                 {awaiting ? (
-                  // 입금 전에는 배송지 대신 입금자명(R-15, DEV-68)
-                  <T variant="sub" muted>
-                    입금자명{" "}
-                    <T variant="sub" weight="bold">
-                      {o.orderNo}
+                  // 입금 전에는 배송지 대신 입금자명(R-15, DEV-68). 통장과 대조할 짧은 코드(DEV-342)
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space.sm }}>
+                    <T variant="sub" muted style={{ flex: 1 }}>
+                      입금자명{" "}
+                      {/* 닉네임이 들어 있어 녹화에서 값을 가린다(N-05) */}
+                      <T variant="sub" weight="bold" masked>
+                        {depositorName(o)}
+                      </T>
                     </T>
-                  </T>
+                    <SmallButton
+                      label="채팅하기"
+                      accessibilityLabel={`${o.orderNo} 채팅하기`}
+                      disabled={busy}
+                      onPress={() => void chatAbout(o)}
+                    />
+                  </View>
                 ) : refunded ? (
                   <T variant="sub" muted>
                     입금했던 계좌로 돌려보내요
@@ -968,10 +996,15 @@ export default function Ship() {
 
       <Sheet visible={!!depositFor} onClose={() => { if (!busy) setDepositFor(null); }}>
         <T variant="heading">입금을 승인할까요?</T>
+        {/* 통장의 ‘받는 분 통장 표시’와 대조할 입금자명을 맨 위에(DEV-342) */}
         {depositFor ? <View style={{ gap: 8 }}>
-          <T>{depositFor.orderNo}</T>
+          <T>
+            입금자명{" "}
+            <T weight="bold" masked>{depositorName(depositFor)}</T>
+          </T>
           <T>{who(depositFor)}</T>
           <T>{won(depositFor.totalAmount)}</T>
+          <T variant="sub" muted>주문 번호 {depositFor.orderNo}</T>
         </View> : null}
         <T variant="sub" muted>승인하면 소비자에게 예약 완료로 보여요</T>
         <View style={{ flexDirection: "row", gap: 8 }}>

@@ -76,6 +76,9 @@ class OrderView(CamelModel):
     released_quantity: int
     order_id: str
     order_no: str
+    # 입금자명(짧은 입금 코드, DEV-342). 입금 안내 전 주문, 0033 때 입금 대기가 아니었거나
+    # 이미 ‘입금했어요’를 보낸 주문은 null → 앱은 주문 번호를 보인다
+    deposit_code: str | None
     product_id: str
     product_name: str
     farm_id: str
@@ -166,6 +169,8 @@ class ProducerOrder(CamelModel):
     tracking_version: int
     order_id: str
     order_no: str
+    # 입금자명(DEV-342). 통장의 '받는 분 통장 표시'와 대조한다. 없으면(옛 주문) 앱은 주문 번호
+    deposit_code: str | None
     product_id: str
     # DEV-231: 예약 기간 화면 수확 시작 시트가 그 기간 주문만 고른다
     stage_id: str

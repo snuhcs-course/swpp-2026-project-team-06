@@ -1,6 +1,6 @@
 # server/app/orders spec
 
-> 구현하는 기능: FEAT-08, FEAT-09, FEAT-10, FEAT-11, FEAT-14(주문 쪽), FEAT-17(상태 변경·송장) · 지키는 규칙: R-01, R-02, R-03, R-05, R-06, R-07, R-08, R-09, R-10, R-11, R-12, R-13, R-14, R-15, R-17, R-19, R-20, R-21, R-23, R-24, N-05, N-06 · 인수 조건: AC-08-1~5, AC-09-1~2, AC-10-1~3, AC-11-1~2, AC-14-1~2, AC-09-3, AC-17-2~5(AC-17-1은 I2)
+> 구현하는 기능: FEAT-08, FEAT-09, FEAT-10, FEAT-11, FEAT-14(주문 쪽), FEAT-17(상태 변경·송장) · 지키는 규칙: R-01, R-02, R-03, R-05, R-06, R-07, R-08, R-09, R-10, R-11, R-12, R-13, R-14, R-15, R-17, R-19, R-20, R-21, R-23, R-24, N-05, N-06 · 인수 조건: AC-08-1~5, AC-09-1~2, AC-09-11~13, AC-10-1~3, AC-11-1~2, AC-14-1~2, AC-09-3, AC-17-2~5(AC-17-1은 I2)
 > 동작·규칙·인수 조건 원본: docs/spec/functional/FEAT-08·09·10·11·14·17, rules.md (여기에 다시 쓰지 않는다)
 > 주문 상태 전이표: [docs/spec/tech-design/README.md "주문 상태"](../../../docs/spec/tech-design/README.md#주문-상태-orderstatus), 데이터 불변 조건 1·2·4·8
 
@@ -12,6 +12,7 @@
 ## 구조
 - `router.py` — prefix `/orders`(앱에서는 `/api/orders`). 관리 API `/admin/orders/...`는 기능 이슈에서 추가.
 - `models.py` — 담당 엔티티: `Order`, `Payment`, `Refund`
+- `deposit_code.py` — 입금자명(짧은 입금 코드) 순수 함수(DEV-342, R-28). Mock `packages/api/src/depositCode.ts`·마이그레이션 0033과 같은 규칙
 - `schemas.py` — 주문서·주문 내역·주문 상세·결제·출하 입출력
 - `service.py` — 주문 생성(차감 포함), 상태 전이, 환불, 출하 반영
 
@@ -54,3 +55,4 @@
 | 2026-11-05 | 수확 시작은 기존 `harvest-start`에 `stageId`(없으면 상품 전체)·`Idempotency-Key`(필수, `run_idempotent` scope `orders.harvest_start`)를 더해 기간 단위로 옮기고, 옮긴 주문이 있을 때만 `ManagerEvent(orders.harvest_started)` 한 행. '수확 시작함'은 저장 칸 없이 출하 준비 이후 주문 유무로 계산(마이그레이션 없음) | PM 결정 B(DEV-231). 재시도 중복 없음, 모델 변경 없이 감사 | AC-17-11·12, AC-14-5 |
 | 2026-11-10 | 현황 `todo.aiCheckRequests`(DEV-296)는 messaging `ai_check_request_count`(농가의 열린 AI 답변 확인 요청 수). `openQuestions`는 확인 요청만 열린 대화를 빼고 센다 | 할 일 ‘AI 답변 확인 요청’과 ‘답하지 않은 문의’를 따로 세기(Figma 1:62) | AC-14-3 |
 | 2026-11-10 | 입금 안내(`request_deposit`)는 농가 행을 `farms.get_farm_shared`(FOR SHARE)로 읽고 승인 농가가 아니면 404 ‘판매 중이 아닌 상품이에요’(주문 생성과 같은 응답). 운영자 정지는 같은 행을 FOR UPDATE로 잠그고 출하 전 주문을 세므로 둘이 겹쳐도 정지된 농가에 입금 대기가 생기지 않는다. 잠금 순서는 상품 → 주문 → 농가(정지는 농가만)라 교착 없음 | 정지는 출하 전 주문이 있으면 거부하는데, 입금 안내 전(`PENDING_PAYMENT`) 주문이 정지 뒤 입금 대기로 바뀌는 길이 있었다(DEV-307) | AC-23-2·7, R-24 |
+| 2026-11-17 | 입금자명 `orders.deposit_code`(0033). 규칙은 `deposit_code.py` 순수 함수(R-28): 가림 이름(`accounts.public_name`: 닉네임, 없으면 이름 앞 글자)에서 한글·로마자만 남긴 앞 3글자, 없으면 ‘주문’(PM 11/17 — 계정 실명·받는 사람 이름은 쓰지 않는다), 숫자 2자리, 100개가 다 쓰였으면 숫자 3자리, 모두 쓰였으면 409. `request_deposit`이 입금 대기로 바꾸기 직전에 정하고 확인·취소 뒤에도 지우지 않는다. 겹침 검사는 대소문자를 가리지 않고 같은 농가의 입금 대기 + 입금 기한이 끝난 지 3일(`DEPOSIT_CODE_HOLD_DAYS`)이 안 된 돈 없이 취소된 주문(기한 초과로 취소된 뒤 늦게 보낸 돈이 새 주문과 헷갈리지 않게). 같은 농가의 다른 상품 입금 안내는 상품 잠금으로 줄 서지 않으므로 `pg_advisory_xact_lock(hashtextextended('deposit-code:'||farm_id))`로 ‘겹치는지 보고 정하기’를 직렬화한다(잠금 순서 상품 → 주문 → 농가(공유) → 이 잠금, 이 잠금은 이 함수만 잡아 교착 없음). 백필은 0033 때 입금 대기이고 아직 ‘입금했어요’를 보내지 않은 주문만, 나머지는 null(앱은 주문 번호). 생산자 주문 대화 시작은 `buyer_of_farm_order`(자기 농가의 `AWAITING_DEPOSIT` 주문만 — 지난 구매자 연락 방지)로 messaging이 부른다. 대화를 보게 하는 주문 문맥용 `get_chat_order_of`(본인 주문, 결제 이력 또는 입금 대기 — PM 11/17 팔로우하지 않은 구매자도 그 대화를 봄). 연결 주문 요약 `linked_order_summaries`는 예전처럼 결제 주문만 | UAT 2.2·2.3: 은행 ‘받는 분 통장 표시’(약 7자)에 12자 주문 번호가 들어가지 않아 농가가 주문을 못 맞춤. PM 11/17 | AC-09-11~13, AC-12-17 |

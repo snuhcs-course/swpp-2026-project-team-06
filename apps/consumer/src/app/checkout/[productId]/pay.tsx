@@ -141,11 +141,13 @@ export default function DepositGuide() {
                 o={o}
                 onCopy={copy}
                 hideAmount
+                hideHint
                 style={{ marginTop: 12 }}
               />
-              {/* ‘입금자명: 주문 번호’ 캡션을 행동 지시 두 문장으로(UX ④). 은행 앱 용어 ‘받는 분 통장 표시’를 그대로 쓴다 */}
+              {/* ‘입금자명: 주문 번호’ 캡션을 행동 지시 두 문장으로(UX ④). 은행 앱 용어 ‘받는 분 통장 표시’를 그대로 쓴다.
+                  입금자명은 짧은 입금 코드(DEV-342), 이 상자가 카드 아래 안내 한 줄을 대신한다 */}
               <Notice
-                title={depositorNameTitle(o.orderNo)}
+                title={depositorNameTitle(o.depositCode ?? o.orderNo)}
                 body="농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요."
                 style={{ marginHorizontal: tokens.space.gutter, marginTop: 16 }}
               />

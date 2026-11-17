@@ -128,8 +128,11 @@ test("DEV-356 AC-09-11 AC-08-10: deposit shows the amount once, keeps the deadli
   // 입금 안내(SCR-11)
   await expect(page).toHaveURL(/\/checkout\/p-house\/pay/);
   await expect(page.getByText("입금할 금액", { exact: true })).toBeVisible();
-  const orderNo = ((await page.getByText(/^FC-[0-9A-Z-]+$/).first().textContent()) ?? "").trim();
-  expect(orderNo).toMatch(/^FC-/);
+  // 입금자명은 짧은 입금 코드(닉네임 앞 3글자 + 숫자, DEV-342). 없는 옛 주문만 주문 번호
+  const depositor = (
+    (await page.getByText(/^([가-힣A-Za-z]{1,3}\d{2,3}|FC-[0-9A-Z-]+)$/).first().textContent()) ?? ""
+  ).trim();
+  expect(depositor).toMatch(/^([가-힣A-Za-z]{1,3}\d{2,3}|FC-)/);
   // 금액은 큰 숫자 한 번 + 복사, ‘입금액’ 줄은 없다
   await expect(page.getByRole("button", { name: "입금할 금액 복사" })).toBeVisible();
   await expect(page.getByText("입금액", { exact: true })).toHaveCount(0);
@@ -140,7 +143,7 @@ test("DEV-356 AC-09-11 AC-08-10: deposit shows the amount once, keeps the deadli
   const dueBox = await page.getByText("입금 기한", { exact: true }).boundingBox();
   expect(dueBox!.y).toBeGreaterThan(nameBox!.y);
   // 입금자명 안내 상자 두 문장
-  await expect(page.getByText(new RegExp(`받는 분 통장 표시를 ${orderNo}(로|으로) 바꿔 보내 주세요`))).toBeVisible();
+  await expect(page.getByText(new RegExp(`받는 분 통장 표시를 ${depositor}(로|으로) 바꿔 보내 주세요`))).toBeVisible();
   await expect(page.getByText("농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요.")).toBeVisible();
   // 판매자·중개자·구매안전서비스 고지와 하단 두 버튼은 그대로
   await expect(page.getByText("판매자", { exact: true })).toBeAttached();
@@ -153,7 +156,8 @@ test("DEV-356 AC-09-11 AC-08-10: deposit shows the amount once, keeps the deadli
   await page.goBack();
   await expect(page).toHaveURL(/\/checkout\/p-house\?/);
   await expect(page.getByText("이미 만든 예약이 있어요")).toBeVisible();
-  await expect(page.getByText(new RegExp(`${orderNo} · 입금 대기 · .+까지`))).toBeVisible();
+  // 첫 줄은 주문 번호(입금자명과 따로, DEV-342)
+  await expect(page.getByText(/FC-\d{4}-\d{4} · 입금 대기 · .+까지/)).toBeVisible();
   await expect(page.getByText(/내용을 바꾸려면 기존 예약을 취소하고 다시 예약해 주세요/)).toBeVisible();
   await expect(page.getByText("지금 예약가로 잡아 뒀어요")).toBeVisible();
   await expectCheckoutKeepsEverything(page);
@@ -173,7 +177,7 @@ test("DEV-356 AC-09-11 AC-08-10: deposit shows the amount once, keeps the deadli
   await page.getByRole("button", { name: "입금 안내 보기" }).click();
   await expect(page).toHaveURL(/\/checkout\/p-house\/pay/);
   // 스택에 남은 앞 입금 안내는 숨겨져 있어 보이는 것만 본다
-  await expect(page.locator(`:text-is("${orderNo}"):visible`).first()).toBeVisible();
+  await expect(page.locator(`:text-is("${depositor}"):visible`).first()).toBeVisible();
 
   // 같은 카드를 쓰는 주문 완료(SCR-12)는 ‘입금액’ 줄을 그대로 둔다
   await page.getByRole("button", { name: "나중에 입금할게요" }).click();

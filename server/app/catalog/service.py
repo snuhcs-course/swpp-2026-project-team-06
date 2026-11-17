@@ -1096,6 +1096,11 @@ def lock_allocation(db: Session, stage_id: str, option_id: str) -> StageAllocati
     return allocation
 
 
+def farm_product_ids(db: Session, farm_id: str) -> list[str]:
+    """그 농가의 모든 상품 ID(상태 무관). 주문 쪽 농가 단위 검사용(DEV-342 입금자명)."""
+    return list(db.scalars(select(Product.id).where(Product.farm_id == farm_id)))
+
+
 def farm_products(db: Session, farm_id: str) -> list[Loaded]:
     query = select(Product).where(Product.farm_id == farm_id).order_by(Product.id)
     products = list(db.scalars(query))

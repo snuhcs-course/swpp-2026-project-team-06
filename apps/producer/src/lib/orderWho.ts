@@ -53,3 +53,22 @@ export function orderItem(o: Omit<WhoFields, "recipientName">) {
   const { name, tail } = orderItemParts(o);
   return `${name ? `${name} ` : ""}${tail}`;
 }
+
+/** 입금 대기 줄의 입금자명(DEV-342). 짧은 입금 코드, 없는 옛 주문은 주문 번호 */
+export function depositorName(o: Pick<ProducerOrder, "depositCode" | "orderNo">) {
+  return o.depositCode ?? o.orderNo;
+}
+
+/**
+ * 입금 대기 줄 ‘채팅하기’로 열 때 입력칸에 미리 넣는 글(DEV-342, PM 11/17). 보내지는 않는다.
+ * "주문하신 하우스 감귤 5kg(28,000원) 입금 확인이 안되네요. …" — 상품명 + 옵션 + 합계(배송비 포함)원.
+ * 은행에 찍힌 입금자명은 넣지 않는다(농가가 아는 값이 아니고, 소비자에게 되묻는 글이다).
+ */
+export function depositCheckMessage(
+  o: Pick<ProducerOrder, "productName" | "optionLabel" | "totalAmount">,
+) {
+  const name = shortProductName(o.productName ?? "", o.optionLabel);
+  const item = [name, o.optionLabel].filter(Boolean).join(" ");
+  const amount = `${o.totalAmount.toLocaleString("ko-KR")}원`;
+  return `주문하신 ${item}(${amount}) 입금 확인이 안되네요. 혹시 입금하셨다면 입금자명과 입금 시각을 알려주세요.`;
+}

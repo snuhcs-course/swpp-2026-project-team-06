@@ -13,6 +13,7 @@ from app.core.clock import now, today
 from app.core.config import get_settings
 from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
+from app.orders.deposit_code import code_name, pick_code
 from app.orders.models import Order, Payment, Refund
 from app.orders.schemas import (
     Dashboard,
@@ -37,6 +38,8 @@ VISIBLE = Order.status != "PENDING_PAYMENT"
 PRODUCER_VISIBLE = VISIBLE & ~((Order.status == "CANCELED") & Order.paid_at.is_(None))
 # 입금 대기 주문의 취소 사유(R-28)
 DEPOSIT_EXPIRED = "입금 기한 초과"
+# 돈 없이 취소된 주문의 입금자명을 다시 쓰지 않는 기간(입금 기한 끝부터, DEV-342)
+DEPOSIT_CODE_HOLD_DAYS = 3
 
 
 def holds_stock(order: Order) -> bool:
@@ -130,6 +133,7 @@ def order_view(db: Session, o: Order) -> OrderView:
     return OrderView(
         order_id=o.id,
         order_no=o.order_no,
+        deposit_code=o.deposit_code,
         product_id=p.id,
         product_name=_short_name(p.name),
         farm_id=p.farm_id,
@@ -201,7 +205,7 @@ def _reason(text: str, field: str = "reason") -> str:
 
 
 def _new_order_no(db: Session) -> str:
-    """주문 번호 `FC-MMDD-NNNN`. 입금자명으로 쓴다(R-28).
+    """주문 번호 `FC-MMDD-NNNN`. 입금자명은 따로 짧은 입금 코드를 쓴다(DEV-342, R-28).
 
     NNNN은 연번이 아니라 무작위 4자리다. 연번이면 소비자가 거래 건수를 셀 수 있어서다
     (2026-10-18 결정).
@@ -733,10 +737,52 @@ def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
             productId=order.product_id,
         )
     allocation.reserved_count += order.quantity
+    order.deposit_code = _deposit_code(db, order, farm.id)
     order.status = "AWAITING_DEPOSIT"
     order.deposit_due_at = now() + timedelta(hours=get_settings().deposit_deadline_hours)
     db.flush()
     return order_view(db, order)
+
+
+def _deposit_code(db: Session, order: Order, farm_id: str) -> str:
+    """입금자명(DEV-342, R-28): 닉네임 앞 3글자 + 숫자, 같은 농가 입금 대기 주문끼리 겹치지 않게.
+
+    이름은 농가에 이미 보이는 가림 이름(`public_name`: 닉네임, 없으면 이름 앞 글자)이다(PM 11/17).
+    계정 실명·받는 사람 이름은 쓰지 않는다. 남는 글자가 없으면 '주문'.
+    입금 기한이 끝난 지 3일이 안 된 돈 없이 취소된 주문의 코드도 쓰는 중으로 본다
+    (늦은 입금 혼동 방지).
+    같은 농가의 입금 안내는 서로 다른 상품이면 상품 잠금으로 직렬화되지 않으므로, 농가별
+    트랜잭션 advisory lock으로 '겹치는지 보고 정하기'를 한 번에 하나씩만 한다(커밋·롤백 때 풀린다).
+    """
+    from app.accounts import service as accounts
+    from app.catalog import service as catalog
+
+    db.execute(
+        select(func.pg_advisory_xact_lock(func.hashtextextended(f"deposit-code:{farm_id}", 0)))
+    )
+    product_ids = catalog.farm_product_ids(db, farm_id)
+    recently_canceled = (
+        (Order.status == "CANCELED")
+        & Order.paid_at.is_(None)
+        & (Order.deposit_due_at > now() - timedelta(days=DEPOSIT_CODE_HOLD_DAYS))
+    )
+    taken = set(
+        db.scalars(
+            select(Order.deposit_code).where(
+                Order.product_id.in_(product_ids),
+                (Order.status == "AWAITING_DEPOSIT") | recently_canceled,
+                Order.deposit_code.is_not(None),
+                Order.id != order.id,
+            )
+        )
+    )
+    user = accounts.get_user(db, order.consumer_id)
+    code = pick_code(code_name(accounts.public_name(user)), taken)
+    if code is None:
+        raise conflict(
+            "INVALID_TRANSITION", "입금자명을 만들지 못했어요. 잠시 뒤 다시 시도해 주세요."
+        )
+    return code
 
 
 def report_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
@@ -974,6 +1020,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
     return ProducerOrder(
         order_id=order.id,
         order_no=order.order_no,
+        deposit_code=order.deposit_code,
         product_id=order.product_id,
         stage_id=order.stage_id,
         product_name=_short_name(item.product.name),
@@ -1205,6 +1252,20 @@ def refund_history(db: Session, order_id: str) -> list[RefundView]:
     ]
 
 
+def get_chat_order_of(db: Session, consumer_id: str, order_id: str) -> Order | None:
+    """대화 주문 문맥으로 쓸 수 있는 본인 주문: 결제 이력이 있거나 입금 대기(DEV-342).
+
+    입금 대기 주문 문맥은 생산자가 주문 현황 ‘채팅하기’로 연 대화에서만 생긴다(소비자의
+    주문 문의 시작·문제 문의 접수는 계속 결제 이력 주문만, `get_paid_order_of`).
+    """
+    order = db.get(Order, order_id)
+    if order is None or order.consumer_id != consumer_id:
+        return None
+    if order.paid_at is None and order.status != "AWAITING_DEPOSIT":
+        return None
+    return order
+
+
 def get_paid_order_of(db: Session, consumer_id: str, order_id: str) -> Order | None:
     """결제 이력이 있는 본인 주문(contracts-1.2 4·6장)."""
     order = db.get(Order, order_id)
@@ -1237,6 +1298,20 @@ def paid_customer_ids(db: Session, farm_id: str, consumer_ids: list[str]) -> set
             .distinct()
         )
     )
+
+
+def buyer_of_farm_order(db: Session, farm_id: str, order_id: str) -> str | None:
+    """생산자가 주문 현황 입금 대기 줄 ‘채팅하기’로 대화를 시작할 때(DEV-342) 그 주문의 소비자 ID.
+
+    자기 농가의 입금 대기(`AWAITING_DEPOSIT`) 주문만. 지난 구매자에게 연락하는 길로 쓰이지 않게
+    PM 결정(입금 대기 주문의 버튼)대로 좁힌다. 아니면 None.
+    """
+    order = db.scalar(
+        select(Order).where(Order.id == order_id, Order.status == "AWAITING_DEPOSIT")
+    )
+    if order is None or not order_belongs_to_farm(db, order, farm_id):
+        return None
+    return order.consumer_id
 
 
 def order_belongs_to_farm(db: Session, order: Order, farm_id: str) -> bool:

@@ -209,4 +209,7 @@ test("AC-09-11: depositor-name title picks 로/으로 by how the last digit is r
   assert.equal(t.depositorNameTitle("FC-1007-7103"), "받는 분 통장 표시를 FC-1007-7103으로 바꿔 보내 주세요");
   assert.equal(t.depositorNameTitle("FC-1007-7106"), "받는 분 통장 표시를 FC-1007-7106으로 바꿔 보내 주세요");
   assert.equal(t.depositorNameTitle("FC-1007-7101"), "받는 분 통장 표시를 FC-1007-7101로 바꿔 보내 주세요");
+  // DEV-342: 입금자명은 짧은 입금 코드(닉네임 앞 3글자 + 숫자)
+  assert.equal(t.depositorNameTitle("김민지76"), "받는 분 통장 표시를 김민지76으로 바꿔 보내 주세요");
+  assert.equal(t.depositorNameTitle("귤사랑11"), "받는 분 통장 표시를 귤사랑11로 바꿔 보내 주세요");
 });

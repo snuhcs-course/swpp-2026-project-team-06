@@ -140,7 +140,7 @@ Figure 2. Retained I2 principal-relationship overview; the I3 association below 
 | Identity | `User`, `UserConsent`, `ShippingAddress`; role/app gates; shipping details exposed only to authorized participants |
 | Farm | `Farm`, `Follow`, `FarmAiSettings`, `FarmAiSettingsHistory`; farm owner and versioned settings; approval distinct from public visibility and suspension |
 | Catalog | `Product`, `Option`, `Stage`, `StagePrice`, `StageAllocation`, `CapacityRequest`, `ProductDraft`; period/option composite keys, approved grams and sales limits, product version |
-| Commerce | `Order`, `Payment`, `Refund`; unique order number; payment unique per order; copied unit price/weight/address/consents; refund history separate from fulfillment |
+| Commerce | `Order`, `Payment`, `Refund`; unique order number; short depositor code (`deposit_code`, name + digits, unique among one farm's awaiting orders, DEV-342); payment unique per order; copied unit price/weight/address/consents; refund history separate from fulfillment |
 | Communication | `Broadcast`, `Reaction`, `RoomReply`, `Thread`, `ThreadMessage`, `Escalation`, `OrderInquiry`, `PrivateAttachment`, `ThreadOrderContext`, `SupportThread`, `SupportMessage`; unique farm/consumer thread and per-thread sequence; participant-filtered reads |
 | Source analysis | `Batch`, `Asset`, `Page`, `Run`, `Item`, `Candidate`, `ReviewedField`, `Draft`, `RequestRecord`, `PublicPhoto`, `Spend`, `ProductWorkspace`; farm ownership, source revisions, job leases and product-bound draft snapshots |
 | Operations / media / retry | `ManagerEvent`, `PublicMedia`, `IdempotencyRecord`; action history, validated object metadata, unique user/scope/key with body hash and stored response |
