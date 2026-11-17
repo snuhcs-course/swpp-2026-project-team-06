@@ -56,8 +56,14 @@ def _contains(value, words):
     return any(re.sub(r"\s+", "", word).lower() in compact for word in words)
 
 
+_HEALTH_PATTERNS = [re.compile(p) for p in SAFETY_LISTS["healthPatterns"]]
+
+
 def has_health_claim(value):
-    return _contains(value, SAFETY_LISTS["health"])
+    # DEV-355: "건강한 (제주) 먹거리" is a health claim (gold); "건강하게 키운" stays neutral.
+    return _contains(value, SAFETY_LISTS["health"]) or any(
+        p.search(value) for p in _HEALTH_PATTERNS
+    )
 
 
 def has_platform_text(value):

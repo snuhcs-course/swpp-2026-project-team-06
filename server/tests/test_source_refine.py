@@ -276,6 +276,9 @@ def test_AC_SRC_3_health_phrase_follows_gold_and_neutral_growing_stays():
 
     assert has_health_claim("물댄동산농장의 귤은 건강함을 담아 키웠습니다.")
     assert not has_health_claim("건강하게 키운 감귤")
+    assert has_health_claim("건강한 제주 먹거리를 재배하고 있습니다.")
+    assert has_health_claim("건강한 먹거리예요.")
+    assert not has_health_claim("건강하게 자란 나무에서 딴 귤이에요.")
     assert not has_policy_text("제주 농장에서 택배로 직접 보내요.")
     assert not has_policy_text("교환 가능한 선물용 박스예요.")
 
@@ -1827,7 +1830,7 @@ def test_AC_SRC_3_final_prompt_keeps_r3_coverage_and_excludes_contact_policy():
     from app.ai.source_analysis import PROMPT_VERSION as EXTRACT_VERSION
     from app.ai.source_refine import PROMPT
 
-    assert EXTRACT_VERSION == "source-v10-historical-scope"
+    assert EXTRACT_VERSION == "source-v9-coverage"
     assert "IDENTITY AND COVERAGE AUDIT" in EXTRACT_PROMPT
     assert "FACT PRESERVATION AND MODULE AUDIT" in PROMPT
     assert "production/harvest months or seasons, including year-round production" in PROMPT
