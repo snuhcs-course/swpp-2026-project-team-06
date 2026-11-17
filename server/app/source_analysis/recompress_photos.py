@@ -15,8 +15,20 @@ from dataclasses import dataclass, field
 
 from sqlalchemy import select
 
+# 단독 프로세스로 돌기 때문에 FK 대상 테이블(catalog products 등)이 Base.metadata에 올라오도록
+# 모든 모듈의 models를 불러온다(migrations/env.py와 같은 목록, DEV-359).
+from app.accounts import models as _accounts_models  # noqa: F401
+from app.admin import models as _admin_models  # noqa: F401
+from app.ai import models as _ai_models  # noqa: F401
+from app.analytics import models as _analytics_models  # noqa: F401
+from app.catalog import models as _catalog_models  # noqa: F401
+from app.core import models as _core_models  # noqa: F401
 from app.core.db import get_sessionmaker
 from app.core.images import sniff
+from app.farms import models as _farms_models  # noqa: F401
+from app.media import models as _media_models  # noqa: F401
+from app.messaging import models as _messaging_models  # noqa: F401
+from app.orders import models as _orders_models  # noqa: F401
 from app.source_analysis.models import PublicPhoto
 from app.source_analysis.photos import public_photo
 from app.source_analysis.preprocess import PreparationError
