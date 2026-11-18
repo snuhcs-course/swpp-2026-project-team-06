@@ -214,33 +214,33 @@ def test_AC_17_11_my_product_stage_counts_and_started(client, login):
     assert stage(STAGE_2)["harvestStarted"] is False
 
 
-def test_AC_14_5_harvest_todo_counts_closed_stages_only(client, login):
+def test_AC_14_5_harvest_todo_counts_all_reserved(client, login):
+    """DEV-361(PM 11/18): 할 일 수 = 농가의 모든 예약 완료(예약 기간이 열려 있어도).
+
+    기간별 목록(harvestTargets)은 예전 앱 호환으로 남는다.
+    """
     producer = login("u-kang")
-    reserved = sum(
-        1 for sid, st in _statuses().values() if sid == STAGE_1 and st == "RESERVED"
-    )
+    reserved = sum(1 for _sid, st in _statuses().values() if st == "RESERVED")
     assert reserved > 0
 
     def todo():
         return client.get("/api/orders/producer/dashboard", headers=producer).json()["todo"]
 
-    # 테스트 기준일 2026-10-07(KST). 1단계는 10-12까지라 아직 열림
+    # 테스트 기준일 2026-10-07(KST). 1단계는 10-12까지라 아직 열려 있어도 센다
     opened = todo()
     target = next(t for t in opened["harvestTargets"] if t["stageId"] == STAGE_1)
-    assert (target["count"], target["closed"], target["productId"]) == (reserved, False, "p-house")
+    assert (target["closed"], target["productId"]) == (False, "p-house")
     assert target["stageName"] == "1단계"
-    closed_before = sum(t["count"] for t in opened["harvestTargets"] if t["closed"])
-    assert opened["toHarvest"] == closed_before
+    assert opened["toHarvest"] == reserved
 
-    _set_stage_dates(STAGE_1, "2026-09-20", "2026-10-07")  # 오늘 끝나는 기간은 아직 열림
-    assert next(t for t in todo()["harvestTargets"] if t["stageId"] == STAGE_1)["closed"] is False
-
-    _set_stage_dates(STAGE_1, "2026-09-20", "2026-10-06")  # 어제 끝남
+    _set_stage_dates(STAGE_1, "2026-09-20", "2026-10-06")  # 어제 끝나도 수는 같다
     closed = todo()
     assert next(t for t in closed["harvestTargets"] if t["stageId"] == STAGE_1)["closed"] is True
-    assert closed["toHarvest"] == closed_before + reserved
+    assert closed["toHarvest"] == reserved
 
-    client.post(URL, headers=producer | key(), json={"productId": "p-house", "stageId": STAGE_1})
-    after = todo()
-    assert all(t["stageId"] != STAGE_1 for t in after["harvestTargets"])
-    assert after["toHarvest"] == closed_before
+    one = next(o for o, (_sid, st) in _statuses().items() if st == "RESERVED")
+    moved = client.post(
+        "/api/orders/producer/harvest-orders", headers=producer | key(), json={"orderIds": [one]}
+    )
+    assert moved.status_code == 200, moved.text
+    assert todo()["toHarvest"] == reserved - 1

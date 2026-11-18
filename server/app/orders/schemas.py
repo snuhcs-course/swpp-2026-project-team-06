@@ -150,6 +150,20 @@ class HarvestStarted(CamelModel):
     order_ids: list[str]
 
 
+class HarvestOrdersInput(CamelModel):
+    """DEV-361: 주문·출하 화면 예약 탭에서 고른 주문을 한 번에 수확 시작한다."""
+
+    order_ids: list[str] = Field(min_length=1, max_length=500)
+
+
+class HarvestedOrders(CamelModel):
+    """옮긴 주문만 센다. 그새 예약 완료가 아니게 된 주문은 건너뛴다(skipped)."""
+
+    changed: int
+    order_ids: list[str]
+    skipped: int
+
+
 class Changed(CamelModel):
     changed: int
 
@@ -172,7 +186,7 @@ class ProducerOrder(CamelModel):
     # 입금자명(DEV-342). 통장의 '받는 분 통장 표시'와 대조한다. 없으면(옛 주문) 앱은 주문 번호
     deposit_code: str | None
     product_id: str
-    # DEV-231: 예약 기간 화면 수확 시작 시트가 그 기간 주문만 고른다
+    # DEV-231: 주문의 예약 기간. DEV-361부터 앱은 쓰지 않는다(예전 앱 호환으로 유지)
     stage_id: str
     product_name: str
     option_label: str
@@ -217,7 +231,8 @@ class DashboardTodo(CamelModel):
     awaiting_deposit: int
     refunds_to_settle: int
     has_account: bool
-    # DEV-231: 예약 기간이 끝난 기간의 예약 완료 주문 수, 수확을 시작할 수 있는 기간들
+    # DEV-361(PM 11/18): 농가의 모든 예약 완료 주문 수(예약 탭 '수확 시작 · n건'과 같음).
+    # DEV-231에는 예약 기간이 끝난 기간만 셌다. harvestTargets(기간별)는 예전 앱 호환으로 남김
     to_harvest: int = 0
     harvest_targets: list[HarvestTarget] = []
 
