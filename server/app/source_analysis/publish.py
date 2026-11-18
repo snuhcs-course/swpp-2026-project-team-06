@@ -72,11 +72,8 @@ def apply_draft(db, batch, draft, body, apply_cover=False):
     # DEV-346 (11/17 PM): applying a buyer-visible product's own page alone (the product
     # workspace's batch, this endpoint) leaves product.photos as they are. DEV-361 apply-all
     # (`apply_cover`) makes the draft's cover the cover, as before sale and from other workspaces.
-    own_page = (
-        product.status not in ("DRAFT", "REJECTED")
-        and workspace is not None
-        and batch.id == workspace.batch_id
-    )
+    own_batch = workspace is not None and batch.id == workspace.batch_id
+    own_page = product.status not in ("DRAFT", "REJECTED") and own_batch
     keeps_cover = own_page and not apply_cover
     if own_page and workspace.page_source:
         from app.source_analysis.workspace import page_source, story_kind
@@ -90,8 +87,10 @@ def apply_draft(db, batch, draft, body, apply_cover=False):
         if snap.get("representativeAssetId") != representative.id:
             raise conflict("PHOTO_CHANGED", "대표사진을 확인한 뒤 초안을 다시 저장해 주세요.")
         # DEV-361: an uploaded cover the last applied page already copied is not copied again
-        # (no duplicate photo, and a cover changed elsewhere since stays).
-        keeps_cover = own_page and cover_applied(db, workspace, snap, representative)
+        # (no duplicate photo, and a cover changed elsewhere since stays). Before sale too (5th
+        # scan): every composer has a workspace whose page_draft_id is the page it last applied, so
+        # '다음' again keeps one cover and the composer's photo count (no new cover) stays right.
+        keeps_cover = own_batch and cover_applied(db, workspace, snap, representative)
 
     def copy_photo(sid):
         source = s.asset(db, batch.id, sid)

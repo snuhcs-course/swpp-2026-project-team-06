@@ -669,6 +669,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   const retryGate = useRetryGate();
   const [validationFields, setValidationFields] = useState<Record<string, string>>({});
   const [footerHeight, setFooterHeight] = useState(100);
+  // 상품 초안 PUT의 칸 오류는 `fields.photos`처럼 본문 이름이 붙어 온다. 화면 칸 이름(photos)으로 맞춰 강조한다(5차 scan)
+  const showFieldErrors = (fields: Record<string, string> | undefined) =>
+    setValidationFields(Object.fromEntries(Object.entries(fields ?? {}).map(([k, v]) => [k.replace(/^fields\./, ""), v])));
   const clearValidation = (key: string) => { if (validationFields[key]) setError(null); setValidationFields(old => { if (!old[key]) return old; const next = { ...old }; delete next[key]; return next; }); };
   const [sheetOpen, setSheetOpen] = useState(false);
   const [buyerPreview, setBuyerPreview] = useState(false);
@@ -846,6 +849,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           navigation.dispatch(event.data.action);
         }).catch(error => {
           setError(sourceActionError(error));
+          if (error instanceof ApiError && error.status === 400) showFieldErrors(error.details.fields);
           setNotice("임시 저장하지 못했어요. 입력 내용은 남아 있어요. 다시 시도해 주세요.");
         }).finally(() => { exitSaving.current = false; lock.current = false; if (alive.current) setBusy(false); });
       }),
@@ -936,7 +940,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
               setConsent(false);
               setConsentInvalid(false);
             } else {
-              setValidationFields(e.details.fields ?? {});
+              showFieldErrors(e.details.fields);
               if (Object.keys(e.details.fields ?? {}).length) { setBuyerPreview(false); setSheetOpen(false); setPlan(null); }
             }
           }
@@ -1216,6 +1220,11 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   const showEditor = !!review && !working && (canEdit || editorDirty);
   /** 화면의 모든 입력을 비공개로 저장한다(판매 전 상품은 상품 칸을 바로 상품에). 구매자에게 보이는 상품은 상품 초안 결과를 돌려준다 */
   const saveAll = async (): Promise<ProductDraftView | null> => {
+    // 상품만 여는 composer는 새 대표사진을 사진 맨 앞에 넣어 두어 10장을 넘을 수 있다. 서버에 보내기 전에 같은 문구로 막는다(5차 scan)
+    if (form && form.photos.length > MAX_PHOTOS) {
+      const message = photoCapMessage(form.photos.length - MAX_PHOTOS);
+      throw new ApiError(400, { code: "VALIDATION_ERROR", message, details: { fields: { photos: message } } });
+    }
     await flushAttachments.current?.();
     // 판매페이지 수정을 기본 정보보다 먼저 저장한다(start()와 같은 순서). 기본 정보 저장이 배치 버전을 올리면
     // 수정 중인 편집기는 옛 버전으로 저장하다 거절되기 때문이다(DEV-184·329).

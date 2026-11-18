@@ -632,7 +632,7 @@ test("DEV-361 PM 11/18 C-34: a custom weight option (2.5kg) gets its own price r
   assertClean();
 });
 
-test("DEV-361 4th scan C-33: the product-only composer never drops a photo for a new cover; it asks to remove one", async ({ page, request }) => {
+test("DEV-361 4th scan C-33: the product-only composer never drops a photo for a new cover; it asks to remove one", async ({ page }) => {
   test.setTimeout(120000);
   const assertClean = monitor(page, [/status of 404/]);
   await page.route("**/api/source-analysis/config", (route) => route.fulfill({ json: { enabled: false } }));
@@ -702,9 +702,22 @@ test("DEV-361 4th scan C-34: an unchecked option stays as an unchecked box and c
   await expect(fivePrice).toHaveValue(price);
   await page.getByRole("button", { name: "수정 담기", exact: true }).click();
   await expect(editor).toHaveCount(0);
-  // nothing changed in the end: no edit counted
+  // nothing changed in the end: no edit counted. The options (ID, label and the seeded note '약 35~45과') are
+  // compared, so a 5kg option made anew (no note) would count as one edit
   await expect(page.getByRole("button", { name: "상품에 반영", exact: true })).toBeVisible();
-  expect(five.optionId).toBeTruthy();
+  // and a saved price change on 5kg is drafted under the seeded option ID, with no option change
+  await page.getByRole("button", { name: "판매 조건 고치기", exact: true }).click();
+  await editor.getByRole("checkbox", { name: "5kg", exact: true }).click();
+  await editor.getByRole("checkbox", { name: "5kg", exact: true }).click();
+  await fivePrice.fill(String(Number(price.replace(/\D/g, "")) - 1000));
+  await page.getByRole("button", { name: "수정 담기", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+  await expect(page.getByText(/비공개로 저장했어요/)).toBeVisible();
+  const view = await (await request.get(`${apiUrl}/api/source-analysis/product-workspaces/p-house/product-draft`, { headers })).json();
+  expect(view.draft.fields.options).toBeUndefined();
+  expect(view.draft.stages.every((st: { options: Record<string, unknown> }) => five.optionId in st.options)).toBe(true);
+  expect(view.draft.stages.some((st: { options: Record<string, unknown> }) => Object.keys(st.options).some((k) => k !== five.optionId && k.startsWith("opt-5")))).toBe(false);
   await discardDraft(request, "p-house");
   assertClean();
 });

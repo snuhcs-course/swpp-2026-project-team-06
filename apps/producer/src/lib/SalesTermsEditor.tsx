@@ -8,7 +8,7 @@ import {
   type StageInput,
 } from "@farmclub/api";
 import { Button, Checkbox, Segmented, T, md, tokens } from "@farmclub/ui";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { View } from "react-native";
 
 import { FieldFeedback, FieldFeedbackContext } from "./FieldFeedback";
@@ -200,7 +200,13 @@ export function SalesTermsEditor({
 }) {
   const [sheet, setSheet] = useState<null | "delivery" | "maxDelay">(null);
   const t = value;
-  const set = <K extends keyof Terms>(k: K, v: Terms[K]) => onChange({ ...t, [k]: v });
+  // 이 편집부가 마지막으로 넘긴 값. 다른 값이 들어오면(부르는 쪽이 다시 불러와 채움) 밖에서 바꾼 것이다
+  const emitted = useRef<Terms | null>(null);
+  const set = <K extends keyof Terms>(k: K, v: Terms[K]) => {
+    const next = { ...t, [k]: v };
+    emitted.current = next;
+    onChange(next);
+  };
   const off = !editable || busy;
   // 직접 입력(PM 11/18): '직접 입력'을 누르면 kg 칸이 열리고 '추가'를 누를 때 검사한다(누르면 강조, 11/18 규칙)
   const [custom, setCustom] = useState<{ open: boolean; value: number | null; error: string | null; attempt: number }>({
@@ -212,11 +218,16 @@ export function SalesTermsEditor({
   // 이 편집에서 끈 옵션(원래 ID·라벨·메모). 다시 켜면 새로 만들지 않고 이것을 되살린다(4차 scan):
   // 새 ID로 만들면 서버가 예전 옵션을 지우려 하고, 주문이 있으면 409다. 끈 3·5·10kg 밖 옵션은 꺼진 체크 상자로 남는다
   const [shelf, setShelf] = useState<ProductOption[]>([]);
+  // 값을 밖에서 통째로 바꾸면(다시 불러오기·돌아와 채우기) 끈 옵션 기억도 버린다(5차 scan)
+  useEffect(() => {
+    if (value !== emitted.current) setShelf([]);
+  }, [value]);
   const byKg = (a: { weightKg: number }, b: { weightKg: number }) => a.weightKg - b.weightKg;
   const turnOn = (w: number) => {
-    const kept = shelf.find((o) => o.weightKg === w);
-    if (kept) setShelf(shelf.filter((o) => o !== kept));
-    set("options", [...t.options, kept ?? weightOption(w)].sort(byKg));
+    // 같은 중량 옵션이 여럿이었으면(서버가 opt-5-2를 만들 수 있음) 모두 되살린다
+    const kept = shelf.filter((o) => o.weightKg === w);
+    if (kept.length) setShelf(shelf.filter((o) => o.weightKg !== w));
+    set("options", [...t.options, ...(kept.length ? kept : [weightOption(w)])].sort(byKg));
   };
   const addCustom = () => {
     // 꺼 둔 옵션과 같은 중량이면 그 옵션을 다시 켠다
@@ -226,19 +237,21 @@ export function SalesTermsEditor({
     setCustom({ open: false, value: null, error: null, attempt: 0 });
   };
   // 3·5·10kg와 그 밖의 중량(직접 입력, 예전 옵션, 이 편집에서 끈 옵션)을 가벼운 순서로 한 줄에(PM 11/18)
+  // 중량마다 체크 상자 하나(켜진 옵션이 먼저, 꺼 둔 옵션은 그 중량이 켜져 있지 않을 때만)
+  const others = new Map<number, ProductOption>();
+  for (const o of [...t.options, ...shelf]) if (!WEIGHTS.includes(o.weightKg) && !others.has(o.weightKg)) others.set(o.weightKg, o);
   const weightChoices = [
     ...WEIGHTS.map((w) => ({ key: `w-${w}`, weightKg: w, label: `${w}kg` })),
-    ...[...t.options, ...shelf]
-      .filter((o) => !WEIGHTS.includes(o.weightKg))
-      .map((o) => ({ key: o.optionId, weightKg: o.weightKg, label: o.label })),
+    ...[...others.values()].map((o) => ({ key: `o-${o.weightKg}`, weightKg: o.weightKg, label: o.label })),
   ].sort(byKg);
   // 기간 가격·박스 줄도 가벼운 순서
   const byWeight = [...t.options].sort(byKg);
   const toggleWeight = (w: number) => {
-    const on = t.options.find((o) => o.weightKg === w);
-    if (!on) return turnOn(w);
-    setShelf([...shelf.filter((o) => o.weightKg !== w), on]);
-    set("options", t.options.filter((o) => o !== on));
+    const on = t.options.filter((o) => o.weightKg === w);
+    if (!on.length) return turnOn(w);
+    // 그 중량 옵션을 모두 끈다(5차 scan: 하나만 끄면 체크 상자가 켜진 채로 남음)
+    setShelf([...shelf.filter((o) => o.weightKg !== w), ...on]);
+    set("options", t.options.filter((o) => o.weightKg !== w));
   };
   const setRow = (i: number, patch: Partial<TermsRow>) =>
     set("rows", t.rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));

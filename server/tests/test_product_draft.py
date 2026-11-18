@@ -881,3 +881,21 @@ def test_DEV_361_a_new_cover_never_pushes_the_product_past_ten_photos(client, lo
     assert (
         len(photos) == 10 and photos[1:] == TEN[:9] and photos[0].startswith("/api/source-media/")
     )
+
+
+def test_AC_SRC_9_DEV_361_pre_sale_reapply_keeps_one_uploaded_cover(client, login):
+    """5th scan: before sale too, an uploaded cover the last applied page already copied is not
+    copied and prepended again ('다음' twice must not duplicate it or grow the photo count)."""
+    set_modules(pid="p-hallabong")
+    row = workspace(client, login, "p-hallabong")
+    before = mine(client, login, "p-hallabong")["photos"]
+    uploaded_cover(client, login, row)
+    first = apply_latest(client, login, row, "p-hallabong")
+    assert first.status_code == 200, first.text
+    photos = mine(client, login, "p-hallabong")["photos"]
+    assert photos[1:] == before and photos[0].startswith("/api/source-media/")
+    row = workspace(client, login, "p-hallabong")
+    save_page(row, ["hero", "taste"])
+    again = apply_latest(client, login, row, "p-hallabong")
+    assert again.status_code == 200, again.text
+    assert mine(client, login, "p-hallabong")["photos"] == photos
