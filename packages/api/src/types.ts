@@ -40,7 +40,13 @@ export type ConflictReason =
   /** 저장 배송지가 계정당 50개를 넘음(details.limit) */
   | "ADDRESS_LIMIT"
   /** 이미 바로잡은 AI 답변에 '답이 맞아요'(DEV-296) */
-  | "ALREADY_CORRECTED";
+  | "ALREADY_CORRECTED"
+  /** 상품 초안의 칸이 다른 곳에서 바뀜(details.fields, DEV-361) */
+  | "PRODUCT_CHANGED"
+  /** 받는 시기 변경에 예약자 동의 확인이 필요(details.reservedCount, R-21, DEV-361) */
+  | "DELIVERY_CONSENT_REQUIRED"
+  /** apply-all: 판매페이지 대표사진과 상품 초안 사진 첫 장이 다름(DEV-361) */
+  | "PHOTO_CHANGED";
 /**
  * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).
  * 첫 가입 온보딩 전에 주문·팔로우·채팅을 부르면 ONBOARDING_REQUIRED(FEAT-01 I2)
