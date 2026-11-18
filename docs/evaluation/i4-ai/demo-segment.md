@@ -12,7 +12,7 @@ This is a silent, captioned, automated recording of the two AI features I improv
 | 01 Chat — sweetness | “얼마나 달아요?” | Answered with the registered measured Brix (11.8), no taste judgement | CAP-031, 0/3 → 3/3 |
 | 01 Chat — haggling | “택배비 빼주시면 안 돼요?” | No AI answer; the farmer is asked to reply (M-07) | Before DEV-265 the AI answered this (CAP-021, unsafe 0/3 → handed off 3/3) |
 | 02 Draft filling — left out | Producer pastes a farm text with price, return fee, support hours, a delivery period and a health claim, then taps “AI로 채우기” | The editor lists the five left-out phrases by reason (금액, 팜클럽 정책, 건강 효능, 기간) | — |
-| 02 Draft filling — filled | The draft editor after analysis | Product name, taste, composition and delivery are filled with source sentences; none of the left-out text appears | — |
+| 02 Draft filling — filled | The draft editor after analysis | Product name, taste, composition and delivery are filled with wording from the source; none of the left-out text appears | — |
 
 Chat totals (DEV-265, [results-2026-11-15.md](chat-capability/results-2026-11-15.md), PR #591, merged): answerable accuracy 75.0% → **98.3%**, mandatory handoff 88.9% → **100%**, unnecessary handoff 25.0% → 1.7%, I3 regression set 180/180 kept.
 
@@ -20,7 +20,7 @@ Draft-filling totals (DEV-264, [draft-results-2026-11-18.md](draft-results-2026-
 
 ## Limits — say these when presenting
 
-- **Draft filling uses the local mock analyser** (`SOURCE_ANALYSIS_PROVIDER=mock`). The extracted candidates are fixed fixtures, not real model output. The editor, server validation, left-out list and saved draft are the real code.
+- **Draft filling uses the local mock analyser** (`SOURCE_ANALYSIS_PROVIDER=mock`). The extracted candidates and the stage-2 grouping are fixed mock steps, not real model output. The mock stage 2 sorts the left-out phrases with the same safety-check functions the server validator uses (`server/app/source_analysis/text_safety.py`); with a real model, the server validator is what drops unsafe text the model keeps. The editor, the left-out list screen and the saved draft are the real code.
 - **Chat makes no model call.** All three questions are handled by the rule step or the mandatory-handoff rule. Questions that need the model (Claude Haiku 4.5) are not shown. `ANTHROPIC_API_KEY` is set to an invalid placeholder for the run, so an unexpected model call would fail instead of costing money.
 - The code is `main` at the recorded commit. DEV-355 code checks and the stage-2 model trial are not in it.
 - Synthetic seed accounts (이서준, 강영수/강씨네 귤밭), `FIXED_NOW=2026-10-07`. Login happens in a separate tab and is not in the video.
@@ -47,4 +47,4 @@ Output (git-ignored) in `test-results/ai-i4-demo-*/`: `ai-i4-demo.webm` (1280×8
 
 ## Recorded run
 
-18 November 2026, local: source commit `fc7b3420` (origin/main) plus the uncommitted demo spec. 1 passed (42.3 s), 7 assertions. Video 43.0 s (5 s caption pauses; the first 2.5 s version was too fast to read). API log had no 409 or 5xx responses. The first attempts failed on selectors and on one 409 conflict when the script edited the variety before the text source had finished saving. The script now waits for each save, as the existing composer spec does. That 409 is a script timing issue, not a product change made for the demo.
+18 November 2026, local: source commit `fc7b3420` (origin/main) plus the uncommitted demo spec. 1 passed (42.6 s), 7 assertions. Video 43.2 s (5 s caption pauses; the first 2.5 s version was too fast to read). API log had no 409 or 5xx responses. The first attempts failed on selectors and on one 409 conflict when the script edited the variety before the text source had finished saving. The script now waits for each save, as the existing composer spec does. That 409 is a script timing issue, not a product change made for the demo.

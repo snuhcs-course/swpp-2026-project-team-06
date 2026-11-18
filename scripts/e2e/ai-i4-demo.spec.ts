@@ -220,7 +220,8 @@ test("DEV-282 FEAT-13 AC-13 FEAT-03 AC-SRC-2/3/8: record the AI chat and draft-f
     assertions.push("AC-SRC-8: price, platform-policy, period and health-claim text are left out and listed for the farmer");
     await caption(page, "02 / AI가 뺀 문구", "넣으면 안 되는 문구는 빼고 보여 줘요", [
       "금액·고객센터·기간·건강 효능 문구를 상세페이지에서 뺐습니다.",
-      "서버 검증이 빼고, 왜 뺐는지 농가에게 보여 줍니다.",
+      "왜 뺐는지 이유별로 농가에게 보여 줍니다.",
+      "이 시연에선 모의 2단계가 서버와 같은 안전 검사 함수로 분류합니다.",
     ]);
     await pause();
     await screenshot("03-draft-excluded.png");
@@ -235,7 +236,7 @@ test("DEV-282 FEAT-13 AC-13 FEAT-03 AC-SRC-2/3/8: record the AI chat and draft-f
     assertions.push("AC-SRC-2/3: the editor is filled from the source (name, taste, delivery) with none of the left-out text");
     await page.getByLabel("맛과 향 내용", { exact: true }).scrollIntoViewIfNeeded();
     await caption(page, "02 / 채워진 초안", "자료에 있는 사실만 채웠어요", [
-      "상품명·맛·배송 안내가 자료 문장 그대로 들어갔습니다.",
+      "상품명·맛·배송 안내가 자료에 있는 문구로 채워졌습니다.",
       "가격은 다음 단계에서 농가가 직접 정합니다.",
     ]);
     await pause();
