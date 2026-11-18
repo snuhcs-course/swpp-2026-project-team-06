@@ -460,7 +460,7 @@ register({
     return paginate(list, ctx.query);
   },
 
-  // DEV-231 기간 단위 수확 시작(stageId 없으면 상품 전체). 예전 앱 빌드 호환으로 서버와 같이 남긴다(DEV-361부터 앱은 harvest-orders)
+  // DEV-231 기간 단위 수확 시작(stageId 없으면 상품 전체). 서버에 남긴 예전 앱 호환 엔드포인트와 짝을 맞춘다(테스트용, DEV-361부터 앱은 harvest-orders)
   "POST /api/orders/producer/harvest-start": (ctx) => {
     const u = ctx.me();
     const pid = String(ctx.body.productId ?? "");
