@@ -460,7 +460,7 @@ register({
     return paginate(list, ctx.query);
   },
 
-  // DEV-231: 수확 시작 = 출하 준비 시작. stageId가 있으면 그 기간만, 없으면 상품 전체
+  // DEV-231 기간 단위 수확 시작(stageId 없으면 상품 전체). 예전 앱 빌드 호환으로 서버와 같이 남긴다(DEV-361부터 앱은 harvest-orders)
   "POST /api/orders/producer/harvest-start": (ctx) => {
     const u = ctx.me();
     const pid = String(ctx.body.productId ?? "");
@@ -484,6 +484,53 @@ register({
           orderIds.push(o.orderId);
         });
       return { changed: orderIds.length, stageId: sid, orderIds };
+    });
+  },
+
+  // DEV-361: 주문·출하 화면 예약 탭에서 고른 주문(서버 harvest_orders와 같은 규칙).
+  // 하나라도 없거나 다른 농가 주문이면 404, 지금 예약 완료인 것만 옮기고 나머지는 건너뛴다.
+  "POST /api/orders/producer/harvest-orders": (ctx) => {
+    const u = ctx.me();
+    // 멱등 키를 404 검사보다 먼저 본다(서버도 run_idempotent가 키를 본 뒤 소유를 확인한다)
+    if (!ctx.headers["Idempotency-Key"])
+      fail(400, "VALIDATION_ERROR", "Idempotency-Key 헤더가 필요해요.");
+    const raw = ctx.body.orderIds;
+    if (
+      !Array.isArray(raw) ||
+      raw.length < 1 ||
+      raw.length > 500 ||
+      raw.some((id) => typeof id !== "string")
+    )
+      invalid({ orderIds: "주문을 1건 이상 골라 주세요." });
+    const wanted = [...new Set(raw as string[])];
+    for (const id of wanted) {
+      const o = ctx.db.orders[id];
+      if (
+        !o ||
+        ctx.db.products[o.productId]?.farmId !== u.farmId ||
+        o.status === "PENDING_PAYMENT" ||
+        (o.status === "CANCELED" && !o.paidAt)
+      )
+        notFound("찾을 수 없는 주문이에요.");
+    }
+    return idempotent(ctx, "harvest-orders", () => {
+      const orderIds: string[] = [];
+      wanted
+        .map((id) => ctx.db.orders[id])
+        .filter((o) => o.status === "RESERVED")
+        .sort(
+          (a, b) =>
+            a.createdAt.localeCompare(b.createdAt) || a.orderId.localeCompare(b.orderId),
+        )
+        .forEach((o) => {
+          o.status = "PREPARING";
+          orderIds.push(o.orderId);
+        });
+      return {
+        changed: orderIds.length,
+        orderIds,
+        skipped: wanted.length - orderIds.length,
+      };
     });
   },
 
@@ -604,21 +651,26 @@ export function harvestTodo(
   products: ProductRec[],
   farmOrders: OrderRec[],
 ): { toHarvest: number; harvestTargets: HarvestTarget[] } {
+  // Mock 기간 id(`st-1-날짜`)는 상품끼리 겹칠 수 있어 상품 id와 함께 센다(DEV-361)
+  const at = (productId: string, stageId: string) => `${productId}\u0000${stageId}`;
   const reserved = new Map<string, number>();
+  let all = 0;
   for (const o of farmOrders)
-    if (o.status === "RESERVED")
-      reserved.set(o.stageId, (reserved.get(o.stageId) ?? 0) + 1);
+    if (o.status === "RESERVED") {
+      all += 1;
+      reserved.set(at(o.productId, o.stageId), (reserved.get(at(o.productId, o.stageId)) ?? 0) + 1);
+    }
   const harvestTargets = products
     .flatMap((p) =>
       p.stages
-        .filter((s) => reserved.get(s.stageId))
+        .filter((s) => reserved.get(at(p.productId, s.stageId)))
         .map((s) => ({
           productId: p.productId,
           productName: p.name,
           stageId: s.stageId,
           stageName: s.name,
           endsAt: s.endsAt,
-          count: reserved.get(s.stageId) ?? 0,
+          count: reserved.get(at(p.productId, s.stageId)) ?? 0,
           closed: s.endsAt < TODAY,
         })),
     )
@@ -629,9 +681,8 @@ export function harvestTodo(
         a.stageName.localeCompare(b.stageName),
     );
   return {
-    toHarvest: harvestTargets
-      .filter((t) => t.closed)
-      .reduce((n, t) => n + t.count, 0),
+    // DEV-361(PM 11/18): 모든 예약 완료 주문(예약 탭 '수확 시작 · n건'과 같음). 기간별 목록은 예전 앱 호환
+    toHarvest: all,
     harvestTargets,
   };
 }

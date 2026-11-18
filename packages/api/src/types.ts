@@ -395,10 +395,11 @@ export type HarvestTarget = {
   closed: boolean;
 };
 
-export type HarvestStarted = {
+/** 고른 주문 수확 시작 결과(DEV-361). orderIds는 옮긴 주문, skipped는 그새 예약 완료가 아니어서 건너뛴 수 */
+export type HarvestedOrders = {
   changed: number;
-  stageId: string | null;
   orderIds: string[];
+  skipped: number;
 };
 
 export type ProductDetail = ProductCard & {
