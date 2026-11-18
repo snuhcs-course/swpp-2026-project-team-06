@@ -27,7 +27,6 @@ from app.source_analysis.text_safety import (
     has_platform_text,
     has_policy_text,
     has_product_lineup,
-    names_other_product,
     numbers,
     ranges,
 )
@@ -197,8 +196,6 @@ def validate(output, candidates, target_id, *, target_count=0, target_name=""):
                 code = "POLICY_TEXT"
             elif has_product_lineup(text.value, target_name):
                 code = "PRODUCT_LINEUP"
-            elif names_other_product(text.value, module.module, target_name):
-                code = "OTHER_PRODUCT"
             elif scrub(text.value) != text.value:
                 code = "PRIVATE_VALUE"
             elif numbers(text.value) - numbers(
@@ -261,7 +258,6 @@ def validate(output, candidates, target_id, *, target_count=0, target_name=""):
         "UNSUPPORTED_RANGE": "unsupported",
         "POLICY_TEXT": "platform",
         "PRODUCT_LINEUP": "other_product",
-        "OTHER_PRODUCT": "other_product",
         "PRIVATE_VALUE": "pii",
     }
     for rejected_text in rejected:

@@ -106,27 +106,12 @@ def has_policy_text(value):
 
 
 def has_product_lineup(value, target_name=""):
-    """DEV-355: a list of the farm's products is never one product's page text: an explicit
-    list marker, or three or more citrus variety names other than the product's own in one
-    text ("레드향은 한라봉과 천혜향의 장점…" on a 레드향 page is a variety description)."""
+    """Reject explicit farm item lists and clear multi-variety lists.
+
+    Product identity/package attribution is deliberately not inferred from cultivar names.
+    """
     compact = re.sub(r"\s+", "", value)
     if _contains(value, SAFETY_LISTS["lineupMarkers"]):
         return True
     own = re.sub(r"\s+", "", target_name or "")
     return sum(1 for name in SAFETY_LISTS["cultivars"] if name in compact and name not in own) >= 3
-
-
-_OWN_PRODUCT_MODULES = {"hero", "composition", "pieceCount", "specification"}
-
-
-def names_other_product(value, module, target_name):
-    """DEV-355: in the product's own identity/package modules, a citrus variety other than
-    the one in the target name means another product's package leaked in. Only applies when
-    the target name itself names a variety."""
-    if module not in _OWN_PRODUCT_MODULES:
-        return False
-    own = {n for n in SAFETY_LISTS["cultivars"] if n in re.sub(r"\s+", "", target_name or "")}
-    if not own:
-        return False
-    mentioned = {n for n in SAFETY_LISTS["cultivars"] if n in re.sub(r"\s+", "", value)}
-    return bool(mentioned - own)

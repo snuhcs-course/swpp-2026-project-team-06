@@ -306,11 +306,10 @@ def test_AC_SRC_3_korean_range_forms_need_a_range_in_the_quote(quote, value, cod
     ("module", "value", "target_name", "code"),
     [
         ("productionProcess", "주 생산품목: 비트차, 비트칩(상시)", "비트차", "PRODUCT_LINEUP"),
+        ("productionProcess", "주 생산 품목인 레드향은 1-3월에 생산됩니다", "레드향", None),
         ("farmStory", "한라봉, 황금향, 레드향, 천혜향 등을 키워요.", "황금향", "PRODUCT_LINEUP"),
-        ("composition", "고당도 레드향 3kg, 5kg", "고당도 황금향", "OTHER_PRODUCT"),
-        ("composition", "고당도 황금향 3kg, 5kg", "고당도 황금향", None),
+        ("composition", "고당도 레드향 3kg, 5kg", "고당도 황금향", None),
         ("summary", "한라봉과 천혜향의 장점을 취한 품종이에요.", "황금향", None),
-        # The product's own variety is not counted: a breeding description, not a line-up.
         (
             "summary",
             "레드향은 한라봉과 천혜향의 장점만을 취한 품종입니다.",
@@ -321,8 +320,10 @@ def test_AC_SRC_3_korean_range_forms_need_a_range_in_the_quote(quote, value, cod
         ("composition", "비트칩 50g", "비트차", None),
     ],
 )
-def test_AC_SRC_3_other_products_never_reach_the_page(module, value, target_name, code):
-    """DEV-355: line-up lists and another product's package are rejected in code."""
+def test_AC_SRC_3_lineup_markers_are_deterministic_other_product_is_prompt_only(
+    module, value, target_name, code
+):
+    """DEV-355 review: clear lists are rejected; product identity stays prompt-only."""
     source = candidates()
     source[0]["evidence"][0]["quote"] = value
     texts = [{"value": value, "candidateIds": ["c0"]}]
