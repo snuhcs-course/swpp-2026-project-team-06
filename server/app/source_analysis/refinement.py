@@ -21,6 +21,7 @@ from app.source_analysis.text_safety import (
     SAFETY_LISTS_HASH,
     has_exaggeration,
     has_health_claim,
+    has_health_words,
     has_money,
     has_period_text,
     has_platform_text,
@@ -188,13 +189,13 @@ def validate(output, candidates, target_id, *, target_count=0, target_name=""):
                 code = "INVALID_COMMON_MODULE"
             elif has_money(text.value):
                 code = "MONEY_AMOUNT"
-            elif has_health_claim(text.value) or any(has_health_claim(c["value"]) for c in cited):
+            elif has_health_claim(text.value) or any(has_health_words(c["value"]) for c in cited):
                 code = "HEALTH_CLAIM"
             elif has_exaggeration(text.value):
                 code = "EXAGGERATION"
             elif has_policy_text(text.value):
                 code = "POLICY_TEXT"
-            elif has_product_lineup(text.value):
+            elif has_product_lineup(text.value, target_name):
                 code = "PRODUCT_LINEUP"
             elif names_other_product(text.value, module.module, target_name):
                 code = "OTHER_PRODUCT"
@@ -446,7 +447,7 @@ def safe_refinement(item, candidates):
             if has_money(text["value"]):
                 reason = "price"
             elif has_health_claim(text["value"]) or any(
-                has_health_claim(by_id[cid].value) for cid in text["candidateIds"] if cid in by_id
+                has_health_words(by_id[cid].value) for cid in text["candidateIds"] if cid in by_id
             ):
                 reason = "health"
             if reason:

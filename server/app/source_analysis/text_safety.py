@@ -61,9 +61,14 @@ _HEALTH_PATTERNS = [re.compile(p) for p in SAFETY_LISTS["healthPatterns"]]
 
 def has_health_claim(value):
     # DEV-355: "건강한 (제주) 먹거리" is a health claim (gold); "건강하게 키운" stays neutral.
-    return _contains(value, SAFETY_LISTS["health"]) or any(
-        p.search(value) for p in _HEALTH_PATTERNS
-    )
+    return has_health_words(value) or any(p.search(value) for p in _HEALTH_PATTERNS)
+
+
+def has_health_words(value):
+    """Health-claim word list only. Used on the candidates a page text cites: a cited
+    "건강한 … 먹거리" phrase that the text itself left out must not reject the clean text
+    (DEV-355 replay: GAP, 저농약 and EM-farming sentences were lost this way)."""
+    return _contains(value, SAFETY_LISTS["health"])
 
 
 def has_platform_text(value):
@@ -100,13 +105,15 @@ def has_policy_text(value):
     )
 
 
-def has_product_lineup(value):
+def has_product_lineup(value, target_name=""):
     """DEV-355: a list of the farm's products is never one product's page text: an explicit
-    list marker, or three or more different citrus variety names in one text."""
+    list marker, or three or more citrus variety names other than the product's own in one
+    text ("레드향은 한라봉과 천혜향의 장점…" on a 레드향 page is a variety description)."""
     compact = re.sub(r"\s+", "", value)
     if _contains(value, SAFETY_LISTS["lineupMarkers"]):
         return True
-    return sum(1 for name in SAFETY_LISTS["cultivars"] if name in compact) >= 3
+    own = re.sub(r"\s+", "", target_name or "")
+    return sum(1 for name in SAFETY_LISTS["cultivars"] if name in compact and name not in own) >= 3
 
 
 _OWN_PRODUCT_MODULES = {"hero", "composition", "pieceCount", "specification"}
