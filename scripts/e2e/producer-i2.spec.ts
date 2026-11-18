@@ -80,7 +80,7 @@ test("P02 AC-03-1: empty extraction strings and option arrays remain missing", a
   }
 });
 
-test("P03 AC-04-1: origin and storage block initial supply request until corrected", async ({ page }) => {
+test("P03 AC-04-1: origin and storage block 다음: 판매·가격 with a scrolled, highlighted error until corrected", async ({ page }) => {
   await loginProducer(page, "강영수");
   await page.route(`${apiUrl}/api/products/mine/p-house`, async route => {
     const response = await route.fetch();
@@ -88,15 +88,27 @@ test("P03 AC-04-1: origin and storage block initial supply request until correct
     await route.fulfill({ response, json: { ...product, status: "DRAFT", approvedSupplyGrams: 0, info: { ...product.info, origin: "", storage: "" } } });
   });
   await page.goto(`${producerUrl}/products/p-house/edit`);
-  // DEV-361: 판매 전 상품은 상품 정보 칸을 채우면 판매·가격으로 넘어간다(첫 판매 요청은 거기서)
+  // DEV-361 PM 11/18: 버튼은 켜 두고, 누르면 빈 상품 정보 칸으로 옮겨 강조한다(첫 판매 요청은 판매·가격에서)
   const apply = page.getByRole("button", { name: "다음: 판매·가격", exact: true });
-  await expect(apply).toBeDisabled();
+  await expect(apply).toBeEnabled();
+  // 누르기 전에는 빨간 오류를 보이지 않는다
+  await expect(page.getByText("원산지를 적어 주세요", { exact: true })).toHaveCount(0);
+  // 누르기 전에는 원산지 칸이 화면 밖에 있어야 아래 스크롤 단언이 의미가 있다(fail-first)
+  await expect(page.getByLabel("원산지", { exact: true })).not.toBeInViewport();
+  await apply.click();
   await expect(page.getByText("원산지를 적어 주세요", { exact: true })).toBeVisible();
   await expect(page.getByText("보관 방법을 적어 주세요", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/products\/p-house\/edit/);
+  await expect(page.getByTestId("invalid-field-origin")).toBeVisible();
+  await expect(page.getByTestId("invalid-field-storage")).toBeVisible();
+  await expect(page.getByTestId("invalid-field-origin")).toBeInViewport();
   await page.getByLabel("원산지", { exact: true }).fill("제주");
-  await expect(apply).toBeDisabled();
+  await expect(page.getByTestId("invalid-field-origin")).toHaveCount(0);
+  await expect(page.getByText("원산지를 적어 주세요", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("invalid-field-storage")).toBeVisible();
   await page.getByLabel("보관", { exact: true }).fill("서늘한 곳");
-  await expect(apply).toBeEnabled();
+  await expect(page.getByTestId("invalid-field-storage")).toHaveCount(0);
+  // 저장·이동은 하지 않는다(시드 p-house는 판매 중 상품이라 실제 저장하면 다른 spec이 보는 값이 바뀜)
 });
 
 test("P04 AC-19-1: sharing failure copies the live link; cancellation does not copy", async ({ page, browser, request }) => {

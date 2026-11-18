@@ -54,6 +54,7 @@ import { isServerTrouble, serverErrorCode } from "../../../../lib/producerEvents
 import { track } from "@farmclub/analytics";
 import { seoulToday } from "../../../../lib/HarvestStart";
 import { OriginFieldHint } from "../../../../lib/OriginFieldHint";
+import { FieldFeedback, FieldFeedbackContext } from "../../../../lib/FieldFeedback";
 
 const STATUS: Record<ProductStatus, string> = {
   DRAFT: "초안",
@@ -131,6 +132,9 @@ export default function EditProduct() {
   const [loadError, setLoadError] = useState<unknown>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // 누르면 막힌 칸으로 옮겨 강조한다(버튼은 끄지 않음, PM 11/18 DEV-361)
+  const [invalid, setInvalid] = useState<Record<string, string>>({});
+  const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const pendingSave = useRef<{ body: string; key: string } | null>(null);
@@ -182,8 +186,9 @@ export default function EditProduct() {
             productNow.current = r;
             setP(r);
             setForm(toForm(r));
-            // 옛 입력에 대한 오류는 새 값과 맞지 않는다
+            // 옛 입력에 대한 오류·강조는 새 값과 맞지 않는다
             setErrors({});
+            setInvalid({});
             setFailed(null);
             return;
           }
@@ -231,6 +236,11 @@ export default function EditProduct() {
   const set = <K extends keyof Form>(k: K, v: Form[K]) => {
     setForm((f) => (f ? { ...f, [k]: v } : f));
     setErrors((e) => ({ ...e, [k]: "" }));
+    setInvalid((f) => {
+      if (!f[k as string]) return f;
+      const { [k as string]: _, ...rest } = f;
+      return rest;
+    });
   };
 
   if (!form || !p) {
@@ -266,8 +276,10 @@ export default function EditProduct() {
   // 이 화면에서만 채우는 상품 정보 칸이 비어 있으면 넘어가지 않고, 빈 칸 표시도 그 칸만 한다.
   const preSale = isPreSale(p);
   const infoMissingCount = INFO_FIELDS.filter((k) => missing[k]).length;
+  // 판매 전 상품의 상품 정보 칸은 '다음: 판매·가격'을 누른 뒤에만 빨갛게 보인다(PM 11/18)
   const err = (k: string) =>
-    errors[k] || (preSale && !INFO_FIELDS.includes(k) ? undefined : missing[k]);
+    errors[k] ||
+    (preSale ? (INFO_FIELDS.includes(k) ? invalid[k] : undefined) : missing[k]);
   const salesPath = `/products/${id}/${preSale ? "sell" : "sales"}` as const;
   const toSales = () =>
     preSale && from === "sell" && router.canGoBack()
@@ -337,6 +349,16 @@ export default function EditProduct() {
   }
 
   async function publish() {
+    // 판매 전 상품: 상품 정보가 비면 넘어가지 않고 그 칸으로 옮겨 강조한다(PM 11/18, DEV-361)
+    if (preSale && infoMissingCount > 0) {
+      const blocked = Object.fromEntries(
+        INFO_FIELDS.filter((k) => missing[k]).map((k) => [k, missing[k]]),
+      );
+      setInvalid(blocked);
+      setAttempt((n) => n + 1);
+      track("form_error_shown", { screen: "product_edit", code: missing.variety ? "variety_required" : "other" });
+      return;
+    }
     setPublishing(true);
     setFailed(null);
     try {
@@ -400,6 +422,7 @@ export default function EditProduct() {
   };
 
   return (
+    <FieldFeedbackContext.Provider value={{ fields: invalid, clear: () => {}, attempt }}>
     <Screen>
       <HeaderBar title="상품 편집" onBack={back} />
       <Scroll bottom={140}>
@@ -538,20 +561,24 @@ export default function EditProduct() {
         </Sec>
 
         <Sec title="기본 정보">
-          <Input
-            label="상품명"
-            value={form.name}
-            onChangeText={(v) => set("name", v)}
-            error={err("name")}
-            maxLength={40}
-          />
-          <Input
-            label="품종"
-            value={form.variety}
-            onChangeText={(v) => set("variety", v)}
-            error={err("variety")}
-            maxLength={30}
-          />
+          <FieldFeedback field="name" outline={false}>
+            <Input
+              label="상품명"
+              value={form.name}
+              onChangeText={(v) => set("name", v)}
+              error={err("name")}
+              maxLength={40}
+            />
+          </FieldFeedback>
+          <FieldFeedback field="variety" outline={false}>
+            <Input
+              label="품종"
+              value={form.variety}
+              onChangeText={(v) => set("variety", v)}
+              error={err("variety")}
+              maxLength={30}
+            />
+          </FieldFeedback>
           <Input
             label="설명"
             value={form.description}
@@ -561,23 +588,29 @@ export default function EditProduct() {
             maxLength={1000}
           />
           <View style={{ flexDirection: "row", gap: 12 }}>
-            <Input
-              label="원산지"
-              error={err("origin")}
-              value={form.origin}
-              placeholder="예: 서귀포시"
-              onChangeText={(v) => set("origin", v)}
-              style={{ flex: 1 }}
-              maxLength={30}
-            />
-            <Input
-              label="보관"
-              error={err("storage")}
-              value={form.storage}
-              onChangeText={(v) => set("storage", v)}
-              style={{ flex: 1 }}
-              maxLength={30}
-            />
+            <View style={{ flex: 1 }}>
+              <FieldFeedback field="origin" outline={false}>
+                <Input
+                  label="원산지"
+                  error={err("origin")}
+                  value={form.origin}
+                  placeholder="예: 서귀포시"
+                  onChangeText={(v) => set("origin", v)}
+                  maxLength={30}
+                />
+              </FieldFeedback>
+            </View>
+            <View style={{ flex: 1 }}>
+              <FieldFeedback field="storage" outline={false}>
+                <Input
+                  label="보관"
+                  error={err("storage")}
+                  value={form.storage}
+                  onChangeText={(v) => set("storage", v)}
+                  maxLength={30}
+                />
+              </FieldFeedback>
+            </View>
           </View>
           {/* DEV-121: 원산지 표시 형식과 안내 화면 */}
           <OriginFieldHint />
@@ -752,7 +785,6 @@ export default function EditProduct() {
                     : "물량·판매 설정"
               }
               size="producer"
-              disabled={preSale && infoMissingCount > 0}
               loading={publishing}
               onPress={publish}
               style={{ flex: 2 }}
@@ -927,5 +959,6 @@ export default function EditProduct() {
         </View>
       </Sheet>
     </Screen>
+    </FieldFeedbackContext.Provider>
   );
 }
