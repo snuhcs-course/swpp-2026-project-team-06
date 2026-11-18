@@ -73,6 +73,7 @@ import { useHideTabBar, useSession } from "./session";
 import { ACTIVE, canEditBatch, panel, sourceError, sourceNotices, states } from "./sourceBatch";
 import { isPreSale } from "./productGroups";
 import { pickMedia } from "./pick";
+import { CollapsingSpacer, CollapsingTop, useCollapsingTop } from "./CollapsingTop";
 import {
   PreSaleSteps,
   SalesTermsEditor,
@@ -107,6 +108,7 @@ const DRAFT_LABELS: Record<string, string> = {
   shippingFee: "배송비",
   remoteAreaFee: "도서산간 추가 운임",
   stages: "예약 기간·가격",
+  grade: "등급",
 };
 // 서버가 새 상품을 만들 때 이름은 비어 있거나 "새 상품"이다. 이때만 AI 값으로 채운다.
 const DEFAULT_NAMES = ["", "새 상품"];
@@ -431,6 +433,8 @@ function ExtraPhotos({
   changed,
   onChange,
   onError,
+  max = MAX_PHOTOS,
+  note,
 }: {
   productId: string;
   photos: string[];
@@ -438,13 +442,17 @@ function ExtraPhotos({
   changed: boolean;
   onChange: (next: string[]) => void;
   onError: (message: string) => void;
+  /** 지금 사진 목록이 가질 수 있는 최대 장수(새 대표사진이 반영 때 앞에 들어가면 하나 줄어든다) */
+  max?: number;
+  /** 줄 아래 안내(새 대표사진 때문에 한 장을 빼야 할 때) */
+  note?: string;
 }) {
   const extra = photos.slice(1);
   const add = async () => {
     const picked = await pickMedia({ multiple: true });
     const ok = picked.filter((x) => x.ok).map((x) => (x as { uri: string }).uri);
     const bad = picked.filter((x) => !x.ok).map((x) => (x as { reason: string }).reason);
-    if (ok.length) onChange([...photos, ...ok.filter((u) => !photos.includes(u))].slice(0, MAX_PHOTOS));
+    if (ok.length) onChange([...photos, ...ok.filter((u) => !photos.includes(u))].slice(0, max));
     if (bad.length) onError(bad.join("\n"));
   };
   if (!photos.length) return null;
@@ -471,7 +479,7 @@ function ExtraPhotos({
             ) : null}
           </View>
         ))}
-        {editable && photos.length < MAX_PHOTOS ? (
+        {editable && photos.length < max ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="사진 추가"
@@ -482,6 +490,11 @@ function ExtraPhotos({
           </Pressable>
         ) : null}
       </View>
+      {note ? (
+        <T variant="caption" color={tokens.color.error}>
+          {note}
+        </T>
+      ) : null}
       {changed ? <ChangedMark text="사진" /> : null}
     </View>
   );
@@ -805,6 +818,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         if (exitSaving.current) return;
         if (busy || lock.current) { setNotice("저장 중이에요. 잠시 후 다시 나가 주세요."); return; }
         if (guard) {
+          setError(null);
           setLeaving(() => event.data.action);
           return;
         }
@@ -1355,6 +1369,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       if (!form.origin.trim()) missing.origin = "원산지를 적어 주세요.";
       if (!form.variety.trim()) missing["품종명"] = "품종명을 적어 주세요.";
       if (!form.storage.trim()) missing["보관"] = "보관 방법을 적어 주세요.";
+      // 새 대표사진이 반영 때 맨 앞에 들어가면 합계가 5장을 넘는다(서버는 막지 않음, 알려진 한계)
+      if (coverChanged && form.photos.length >= MAX_PHOTOS) missing.photos = "새 대표사진이 맨 앞에 들어가요. 사진은 5장까지라 한 장을 빼 주세요.";
       if (Object.keys(missing).length)
         throw new ApiError(400, { code: "VALIDATION_ERROR", message: Object.values(missing)[0], details: { fields: missing } });
       if (conflicts.length) throw new Error("다른 곳에서 바뀐 칸을 먼저 확인해 주세요.");
@@ -1454,7 +1470,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       return;
     }
     clearValidation("representativePhoto");
-    setField("photos", [picked.uri, ...form.photos.filter((u) => u !== picked.uri)].slice(0, 5));
+    setField("photos", [picked.uri, ...form.photos.filter((u) => u !== picked.uri)].slice(0, MAX_PHOTOS));
   };
   // 판매 전 상품의 ② 판매·가격(SCR-24b). 그 화면의 '판매페이지에서 채우기'가 뒤로 돌아오게 from=composer
   const goNext = () => {
@@ -1615,6 +1631,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     </View>
   ) : null;
   // 구매자에게 보이는 상품의 상품명을 지우는 중이면 지금 상품명을 머리에 둔다('새 상품'으로 보이지 않게)
+  const top = useCollapsingTop();
+  // 위쪽 줄에 둘 것이 있을 때만(미리보기에서는 구매자 화면 그대로)
+  const hasTop = !buyerPreview && !!product && (preSale || readOnly);
   const title =
     form && !DEFAULT_NAMES.includes(form.name.trim()) ? form.name : product && !preSale ? product.name : "새 상품";
   /** 판매 전 '다음: 판매·가격': 판매페이지 초안을 반영하고 ②로(확인 없음, 구매자에게 안 보임). 대표사진이 없으면 누르면 강조 */
@@ -1815,11 +1834,23 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           onPreview={() => { setBuyerPreview(!buyerPreview); setSheetOpen(false); }}
           // 상품만 여는 composer(자료 분석 꺼짐·Mock)와 판매 종료 상품은 AI 버튼을 숨긴다(C-1·C-11)
           aiOpen={sheetOpen} onAi={batch && !readOnly ? () => { setBuyerPreview(false); setSheetOpen(!sheetOpen); } : undefined} />} /></View>
-      <Scroll bottom={batch && !readOnly ? footerHeight + 24 : 140}>
+      <View style={{ flex: 1 }}>
+      {/* 위쪽 줄(단계 표시·판매 종료 안내)은 대표사진에 붙여 두지 않고 스크롤에 따라 머리 아래로 숨긴다(PM 11/18) */}
+      {hasTop ? (
+        <CollapsingTop visible={top.visible} scrolled={top.scrolled} onHeight={top.setHeight}>
+          {product && preSale ? <PreSaleSteps step={1} /> : null}
+          {readOnly ? (
+            <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 12 }}>
+              <Notice title="판매가 끝난 상품이라 고칠 수 없어요." body="상품명·사진·상세와 판매 조건은 그대로 보여요." />
+            </View>
+          ) : null}
+        </CollapsingTop>
+      ) : null}
+      <Scroll bottom={batch && !readOnly ? footerHeight + 24 : 140} onScroll={top.onScroll}>
         {/* 미리보기와 같은 구매자 화면(ProductPageBody)에서 빈 칸만 점선으로, 누르면 그 자리에서 고친다(DEV-184). */}
-        {product && preSale && !buyerPreview ? <PreSaleSteps step={1} /> : null}
+        {hasTop ? <CollapsingSpacer height={top.height} /> : null}
         {soldOutAfter !== null && live && !buyerPreview ? (
-          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 12 }}>
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingVertical: 12 }}>
             <Notice
               title="상품에 반영했어요."
               body={`판매 한도(${(soldOutAfter / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg)를 모두 써서 아직 예약을 받을 수 없어요.`}
@@ -1839,13 +1870,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             />
           </View>
         ) : null}
-        {readOnly ? (
-          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 12 }}>
-            <Notice title="판매가 끝난 상품이라 고칠 수 없어요." body="상품명·사진·상세와 판매 조건은 그대로 보여요." />
-          </View>
-        ) : null}
         {conflicts.length && live ? (
-          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 12, gap: 8 }}>
+          // 대표사진과 붙지 않게 아래에도 여백(PM 11/18)
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingVertical: 12, gap: 8 }}>
             <Notice
               tone="error"
               title={`다른 곳에서 바뀐 칸이 있어요: ${[...new Set(conflicts.map((k) => DRAFT_LABELS[k] ?? k))].join(", ")}`}
@@ -2055,14 +2082,23 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                             </View>
                           ) : null}
                           {buyerPreview ? null : (
-                            <ExtraPhotos
-                              productId={product.productId}
-                              photos={form.photos}
-                              editable={!readOnly && !busy}
-                              changed={changed("photos")}
-                              onChange={(next) => setField("photos", next)}
-                              onError={setNotice}
-                            />
+                            <FieldFeedback field="photos">
+                              <ExtraPhotos
+                                productId={product.productId}
+                                photos={form.photos}
+                                editable={!readOnly && !busy}
+                                changed={changed("photos")}
+                                onChange={(next) => setField("photos", next)}
+                                onError={setNotice}
+                                // 새로 올린 대표사진은 반영 때 맨 앞에 들어가 지금 사진이 한 칸씩 밀린다(서버 publish). 합계 5장을 넘지 않게
+                                max={coverChanged ? MAX_PHOTOS - 1 : MAX_PHOTOS}
+                                note={
+                                  coverChanged && form.photos.length >= MAX_PHOTOS
+                                    ? "새 대표사진이 맨 앞에 들어가요. 사진은 5장까지라 한 장을 빼 주세요."
+                                    : undefined
+                                }
+                              />
+                            </FieldFeedback>
                           )}
                         </FieldFeedback>
                       ),
@@ -2311,6 +2347,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           })()
         )}
       </Scroll>
+      </View>
       {productOnly || (batch && readOnly) ? (
         <View style={buyerPreview ? { display: "none" } : { display: "contents" }}>
           <BottomBar summary={errorPanel ?? undefined}>{footerButtons}</BottomBar>
@@ -2494,6 +2531,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             // 이미 비공개로 저장돼 있다: 그대로 나가고 나중에 '상품에 반영'
             <Button label="나중에 반영하기" variant="outline" size="producer" disabled={busy} onPress={leaveNow} />
           )}
+          {/* 임시 저장이 실패하면 시트 안에서 보인다(뒤 화면 오류 줄은 시트에 가려짐) */}
+          {error ? (
+            <View accessibilityRole="alert">
+              <T variant="caption" color={tokens.color.error}>{error.message}</T>
+            </View>
+          ) : null}
           <Button label="계속 고치기" variant="text" disabled={busy} onPress={() => setLeaving(null)} />
         </View>
       </Sheet>

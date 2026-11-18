@@ -41,6 +41,7 @@ import {
   termsStages,
   type Terms,
 } from "../../../../lib/SalesTermsEditor";
+import { CollapsingSpacer, CollapsingTop, useCollapsingTop } from "../../../../lib/CollapsingTop";
 import { track } from "@farmclub/analytics";
 
 // 서버 missing_fields 중 이 화면에 칸이 없는 상품 정보(판매페이지 ①에서 채움). 나머지는 이 화면 check()가 본다(DEV-361).
@@ -89,6 +90,8 @@ export default function Sell() {
     [stale, setStale] = useState(false),
     [preview, setPreview] = useState(false);
   const [invalidFields, setInvalidFields] = useState<Record<string, string>>({});
+  // 단계 표시는 대표사진에 붙여 두지 않고 스크롤에 따라 머리 아래로 숨긴다(composer와 같은 부품, PM 11/18)
+  const top = useCollapsingTop();
   const actionLock = useRef(false);
   const keys = useRef(new Map<string, string>());
   const keyFor = (scope: string, body: unknown) => {
@@ -373,12 +376,19 @@ export default function Sell() {
   return (
     <FieldFeedbackContext.Provider value={{ fields: invalidFields, clear: () => {} }}><Screen>
       <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} right={<EditorActions preview={preview} onPreview={() => setPreview(!preview)} />} />
-      <Scroll bottom={160}>
-        {editable ? <PreSaleSteps step={2} /> : null}
-        <View testID={preview ? "buyer-preview" : "sales-editor"}>
-          <BuyerPreview product={p} farm={farm} requestedGrams={requestedGrams} salesPreview={preview ? salesReadOnly : salesEditor} />
-        </View>
-      </Scroll>
+      <View style={{ flex: 1 }}>
+        {editable ? (
+          <CollapsingTop visible={top.visible} scrolled={top.scrolled} onHeight={top.setHeight}>
+            <PreSaleSteps step={2} />
+          </CollapsingTop>
+        ) : null}
+        <Scroll bottom={160} onScroll={top.onScroll}>
+          {editable ? <CollapsingSpacer height={top.height} /> : null}
+          <View testID={preview ? "buyer-preview" : "sales-editor"}>
+            <BuyerPreview product={p} farm={farm} requestedGrams={requestedGrams} salesPreview={preview ? salesReadOnly : salesEditor} />
+          </View>
+        </Scroll>
+      </View>
       <BottomBar summary={error ? <View accessibilityRole="alert" style={{ gap: 4 }}><T variant="caption" color={tokens.color.error}>{error}</T>{stale ? (
         <Button label="최신 값 다시 불러오기" variant="text" compact disabled={busy} onPress={() => run(async () => {
           setInvalidFields({});
