@@ -208,8 +208,8 @@ test("AC-14-3/14-4/17-6/12-12: dashboard keeps chat to one unanswered count, cha
 }, info) => {
   test.setTimeout(120_000);
   // DEV-318: fulfillment tests may already have harvested every seeded order.
-  // Give this navigation assertion its own reserved order instead of relying on
-  // another test leaving a seeded stage card available.
+  // Give the Reserved-tab assertion its own reserved order instead of relying on
+  // another test leaving seeded reservations available.
   const buyer = { Authorization: `Bearer ${await apiLogin(request, "u-minji", "consumer")}` };
   const farm = { Authorization: `Bearer ${await apiLogin(request, "u-kang", "producer")}` };
   const created = await request.post(`${apiUrl}/api/orders`, {
@@ -293,24 +293,24 @@ test("AC-14-3/14-4/17-6/12-12: dashboard keeps chat to one unanswered count, cha
   await expect(input).toBeVisible();
   const harvestWrites: string[] = [];
   page.on("request", r => {
-    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/orders/producer/harvest-start")
+    if (r.method() === "POST" && /^\/api\/orders\/producer\/harvest-(orders|start)$/.test(new URL(r.url()).pathname))
       harvestWrites.push(r.url());
   });
   await page.goto(`${producerUrl}/ship?status=RESERVED`);
-  // DEV-231 adds navigation to the stage card; no direct per-order transition here.
+  // DEV-361: one bottom Start harvest button for the selected reservations (all by default); no per-row
+  // status button, no per-period shortcut rows, and opening the tab or the sheet does not change anything.
   await expect(page.getByRole("button", { name: "수확 시작", exact: true })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: /^예약 / })).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  const harvestTarget = page.getByRole("button", { name: /건 수확 시작하기(?: |$)/ }).first();
-  await expect(harvestTarget).toBeVisible();
-  await harvestTarget.click();
-  await expect(page).toHaveURL(/\/products\/[^/]+\/stages\?stage=[^&]+$/);
-  const selectedStage = new URL(page.url()).searchParams.get("stage");
-  expect(selectedStage).toBeTruthy();
-  await expect(page.locator(`[id="stage-${selectedStage}"]`)
-    .getByRole("button", { name: /^(?:수확 시작 · 출하 준비 \d+건|남은 예약 \d+건도 출하 준비로)$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /건 수확 시작하기(?: |$)/ })).toHaveCount(0);
+  await expect(page.getByRole("checkbox", { name: "전체 선택", exact: true })).toHaveAttribute("aria-checked", "true");
+  const harvestButton = page.getByRole("button", { name: /^수확 시작 · [1-9]\d*건$/ });
+  await expect(harvestButton).toBeVisible();
+  await harvestButton.click();
+  await expect(page.getByRole("dialog").getByText("수확을 시작할까요?", { exact: true })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "아니요", exact: true }).click();
   expect(harvestWrites).toEqual([]);
 });
 

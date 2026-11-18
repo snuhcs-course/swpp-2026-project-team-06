@@ -500,12 +500,20 @@ await scenario("AC-10-6: producer fulfillment and consumer order visibility", as
   });
   assert.equal(acceptedWindow.proposedDeliveryWindow, null);
 
-  const changed = await request("POST", "/api/orders/producer/harvest-start", {
+  // DEV-361: 예약 탭에서 고른 주문을 한 번에 수확 시작
+  const reservedToHarvest = await request(
+    "GET",
+    `/api/orders/producer?status=RESERVED&productId=${state.productId}&limit=50`,
+    { token: token("u-kang") },
+  );
+  const changed = await request("POST", "/api/orders/producer/harvest-orders", {
     token: token("u-kang"),
-    body: { productId: state.productId },
-    idempotencyKey: key("harvest-start"),
+    body: { orderIds: reservedToHarvest.items.map((order) => order.orderId) },
+    idempotencyKey: key("harvest-orders"),
   });
   assert.ok(changed.changed >= 1);
+  assert.equal(changed.changed + changed.skipped, reservedToHarvest.items.length);
+  assert.ok(changed.orderIds.includes(state.primaryOrder.orderId));
 
   const shipped = await request("POST", `/api/orders/${state.primaryOrder.orderId}/ship`, {
     token: token("u-kang"),
