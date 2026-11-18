@@ -1,15 +1,10 @@
-import { useLocalSearchParams } from "expo-router";
 import { NewProductComposer } from "../../../lib/NewProductComposer";
-import { SourceWorkspace } from "../../../lib/SourceWorkspace";
 import { useSession } from "../../../lib/session";
+/**
+ * 판매페이지 화면(composer). 새 상품과 '상품 수정'(`/products/:id/detail`)이 자료 작업(batch)을 열고 이 주소로 온다.
+ * 예전 2탭 자료 작업 화면은 DEV-361 PR C에서 지웠다. 상품 하나에 묶이지 않은 예전 작업은 composer가 상품 목록으로 안내한다.
+ */
 export default function SourceAnalysisPage() {
   const { user } = useSession();
-  // 새 상품 버튼으로 연 작업(항상 상품 1개짜리 batch)은 한 화면 편집(DEV-184), 그 밖의 자료 작업은 기존 화면.
-  // URL을 직접 고쳐 여러 상품·상품 없는 batch를 composer로 열면 기존 자료 작업 화면으로 안내한다.
-  const { composer } = useLocalSearchParams<{ composer?: string }>();
-  return composer === "1" ? (
-    <NewProductComposer key={user?.userId ?? ""} />
-  ) : (
-    <SourceWorkspace key={user?.userId ?? ""} />
-  );
+  return <NewProductComposer key={user?.userId ?? ""} />;
 }

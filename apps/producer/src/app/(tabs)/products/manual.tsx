@@ -97,7 +97,7 @@ export default function NewProduct() {
     setError(null);
     try {
       const p = await catalog.create(draftId);
-      router.replace(`/products/${p.productId}/edit`);
+      router.replace(`/products/${p.productId}/detail`);
     } catch (e) {
       if (!isServerTrouble(e)) track("form_error_shown", { screen: "product_new", code: "other" });
       setError(errMsg(e, "만들지 못했어요. 다시 시도해 주세요."));

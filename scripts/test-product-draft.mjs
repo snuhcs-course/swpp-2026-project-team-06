@@ -237,3 +237,33 @@ test("DEV-361 pending-approval changes keep the status (no re-approval)", async 
   assert.equal(applied.product.status, "PENDING_APPROVAL");
   assert.equal(db().products["p-cheonggyeon"].name, "청견 새 이름");
 });
+
+test("DEV-361 PR C product list marks unapplied private changes like the server", async () => {
+  const { p } = await setup();
+  const flags = async () =>
+    Object.fromEntries(
+      (await ok("GET", "/api/products/mine", p)).items.map((c) => [
+        c.productId,
+        c.hasUnappliedChanges,
+      ]),
+    );
+  assert.equal((await flags())["p-house"], false);
+  const empty = await ok("GET", `${BASE}/p-house/product-draft`, p);
+  const saved = await ok("PUT", `${BASE}/p-house/product-draft`, p, {
+    version: empty.version,
+    fields: { name: "산지직송 하우스 감귤" },
+  });
+  assert.equal((await flags())["p-house"], true);
+  // pre-sale products save directly and are never marked
+  assert.equal((await flags())["p-hallabong"], false);
+  await ok("POST", `${BASE}/p-house/apply-all`, p, { version: saved.version });
+  assert.equal((await flags())["p-house"], false);
+  // discarding a draft clears the mark too
+  const again = await ok("PUT", `${BASE}/p-house/product-draft`, p, {
+    version: (await ok("GET", `${BASE}/p-house/product-draft`, p)).version,
+    fields: { name: "다시 고친 이름" },
+  });
+  assert.equal((await flags())["p-house"], true);
+  await ok("DELETE", `${BASE}/p-house/product-draft?version=${again.version}`, p);
+  assert.equal((await flags())["p-house"], false);
+});

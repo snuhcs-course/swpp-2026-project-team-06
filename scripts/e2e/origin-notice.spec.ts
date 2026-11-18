@@ -44,9 +44,12 @@ test("DEV-121 AC-14-6: unread producer reads the origin notice from the home tod
   await expect(page.getByRole("button", { name: "확인했어요" })).toHaveCount(0);
 });
 
-test("DEV-121: product origin field shows the format hint and opens the notice", async ({ page }) => {
+test("DEV-121 DEV-361: product origin field shows the format hint and opens the notice", async ({ page }) => {
   await loginProducer(page, "강영수");
+  // DEV-361 PR C: 예전 상품 편집 주소는 상품 수정(composer)으로 간다. 원산지 칸은 상품정보 표 안에 있다
   await page.goto(`${producerUrl}/products/p-house/edit`);
+  await expect(page.getByTestId("product-basic-info")).toBeVisible();
+  await page.getByText("상품정보", { exact: true }).click();
   // DEV-329(PM 11/15 '안내는 짧게'): 형식 설명은 '표시 방법 보기'에 두고 칸 아래는 예시 한 줄
   const hint = page.getByText("예: 제주산, 서귀포시", { exact: true });
   await expect(hint).toBeVisible();

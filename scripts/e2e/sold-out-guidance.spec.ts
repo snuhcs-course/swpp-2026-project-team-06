@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext } from "./fixtures";
 import { apiLogin, apiUrl, loginProducer, monitor, producerUrl } from "./helpers";
 
 // DEV-345 (AC-04-9, 판매 설정·SCR-26, PM 11/16): 품절 상품에 무엇을 늘려야 하는지 안내하고,
+// DEV-361 PR C: 예약 기간·가격(SCR-26)은 상품 수정(composer)의 판매 조건 시트가 됐다(`/stages` → `/detail?terms=1`).
 // 저장 결과는 누른 버튼 바로 아래에 보인다. 휴대폰 폭(390×844)에서 본다.
 // 시드 하우스 감귤(p-house)의 판매 한도를 사용량까지 낮춰 전체 물량 품절을 만들고, 테스트 끝에 원래 값으로 되돌린다.
 test.use({ viewport: { width: 390, height: 844 } });
@@ -135,13 +136,14 @@ test("AC-04-9 DEV-345: sales settings tells a sold-out product what to raise (to
   await page.goto(`${producerUrl}/products/p-redhyang/sales`);
   await expect(page.getByText("이번 기간 품절", { exact: true })).toBeInViewport();
   await expect(
-    page.getByText("이번 기간에 남은 박스가 없어요. 기간·가격에서 박스 수를 늘리면 바로 다시 예약받아요.", {
+    page.getByText("이번 기간에 남은 박스가 없어요. 상품 수정의 판매 조건에서 박스 수를 늘려 '상품에 반영'하면 다시 예약받아요.", {
       exact: true,
     }),
   ).toBeInViewport();
   await expect(page.getByText("승인된 물량 안에서 자유롭게 판매해요")).toHaveCount(0);
-  await page.getByRole("button", { name: "기간·가격에서 박스 늘리기" }).click();
-  await expect(page).toHaveURL(/\/products\/p-redhyang\/stages\?from=sales$/);
+  await page.getByRole("button", { name: "판매 조건에서 박스 늘리기" }).click();
+  // 상품 수정(composer)이 판매 조건 시트를 연 채로 열린다(DEV-361 C-14)
+  await expect(page.getByTestId("sales-terms-editor")).toBeVisible();
   assertClean();
 });
 
@@ -173,84 +175,110 @@ test("AC-04-9 DEV-345: sales save results appear under Save and an over-approved
   assertClean();
 });
 
-test("SCR-26 AC-04-9 DEV-345: saving periods while still fully sold out stays and offers to raise the sales limit", async ({
+/** 판매 조건 시트에서 박스 수를 하나 늘려 담고 '상품에 반영'까지 한다 */
+async function applyOneMoreBox(page: import("@playwright/test").Page) {
+  const editor = page.getByTestId("sales-terms-editor");
+  await expect(editor).toBeVisible();
+  const boxes = editor.getByLabel("5kg 박스 수").last();
+  await boxes.fill(String(Number((await boxes.inputValue()).replace(/,/g, "")) + 1));
+  await page.getByRole("button", { name: "수정 담기", exact: true }).click();
+  await page.getByRole("button", { name: /^상품에 반영/ }).click();
+  await page.getByTestId("apply-confirm").getByRole("button", { name: "반영하기", exact: true }).click();
+  await expect(page.getByText("상품에 반영했어요", { exact: true })).toBeVisible();
+}
+
+test("AC-04-9 DEV-345 DEV-361: applying more boxes while still fully sold out offers to raise the sales limit", async ({
   page,
   request,
 }) => {
-  const assertClean = monitor(page);
-  await loginProducer(page, "강영수");
-  await withHouseSoldOut(request, async (p) => {
-    await page.goto(`${producerUrl}/products/p-house/stages`);
-    await expect(page.getByRole("button", { name: "예약 기간 저장" })).toBeVisible();
-    // 값을 바꾸지 않고 저장해도 서버 저장 뒤 상품을 다시 읽어 판단한다(박스만으로는 kg 품절이 풀리지 않는다)
-    await page.getByRole("button", { name: "예약 기간 저장" }).click();
-    await expect(page.getByText("기간·가격을 저장했어요.", { exact: true })).toBeInViewport();
-    await expect(
-      page.getByText(`판매 한도(${kg(p.salesLimitGrams)})를 모두 써서 아직 예약을 받을 수 없어요.`, { exact: true }),
-    ).toBeInViewport();
-    await expect(page).toHaveURL(/\/products\/p-house\/stages$/);
-    // 다시 고치기 시작하면 지난 저장 결과 안내는 사라진다. 원래 값으로 되돌려 다시 저장한다
-    const lastBoxes = page.getByLabel("5kg 판매 물량").last();
-    const boxes = await lastBoxes.inputValue();
-    await lastBoxes.fill(String(Number(boxes.replace(/,/g, "")) + 1));
-    await expect(page.getByText("기간·가격을 저장했어요.")).toHaveCount(0);
-    await lastBoxes.fill(boxes.replace(/,/g, ""));
-    await page.getByRole("button", { name: "예약 기간 저장" }).click();
-    await page.getByRole("button", { name: "판매 한도 늘리기" }).click();
-    await expect(page).toHaveURL(/\/products\/p-house\/sales$/);
-    await expect(page.getByText("전체 물량 품절", { exact: true })).toBeVisible();
-  });
-  assertClean();
-});
-
-test("SCR-26 DEV-345: saving periods of a sellable product still goes back", async ({ page, request }) => {
-  const assertClean = monitor(page);
-  await loginProducer(page, "강영수");
-  expect((await (await producerApi(request)).read("p-house")).availability).toBe("AVAILABLE");
-  await page.goto(`${producerUrl}/products/p-house/stages`);
-  await page.getByRole("button", { name: "예약 기간 저장" }).click();
-  await expect(page).toHaveURL(/\/products$/);
-  await expect(page.getByText("기간·가격을 저장했어요.")).toHaveCount(0);
-  assertClean();
-});
-
-test("SCR-26 DEV-345: sales settings → periods → 'Raise sales limit' returns to the same sales screen", async ({
-  page,
-  request,
-}) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires explicitly enabled local source API");
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
   const api = await producerApi(request);
+  const house = await api.read("p-house");
+  const last = house.stages.at(-1)!;
+  const before = Object.fromEntries(Object.entries(last.options).map(([k, v]) => [k, v.quantity]));
   await withHouseSoldOut(request, async (p) => {
-    // 지금 기간 박스도 다 팔린 상태로 둔다(판매 박스 = 예약+출하 박스) → 판매 설정에 '기간·가격에서 박스 늘리기'
-    const house = await api.read("p-house");
-    const current = house.stages.find((s) => s.stageId === house.currentStageId)!;
-    const before = Object.fromEntries(Object.entries(current.options).map(([k, v]) => [k, v.quantity]));
-    await api.setStageQuantity("p-house", current.stageId, (_, v) => v.reservedCount);
     try {
-      await page.goto(`${producerUrl}/products/p-house/sales`);
-      await expect(
-        page.getByText("이번 기간에 남은 박스도 없어요. 기간·가격에서 박스 수도 늘려 주세요.", { exact: true }),
-      ).toBeVisible();
-      await page.getByRole("button", { name: "기간·가격에서 박스 늘리기" }).click();
-      await expect(page).toHaveURL(/\/products\/p-house\/stages\?from=sales$/);
-      await page.getByRole("button", { name: "예약 기간 저장" }).click();
+      // 예전 기간·가격 주소는 판매 조건 시트를 연 상품 수정으로 간다
+      await page.goto(`${producerUrl}/products/p-house/stages`);
+      await applyOneMoreBox(page);
+      // 박스만으로는 kg 품절이 풀리지 않는다: 반영 뒤 상품을 다시 읽어 안내한다
       await expect(
         page.getByText(`판매 한도(${kg(p.salesLimitGrams)})를 모두 써서 아직 예약을 받을 수 없어요.`, { exact: true }),
       ).toBeVisible();
+      await expect(page).toHaveURL(/composer=1/);
       await page.getByRole("button", { name: "판매 한도 늘리기" }).click();
       await expect(page).toHaveURL(/\/products\/p-house\/sales$/);
-      // 다시 쌓지 않고 돌아왔으므로 뒤로는 기간·가격이 아니라 상품 목록으로 간다
-      await page.getByRole("button", { name: "뒤로", exact: true }).first().click();
-      await expect(page).toHaveURL(/\/products$/);
+      await expect(page.getByText("전체 물량 품절", { exact: true })).toBeVisible();
     } finally {
-      await api.setStageQuantity("p-house", current.stageId, (optionId) => before[optionId]);
+      await api.setStageQuantity("p-house", last.stageId, (optionId) => before[optionId]);
     }
   });
   assertClean();
 });
 
-test("SCR-26 AC-04-9 DEV-345: an unapproved product goes back after saving periods and gets no sold-out guide", async ({
+test("AC-04-9 DEV-345 DEV-361: applying sales terms of a sellable product stays on the composer without the sold-out note", async ({ page, request }) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires explicitly enabled local source API");
+  const assertClean = monitor(page);
+  await loginProducer(page, "강영수");
+  const api = await producerApi(request);
+  const house = await api.read("p-house");
+  expect(house.availability).toBe("AVAILABLE");
+  const last = house.stages.at(-1)!;
+  const before = Object.fromEntries(Object.entries(last.options).map(([k, v]) => [k, v.quantity]));
+  try {
+    await page.goto(`${producerUrl}/products/p-house/stages`);
+    await applyOneMoreBox(page);
+    await expect(page).toHaveURL(/composer=1/);
+    await expect(page.getByText(/를 모두 써서 아직 예약을 받을 수 없어요/)).toHaveCount(0);
+  } finally {
+    await api.setStageQuantity("p-house", last.stageId, (optionId) => before[optionId]);
+  }
+  assertClean();
+});
+
+test("AC-04-9 DEV-345 DEV-361: sales settings → 판매 조건 → 'Raise sales limit' returns to the same sales screen", async ({
+  page,
+  request,
+}) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires explicitly enabled local source API");
+  const assertClean = monitor(page);
+  await loginProducer(page, "강영수");
+  const api = await producerApi(request);
+  await withHouseSoldOut(request, async (p) => {
+    // 지금 기간 박스도 다 팔린 상태로 둔다(판매 박스 = 예약+출하 박스) → 판매 설정에 '판매 조건에서 박스 늘리기'
+    const house = await api.read("p-house");
+    const current = house.stages.find((s) => s.stageId === house.currentStageId)!;
+    const last = house.stages.at(-1)!;
+    const before = Object.fromEntries(Object.entries(current.options).map(([k, v]) => [k, v.quantity]));
+    const beforeLast = Object.fromEntries(Object.entries(last.options).map(([k, v]) => [k, v.quantity]));
+    await api.setStageQuantity("p-house", current.stageId, (_, v) => v.reservedCount);
+    try {
+      await page.goto(`${producerUrl}/products/p-house/sales`);
+      await expect(
+        page.getByText("이번 기간에 남은 박스도 없어요. 상품 수정의 판매 조건에서 박스 수도 늘려 주세요.", { exact: true }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "판매 조건에서 박스 늘리기" }).click();
+      await applyOneMoreBox(page);
+      await expect(
+        page.getByText(`판매 한도(${kg(p.salesLimitGrams)})를 모두 써서 아직 예약을 받을 수 없어요.`, { exact: true }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "판매 한도 늘리기" }).click();
+      await expect(page).toHaveURL(/\/products\/p-house\/sales$/);
+      // 다시 쌓지 않고 돌아왔으므로 뒤로는 상품 수정이 아니라 상품 목록으로 간다
+      await page.getByRole("button", { name: "뒤로", exact: true }).first().click();
+      await expect(page).toHaveURL(/\/products$/);
+    } finally {
+      await api.setStageQuantity("p-house", current.stageId, (optionId) => before[optionId]);
+      if (last.stageId !== current.stageId)
+        await api.setStageQuantity("p-house", last.stageId, (optionId) => beforeLast[optionId]);
+    }
+  });
+  assertClean();
+});
+
+test("AC-04-9 DEV-345 DEV-361: an unapproved product's old 기간·가격 address opens 판매·가격 and gets no sold-out guide", async ({
   page,
   request,
 }) => {
@@ -259,12 +287,20 @@ test("SCR-26 AC-04-9 DEV-345: an unapproved product goes back after saving perio
   const api = await producerApi(request);
   const draft = await api.createDraft();
   expect(draft.status).toBe("DRAFT");
+  // 판매 전 상품의 기간·가격은 판매·가격(②)에서 정한다(C-13)
   await page.goto(`${producerUrl}/products/${draft.productId}/stages`);
-  // 빈 기간 하나가 오늘(서버 시각)부터 시작한다
-  await page.getByLabel("5kg 가격").fill("30000");
-  await page.getByLabel("5kg 판매 물량").fill("10");
-  await page.getByRole("button", { name: "예약 기간 저장" }).click();
-  await expect(page).toHaveURL(/\/products$/);
+  await expect(page).toHaveURL(new RegExp(`/products/${draft.productId}/sell`));
+  // 오늘(서버 시각)부터 여는 기간 하나를 둔다(예전 SCR-26 저장과 같은 값, 화면 입력은 판매·가격 spec이 본다)
+  const headers = { Authorization: `Bearer ${await apiLogin(request, "u-kang", "producer")}` };
+  const mine = await (await request.get(`${apiUrl}/api/products/mine/${draft.productId}`, { headers })).json();
+  const stage = await request.put(`${apiUrl}/api/products/${draft.productId}/stages`, {
+    headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+    data: {
+      version: mine.version,
+      stages: [{ startsAt: "2026-10-07", endsAt: "2026-10-31", options: { [mine.options[0].optionId]: { price: 30000, quantity: 10 } } }],
+    },
+  });
+  expect(stage.ok(), await stage.text()).toBeTruthy();
   // 승인 전이라 한도 0 → 서버는 TOTAL_SOLD_OUT이지만 품절 안내 대상이 아니다
   const saved = await api.read(draft.productId);
   expect(saved.availability).toBe("TOTAL_SOLD_OUT");
@@ -272,9 +308,8 @@ test("SCR-26 AC-04-9 DEV-345: an unapproved product goes back after saving perio
   await page.goto(`${producerUrl}/products/${draft.productId}/sales`);
   await expect(page).toHaveURL(new RegExp(`/products/${draft.productId}/sell$`));
   await expect(page.getByText("판매를 시작하려면 판매·가격을 먼저 채워 주세요", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "판매 시작 요청" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "판매 시작 요청" }).last()).toBeVisible();
   await expect(page.getByText("전체 물량 품절")).toHaveCount(0);
-  await expect(page.getByText("기간·가격을 저장했어요.")).toHaveCount(0);
   assertClean();
 });
 

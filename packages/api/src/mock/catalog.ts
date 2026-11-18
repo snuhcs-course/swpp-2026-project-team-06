@@ -237,6 +237,14 @@ register({
             ),
             price: cur?.options[o.optionId]?.price ?? null,
           })),
+          // DEV-361 PR C: 서버 unapplied_changes와 같다(Mock에는 판매페이지 초안이 없어 상품 초안만 본다).
+          // productDraft.ts가 이 파일을 import하므로 저장소만 직접 읽는다(순환 import 방지)
+          hasUnappliedChanges:
+            (p.status === "PUBLISHED" || p.status === "PENDING_APPROVAL") &&
+            Object.keys(
+              (ctx.db as { productDrafts?: Record<string, { values: object }> })
+                .productDrafts?.[p.productId]?.values ?? {},
+            ).length > 0,
         };
       });
     return paginate(list, ctx.query);

@@ -230,6 +230,9 @@ class MyProductCard(SalesState):
     current_stage_label: str | None
     updated_at: datetime
     options: list[MyProductCardOption]
+    # DEV-361 PR C: 구매자에게 보이는 상품(판매 중·승인 대기)에 '상품에 반영'하지 않은
+    # 비공개 수정이 있다(상품 초안, 예전 편집기 수정본, 반영한 것과 내용이 다른 composer 초안)
+    has_unapplied_changes: bool = False
 
 
 class ProductOptionInput(CamelModel):

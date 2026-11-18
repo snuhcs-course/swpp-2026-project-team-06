@@ -50,8 +50,9 @@ test("P02 AC-03-3: AI failure preserves text and manual creation excludes a conc
   await expect(page.getByRole("button", { name: "다시 해 보기" })).toBeDisabled();
   await expect(input).not.toBeEditable();
   release();
-  await expect(page).toHaveURL(/\/products\/[^/]+\/edit/);
-  await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("");
+  // DEV-361 PR C: 직접 입력도 상품 수정(composer)으로 연다
+  await expect(page).toHaveURL(/\/products\/(source-analysis\?|[^/]+\/detail)/);
+  await expect(page.getByTestId("product-basic-info").getByLabel("상품명", { exact: true })).toHaveValue("");
   expect(creates).toBe(1);
 });
 
@@ -80,23 +81,29 @@ test("P02 AC-03-1: empty extraction strings and option arrays remain missing", a
   }
 });
 
-test("P03 AC-04-1: origin and storage block initial supply request until corrected", async ({ page }) => {
+test("P03 AC-04-1 DEV-361: empty origin and storage stop the next step on press and highlight the field", async ({ page }) => {
   await loginProducer(page, "강영수");
-  await page.route(`${apiUrl}/api/products/mine/p-house`, async route => {
+  // 작성 중 한라봉의 원산지·보관을 비운 것처럼 보인다(시드는 바꾸지 않음)
+  await page.route(`${apiUrl}/api/products/mine/p-hallabong`, async route => {
     const response = await route.fetch();
     const product = await response.json();
-    await route.fulfill({ response, json: { ...product, status: "DRAFT", approvedSupplyGrams: 0, info: { ...product.info, origin: "", storage: "" } } });
+    await route.fulfill({ response, json: { ...product, info: { ...product.info, origin: "", storage: "" } } });
   });
-  await page.goto(`${producerUrl}/products/p-house/edit`);
-  // DEV-361: 판매 전 상품은 상품 정보 칸을 채우면 판매·가격으로 넘어간다(첫 판매 요청은 거기서)
-  const apply = page.getByRole("button", { name: "다음: 판매·가격", exact: true });
-  await expect(apply).toBeDisabled();
-  await expect(page.getByText("원산지를 적어 주세요", { exact: true })).toBeVisible();
-  await expect(page.getByText("보관 방법을 적어 주세요", { exact: true })).toBeVisible();
-  await page.getByLabel("원산지", { exact: true }).fill("제주");
-  await expect(apply).toBeDisabled();
-  await page.getByLabel("보관", { exact: true }).fill("서늘한 곳");
-  await expect(apply).toBeEnabled();
+  await page.goto(`${producerUrl}/products/p-hallabong/detail`);
+  await expect(page.getByTestId("product-basic-info")).toBeVisible();
+  // PM 11/18: 버튼은 끄지 않는다. 누르면 첫 빈 칸(원산지)을 강조하고 넘어가지 않는다(오류는 누른 뒤에만)
+  const next = page.getByRole("button", { name: "다음: 판매·가격", exact: true });
+  await expect(next).toBeEnabled();
+  await expect(page.getByText("원산지를 적어 주세요.", { exact: true })).toHaveCount(0);
+  await next.click();
+  await expect(page.getByTestId("invalid-field-origin").first()).toBeVisible();
+  await expect(page.getByText("원산지를 적어 주세요.", { exact: true }).first()).toBeVisible();
+  await expect(page).not.toHaveURL(/\/sell/);
+  await page.getByTestId("product-basic-info").getByLabel("원산지", { exact: true }).fill("제주");
+  await next.click();
+  await expect(page.getByTestId("invalid-field-보관")).toBeVisible();
+  await expect(page).not.toHaveURL(/\/sell/);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
 test("P04 AC-19-1: sharing failure copies the live link; cancellation does not copy", async ({ page, browser, request }) => {

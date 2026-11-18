@@ -102,14 +102,19 @@ test("AC-SRC-11 HE-32: failed first-text save preserves input and sends no analy
 });
 
 
-test("AC-03-1 HE-32: workspace starts from its first focused text too", async ({ page }) => {
+// DEV-361 PR C (C-18): the 2-tab workspace is gone. Reopening the batch by its old `?batchId=` address
+// (no composer=1) opens the same composer, which still starts from its first focused text.
+test("AC-03-1 HE-32 DEV-361: a batch reopened without composer=1 starts from its first focused text too", async ({ page }) => {
   await composer(page);
   const batchId = new URL(page.url()).searchParams.get("batchId");
   expect(batchId).toBeTruthy();
   await page.goto(`${producerUrl}/products/source-analysis?batchId=${batchId}`);
+  await expect(page.getByTestId("product-basic-info")).toBeVisible();
+  await expect(page.getByText(/이 자료 작업은 더 이상 이 화면에서 열 수 없어요/)).toHaveCount(0);
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
   await page.getByLabel("과일 품종명", { exact: true }).blur();
-  const start = page.getByRole("button", { name: "자료 준비·분석 시작", exact: true });
+  const start = page.getByRole("button", { name: "AI로 채우기", exact: true });
   await expect(start).toBeDisabled();
   await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();
   const input = page.getByLabel("첨부 내용");
@@ -119,4 +124,5 @@ test("AC-03-1 HE-32: workspace starts from its first focused text too", async ({
   const started = page.waitForResponse(r => r.request().method() === "POST" && /\/runs$/.test(new URL(r.url()).pathname));
   await start.click();
   expect((await started).ok()).toBeTruthy();
+  await expect(page.getByTestId("source-analysis-status")).toBeVisible();
 });
