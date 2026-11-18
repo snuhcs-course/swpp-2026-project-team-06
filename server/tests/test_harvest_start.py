@@ -239,6 +239,9 @@ def test_AC_14_5_harvest_todo_counts_all_reserved(client, login):
     assert target["stageName"] == "1단계"
     assert opened["toHarvest"] == reserved
 
+    _set_stage_dates(STAGE_1, "2026-09-20", "2026-10-07")  # 오늘 끝나는 기간은 아직 열림
+    assert next(t for t in todo()["harvestTargets"] if t["stageId"] == STAGE_1)["closed"] is False
+
     _set_stage_dates(STAGE_1, "2026-09-20", "2026-10-06")  # 어제 끝나도 수는 같다
     closed = todo()
     assert next(t for t in closed["harvestTargets"] if t["stageId"] == STAGE_1)["closed"] is True

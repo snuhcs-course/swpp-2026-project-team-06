@@ -111,6 +111,7 @@ test("FEAT-14 AC-14-5 현황 할 일은 모든 예약 완료를 센다(DEV-361, 
   const open = (await api("GET", "/api/orders/producer/dashboard", t)).body.todo;
   const target = open.harvestTargets.find((x) => x.stageId === s1.stageId);
   assert.equal(target.count, reserved);
+  assert.equal(target.closed, s1.endsAt < "2026-10-07");
   assert.equal(open.toHarvest, allReserved);
   s1.endsAt = "2026-10-06"; // 어제 끝남(Mock 기준일 10-07): 기간 목록은 closed, 수는 그대로
   const closed = (await api("GET", "/api/orders/producer/dashboard", t)).body.todo;
