@@ -45,7 +45,7 @@ export type ConflictReason =
   | "PRODUCT_CHANGED"
   /** 받는 시기 변경에 예약자 동의 확인이 필요(details.reservedCount, R-21, DEV-361) */
   | "DELIVERY_CONSENT_REQUIRED"
-  /** apply-all: 판매페이지 대표사진과 상품 초안 사진 첫 장이 다름(DEV-361) */
+  /** 판매페이지 반영의 대표사진·원본 사진 연결이 바뀜. apply-all에서는 판매페이지 대표사진과 상품 초안 사진 첫 장이 달라도(DEV-361) */
   | "PHOTO_CHANGED";
 /**
  * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).

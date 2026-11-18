@@ -420,9 +420,8 @@ register({
         Object.entries(saved).filter(([k, v]) => !same(v, now[k])),
       );
       const reserved = people(p);
-      const windowChanged =
-        "deliveryWindow" in values &&
-        !same(values.deliveryWindow, now.deliveryWindow);
+      // values에는 지금 값과 다른 칸만 남았다(서버와 같은 판단)
+      const windowChanged = "deliveryWindow" in values;
       if (
         windowChanged &&
         reserved &&
