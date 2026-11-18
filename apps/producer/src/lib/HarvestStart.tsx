@@ -29,7 +29,8 @@ export function HarvestSheet({
   onStale,
 }: {
   picked: ProducerOrder[] | null;
-  onClose: () => void;
+  /** sent: 이 시트에서 한 번이라도 요청을 보냈는지(응답을 잃었어도 서버가 옮겼을 수 있어 목록을 다시 읽는다) */
+  onClose: (sent: boolean) => void;
   onDone: (changed: number) => void;
   onStale: () => void;
 }) {
@@ -49,6 +50,8 @@ export function HarvestSheet({
   if (picked) last.current = picked;
   const list = picked ?? last.current;
   const n = list.length;
+  // 키는 요청을 보낼 때만 만든다. 하나라도 있으면 이 시트에서 보낸 적이 있다
+  const close = () => onClose(keys.current.length > 0);
   const start = async () => {
     if (!open || !n || busy) return;
     setBusy(true);
@@ -81,7 +84,7 @@ export function HarvestSheet({
     <Sheet
       visible={open}
       onClose={() => {
-        if (!busy) onClose();
+        if (!busy) close();
       }}
     >
       <T variant="heading">수확을 시작할까요?</T>
@@ -149,7 +152,7 @@ export function HarvestSheet({
           size="producer"
           disabled={busy}
           style={{ flex: 1 }}
-          onPress={onClose}
+          onPress={close}
         />
         <Button
           label={`수확 시작 · ${n}건`}

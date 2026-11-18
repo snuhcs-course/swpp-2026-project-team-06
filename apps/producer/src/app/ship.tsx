@@ -922,7 +922,11 @@ export default function Ship() {
 
       <HarvestSheet
         picked={harvestFor}
-        onClose={() => setHarvestFor(null)}
+        onClose={(sent) => {
+          setHarvestFor(null);
+          // 보낸 뒤 연결 오류로 닫으면 서버가 이미 옮겼을 수 있어 다시 읽는다
+          if (sent) void load();
+        }}
         onDone={(changed) => {
           setHarvestFor(null);
           setNotice(null);
