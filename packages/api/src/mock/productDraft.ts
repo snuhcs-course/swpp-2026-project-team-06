@@ -482,9 +482,12 @@ register({
             PROPOSAL.includes(order.status)
           )
             order.proposedDeliveryWindow = { ...next.deliveryWindow };
-      next.version++;
-      next.updatedAt = nowIso();
-      Object.assign(p, next);
+      if (Object.keys(values).length) {
+        // 서버와 같다: 남은 변경이 없으면 상품(버전·수정 시각)은 그대로다
+        next.version++;
+        next.updatedAt = nowIso();
+        Object.assign(p, next);
+      }
       const d = db() as DraftDB;
       const entries = [
         ...changes.now,

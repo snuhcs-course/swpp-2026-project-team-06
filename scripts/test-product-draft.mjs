@@ -221,6 +221,8 @@ test("DEV-361 a field that already became the drafted value is no change", async
   });
   assert.deepEqual(applied.changes.now, []);
   assert.equal(applied.changeId, null);
+  // 서버와 같다: 남은 변경이 없으면 상품 버전도 그대로다
+  assert.equal(applied.productVersion, product.version + 1); // PATCH 한 번만 올림
 });
 
 test("DEV-361 pending-approval changes keep the status (no re-approval)", async () => {
