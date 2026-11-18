@@ -20,7 +20,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v7-farm-common"
+PROMPT_VERSION = "source-refine-v11-routing"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)
@@ -56,7 +56,8 @@ Exclude ALL amounts as price, including shipping fees and free-shipping threshol
 the producer sets shipping fees in ② (R-20).
 Exclude Farmclub common policy as platform: exchange/refund/return/compensation terms,
 customer center/hours/contact channels, ordering/payment/deposits, purchase limits,
-and weight/size option selection. Never invent Farmclub policy.
+and weight/size option selection, including order-memo requests (배송 메모란에 원하시는 과수를
+남겨주시면). Never invent Farmclub policy.
 Contact-channel directions are platform policy even without a phone number, payment,
 or customer-center keyword: app chat, farm inquiry, seller messaging and where/how to
 ask product questions must be excluded as platform, never kept under support.
@@ -67,6 +68,12 @@ Keep harvest/sorting methods and freshness. Reduce mixed policy to supported pro
 1-3일 이내 제주에서 직배송 -> delivery: 제주 농장에서 직접 보내요 (exclude period).
 수확 후 순차 출고하며 도착일은 확정하지 않습니다 -> delivery: 수확 후 순차 출고해요
 (exclude the arrival-date clause as period).
+ALWAYS drop superlatives, comparisons with other products or farms and calls to action
+(최고의, 최상, 으뜸, 1등, 다른 감귤류보다 높은, 지금 바로 만나보세요): keep only the factual
+clause beside them (…당도 13~14 브릭스로 다른 감귤류보다 높은 당도 -> 당도 13~14 브릭스).
+The server rejects any text that still contains them, losing its facts.
+A seller or brand introduction that is not the farm itself (…브랜드입니다) and import/
+purchase-agent notices are not farmStory: exclude them as platform.
 ALWAYS remove health/efficacy claims, including immunity/digestion/fatigue/diet/skin/beauty/
 disease prevention/효능 and nutrient statements attached to such claims. 건강하게 키운 is neutral.
 NEVER cite a candidate containing a health claim, even to retain a neutral fragment or nutrient
@@ -93,11 +100,17 @@ PROMPT += """
 FACT PRESERVATION AND MODULE AUDIT (apply before returning):
 fieldKey is an extraction hint, not a command to keep a mixed sentence in that module.
 Split mixed candidates into supported clauses with the same candidateIds. Route each fact:
-- hero: explicit product title only; never move a farm narrative into a new advertising title.
-- summary: product identity, origin, cultivar background and factual distribution/provenance.
-- composition/pieceCount: package contents, weight and explicit count respectively.
-- taste: flavour, aroma, sweetness, juice, texture, size/grade and eating/serving occasions.
-  Move these facts out of summary even when summary contains a product introduction.
+- hero: explicit product title, or a short factual tagline the source gives as the product's
+  headline; never move a farm narrative into a new advertising title.
+- summary: product identity, origin/region, cultivar background and parentage (A와 B를 교배),
+  and factual distribution/provenance. These never go to taste.
+- composition/pieceCount: package contents, weight, package type (선물용/가정용/실속형 포장)
+  and explicit count respectively.
+- taste: flavour, aroma, sweetness, juice, texture, size/grade and eating/serving occasions
+  (식후 과일, 간식). Move these facts out of summary even when summary has an introduction.
+- storage: keeping, ripening and room-temperature durations (3~5일 상온 후숙), never taste.
+- productionProcess also takes growing conditions and harvest timing (해풍, 일조, 완숙 수확),
+  never taste.
 - qualityEvidence: explicit certification or measurement with its original sample context.
 - productionProcess: growing/harvesting/sorting/inspection methods and harvest principles;
   also production/harvest months or seasons, including year-round production.
@@ -109,6 +122,9 @@ An explicit farm-introduction heading does not make cultivation/taste facts farm
 split them into their specific modules, retaining the remaining farmer story in farmStory.
 A main-production-item list is not automatically package contents. Retain the selected
 product's identity in hero/summary and its production season in productionProcess.
+A list of the farm's other products or cultivars (한라봉, 황금향, 레드향 등) and any package,
+weight or option of a product other than the supplied target name are never part of this
+page, not even farmStory: exclude them as other_product.
 Do NOT label a growing/harvest season as period just because it contains months/dates.
 Distinguish those from sale/booking windows, availability changes and shipping/arrival timing,
 which remain excluded. Storage/ripening durations remain supported product facts too.
@@ -136,6 +152,10 @@ original separator, endpoint units and numeric format within the polished clause
 supported production/harvest seasons and their routing; do not omit them to avoid numbers.
 If a candidate's number/unit differs from its quote, use only the exact supported quote
 expression or exclude the unsupported claim. Never treat the candidate's own value as proof.
+Separate values stay separate: 13.2Brix 13.5Brix are two measurements, never 13.2~13.5Brix.
+Every number in a text must appear in a quote of a candidate THAT TEXT cites. When one text
+joins values from several candidates (a weight with its piece count, 2kg: 8~18과; a size with
+its weight), cite ALL of those candidates; otherwise the text is rejected and the fact is lost.
 """
 
 

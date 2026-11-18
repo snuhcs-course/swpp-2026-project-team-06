@@ -11,7 +11,7 @@ Metrics and datasets were frozen at branch commit `e8f29e7`, before the first ba
 | Chat | 11/05 sealed holdout (30 cases) | — | **Exposed** (answerable 1/15 already known); not reused as independent evidence |
 | Draft | Synthetic 23 (current `synthetic.CASES`; I3 R4 had 20) + public dev sources (`source-dev-i3-private`) | Development | Known |
 | Draft | Holdout v1.1 | — | **Exposed** (run once) |
-| Draft | Holdout v2 (`source-holdout-v2-private`, PM-owned) | Final unseen check, run once on the final I4 version (~11/18–19) | Sealed only if the earlier incomplete v2 attempt showed no per-source results; otherwise a new version (PM) |
+| Draft | Holdout v2 (`source-holdout-v2-private`, PM-owned) | Final unseen check, run once on the final I4 version (~11/18–19) | **Sealed** (PM confirmed 2026-11-16: the earlier incomplete v2 attempt showed no per-source results) |
 
 **Version note (2026-11-15):** this table first said "public 12 (DEV-170)". The folder the PM shared on 11/15 holds 24 sources by the runner's count (`final_eval --subset public`). The public-set denominator is **24**, fixed from the follow-up public run onward. Every arm compares on the same 24. The synthetic 23 is unchanged.
 
@@ -53,6 +53,12 @@ Improvement is claimed only on the same denominator, with no safety regression, 
 
 Model and provider, prompt/code commit, scorer and runner digest, dataset digest, fixture revision, `FIXED_NOW`, seed 1542026, environment. Subject code/prompt may change between arms; nothing else.
 
+**Version note (2026-11-17, DEV-264):** from the round-2 draft run (`source-i4-b2-*`) the evaluation sends the target product name to the model, because the product now does (masked, M-18). The name comes from the gold `product` field as a stand-in for the producer's typed name; no other gold field reaches the model. The before arm (`source-i4-b0-*`) and round 1 (`source-i4-b1-*`) ran without a name, as the product did then. The before/after difference therefore includes this product change.
+
+**Version note (2026-11-17, scorer `dev264-number-evidence-v2`):** number tokens now allow commas only as thousands separators, so "Since 1966," is read as 1966, not as an unsupported "1966,". All draft arms (b0, b1, b2) were rescored offline; only b2 changed (unsupported 1 → 0, support proxy +1).
+
+**Version note (2026-11-18, semantic recall):** `semantic_recall` with judge `fact-judge-v1` (`server/app/ai/fact_judge.py`, Gemini 3 Flash Preview, temperature 0) is frozen from the DEV-264 final arms. It judges only facts that fail the strict match; unknown counts as a miss. It is reported next to strict recall, never instead of it, and is not a pass line. On holdout it runs only with PM approval.
+
 ## 6. Schedule
 
 11/11 baseline (`i4-b0`) → 11/13 → 11/16 → 11/19 final, same manifest. Human review: chat — Zahra reviews every FAIL and 10 random PASS per cohort; draft — owner to agree (proposed Jinwoo, with real producer materials).
@@ -85,4 +91,4 @@ Not run in this PR. Each one comes in its own follow-up PR, frozen before its fi
    - First check the scorer itself: the gold text must score 100%.
    - Then score an LLM paraphrase of the gold. The drop in strict recall is the scorer's built-in underestimate.
 8. **Groundedness judge.** Each output sentence is marked supported / unsupported / unknown against the source. Today only numbers and units are checked, so a claim with no number in it ("무농약으로 키웠어요") is not caught.
-9. **Format coverage.** Render the synthetic texts into images, long images and PDFs with code, and score them on the same gold. Today `long_image` has 0 sources, and 20 of 23 sources are text.
+9. **Format coverage.** Render the synthetic texts into images, long images and PDFs with code, and score them on the same gold. In the synthetic set, `long_image` has 0 sources and 20 of 23 sources are text (the public set has 4 long images and 6 PDFs).
