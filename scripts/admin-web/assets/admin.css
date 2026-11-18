@@ -88,3 +88,7 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background:
 .login .card { width: 100%; max-width: 380px; padding: 28px 24px; }
 .login form { display: grid; gap: 12px; margin-top: 20px; }
 .login label { font-weight: 600; font-size: 14px; }
+/* 상품 변경 기록(DEV-361, 공급 물량 카드) */
+.change-log { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
+.change-log > li { margin-top: 6px; }
+.change-log ul { margin: 2px 0 0; padding-left: 16px; }
