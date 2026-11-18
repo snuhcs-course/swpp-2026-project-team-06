@@ -11,11 +11,11 @@ Metrics and datasets were frozen at branch commit `e8f29e7`, before the first ba
 | Chat | 11/05 sealed holdout (30 cases) | — | **Exposed** (answerable 1/15 already known); not reused as independent evidence |
 | Draft | Synthetic 23 (current `synthetic.CASES`; I3 R4 had 20) + public dev sources (`source-dev-i3-private`) | Development | Known |
 | Draft | Holdout v1.1 | — | **Exposed** (run once) |
-| Draft | Holdout v2 (`source-holdout-v2-private`, PM-owned) | Final unseen check, run once on the final I4 version (~11/18–19) | **Sealed** (PM confirmed 2026-11-16: the earlier incomplete v2 attempt showed no per-source results) |
+| Draft | Holdout v2 (`source-holdout-v2-private`, PM-owned) | Final unseen check, run once on the final I4 version (~11/18–19) | **Used** 2026-11-18 (attempt 2 after the incomplete 11/05 attempt, which showed no per-source results; PM confirmed 11/16). Results in `draft-results-2026-11-18.md`. A new generalization claim needs a new sealed set |
 
 **Version note (2026-11-15):** this table first said "public 12 (DEV-170)". The folder the PM shared on 11/15 holds 24 sources by the runner's count (`final_eval --subset public`). The public-set denominator is **24**, fixed from the follow-up public run onward. Every arm compares on the same 24. The synthetic 23 is unchanged.
 
-A new generalization claim needs a new sealed set owned by someone other than the improver. Without one, results are reported as development improvements only.
+A new generalization claim needs a new sealed set owned by someone other than the improver. Without one, results are reported as development improvements only. From I5 the team does not build new sealed sets (TA feedback, 2026-11-18); see §8.
 
 ## 2. Chat metrics (per cohort, rule path / model path / fault injection reported separately)
 
@@ -92,3 +92,18 @@ Not run in this PR. Each one comes in its own follow-up PR, frozen before its fi
    - Then score an LLM paraphrase of the gold. The drop in strict recall is the scorer's built-in underestimate.
 8. **Groundedness judge.** Each output sentence is marked supported / unsupported / unknown against the source. Today only numbers and units are checked, so a claim with no number in it ("무농약으로 키웠어요") is not caught.
 9. **Format coverage.** Render the synthetic texts into images, long images and PDFs with code, and score them on the same gold. In the synthetic set, `long_image` has 0 sources and 20 of 23 sources are text (the public set has 4 long images and 6 PDFs).
+
+## 8. Evaluation tracks from I5 (TA feedback, 2026-11-18)
+
+At the I4 TA meeting the team asked whether its hidden holdout sets are a sound method when regression tests already run. The holdout was the team's own addition; Anthropic's guide (["Demystifying evals for AI agents"](https://www.anthropic.com/research/demystifying-evals-for-ai-agents)) does not use one. The TA answered that a holdout is not needed and that two tracks are enough. From I5 the AI features (chat and draft filling) are evaluated with the guide's two suites:
+
+| Track | What it asks | Where the tasks come from | Expected pass rate |
+| --- | --- | --- | --- |
+| **Capability evals** | What can the feature do well, and what does it still get wrong? | Tasks drawn from real failures: evaluation runs, UAT defects, production wrong answers and producer/consumer reports | Starts low and rises as fixes land |
+| **Regression evals** | Does it still handle everything it used to? | The I3 chat set (180 trials), the draft development sets, and graduated capability tasks | Near 100%; a drop blocks the change |
+
+- **From failure to task.** Each real failure becomes one capability task with its gold and grader before the fix is written. Example failures from I4: answering the haggling question "택배비 빼주시면 안 돼요?", turning "1월~4월" into "1월에서 4월 사이", and merging "13.2Brix 13.5Brix" into a range. The guide suggests starting with 20–50 such tasks.
+- **Graduation.** A capability task that passes reliably (every trial in two consecutive runs) moves to the regression suite and keeps running in CI.
+- **What stays the same.** Tasks, gold and scorer are frozen before tuning (§5), cases run repeated trials, code graders come first, and an LLM judge is used only where code cannot decide, with its own check on known answers.
+- **Holdout results already recorded.** The holdout v2 result (2026-11-18, `draft-results-2026-11-18.md`) stays as a one-off reference. The exposed 11/05 chat holdout and holdout v1.1 are not reused as unseen evidence; their cases may be added to the capability suite.
+- **Writing quality of drafts.** The current draft metrics measure facts and safety only. How well a draft reads as a sales page is not measured yet; a pairwise LLM judge with human calibration is planned for I5.
