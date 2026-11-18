@@ -1037,6 +1037,15 @@ def _offset_page(items: list, cursor: str | None, limit: int) -> Paged:
     return Paged(items=page, next_cursor=encode_cursor([start + limit]) if more else None)
 
 
+def _listed_without_follow(db: Session, thread: Thread, has_messages: bool) -> bool:
+    """팔로우하지 않은 농가 대화를 소비자 목록에 올릴지. 연결 주문(소비자 쪽 문맥·문의)이 있으면
+    올린다. 생산자 쪽 문맥(PRODUCER)만 있으면 메시지가 하나라도 있을 때만 올린다: 생산자가
+    '채팅하기'만 누르고 보내지 않은 빈 대화는 구매자 목록에 보이지 않는다(DEV-362, AC-12-18)."""
+    if eligible_order_ids(db, thread):
+        return True
+    return has_messages and has_producer_context(db, thread)
+
+
 def consumer_chats(db: Session, consumer, cursor: str | None, limit: int) -> Paged[ChatSummary]:
     from app.farms import service as farms
 
@@ -1048,14 +1057,14 @@ def consumer_chats(db: Session, consumer, cursor: str | None, limit: int) -> Pag
         farm = found.get(t.farm_id)
         if farm is None or farm.approval_status != "APPROVED":
             continue
-        if t.farm_id not in followed and not _has_inquiries(db, t.id):
-            continue
         last = db.scalar(
             select(ThreadMessage)
             .where(ThreadMessage.thread_id == t.id)
             .order_by(ThreadMessage.seq.desc())
             .limit(1)
         )
+        if t.farm_id not in followed and not _listed_without_follow(db, t, last is not None):
+            continue
         summaries.append(
             ChatSummary(
                 farm_id=farm.id,
