@@ -725,3 +725,85 @@ def test_DEV_361_page_applied_alone_through_older_endpoints_is_recorded(client, 
 
 
 PAGE = {"field": "page", "label": "판매페이지", "before": None, "after": None}
+
+
+def uploaded_cover(client, login, row):
+    """A photo uploaded in the composer (not a referenced one), chosen as the cover and saved."""
+    from app.source_analysis.models import Asset, Page
+    from app.source_analysis.storage import Storage
+    from tests.test_source_public_photo import photo_bytes
+
+    data = photo_bytes((64, 48))
+    with get_sessionmaker()() as db:
+        key = Storage().put(data)
+        asset = Asset(
+            batch_id=row["batchId"],
+            checksum="upload",
+            storage_key=key,
+            filename="new.png",
+            mime="image/png",
+            size=len(data),
+            target_ids=[row["targetId"]],
+            common=False,
+            original_photo=True,
+            status="PREPARED",
+            page_count=1,
+        )
+        db.add(asset)
+        db.flush()
+        db.add(
+            Page(
+                asset_id=asset.id,
+                revision=1,
+                number=1,
+                spans=[],
+                redacted_spans=[],
+                image_key=key,
+                sanitized_key=key,
+                redactions=[],
+            )
+        )
+        db.commit()
+        asset_id = asset.id
+    batch = client.get(f"{SOURCE}/{row['batchId']}", headers=login("u-kang")).json()
+    picked = client.put(
+        f"{SOURCE}/{row['batchId']}/representative",
+        headers=login("u-kang"),
+        json={"version": batch["version"], "targetIds": [row["targetId"]], "assetId": asset_id},
+    )
+    assert picked.status_code == 200, picked.text
+    save_page(row, ["hero", "taste", "sizePhoto"])
+
+
+def test_AC_SRC_9_DEV_361_uploaded_cover_is_copied_once_and_never_replaces_a_later_cover(
+    client, login
+):
+    set_modules()
+    row = workspace(client, login)
+    before = mine(client, login)["photos"]
+    uploaded_cover(client, login, row)
+    first = apply_all(client, login, "p-house", row["version"], page=page_draft(client, login, row))
+    assert first.status_code == 200, first.text
+    photos = mine(client, login)["photos"]
+    assert photos[1:] == before and photos[0].startswith("/api/source-media/")
+    # Applying the page again with the same composer cover adds no second copy.
+    row = workspace(client, login)
+    save_page(row, ["hero", "taste"])
+    again = apply_all(client, login, "p-house", row["version"], page=page_draft(client, login, row))
+    assert again.status_code == 200, again.text
+    assert mine(client, login)["photos"] == photos
+    assert [c["field"] for c in again.json()["changes"]["now"]] == ["page"]
+    # A cover changed elsewhere since stays: the stale composer cover does not come back.
+    product = mine(client, login)
+    flipped = product["photos"][::-1]
+    patched = client.patch(
+        "/api/products/p-house",
+        headers=h(login),
+        json={"version": product["version"], "photos": flipped},
+    )
+    assert patched.status_code == 200, patched.text
+    row = workspace(client, login)
+    save_page(row, ["hero", "taste", "sizePhoto"])
+    kept = apply_all(client, login, "p-house", row["version"], page=page_draft(client, login, row))
+    assert kept.status_code == 200, kept.text
+    assert mine(client, login)["photos"] == flipped

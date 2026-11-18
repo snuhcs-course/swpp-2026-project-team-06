@@ -423,7 +423,8 @@ def check_cover(db, batch, row, drafted, photos_before):
     the product page already uses (a referenced URI), it must be the cover the producer wants: the
     drafted first photo, or the current cover when photos are not drafted. A stale composer cover
     never silently replaces a cover changed elsewhere. A photo newly uploaded in the composer gets
-    its address only on apply, so it goes in front of the drafted order."""
+    its address only on apply, so it goes in front of the drafted order; one the last applied page
+    already copied is not copied again (publish.cover_applied)."""
     from app.source_analysis.representative import selected
 
     target = next((t for t in batch.targets if t["id"] == row.target_id), None)

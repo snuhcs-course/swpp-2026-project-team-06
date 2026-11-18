@@ -14,11 +14,23 @@ from app.core.errors import conflict, invalid, not_found
 from app.core.images import sniff
 from app.source_analysis import service as s
 from app.source_analysis.caching import not_modified, tag_for
-from app.source_analysis.models import ProductWorkspace, PublicPhoto
+from app.source_analysis.models import Draft, ProductWorkspace, PublicPhoto
 from app.source_analysis.photos import page_variant
 from app.source_analysis.storage import Storage
 
 public_router = APIRouter()
+
+
+def cover_applied(db, workspace, snap, representative):
+    """The uploaded cover (not a referenced photo) is the one the workspace's last applied page
+    draft already copied, at the same revision."""
+    if representative.product_photo or not workspace.page_draft_id:
+        return False
+    last = db.get(Draft, workspace.page_draft_id)
+    if last is None or last.snapshot.get("representativeAssetId") != representative.id:
+        return False
+    versions = last.snapshot.get("sourceVersions", {})
+    return versions.get(representative.id) == snap["sourceVersions"].get(representative.id)
 
 
 def apply_draft(db, batch, draft, body, apply_cover=False):
@@ -67,6 +79,9 @@ def apply_draft(db, batch, draft, body, apply_cover=False):
         representative = selected(db, batch.id, target, required=True)
         if snap.get("representativeAssetId") != representative.id:
             raise conflict("PHOTO_CHANGED", "대표사진을 확인한 뒤 초안을 다시 저장해 주세요.")
+        # DEV-361: an uploaded cover the last applied page already copied is not copied again
+        # (no duplicate photo, and a cover changed elsewhere since stays).
+        keeps_cover = own_page and cover_applied(db, workspace, snap, representative)
 
     def copy_photo(sid):
         source = s.asset(db, batch.id, sid)
