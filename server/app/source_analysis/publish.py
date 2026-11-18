@@ -21,7 +21,9 @@ from app.source_analysis.storage import Storage
 public_router = APIRouter()
 
 
-def apply_draft(db, batch, draft, body):
+def apply_draft(db, batch, draft, body, apply_cover=False):
+    """Apply a batch draft to the product page. `apply_cover` (DEV-361 apply-all): the draft's
+    representative becomes the cover of a buyer-visible product too (the composer edits it now)."""
     s.version(draft.version, body.draft_version)
     snap = draft.snapshot
     s.version(batch.review_version, snap["reviewVersion"])
@@ -45,15 +47,16 @@ def apply_draft(db, batch, draft, body):
     copied, store = {}, Storage()
     from app.source_analysis.representative import selected
 
-    # DEV-346 (11/17 PM): in the composer a buyer-visible product's cover is edited only in SCR-25,
-    # so applying its page (the product workspace's own batch) leaves product.photos as they are.
-    # Before sale, and from other source workspaces, the draft's cover becomes the cover as before.
-    keeps_cover = (
+    # DEV-346 (11/17 PM): applying a buyer-visible product's own page alone (the product
+    # workspace's batch, this endpoint) leaves product.photos as they are. DEV-361 apply-all
+    # (`apply_cover`) makes the draft's cover the cover, as before sale and from other workspaces.
+    own_page = (
         product.status not in ("DRAFT", "REJECTED")
         and workspace is not None
         and batch.id == workspace.batch_id
     )
-    if keeps_cover and workspace.page_source:
+    keeps_cover = own_page and not apply_cover
+    if own_page and workspace.page_source:
         from app.source_analysis.workspace import page_source, story_kind
 
         # The page was applied elsewhere (legacy editor, another screen, admin) since this draft

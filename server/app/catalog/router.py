@@ -16,6 +16,7 @@ from app.catalog.schemas import (
     DraftInput,
     MyProduct,
     MyProductCard,
+    ProductChangeEventView,
     ProductDetail,
     ProductPatch,
     SalesInput,
@@ -298,6 +299,15 @@ def reject_capacity(
             admin.id,
         ),
     )
+
+
+@admin_router.get("/{product_id}/changes", response_model=list[ProductChangeEventView])
+def admin_product_changes(
+    db: Db, _: Admin, product_id: str, limit: Annotated[int, Depends(page_limit)]
+):
+    """생산자가 '상품에 반영'으로 바꾼 기록, 최신순(운영자만, DEV-361). 승인 대기 상품의 변경은
+    다시 승인받지 않고 여기에만 남는다."""
+    return service.product_changes(db, product_id, limit)
 
 
 @capacity_admin_router.get("", response_model=list[AdminCapacityRequest])

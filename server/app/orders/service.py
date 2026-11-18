@@ -66,18 +66,31 @@ def capacity_totals(db: Session, product_id: str) -> tuple[int, int, int]:
     return reserved_grams, shipped_grams, sold_quantity
 
 
+# 받는 시기를 바꾸면 새 기간을 제안받는 주문(R-21)
+DELIVERY_PROPOSAL_STATUSES = ("AWAITING_DEPOSIT", "RESERVED", "PREPARING")
+
+
 def propose_delivery_window(
     db: Session, product_id: str, delivery_start, delivery_end
 ) -> None:
     orders = db.scalars(
         select(Order).where(
             Order.product_id == product_id,
-            Order.status.in_(("AWAITING_DEPOSIT", "RESERVED", "PREPARING")),
+            Order.status.in_(DELIVERY_PROPOSAL_STATUSES),
         )
     )
     for order in orders:
         order.proposed_delivery_start = delivery_start
         order.proposed_delivery_end = delivery_end
+
+
+def delivery_proposal_people(db: Session, product_id: str) -> int:
+    """받는 시기를 바꾸면 동의를 물을 사람 수(R-21, 같은 사람의 여러 주문은 한 명, DEV-361)."""
+    return db.scalar(
+        select(func.count(func.distinct(Order.consumer_id))).where(
+            Order.product_id == product_id, Order.status.in_(DELIVERY_PROPOSAL_STATUSES)
+        )
+    ) or 0
 
 
 def reserved_people(db: Session, product_ids: list[str]) -> dict[str, int]:
