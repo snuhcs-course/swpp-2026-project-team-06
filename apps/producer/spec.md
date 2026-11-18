@@ -89,7 +89,7 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 ## DEV-51 현재 프론트 구현 기준 (1.6)
 
 제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
-OwnNewsRoom을 채팅 탭 본문에 유지하고 비활성 때 polling을 끈다. 기본 news, 품목 접힘. 현황은 전체 cursor 주문 건수 및 대표 상품 판매량(DEV-300부터 옵션별 박스, kg은 보조)을 분리한다. ship은 RESERVED 조회만(맨 위 ‘수확 시작하기’ 줄은 예약 기간 카드로 이동), PREPARING 송장/출하만 제공한다. 수확 시작은 예약 기간 화면(`stages.tsx` + `lib/HarvestStart.tsx`)에서 기간 단위로 호출한다(DEV-231). 저장 안 한 값이 있으면 막아 폼과 섞이지 않게 한다.
+OwnNewsRoom을 채팅 탭 본문에 유지하고 비활성 때 polling을 끈다. 기본 news, 품목 접힘. 현황은 전체 cursor 주문 건수 및 대표 상품 판매량(DEV-300부터 옵션별 박스, kg은 보조)을 분리한다. ship의 RESERVED 탭은 PREPARING 탭과 같은 체크 고르기로 수확 시작(`lib/HarvestStart.tsx` 확인 시트 → `orders.harvestOrders`)을 하고, PREPARING은 송장/출하를 한다(DEV-361). 예약 탭 고르기는 뺀 주문 id(`unpicked`)만 들고 있어 기본이 전체 선택이고 새로 승인된 예약도 골라진 채로 보인다. 시트 멱등 키는 시트를 열 때 새로 만들고 같은 시트의 재시도는 같은 키. 예약 기간 화면(`stages.tsx`)에는 수확 칸이 없다(DEV-231의 기간 단위 수확·`?stage=` 스크롤 삭제).
 
 
 ## I2 생산자 오류 복구 (DEV-29/34/38)

@@ -1,6 +1,6 @@
 // DEV-231 (FEAT-17 AC-17-11·AC-17-12, FEAT-14 할 일): 수확 시작 = 출하 준비 시작.
 // Mock이 서버와 같은 규칙인지: 그 기간의 예약 완료만 옮김, 멱등 키 필수, 다시 누르면 0건,
-// 기간별 주문 수·수확 시작 여부, 현황 할 일(끝난 기간만 셈).
+// 기간별 주문 수·수확 시작 여부, 현황 할 일(DEV-361부터 모든 예약 완료를 셈).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
@@ -101,16 +101,20 @@ test("AC-17-11 기간별 주문 수와 수확 시작 여부", async () => {
   assert.ok(after.preparingOrderCount >= reserved);
 });
 
-test("FEAT-14 현황 할 일은 예약 기간이 끝난 기간만 센다", async () => {
+test("FEAT-14 AC-14-5 현황 할 일은 모든 예약 완료를 센다(DEV-361, 기간이 열려 있어도)", async () => {
   const t = await producer();
   const s1 = house().stages[0];
+  const allReserved = Object.values(db().orders).filter(
+    (o) => db().products[o.productId]?.farmId === "f-kang" && o.status === "RESERVED",
+  ).length;
   const reserved = ordersOf().filter((o) => o.stageId === s1.stageId && o.status === "RESERVED").length;
   const open = (await api("GET", "/api/orders/producer/dashboard", t)).body.todo;
   const target = open.harvestTargets.find((x) => x.stageId === s1.stageId);
   assert.equal(target.count, reserved);
   assert.equal(target.closed, s1.endsAt < "2026-10-07");
-  s1.endsAt = "2026-10-06"; // 어제 끝남(Mock 기준일 10-07)
+  assert.equal(open.toHarvest, allReserved);
+  s1.endsAt = "2026-10-06"; // 어제 끝남(Mock 기준일 10-07): 기간 목록은 closed, 수는 그대로
   const closed = (await api("GET", "/api/orders/producer/dashboard", t)).body.todo;
   assert.equal(closed.harvestTargets.find((x) => x.stageId === s1.stageId).closed, true);
-  assert.ok(closed.toHarvest >= reserved);
+  assert.equal(closed.toHarvest, allReserved);
 });
