@@ -221,7 +221,8 @@ def test_AC_14_5_harvest_todo_counts_all_reserved(client, login):
     """
     producer = login("u-kang")
     reserved = sum(1 for _sid, st in _statuses().values() if st == "RESERVED")
-    assert reserved > 0
+    in_stage_1 = sum(1 for sid, st in _statuses().values() if sid == STAGE_1 and st == "RESERVED")
+    assert reserved > 0 and in_stage_1 > 0
 
     def todo():
         return client.get("/api/orders/producer/dashboard", headers=producer).json()["todo"]
@@ -229,7 +230,12 @@ def test_AC_14_5_harvest_todo_counts_all_reserved(client, login):
     # 테스트 기준일 2026-10-07(KST). 1단계는 10-12까지라 아직 열려 있어도 센다
     opened = todo()
     target = next(t for t in opened["harvestTargets"] if t["stageId"] == STAGE_1)
-    assert (target["closed"], target["productId"]) == (False, "p-house")
+    # 기간별 목록은 예전 앱 호환으로 그 기간의 예약 완료 수를 그대로 준다
+    assert (target["count"], target["closed"], target["productId"]) == (
+        in_stage_1,
+        False,
+        "p-house",
+    )
     assert target["stageName"] == "1단계"
     assert opened["toHarvest"] == reserved
 
