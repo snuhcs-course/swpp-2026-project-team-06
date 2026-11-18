@@ -65,6 +65,8 @@ const PRODUCER_ROUTES = [
   /^\/api\/auth\/me\/notices$/,
   /^\/api\/farms\/me(\/|$)/,
   /^\/api\/products\/(mine|drafts|stage-presets)(\/|$)/,
+  // DEV-361 상품 초안·'상품에 반영'
+  /^\/api\/source-analysis\/product-workspaces\/:productId\/(product-draft|apply-all)$/,
   /^\/api\/orders\/producer(\/|$)/,
   /^\/api\/messaging\/producer(\/|$)/,
   /^\/api\/messaging\/questions(\/|$)/,

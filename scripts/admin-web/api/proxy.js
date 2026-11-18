@@ -15,6 +15,7 @@ const ALLOWED = [
   new RegExp(`^/admin/producers(/${ID}/(approve|reject|decisions|revert))?${QUERY}$`),
   new RegExp(`^/admin/capacity-requests${QUERY}$`),
   new RegExp(`^/admin/products/${ID}/capacity-requests/${ID}/(approve|reject)$`),
+  new RegExp(`^/admin/products/${ID}/changes${QUERY}$`), // 상품 변경 기록(DEV-361, 조회만)
   // 정지 미리보기·정지·정지 풀기·결정 이력(DEV-307)
   new RegExp(`^/admin/farms(/${ID}/(preview|retire|restore|suspend-preview|suspend|unsuspend|history))?$`),
   // 사용자 검색어는 한글이라 퍼센트 인코딩(%·+·.)까지 받는다(DEV-107)

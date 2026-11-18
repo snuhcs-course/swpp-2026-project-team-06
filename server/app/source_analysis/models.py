@@ -192,3 +192,6 @@ class ProductWorkspace(Base):
     page_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # the draft that matched it; a later draft is composer work saved since
     page_draft_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # DEV-361: private product-field and sales-term changes of a buyer-visible product, applied to
+    # the product only by apply-all: {"values": {...}, "base": {...}, "savedAt": ...}.
+    product_draft: Mapped[dict | None] = mapped_column(JSON, nullable=True)

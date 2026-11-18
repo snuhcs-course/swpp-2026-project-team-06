@@ -11,6 +11,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     String,
     Text,
@@ -141,4 +142,27 @@ class ProductDraft(Base):
     missing_fields: Mapped[list[str]] = mapped_column(JSON, default=list)
     failed: Mapped[bool] = mapped_column(Boolean, default=False)
     price_mentioned: Mapped[str | None] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ProductChangeEvent(Base):
+    """구매자에게 보이는 상품을 '상품에 반영'으로 바꾼 기록(DEV-361). 운영자만 본다.
+
+    changes는 [{field, label, before, after}] 요약 문구다(사진 주소 같은 원값은 넣지 않는다).
+    """
+
+    __tablename__ = "product_change_events"
+    __table_args__ = (
+        Index("ix_product_change_events_product_created", "product_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    product_id: Mapped[str] = mapped_column(ForeignKey("products.id"))
+    actor_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    # 반영 당시 상품 상태(PUBLISHED · PENDING_APPROVAL, 심사 중 초안이 반려 뒤 반영되면 DRAFT)
+    product_status: Mapped[str] = mapped_column(String(20))
+    changes: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    page_changed: Mapped[bool] = mapped_column(Boolean, default=False)
+    delivery_window_proposed: Mapped[bool] = mapped_column(Boolean, default=False)
+    reserved_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
