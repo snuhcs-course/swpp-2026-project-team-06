@@ -511,7 +511,8 @@ def load_my_product(db: Session, farm_id: str, product_id: str, lock: bool = Fal
     query = select(Product).where(Product.id == product_id)
     if lock:
         # An unlocked read earlier in the transaction must not leave a stale row (DEV-361).
-        # Callers flush their own product changes first (the session does not autoflush).
+        # populate_existing overwrites unflushed changes and the session does not autoflush.
+        db.flush()
         query = query.with_for_update().execution_options(populate_existing=True)
     product = db.scalar(query)
     if product is None or product.farm_id != farm_id:
