@@ -3,9 +3,10 @@
 주문·출하 화면 예약 탭에서 고른 주문을 예약 기간과 상관없이 한 번에 출하 준비로 옮긴다.
 """
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 
 from app.admin.models import ManagerEvent
+from app.catalog.models import Product
 from app.core.db import get_sessionmaker
 from app.orders.models import Order
 from tests.test_harvest_start import STAGE_2, _move_to_stage, _new_reserved
@@ -138,3 +139,47 @@ def test_AC_17_11_old_stage_endpoint_still_works(client, login):
     )
     assert response.status_code == 200, response.text
     assert order_id in response.json()["orderIds"]
+
+
+def _move_to_product(order_id: str, product_id: str, stage_id: str, option_id: str) -> None:
+    """같은 농가의 다른 상품 예약 완료를 만든다(시드 레드향 1단계는 품절이라 주문을 옮긴다)."""
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Order)
+            .where(Order.id == order_id)
+            .values(product_id=product_id, stage_id=stage_id, option_id=option_id)
+        )
+
+
+def test_AC_14_5_todo_and_harvest_count_across_products(client, login):
+    """할 일 수와 수확 시작은 상품과 상관없이 농가 전체 예약 완료를 다룬다(DEV-361)."""
+    producer = login("u-kang")
+    house = _new_reserved(client, login)
+    red = _new_reserved(client, login)
+    _move_to_product(red, "p-redhyang", "st-redhyang-2", "opt-3")
+
+    def to_harvest() -> int:
+        response = client.get("/api/orders/producer/dashboard", headers=producer)
+        return response.json()["todo"]["toHarvest"]
+
+    before = to_harvest()
+    with get_sessionmaker()() as session:
+        farm_reserved = session.scalar(
+            select(func.count())
+            .select_from(Order)
+            .join(Product, Product.id == Order.product_id)
+            .where(Product.farm_id == "f-kang", Order.status == "RESERVED")
+        )
+    assert before == farm_reserved
+    assert {"p-house", "p-redhyang"} <= {
+        pid
+        for pid, st in get_sessionmaker()().execute(select(Order.product_id, Order.status))
+        if st == "RESERVED"
+    }
+
+    response = client.post(URL, headers=producer | key(), json={"orderIds": [house, red]})
+
+    assert response.status_code == 200, response.text
+    assert set(response.json()["orderIds"]) == {house, red}
+    assert _status()[red] == "PREPARING"
+    assert to_harvest() == before - 2
