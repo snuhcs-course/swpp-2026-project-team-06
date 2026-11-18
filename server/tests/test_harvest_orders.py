@@ -122,9 +122,11 @@ def test_AC_17_12_missing_key_and_empty_list_are_400(client, login):
 
     no_key = client.post(URL, headers=producer, json={"orderIds": [order_id]})
     empty = client.post(URL, headers=producer | key(), json={"orderIds": []})
+    too_long = client.post(URL, headers=producer | key(), json={"orderIds": ["o" * 65]})
 
     assert no_key.status_code == 400, no_key.text
     assert empty.status_code == 400, empty.text
+    assert too_long.status_code == 400, too_long.text  # 주문 id는 64자까지
     assert _status() == before
 
 
@@ -170,12 +172,11 @@ def test_AC_14_5_todo_and_harvest_count_across_products(client, login):
             .join(Product, Product.id == Order.product_id)
             .where(Product.farm_id == "f-kang", Order.status == "RESERVED")
         )
+        reserved_products = set(
+            session.scalars(select(Order.product_id).where(Order.status == "RESERVED"))
+        )
     assert before == farm_reserved
-    assert {"p-house", "p-redhyang"} <= {
-        pid
-        for pid, st in get_sessionmaker()().execute(select(Order.product_id, Order.status))
-        if st == "RESERVED"
-    }
+    assert {"p-house", "p-redhyang"} <= reserved_products
 
     response = client.post(URL, headers=producer | key(), json={"orderIds": [house, red]})
 

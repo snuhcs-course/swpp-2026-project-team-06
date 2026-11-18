@@ -87,5 +87,7 @@ test("AC-17-12 키 없음·빈 목록은 400", async () => {
   assert.equal(noKey.status, 400);
   const empty = await api("POST", URL, t, { orderIds: [] });
   assert.equal(empty.status, 400);
+  const tooLong = await api("POST", URL, t, { orderIds: ["o".repeat(65)] });
+  assert.equal(tooLong.status, 400); // 주문 id는 64자까지(서버와 같음)
   assert.equal(snapshot(), before);
 });

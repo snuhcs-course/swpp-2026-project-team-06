@@ -499,7 +499,7 @@ register({
       !Array.isArray(raw) ||
       raw.length < 1 ||
       raw.length > 500 ||
-      raw.some((id) => typeof id !== "string")
+      raw.some((id) => typeof id !== "string" || id.length > 64)
     )
       invalid({ orderIds: "주문을 1건 이상 골라 주세요." });
     const wanted = [...new Set(raw as string[])];

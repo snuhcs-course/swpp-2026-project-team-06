@@ -1,7 +1,7 @@
 """orders 모듈 Pydantic 입출력 스키마 (screens.md 7.2 orders)."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -153,7 +153,8 @@ class HarvestStarted(CamelModel):
 class HarvestOrdersInput(CamelModel):
     """DEV-361: 주문·출하 화면 예약 탭에서 고른 주문을 한 번에 수확 시작한다."""
 
-    order_ids: list[str] = Field(min_length=1, max_length=500)
+    # 주문 id 하나는 64자까지(다른 id 입력과 같음). 긴 문자열이 IN 절·멱등 해시로 흘러가지 않게
+    order_ids: list[Annotated[str, Field(max_length=64)]] = Field(min_length=1, max_length=500)
 
 
 class HarvestedOrders(CamelModel):
