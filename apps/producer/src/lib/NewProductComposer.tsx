@@ -79,6 +79,7 @@ import {
   TermsSummary,
   cellOf,
   checkTerms,
+  NEW_STAGE_PREFIX,
   termsFrom,
   termsKey,
   termsStages,
@@ -120,7 +121,12 @@ type ProductForm = {
   variety: string;
   brix: string;
   photos: string[];
+  /** 등급(특·상·보통, 예전 SCR-25와 같음, PM 11/18 되살림) */
+  grade: string | null;
 };
+const GRADES = ["특", "상", "보통"];
+/** 대표사진 포함 최대 사진 수(예전 SCR-25와 같음) */
+const MAX_PHOTOS = 5;
 const brixText = (p: Pick<MyProduct, "measuredBrix" | "expectedBrix">) =>
   p.measuredBrix != null ? String(p.measuredBrix) : p.expectedBrix != null ? String(p.expectedBrix) : "";
 const toForm = (p: MyProduct): ProductForm => ({
@@ -131,6 +137,7 @@ const toForm = (p: MyProduct): ProductForm => ({
   variety: p.variety,
   brix: brixText(p),
   photos: p.photos,
+  grade: p.grade,
 });
 const brixValue = (v: string) => (v.trim() ? Number(v) : null);
 /** 서버 상품 초안을 상품 값 위에 덮는다(화면 값·미리보기용) */
@@ -142,7 +149,8 @@ function withDraft(p: MyProduct, draft: ProductDraftView["draft"]): MyProduct {
         const old = p.stages.find((x) => x.stageId === s.stageId);
         return {
           ...(old ?? { reservedOrderCount: 0, awaitingOrderCount: 0, preparingOrderCount: 0, harvestStarted: false, name: "" }),
-          stageId: s.stageId ?? `new-${i}`,
+          // 새 기간은 표시용 ID(termsFrom이 stageId로 쓰지 않음). 화면 행 key로만 쓴다
+          stageId: s.stageId ?? `${NEW_STAGE_PREFIX}${i}`,
           seq: i + 1,
           startsAt: s.startsAt,
           endsAt: s.endsAt,
@@ -162,6 +170,7 @@ function withDraft(p: MyProduct, draft: ProductDraftView["draft"]): MyProduct {
     ...("expectedBrix" in f ? { expectedBrix: f.expectedBrix ?? null } : {}),
     ...("measuredBrix" in f ? { measuredBrix: f.measuredBrix ?? null } : {}),
     ...(f.photos ? { photos: f.photos } : {}),
+    ...("grade" in f ? { grade: f.grade ?? null } : {}),
     ...(f.info ? { info: { ...p.info, ...f.info } } : {}),
     ...(f.options ? { options: f.options.map((o) => ({ ...o, note: o.note ?? undefined })) as ProductOption[] } : {}),
     ...("deliveryWindow" in f ? { deliveryWindow: f.deliveryWindow ?? null } : {}),
@@ -187,6 +196,7 @@ function draftBody(p: MyProduct, form: ProductForm, terms: Terms) {
     fields.measuredBrix = brixValue(form.brix);
   }
   if (JSON.stringify(form.photos) !== JSON.stringify(base.photos)) fields.photos = form.photos;
+  if (form.grade !== base.grade) fields.grade = form.grade;
   if (JSON.stringify(terms.options) !== JSON.stringify(baseTerms.options))
     fields.options = terms.options.map((o) => ({ optionId: o.optionId, label: o.label, weightKg: o.weightKg }));
   if (JSON.stringify(terms.deliveryWindow) !== JSON.stringify(baseTerms.deliveryWindow))
@@ -199,8 +209,10 @@ function draftBody(p: MyProduct, form: ProductForm, terms: Terms) {
   }
   if ((terms.remoteAreaFee ?? 0) !== (baseTerms.remoteAreaFee ?? 0)) fields.remoteAreaFee = terms.remoteAreaFee ?? 0;
   const stagesChanged = stagesKey(terms) !== stagesKey(baseTerms);
+  // 지금 상품에 있는 기간 ID만 보낸다(새 기간은 null). 화면 값에 낯선 ID가 섞여도 반영이 막히지 않게
+  const known = new Set(p.stages.map((s) => s.stageId));
   const stages: DraftStage[] | undefined = stagesChanged
-    ? termsStages(terms).map((s) => ({ stageId: s.stageId ?? null, startsAt: s.startsAt, endsAt: s.endsAt, options: s.options }))
+    ? termsStages(terms).map((s) => ({ stageId: s.stageId && known.has(s.stageId) ? s.stageId : null, startsAt: s.startsAt, endsAt: s.endsAt, options: s.options }))
     : undefined;
   return { fields, stages };
 }
@@ -214,7 +226,9 @@ function changedKeys(p: MyProduct, form: ProductForm, terms: Terms | null): stri
   if (form.storage !== base.storage) keys.push("storage");
   if (form.variety !== base.variety) keys.push("variety");
   if (form.brix !== base.brix) keys.push("brix");
-  if (JSON.stringify(form.photos) !== JSON.stringify(base.photos)) keys.push("photos");
+  if (form.photos[0] !== base.photos[0]) keys.push("cover");
+  if (JSON.stringify(form.photos.slice(1)) !== JSON.stringify(base.photos.slice(1))) keys.push("photos");
+  if (form.grade !== base.grade) keys.push("grade");
   if (terms) {
     const b = termsFrom(p);
     const part = (t: Terms) => JSON.parse(termsKey(t)) as unknown[];
@@ -259,12 +273,11 @@ function diffRows(p: MyProduct, form: ProductForm, terms: Terms | null, reserved
   row(now, "보관 방법", base.storage, form.storage);
   row(now, "품종", base.variety, form.variety);
   row(now, "측정 당도", base.brix ? `${base.brix}°Bx` : null, form.brix ? `${form.brix}°Bx` : null);
-  if (JSON.stringify(base.photos) !== JSON.stringify(form.photos))
-    now.push({
-      label: base.photos[0] !== form.photos[0] ? "대표사진" : "사진",
-      before: `${base.photos.length}장`,
-      after: base.photos[0] !== form.photos[0] ? "새 사진" : `${form.photos.length}장`,
-    });
+  row(now, "등급", base.grade, form.grade);
+  if (base.photos[0] !== form.photos[0])
+    now.push({ label: "대표사진", before: base.photos[0] ? "이전 사진" : null, after: form.photos[0] ? "새 사진" : null });
+  if (JSON.stringify(base.photos.slice(1)) !== JSON.stringify(form.photos.slice(1)))
+    now.push({ label: "사진", before: `${base.photos.length}장`, after: `${form.photos.length}장` });
   if (!terms) return { now, newOrders, consent };
   const was = termsFrom(p);
   const labels = (t: Terms) => t.options.map((o) => o.label).join(", ");
@@ -299,9 +312,12 @@ function diffRows(p: MyProduct, form: ProductForm, terms: Terms | null, reserved
   row(reserved > 0 ? consent : newOrders, "받는 시기", rangeText(was.deliveryWindow), rangeText(terms.deliveryWindow));
   return { now, newOrders, consent };
 }
-/** 화면 표가 비었는데 서버 미리보기에 줄이 있으면(다른 곳에서 바뀐 칸 등) 서버 줄을 쓴다 */
+/**
+ * 화면 표가 통째로 비었는데 서버 미리보기에 줄이 있으면(화면이 모르는 칸 등) 서버 줄을 쓴다. 화면 표가 한 줄이라도
+ * 있으면 서버 줄은 섞지 않는다(같은 칸이 두 묶음에 나뉘어 보이지 않게, scan-before-merge)
+ */
 function withServerFallback(rows: ChangeRows, server: ProductChangeGroups | null): ChangeRows {
-  if (!server) return rows;
+  if (!server || rows.now.length + rows.newOrders.length + rows.consent.length) return rows;
   const pick = (mine: ChangeRow[], theirs: ProductChange[]) =>
     mine.length || !theirs.length ? mine : theirs.map((c) => ({ label: c.label, before: c.before, after: c.after }));
   return { now: pick(rows.now, server.now), newOrders: pick(rows.newOrders, server.newOrders), consent: pick(rows.consent, server.consent) };
@@ -404,6 +420,92 @@ function FillInput({
     </View></FieldFeedback>
   );
 }
+/**
+ * 대표사진 뒤 사진 2~5장(PM 11/18 되살림, 예전 SCR-25처럼 더하기·빼기, 최대 5장). 대표사진(첫 장)은 위 대표사진 자리에서 바꾼다.
+ * 대표사진이 아직 상품에 없으면(새 상품 첫 '다음' 전) 더하지 않는다: 첫 장이 대표사진이 되어 순서가 섞이지 않게
+ */
+function ExtraPhotos({
+  productId,
+  photos,
+  editable,
+  changed,
+  onChange,
+  onError,
+}: {
+  productId: string;
+  photos: string[];
+  editable: boolean;
+  changed: boolean;
+  onChange: (next: string[]) => void;
+  onError: (message: string) => void;
+}) {
+  const extra = photos.slice(1);
+  const add = async () => {
+    const picked = await pickMedia({ multiple: true });
+    const ok = picked.filter((x) => x.ok).map((x) => (x as { uri: string }).uri);
+    const bad = picked.filter((x) => !x.ok).map((x) => (x as { reason: string }).reason);
+    if (ok.length) onChange([...photos, ...ok.filter((u) => !photos.includes(u))].slice(0, MAX_PHOTOS));
+    if (bad.length) onError(bad.join("\n"));
+  };
+  if (!photos.length) return null;
+  return (
+    <View testID="extra-photos" style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 10, gap: 6 }}>
+      <T variant="caption" muted>
+        사진 더 보여 주기 · 대표사진 포함 최대 {MAX_PHOTOS}장
+      </T>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {extra.map((uri, i) => (
+          <View key={`${i}-${uri.slice(-16)}`} style={{ position: "relative" }}>
+            <PhotoThumb productId={productId} uri={uri} alt={`상품 사진 ${i + 2}`} />
+            {editable ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`상품 사진 ${i + 2} 빼기`}
+                onPress={() => onChange(photos.filter((_, j) => j !== i + 1))}
+                style={{ position: "absolute", top: -6, right: -6, width: 32, height: 32, alignItems: "center", justifyContent: "center" }}
+              >
+                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: tokens.color.photoButton, alignItems: "center", justifyContent: "center" }}>
+                  <Icon name="close" size={14} color="#FFFFFF" />
+                </View>
+              </Pressable>
+            ) : null}
+          </View>
+        ))}
+        {editable && photos.length < MAX_PHOTOS ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="사진 추가"
+            onPress={() => void add()}
+            style={{ width: 64, height: 64, borderRadius: 12, borderWidth: 1.5, borderStyle: "dashed", borderColor: tokens.color.textMuted, alignItems: "center", justifyContent: "center" }}
+          >
+            <Icon name="photo" size={20} color={tokens.color.textMuted} />
+          </Pressable>
+        ) : null}
+      </View>
+      {changed ? <ChangedMark text="사진" /> : null}
+    </View>
+  );
+}
+/** 상품 사진 한 장(비공개 사진은 인증 blob으로) */
+function PhotoThumb({ productId, uri, alt }: { productId: string; uri: string; alt: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    let made = "";
+    void productPhotoUrl(productId, uri)
+      .then((u) => {
+        made = u.startsWith("blob:") ? u : "";
+        if (alive) setUrl(u);
+        else if (made) URL.revokeObjectURL(made);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [productId, uri]);
+  return <Photo uri={url} width={64} height={64} radius={12} alt={alt} />;
+}
 /** 반영 안 한 수정 표시 색(시안 --changed) */
 const CHANGED = "#2F6FDB";
 /** '● 수정됨'(text가 있으면 '● {text} 수정됨'). label은 화면 읽기용 칸 이름 */
@@ -455,9 +557,10 @@ function ChangeTable({ rows }: { rows: ChangeRow[] }) {
           </T>
         ))}
       </View>
-      {rows.map((r) => (
+      {rows.map((r, i) => (
         <View
-          key={r.label}
+          // 같은 이름 줄이 둘일 수 있어(예: 대표사진) 순서로 구분한다
+          key={`${i}-${r.label}`}
           accessibilityRole="text"
           accessibilityLabel={`${r.label}, ${r.before ?? "없음"}에서 ${r.after ?? "없음"}으로`}
           style={{ flexDirection: "row", gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: tokens.color.border, alignItems: "flex-start" }}
@@ -791,8 +894,18 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             } else if (reason === "DELIVERY_CONSENT_REQUIRED") {
               // 그사이 예약자 수가 바뀜: 새 수로 다시 확인받는다
               const count = Number((e.details as { reservedCount?: number }).reservedCount ?? 0);
-              setPlan((old) => (old ? { ...old, reservedCount: count } : old));
+              // 표도 새 수로 다시 만든다: 예약자가 있으면 '받는 시기'는 예약자 동의 필요 묶음으로 옮기고 확인 체크를 보인다
+              setPlan((old) =>
+                old && product && form
+                  ? {
+                      ...old,
+                      reservedCount: count,
+                      changes: withServerFallback(diffRows(product, form, terms, count), draftMode === "draft" ? (draftView?.changes ?? null) : null),
+                    }
+                  : old,
+              );
               setConsent(false);
+              setConsentInvalid(false);
             } else {
               setValidationFields(e.details.fields ?? {});
               if (Object.keys(e.details.fields ?? {}).length) { setBuyerPreview(false); setSheetOpen(false); setPlan(null); }
@@ -1029,7 +1142,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       body.info = { origin: form.origin, storage: form.storage };
     if (JSON.stringify(form.options) !== JSON.stringify(base.options))
       body.options = form.options;
-    if (productOnly && JSON.stringify(form.photos) !== JSON.stringify(base.photos)) body.photos = form.photos;
+    if (JSON.stringify(form.photos) !== JSON.stringify(base.photos)) body.photos = form.photos;
+    if (form.grade !== base.grade) body.grade = form.grade;
     if (variety && variety !== product.variety) body.variety = variety;
     if (brix !== product.expectedBrix) body.expectedBrix = brix;
     if (
@@ -1281,7 +1395,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       version = (await catalog.update(productId, body, keyFor("direct", body))).version;
     }
     if (stages) {
-      const input = termsStages(terms);
+      // draftBody가 지금 상품에 없는 기간 ID를 이미 뺐다(새 기간은 ID 없이)
+      const input = stages.map(({ stageId, ...rest }) => ({ ...(stageId ? { stageId } : {}), ...rest }));
       await catalog.putStages(productId, input, version, keyFor("direct-stages", [input, version]));
     }
   };
@@ -1301,14 +1416,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           ...(c.changes.consent.length ? { confirmDeliveryChange: true, confirmedReservedCount: c.reservedCount } : {}),
         };
         await productWorkspace.applyAll(productId, body, keyFor("apply-all", body));
-      } else {
-        await applyDirect();
-        // 바로 반영 방식에서 batch 판매페이지 초안이 있으면 예전 판매페이지 반영 경로로 함께 반영한다(초안을 건너뛰지 않게)
-        if (c.page && batch) {
-          const p = await catalog.myProduct(productId);
-          await api.apply(batch.id, c.page, productId, p.version, keyFor("apply", [c.page.id, productId, p.version]));
-        }
-      }
+      } else await applyDirect(); // 바로 반영 방식은 상품만 여는 composer에서만 생긴다(batch 판매페이지 초안 없음)
       if (c.page) {
         const id = `${c.page.id}:${c.page.version}`;
         applied.current = id;
@@ -1897,7 +2005,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                                 testID="hero-photo"
                                 accessibilityRole="button"
                                 accessibilityLabel={readOnly ? "대표사진" : "대표 사진 바꾸기"}
-                                style={{ borderWidth: 2, borderColor: coverChanged || changed("photos") ? CHANGED : readOnly ? tokens.color.border : "#E9B980", backgroundColor: "#FFF7EB" }}
+                                style={{ borderWidth: 2, borderColor: coverChanged || changed("cover") ? CHANGED : readOnly ? tokens.color.border : "#E9B980", backgroundColor: "#FFF7EB" }}
                                 disabled={!coverEditable}
                                 onPress={pressCover}
                               >
@@ -1941,11 +2049,21 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                               </T>
                             </Pressable>
                           )}
-                          {!buyerPreview && (coverChanged || changed("photos")) ? (
+                          {!buyerPreview && (coverChanged || changed("cover")) ? (
                             <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 6 }}>
                               <ChangedMark text="대표사진" />
                             </View>
                           ) : null}
+                          {buyerPreview ? null : (
+                            <ExtraPhotos
+                              productId={product.productId}
+                              photos={form.photos}
+                              editable={!readOnly && !busy}
+                              changed={changed("photos")}
+                              onChange={(next) => setField("photos", next)}
+                              onError={setNotice}
+                            />
+                          )}
                         </FieldFeedback>
                       ),
                       name: buyerPreview ? <T variant="heading">{form.name}</T> : (
@@ -1987,7 +2105,14 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                           ) : (
                             <DetailStory content={shown.detailContent} fallback={shown.description} title="농가 이야기" />
                           )}
-                          {!buyerPreview && !readOnly ? (
+                          {!buyerPreview && !readOnly && shown.moduleDetail ? (
+                            // 섹션 상세는 예전 블록 편집기(/story)로 고칠 수 없다. 오가며 맴돌지 않게 버튼 대신 안내만(scan-before-merge)
+                            <View style={{ paddingHorizontal: tokens.space.gutter }}>
+                              <T variant="caption" muted>
+                                이 상품의 상세는 자료로 만든 섹션 상세라 이 화면에서는 고칠 수 없어요. 상품 칸과 판매 조건은 고칠 수 있어요.
+                              </T>
+                            </View>
+                          ) : !buyerPreview && !readOnly ? (
                             <View style={{ paddingHorizontal: tokens.space.gutter, gap: 6 }}>
                               <Button
                                 label="상세 고치기"
@@ -2090,6 +2215,37 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                       brix: buyerPreview ? undefined : <View style={{ padding: 20, gap: 8 }}>
                         <T weight="semibold">측정 당도 (선택)</T>
                         {basicField("brix", "측정 당도 (°Bx)", "예: 12.5", 8)}
+                        {/* 등급(PM 11/18 되살림, 예전 SCR-25와 같은 세 값). 고른 것을 다시 누르면 지운다 */}
+                        <T weight="semibold" style={{ marginTop: 8 }}>등급 (선택)</T>
+                        <View accessibilityRole="radiogroup" accessibilityLabel="등급" style={{ flexDirection: "row", gap: 8 }}>
+                          {GRADES.map((g) => {
+                            const on = form.grade === g;
+                            return (
+                              <Pressable
+                                key={g}
+                                accessibilityRole="radio"
+                                accessibilityLabel={`등급 ${g}`}
+                                accessibilityState={{ checked: on, disabled: readOnly || fieldsLocked }}
+                                disabled={readOnly || fieldsLocked}
+                                onPress={() => setField("grade", on ? null : g)}
+                                style={{
+                                  minHeight: 44,
+                                  minWidth: 64,
+                                  paddingHorizontal: 16,
+                                  borderRadius: 999,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  borderWidth: 1.5,
+                                  borderColor: on ? (changed("grade") ? CHANGED : tokens.color.text) : tokens.color.border,
+                                  backgroundColor: on ? (changed("grade") ? "#F2F6FE" : tokens.color.surface) : tokens.color.background,
+                                }}
+                              >
+                                <T weight={on ? "bold" : "regular"}>{g}</T>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                        {changed("grade") ? <ChangedMark label="등급" /> : null}
                       </View>,
                       info: buyerPreview ? undefined : {
                         origin: (

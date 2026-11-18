@@ -272,3 +272,184 @@ test("DEV-361 PM 11/18: leaving with unapplied changes asks first, and the produ
   }
   assertClean();
 });
+
+test("AC-05 R-18 DEV-361 scan: a new period saved in the draft can be applied after reopening", async ({ page, request }) => {
+  test.skip(!sourceEnabled, "Requires explicitly enabled local source API");
+  test.setTimeout(120000);
+  const assertClean = monitor(page);
+  const headers = await producerApi(request);
+  const seed = await (await request.get(`${apiUrl}/api/products/mine/p-redhyang`, { headers })).json();
+  const seedStages = seed.stages.map((s: { stageId: string; startsAt: string; endsAt: string; options: Record<string, { price: number; quantity: number }> }) => ({
+    stageId: s.stageId,
+    startsAt: s.startsAt,
+    endsAt: s.endsAt,
+    options: Object.fromEntries(Object.entries(s.options).map(([k, v]) => [k, { price: v.price, quantity: v.quantity }])),
+  }));
+  try {
+    await loginProducer(page, "강영수");
+    await page.goto(`${producerUrl}/products/p-redhyang/detail`);
+    await expect(page).toHaveURL(/composer=1/);
+    await page.getByRole("button", { name: "판매 조건 고치기", exact: true }).click();
+    const editor = page.getByTestId("sales-terms-editor");
+    await editor.getByRole("button", { name: "＋ 예약 기간 추가", exact: true }).click();
+    // the new period is the last one: later periods must cost more (R-18)
+    await editor.getByLabel("3kg 가격").last().fill("99000");
+    await editor.getByLabel("3kg 박스 수").last().fill("10");
+    await page.getByRole("button", { name: "수정 담기", exact: true }).click();
+    await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+    await expect(page.getByText(/비공개로 저장했어요/)).toBeVisible();
+    // reopen: the new period comes back from the server draft (no stage ID yet)
+    await page.goto(`${producerUrl}/products/p-redhyang/detail`);
+    await expect(page).toHaveURL(/composer=1/);
+    await page.getByTestId("product-basic-info").getByLabel("상품명", { exact: true }).fill(`${seed.name} 직송`);
+    await page.getByRole("button", { name: /^상품에 반영/ }).click();
+    const sheet = page.getByTestId("apply-confirm");
+    await expect(sheet.getByTestId("change-group-new").getByLabel(/^\d기간\(새\) · 3kg 가격, /)).toBeVisible();
+    await sheet.getByRole("button", { name: "반영하기", exact: true }).click();
+    await expect(page.getByText("상품에 반영했어요", { exact: true })).toBeVisible();
+    await expect(page.getByText("기간 ID를 확인해 주세요")).toHaveCount(0);
+    const after = await (await request.get(`${apiUrl}/api/products/mine/p-redhyang`, { headers })).json();
+    expect(after.stages).toHaveLength(seed.stages.length + 1);
+  } finally {
+    await discardDraft(request, "p-redhyang");
+    const now = await (await request.get(`${apiUrl}/api/products/mine/p-redhyang`, { headers })).json();
+    const patched = await request.patch(`${apiUrl}/api/products/p-redhyang`, {
+      headers: { ...headers, "Idempotency-Key": `e2e-restore-${Date.now()}` },
+      data: { version: now.version, name: seed.name },
+    });
+    const version = (await patched.json()).version ?? now.version;
+    await request.put(`${apiUrl}/api/products/p-redhyang/stages`, {
+      headers: { ...headers, "Idempotency-Key": `e2e-restore-stages-${Date.now()}` },
+      data: { version, stages: seedStages },
+    });
+  }
+  assertClean();
+});
+
+test("R-21 DEV-361 scan: when the server asks for consent the sheet moves 받는 시기 into the consent group", async ({ page, request }) => {
+  test.skip(!sourceEnabled, "Requires explicitly enabled local source API");
+  test.setTimeout(90000);
+  // the sheet first believes nobody has reserved (stale count), the server knows better and answers 409
+  const assertClean = monitor(page, [/status of 409/]);
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/p-house/detail`);
+  await expect(page).toHaveURL(/composer=1/);
+  const headers = await producerApi(request);
+  const view = await (await request.get(`${apiUrl}/api/source-analysis/product-workspaces/p-house/product-draft`, { headers })).json();
+  const mine = await (await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })).json();
+  const later = new Date(`${mine.deliveryWindow.end}T00:00:00Z`);
+  later.setUTCDate(later.getUTCDate() + 2);
+  const saved = await request.put(`${apiUrl}/api/source-analysis/product-workspaces/p-house/product-draft`, {
+    headers: { ...headers, "Idempotency-Key": `e2e-consent-stale-${Date.now()}` },
+    data: { version: view.version, fields: { deliveryWindow: { start: mine.deliveryWindow.start, end: later.toISOString().slice(0, 10) } } },
+  });
+  expect(saved.ok()).toBeTruthy();
+  await page.route("**/api/source-analysis/product-workspaces/p-house/product-draft", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), reservedCount: 0 } });
+  });
+  await page.route("**/api/products/mine/p-house", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), reservedCount: 0 } });
+  });
+  try {
+    await page.reload();
+    await page.getByRole("button", { name: /^상품에 반영/ }).click();
+    const sheet = page.getByTestId("apply-confirm");
+    await expect(sheet.getByTestId("change-group-new").getByLabel(/^받는 시기, /)).toBeVisible();
+    await expect(sheet.getByTestId("change-group-consent")).toHaveCount(0);
+    await sheet.getByRole("button", { name: "반영하기", exact: true }).click();
+    // 409 DELIVERY_CONSENT_REQUIRED: the row moves to the consent group with the server's count and the check
+    await expect(sheet.getByTestId("change-group-consent").getByLabel(/^받는 시기, /)).toBeVisible();
+    await expect(sheet.getByText(/^예약한 [1-9]\d*명에게 동의를 물어요/)).toBeVisible();
+    await expect(sheet.getByText("받는 시기 변경을 예약자에게 알리는 것에 동의해요", { exact: true })).toBeVisible();
+    await expect(sheet.getByTestId("change-group-new").getByLabel(/^받는 시기, /)).toHaveCount(0);
+    await sheet.getByRole("button", { name: "더 고치기", exact: true }).click();
+  } finally {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await discardDraft(request, "p-house");
+  }
+  assertClean();
+});
+
+test("FEAT-04 DEV-361 PM 11/18: grade and an extra photo go through the draft and apply together", async ({ page, request }) => {
+  test.skip(!sourceEnabled, "Requires explicitly enabled local source API");
+  test.setTimeout(120000);
+  const assertClean = monitor(page);
+  const headers = await producerApi(request);
+  const seed = await (await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })).json();
+  const grade = seed.grade === "특" ? "상" : "특";
+  try {
+    await loginProducer(page, "강영수");
+    await page.goto(`${producerUrl}/products/p-house/detail`);
+    await expect(page).toHaveURL(/composer=1/);
+    await page.getByRole("radio", { name: `등급 ${grade}`, exact: true }).click();
+    await expect(page.getByLabel("등급 수정됨", { exact: true })).toBeVisible();
+    const strip = page.getByTestId("extra-photos");
+    await expect(strip).toBeVisible();
+    const chooser = page.waitForEvent("filechooser");
+    await strip.getByRole("button", { name: "사진 추가", exact: true }).click();
+    await (await chooser).setFiles("apps/consumer/public/photos/tangerine-box.jpg");
+    await expect(strip.getByRole("img", { name: `상품 사진 ${seed.photos.length + 1}` })).toBeVisible();
+    await expect(page.getByRole("button", { name: "상품에 반영 (2)", exact: true })).toBeVisible();
+    // private until applied
+    await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+    await expect(page.getByText(/비공개로 저장했어요/)).toBeVisible();
+    const before = await (await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })).json();
+    expect(before.photos).toHaveLength(seed.photos.length);
+    expect(before.grade).toBe(seed.grade);
+    await page.getByRole("button", { name: "상품에 반영 (2)", exact: true }).click();
+    const sheet = page.getByTestId("apply-confirm");
+    await expect(sheet.getByTestId("change-group-now").getByLabel(`등급, ${seed.grade ?? "없음"}에서 ${grade}으로`)).toBeVisible();
+    await expect(sheet.getByTestId("change-group-now").getByLabel(`사진, ${seed.photos.length}장에서 ${seed.photos.length + 1}장으로`)).toBeVisible();
+    if (shots) await page.screenshot({ path: `${shots}/dev361c-grade-photos-apply.png` });
+    await sheet.getByRole("button", { name: "반영하기", exact: true }).click();
+    await expect(page.getByText("상품에 반영했어요", { exact: true })).toBeVisible();
+    const after = await (await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })).json();
+    expect(after.grade).toBe(grade);
+    expect(after.photos).toHaveLength(seed.photos.length + 1);
+    expect(after.photos.slice(0, seed.photos.length)).toEqual(seed.photos);
+  } finally {
+    await discardDraft(request, "p-house");
+    const now = await (await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })).json();
+    await request.patch(`${apiUrl}/api/products/p-house`, {
+      headers: { ...headers, "Idempotency-Key": `e2e-restore-${Date.now()}` },
+      data: { version: now.version, grade: seed.grade, photos: seed.photos },
+    });
+  }
+  assertClean();
+});
+
+test("FEAT-04 DEV-361 PM 11/18: a pre-sale product saves grade and extra photos straight to the product", async ({ page, request }) => {
+  test.skip(!sourceEnabled, "Requires explicitly enabled local source API");
+  const assertClean = monitor(page);
+  const headers = await producerApi(request);
+  const seed = await (await request.get(`${apiUrl}/api/products/mine/p-hallabong`, { headers })).json();
+  const grade = seed.grade === "상" ? "보통" : "상";
+  try {
+    await loginProducer(page, "강영수");
+    await page.goto(`${producerUrl}/products/p-hallabong/detail`);
+    await expect(page).toHaveURL(/composer=1/);
+    await page.getByRole("radio", { name: `등급 ${grade}`, exact: true }).click();
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByTestId("extra-photos").getByRole("button", { name: "사진 추가", exact: true }).click();
+    await (await chooser).setFiles("apps/consumer/public/photos/tangerine-box.jpg");
+    await expect(page.getByTestId("extra-photos").getByRole("img", { name: `상품 사진 ${seed.photos.length + 1}` })).toBeVisible();
+    await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+    await expect(page.getByText(/저장했어요|상품에는 아직/).first()).toBeVisible();
+    await expect
+      .poll(async () => {
+        const p = await (await request.get(`${apiUrl}/api/products/mine/p-hallabong`, { headers })).json();
+        return [p.grade, p.photos.length];
+      })
+      .toEqual([grade, seed.photos.length + 1]);
+  } finally {
+    const now = await (await request.get(`${apiUrl}/api/products/mine/p-hallabong`, { headers })).json();
+    await request.patch(`${apiUrl}/api/products/p-hallabong`, {
+      headers: { ...headers, "Idempotency-Key": `e2e-restore-${Date.now()}` },
+      data: { version: now.version, grade: seed.grade, photos: seed.photos },
+    });
+  }
+  assertClean();
+});

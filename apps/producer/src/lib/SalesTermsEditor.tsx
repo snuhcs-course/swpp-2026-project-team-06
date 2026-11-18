@@ -45,6 +45,11 @@ export const weightOption = (w: number): ProductOption => ({
 const lastStageDay = (deliveryStart: string | undefined, from: string) =>
   deliveryStart ? addDays(deliveryStart, -1) : addDays(from, 7);
 
+/**
+ * 아직 서버에 없는 기간(상품 초안에 담긴 새 기간)을 화면 값에서 가리키는 표시용 ID 앞머리. 저장·반영 본문에는
+ * 보내지 않는다(서버는 모르는 기간 ID를 400으로 거절한다, DEV-361 scan-before-merge)
+ */
+export const NEW_STAGE_PREFIX = "draft-new:";
 /** 상품 값 → 편집 값. 기간이 없으면 오늘부터 받는 시기 전날까지 한 기간 */
 export function termsFrom(p: Pick<MyProduct, "options" | "deliveryWindow" | "maxDelayUntil" | "shippingFeeType" | "shippingFee" | "remoteAreaFee" | "stages">): Terms {
   return {
@@ -59,7 +64,7 @@ export function termsFrom(p: Pick<MyProduct, "options" | "deliveryWindow" | "max
           .sort((a, b) => a.seq - b.seq)
           .map((s) => ({
             key: s.stageId,
-            stageId: s.stageId,
+            ...(s.stageId.startsWith(NEW_STAGE_PREFIX) ? {} : { stageId: s.stageId }),
             startsAt: s.startsAt,
             endsAt: s.endsAt,
             options: Object.fromEntries(

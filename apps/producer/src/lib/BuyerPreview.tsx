@@ -54,7 +54,7 @@ export function BuyerPreview({
   requestedGrams: number;
   salesPreview?: ReactNode;
 }) {
-  // 승인 전 사진은 공개 주소로 열리지 않아 인증 blob으로 불러온다(ProductPageEditor와 같은 방식).
+  // 승인 전 사진은 공개 주소로 열리지 않아 인증 blob으로 불러온다(`sourcePhoto.productPhotoUrl`과 같은 규칙).
   const [urls, setUrls] = useState<Record<string, string>>({});
   const uris = [
     ...product.photos,
@@ -94,7 +94,7 @@ export function BuyerPreview({
         ? apiUrl + uri
         : uri;
   // 상품 사진 주소(DEV-322): 비공개 사진은 받은 blob, API 경로만 API 주소를 붙이고 나머지(시드 `/photos/…`·절대 주소)는 그대로.
-  // ProductPageEditor의 media와 같은 규칙. 아직 못 받은 비공개 사진("")은 빼서 기본 사진이 대신한다
+  // 비공개 사진은 blob, `/api/` 주소는 API 주소를 붙인다. 아직 못 받은 비공개 사진("")은 빼서 기본 사진이 대신한다
   const photoUrl = (uri: string) =>
     uri.startsWith(PRIVATE)
       ? (urls[uri] ?? "")
