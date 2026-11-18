@@ -9,6 +9,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.catalog import service as catalog
+from app.catalog.schemas import MAX_PRODUCT_PHOTOS
 from app.core.db import get_db
 from app.core.errors import conflict, invalid, not_found
 from app.core.images import sniff
@@ -17,6 +18,10 @@ from app.source_analysis.caching import not_modified, tag_for
 from app.source_analysis.models import Draft, ProductWorkspace, PublicPhoto
 from app.source_analysis.photos import page_variant
 from app.source_analysis.storage import Storage
+
+PHOTO_CAP_MESSAGE = (
+    f"새 대표사진이 맨 앞에 들어가요. 사진은 {MAX_PRODUCT_PHOTOS}장까지라 한 장을 빼 주세요."
+)
 
 public_router = APIRouter()
 
@@ -124,7 +129,12 @@ def apply_draft(db, batch, draft, body, apply_cover=False):
             }
         )
     if cover:
-        product.photos = [cover["uri"], *[p for p in product.photos if p != cover["uri"]]]
+        photos = [cover["uri"], *[p for p in product.photos if p != cover["uri"]]]
+        # DEV-361 PM 11/18: the new cover goes first; never past 10 photos. Reject (no trimming)
+        # so the producer chooses which photo to drop; the composer checks the same first.
+        if len(photos) > MAX_PRODUCT_PHOTOS:
+            raise invalid({"photos": PHOTO_CAP_MESSAGE}, PHOTO_CAP_MESSAGE)
+        product.photos = photos
     product.module_detail = {"schemaVersion": 1, "modules": modules}
     product.version += 1
     if workspace:

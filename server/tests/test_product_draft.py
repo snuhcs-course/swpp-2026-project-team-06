@@ -807,3 +807,64 @@ def test_AC_SRC_9_DEV_361_uploaded_cover_is_copied_once_and_never_replaces_a_lat
     kept = apply_all(client, login, "p-house", row["version"], page=page_draft(client, login, row))
     assert kept.status_code == 200, kept.text
     assert mine(client, login)["photos"] == flipped
+
+
+# DEV-361 PM 11/18: at most 10 photos, cover included (1 + 9), checked by the server too.
+TEN = [f"/photos/cap-{i}.jpg" for i in range(10)]
+
+
+def set_photos(pid, photos):
+    with get_sessionmaker()() as db:
+        db.get(Product, pid).photos = list(photos)
+        db.commit()
+
+
+def test_DEV_361_product_patch_and_draft_take_at_most_ten_photos(client, login):
+    from app.catalog.schemas import PHOTO_LIMIT_MESSAGE
+
+    version = mine(client, login)["version"]
+    eleven = client.patch(
+        "/api/products/p-house",
+        headers=h(login),
+        json={"version": version, "photos": [*TEN, "/photos/cap-10.jpg"]},
+    )
+    assert eleven.status_code == 400, eleven.text
+    assert eleven.json()["details"]["fields"]["photos"] == PHOTO_LIMIT_MESSAGE
+    assert mine(client, login)["photos"] != TEN
+    ten = client.patch(
+        "/api/products/p-house", headers=h(login), json={"version": version, "photos": TEN}
+    )
+    assert ten.status_code == 200, ten.text
+    assert mine(client, login)["photos"] == TEN
+
+    row = workspace(client, login)
+    drafted = put_draft(client, login, "p-house", row["version"], {"photos": [*TEN, TEN[0]]})
+    assert drafted.status_code == 400, drafted.text
+    assert drafted.json()["details"]["fields"]["fields.photos"] == PHOTO_LIMIT_MESSAGE
+    assert (
+        put_draft(client, login, "p-house", row["version"], {"photos": TEN[:9]}).status_code == 200
+    )
+
+
+def test_DEV_361_a_new_cover_never_pushes_the_product_past_ten_photos(client, login):
+    from app.source_analysis.publish import PHOTO_CAP_MESSAGE
+
+    set_modules()
+    set_photos("p-house", TEN)
+    row = workspace(client, login)
+    uploaded_cover(client, login, row)
+    full = apply_all(client, login, "p-house", row["version"], page=page_draft(client, login, row))
+    assert full.status_code == 400, full.text
+    assert full.json()["details"]["fields"]["photos"] == PHOTO_CAP_MESSAGE
+    assert mine(client, login)["photos"] == TEN  # nothing applied, no photo dropped
+
+    # With nine photos the new cover goes first and the product ends with ten.
+    view = put_draft(client, login, "p-house", row["version"], {"photos": TEN[:9]}).json()
+    applied = apply_all(
+        client, login, "p-house", view["version"], page=page_draft(client, login, row)
+    )
+    assert applied.status_code == 200, applied.text
+    photos = mine(client, login)["photos"]
+    assert (
+        len(photos) == 10 and photos[1:] == TEN[:9] and photos[0].startswith("/api/source-media/")
+    )

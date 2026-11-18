@@ -453,3 +453,181 @@ test("FEAT-04 DEV-361 PM 11/18: a pre-sale product saves grade and extra photos 
   }
   assertClean();
 });
+
+test("DEV-361 PM 11/18 C-32: the step row hides when scrolling down and comes back when scrolling up", async ({ page }) => {
+  test.skip(!sourceEnabled, "Requires explicitly enabled local source API");
+  const assertClean = monitor(page);
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/p-hallabong/detail`);
+  await expect(page).toHaveURL(/composer=1/);
+  const row = page.getByTestId("collapsing-top");
+  await expect(row).toHaveCSS("opacity", "1");
+  await expect(row).toHaveCSS("pointer-events", "auto");
+  // the step state stays available to screen readers even when hidden
+  await expect(page.getByTestId("presale-steps")).toHaveAttribute("aria-label", "1단계 · 판매페이지");
+  await page.mouse.move(195, 500);
+  await page.mouse.wheel(0, 600);
+  await expect(row).toHaveCSS("opacity", "0");
+  await expect(row).toHaveCSS("pointer-events", "none");
+  await expect(page.getByTestId("presale-steps")).toHaveAttribute("aria-label", "1단계 · 판매페이지");
+  await page.mouse.wheel(0, -200);
+  await expect(row).toHaveCSS("opacity", "1");
+  await expect(row).toHaveCSS("pointer-events", "auto");
+  assertClean();
+});
+
+test("DEV-361 2nd scan: a failed save in the leave sheet shows the error inside the sheet and stays", async ({ page, request }) => {
+  test.skip(!sourceEnabled, "Requires explicitly enabled local source API");
+  // the stubbed draft save fails on purpose (4xx: the monitor counts every 5xx as a failure)
+  const assertClean = monitor(page, [/status of 409/]);
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/p-house/detail`);
+  await expect(page).toHaveURL(/composer=1/);
+  await page.getByTestId("product-basic-info").getByLabel("상품명", { exact: true }).fill("저장 실패 테스트 이름");
+  await page.route("**/api/source-analysis/product-workspaces/p-house/product-draft", (route) =>
+    route.request().method() === "PUT"
+      ? route.fulfill({ status: 409, json: { code: "CONFLICT", message: "임시 저장하지 못했어요(테스트)", details: { reason: "TEST" } } })
+      : route.continue(),
+  );
+  try {
+    await page.getByRole("button", { name: "뒤로", exact: true }).first().click();
+    const sheet = page.getByTestId("leave-confirm");
+    await sheet.getByRole("button", { name: "임시 저장하고 나가기", exact: true }).click();
+    await expect(sheet.getByRole("alert")).toContainText("임시 저장하지 못했어요(테스트)");
+    await expect(page).toHaveURL(/composer=1/);
+    await sheet.getByRole("button", { name: "계속 고치기", exact: true }).click();
+    await expect(page.getByTestId("product-basic-info").getByLabel("상품명", { exact: true })).toHaveValue("저장 실패 테스트 이름");
+  } finally {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await discardDraft(request, "p-house");
+  }
+  assertClean();
+});
+
+/** 사진 줄에 서로 다른 사진을 한 번에 골라 모두 n장이 되게 한다(같은 사진은 한 번만 들어감) */
+const SAMPLE_PHOTOS = ["basket-floor.jpg", "basket.jpg", "branch.jpg", "farmer.jpg", "greenhouse-aisle.jpg", "greenhouse.jpg", "harvest-hand.jpg", "orchard-crate.jpg", "tangerine-box.jpg", "farm-story.png"];
+async function fillPhotos(page: import("@playwright/test").Page, total: number) {
+  const strip = page.getByTestId("extra-photos");
+  // one remove button per strip photo; the cover is not in the strip
+  await expect(strip).toBeVisible();
+  const have = (await strip.getByRole("button", { name: /^상품 사진 \d+ 빼기$/ }).count()) + 1;
+  if (have >= total) return;
+  const chooser = page.waitForEvent("filechooser");
+  await strip.getByRole("button", { name: "사진 추가", exact: true }).click();
+  await (await chooser).setFiles(SAMPLE_PHOTOS.slice(0, total - have).map((f) => `apps/consumer/public/photos/${f}`));
+  await expect(strip.getByRole("img", { name: `상품 사진 ${total}` })).toBeVisible({ timeout: 40000 });
+}
+/** 대표사진 자리에서 새 사진을 올린다(자료 작업 대표사진, 반영 때 맨 앞에 들어감) */
+async function replaceCover(page: import("@playwright/test").Page) {
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "대표 사진 바꾸기", exact: true }).click();
+  await (await chooser).setFiles("apps/consumer/public/photos/tangerine-sky.jpg");
+}
+
+for (const [pid, button, label] of [
+  ["p-house", /^상품에 반영/, "selling"],
+  ["p-hallabong", /^다음: 판매·가격$/, "pre-sale"],
+] as const) {
+  test(`DEV-361 3rd scan PM 11/18 C-33: a new cover with ten photos is stopped on press (${label})`, async ({ page, request }) => {
+    test.skip(!sourceEnabled, "Requires explicitly enabled local source API");
+    test.setTimeout(180000);
+    const assertClean = monitor(page);
+    await loginProducer(page, "강영수");
+    await page.goto(`${producerUrl}/products/${pid}/detail`);
+    await expect(page).toHaveURL(/composer=1/);
+    await expect(page.getByTestId("extra-photos").getByText("사진 더 보여 주기 · 대표사진 포함 최대 10장", { exact: true })).toBeVisible();
+    await fillPhotos(page, 10);
+    await replaceCover(page);
+    const strip = page.getByTestId("extra-photos");
+    await expect(strip.getByText("새 대표사진이 맨 앞에 들어가요. 사진은 10장까지라 한 장을 빼 주세요.", { exact: true })).toBeVisible({ timeout: 40000 });
+    await expect(strip.getByRole("button", { name: "사진 추가", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: button }).click();
+    await expect(page.getByTestId("invalid-field-photos")).toBeVisible();
+    await expect(page).toHaveURL(/composer=1/);
+    await expect(page.getByTestId("apply-confirm")).toHaveCount(0);
+    // removing one photo clears the highlight and the note
+    await strip.getByRole("button", { name: "상품 사진 10 빼기", exact: true }).click();
+    await expect(page.getByTestId("invalid-field-photos")).toHaveCount(0);
+    await expect(strip.getByText("새 대표사진이 맨 앞에 들어가요. 사진은 10장까지라 한 장을 빼 주세요.", { exact: true })).toHaveCount(0);
+    await discardDraft(request, pid);
+    assertClean();
+  });
+}
+
+test("DEV-361 PM 11/18 C-34: a custom weight option (2.5kg) gets its own price rows and is applied", async ({ page, request }) => {
+  test.skip(!sourceEnabled, "Requires explicitly enabled local source API");
+  test.setTimeout(120000);
+  const assertClean = monitor(page);
+  const headers = await producerApi(request);
+  const original = await (await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })).json();
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/p-house/detail`);
+  await expect(page).toHaveURL(/composer=1/);
+  await page.getByRole("button", { name: "판매 조건 고치기", exact: true }).click();
+  const editor = page.getByTestId("sales-terms-editor");
+  await editor.getByRole("button", { name: "직접 입력", exact: true }).click();
+  const field = editor.getByTestId("custom-weight");
+  const input = field.getByLabel("직접 입력 중량", { exact: true });
+  // Pressing 추가 with a bad value highlights the input (11/18 rule)
+  await field.getByRole("button", { name: "추가", exact: true }).click();
+  await expect(editor.getByTestId("invalid-field-customWeight")).toBeVisible();
+  await expect(field.getByText("중량을 적어 주세요.", { exact: true })).toBeVisible();
+  await input.fill("5");
+  await field.getByRole("button", { name: "추가", exact: true }).click();
+  await expect(field.getByText("이미 있는 중량이에요.", { exact: true })).toBeVisible();
+  await input.fill("0");
+  await field.getByRole("button", { name: "추가", exact: true }).click();
+  await expect(field.getByText("0보다 큰 중량을 적어 주세요.", { exact: true })).toBeVisible();
+  await input.fill("2.5");
+  await expect(editor.getByTestId("invalid-field-customWeight")).toHaveCount(0);
+  if (shots) await page.screenshot({ path: `${shots}/dev361c-custom-weight-input.png` });
+  await field.getByRole("button", { name: "추가", exact: true }).click();
+  await expect(editor.getByRole("checkbox", { name: "2.5kg" })).toBeVisible();
+  // the price grid picks up the new option: one price and box field per period
+  const prices = editor.getByLabel("2.5kg 가격", { exact: true });
+  const rows = original.stages.length;
+  await expect(prices).toHaveCount(rows);
+  for (let i = 0; i < rows; i++) {
+    await prices.nth(i).fill(String(12000 + i * 1000));
+    await editor.getByLabel("2.5kg 박스 수", { exact: true }).nth(i).fill("10");
+  }
+  await page.getByRole("button", { name: "수정 담기", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await page.getByRole("button", { name: /^상품에 반영/ }).click();
+  const sheet = page.getByTestId("apply-confirm");
+  await expect(sheet.getByLabel(/^중량 옵션, /)).toContainText("2.5kg");
+  try {
+    await sheet.getByRole("button", { name: "반영하기", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    const after = await (await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })).json();
+    expect(after.options.map((o: { optionId: string; label: string }) => `${o.optionId}:${o.label}`)).toContain("opt-2_5:2.5kg");
+    expect(after.stages.every((st: { options: Record<string, unknown> }) => "opt-2_5" in st.options)).toBe(true);
+  } finally {
+    // put p-house back for the specs after this one (no order uses the new option)
+    const restore = await (await request.get(`${apiUrl}/api/source-analysis/product-workspaces/p-house/product-draft`, { headers })).json();
+    const now = await (await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })).json();
+    if (now.options.some((o: { optionId: string }) => o.optionId === "opt-2_5")) {
+      const put = await request.put(`${apiUrl}/api/source-analysis/product-workspaces/p-house/product-draft`, {
+        headers: { ...headers, "Idempotency-Key": `restore-${Date.now()}` },
+        data: {
+          version: restore.version,
+          fields: { options: original.options },
+          stages: now.stages.map((st: { stageId: string; startsAt: string; endsAt: string; options: Record<string, { price: number; quantity: number }> }) => ({
+            stageId: st.stageId,
+            startsAt: st.startsAt,
+            endsAt: st.endsAt,
+            options: Object.fromEntries(Object.entries(st.options).filter(([k]) => k !== "opt-2_5").map(([k, v]) => [k, { price: v.price, quantity: v.quantity }])),
+          })),
+        },
+      });
+      expect(put.ok(), await put.text()).toBe(true);
+      const applied = await request.post(`${apiUrl}/api/source-analysis/product-workspaces/p-house/apply-all`, {
+        headers: { ...headers, "Idempotency-Key": `restore-apply-${Date.now()}` },
+        data: { version: (await put.json()).version },
+      });
+      expect(applied.ok(), await applied.text()).toBe(true);
+    }
+    await discardDraft(request, "p-house");
+  }
+  assertClean();
+});

@@ -11,7 +11,7 @@ import { Button, Checkbox, Segmented, T, md, tokens } from "@farmclub/ui";
 import { useState, type ReactNode } from "react";
 import { View } from "react-native";
 
-import { FieldFeedback } from "./FieldFeedback";
+import { FieldFeedback, FieldFeedbackContext } from "./FieldFeedback";
 import { DateInput, DateSheet, NumField, addDays } from "./fields";
 import { seoulToday } from "./HarvestStart";
 import { FieldButton } from "./views";
@@ -37,11 +37,21 @@ export type Terms = {
 /** 칸 묶음 이름(FieldFeedback). 서버 오류 칸은 `SELL_FIELD_GROUPS`로 같은 이름이 된다 */
 export type TermsField = "options" | "delivery" | "prices" | "shipping";
 
+/** 중량 옵션 하나. ID는 서버가 라벨에서 만드는 것과 같은 꼴(`opt-5`, 소수점은 `opt-2_5`) */
 export const weightOption = (w: number): ProductOption => ({
-  optionId: `opt-${w}`,
+  optionId: `opt-${String(w).replace(".", "_")}`,
   label: `${w}kg`,
   weightKg: w,
 });
+/** 직접 입력한 중량(PM 11/18): 0.1kg~100kg, 소수점 한 자리, 이미 있는 중량은 안 됨. 문제가 없으면 null */
+export function customWeightError(w: number | null, options: ProductOption[]): string | null {
+  if (w == null) return "중량을 적어 주세요.";
+  if (w <= 0) return "0보다 큰 중량을 적어 주세요.";
+  if (w < 0.1 || w > 100) return "0.1kg에서 100kg 사이로 적어 주세요.";
+  if (Math.round(w * 10) !== w * 10) return "소수점 한 자리까지 적어 주세요.";
+  if (options.some((o) => o.weightKg === w)) return "이미 있는 중량이에요.";
+  return null;
+}
 const lastStageDay = (deliveryStart: string | undefined, from: string) =>
   deliveryStart ? addDays(deliveryStart, -1) : addDays(from, 7);
 
@@ -192,6 +202,26 @@ export function SalesTermsEditor({
   const t = value;
   const set = <K extends keyof Terms>(k: K, v: Terms[K]) => onChange({ ...t, [k]: v });
   const off = !editable || busy;
+  // 직접 입력(PM 11/18): '직접 입력'을 누르면 kg 칸이 열리고 '추가'를 누를 때 검사한다(누르면 강조, 11/18 규칙)
+  const [custom, setCustom] = useState<{ open: boolean; value: number | null; error: string | null; attempt: number }>({
+    open: false,
+    value: null,
+    error: null,
+    attempt: 0,
+  });
+  const addCustom = () => {
+    const error = customWeightError(custom.value, t.options);
+    if (error) return setCustom((c) => ({ ...c, error, attempt: c.attempt + 1 }));
+    set("options", [...t.options, weightOption(custom.value!)].sort((a, b) => a.weightKg - b.weightKg));
+    setCustom({ open: false, value: null, error: null, attempt: 0 });
+  };
+  // 3·5·10kg와 그 밖의 중량(직접 입력했거나 예전에 만든 옵션)을 가벼운 순서로 한 줄에. 끄면 빠진다(PM 11/18)
+  const weightChoices = [
+    ...WEIGHTS.map((w) => ({ key: `w-${w}`, weightKg: w, label: `${w}kg` })),
+    ...t.options.filter((o) => !WEIGHTS.includes(o.weightKg)).map((o) => ({ key: o.optionId, weightKg: o.weightKg, label: o.label })),
+  ].sort((a, b) => a.weightKg - b.weightKg);
+  // 기간 가격·박스 줄도 가벼운 순서
+  const byWeight = [...t.options].sort((a, b) => a.weightKg - b.weightKg);
   const toggleWeight = (w: number) =>
     set(
       "options",
@@ -226,16 +256,65 @@ export function SalesTermsEditor({
     <View style={{ gap: 24 }} testID="sales-terms-editor">
       <FieldFeedback field="options">
         <Sec title="중량 옵션">
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            {WEIGHTS.map((w) => (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 8 }}>
+            {weightChoices.map((c) => (
               <Checkbox
-                key={w}
-                label={`${w}kg`}
-                checked={t.options.some((o) => o.weightKg === w)}
-                onPress={() => !off && toggleWeight(w)}
+                key={c.key}
+                label={c.label}
+                checked={t.options.some((o) => o.weightKg === c.weightKg)}
+                onPress={() => !off && toggleWeight(c.weightKg)}
               />
             ))}
           </View>
+          {!editable ? null : custom.open ? (
+            <View style={{ gap: 6 }} testID="custom-weight">
+              <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
+                <View style={{ flex: 1 }}>
+                  {/* 이 칸만의 강조(판매 조건 칸 묶음 강조와 따로) */}
+                  <FieldFeedbackContext.Provider
+                    value={{
+                      fields: custom.error ? { customWeight: custom.error } : {},
+                      clear: () => setCustom((c) => ({ ...c, error: null })),
+                      attempt: custom.attempt,
+                    }}
+                  >
+                    <FieldFeedback field="customWeight" outline={false}>
+                      <NumField
+                        label="직접 입력 중량"
+                        decimal
+                        unit="kg"
+                        placeholder="예: 2.5"
+                        value={custom.value}
+                        error={!!custom.error}
+                        disabled={busy}
+                        onChange={(value) => setCustom((c) => ({ ...c, value, error: null }))}
+                      />
+                    </FieldFeedback>
+                  </FieldFeedbackContext.Provider>
+                </View>
+                <Button label="추가" variant="outline" disabled={busy} onPress={addCustom} />
+              </View>
+              {custom.error ? (
+                <T variant="caption" color={tokens.color.error}>
+                  {custom.error}
+                </T>
+              ) : (
+                <T variant="caption" muted>
+                  0.1kg~100kg, 소수점 한 자리까지
+                </T>
+              )}
+            </View>
+          ) : (
+            <Button
+              label="직접 입력"
+              variant="text"
+              icon="plus"
+              compact
+              disabled={busy}
+              style={{ alignSelf: "flex-start" }}
+              onPress={() => setCustom((c) => ({ ...c, open: true }))}
+            />
+          )}
         </Sec>
       </FieldFeedback>
 
@@ -307,8 +386,8 @@ export function SalesTermsEditor({
                     </View>
                   ) : null
                 ) : null}
-                {t.options.length ? (
-                  t.options.map((o) => (
+                {byWeight.length ? (
+                  byWeight.map((o) => (
                     <View key={o.optionId} style={{ gap: 6 }}>
                       <View style={{ flexDirection: "row", gap: 12 }}>
                         <NumField
@@ -458,7 +537,7 @@ export function TermsSummary({ value, children }: { value: Terms; children?: Rea
             {t.rows.length > 1 ? `${index + 1}번째 예약 기간 · ` : ""}
             {r.startsAt} ~ {r.endsAt}
           </T>
-          {t.options.map((o) => {
+          {[...t.options].sort((a, b) => a.weightKg - b.weightKg).map((o) => {
             const c = cellOf(r, o.optionId);
             return (
               <View key={o.optionId} style={{ gap: 4 }}>

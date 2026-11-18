@@ -39,6 +39,9 @@ export function CollapsingTop({
   const [h, setH] = useState(0);
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then(setReduce).catch(() => {});
+    // 화면을 연 채로 설정을 바꿔도 따른다
+    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduce);
+    return () => sub?.remove?.();
   }, []);
   useEffect(() => {
     Animated.timing(progress, {
@@ -50,7 +53,8 @@ export function CollapsingTop({
   return (
     <Animated.View
       testID="collapsing-top"
-      pointerEvents={visible ? "box-none" : "none"}
+      // 보일 때는 띠 전체가 눌림을 받아 뒤 내용으로 새지 않게, 숨었을 때만 뒤로 넘긴다
+      pointerEvents={visible ? "auto" : "none"}
       onLayout={(e) => {
         const next = Math.round(e.nativeEvent.layout.height);
         setH(next);
@@ -73,6 +77,14 @@ export function CollapsingTop({
       {children}
     </Animated.View>
   );
+}
+
+/**
+ * 위쪽 줄과 스크롤 내용을 감싸는 틀. 숨을 때 줄이 머리 위로 겹쳐 올라가지 않게 틀 밖은 잘라 낸다(3차 scan).
+ * 그림자는 줄 아래쪽이라 틀 안에 남는다
+ */
+export function CollapsingFrame({ children }: { children: ReactNode }) {
+  return <View style={{ flex: 1, overflow: "hidden" }}>{children}</View>;
 }
 
 /** 위쪽 줄 높이만큼 내용 맨 위에 두는 자리 */

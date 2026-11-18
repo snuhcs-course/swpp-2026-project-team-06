@@ -41,7 +41,7 @@ import {
   termsStages,
   type Terms,
 } from "../../../../lib/SalesTermsEditor";
-import { CollapsingSpacer, CollapsingTop, useCollapsingTop } from "../../../../lib/CollapsingTop";
+import { CollapsingFrame, CollapsingSpacer, CollapsingTop, useCollapsingTop } from "../../../../lib/CollapsingTop";
 import { track } from "@farmclub/analytics";
 
 // 서버 missing_fields 중 이 화면에 칸이 없는 상품 정보(판매페이지 ①에서 채움). 나머지는 이 화면 check()가 본다(DEV-361).
@@ -376,7 +376,7 @@ export default function Sell() {
   return (
     <FieldFeedbackContext.Provider value={{ fields: invalidFields, clear: () => {} }}><Screen>
       <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} right={<EditorActions preview={preview} onPreview={() => setPreview(!preview)} />} />
-      <View style={{ flex: 1 }}>
+      <CollapsingFrame>
         {editable ? (
           <CollapsingTop visible={top.visible} scrolled={top.scrolled} onHeight={top.setHeight}>
             <PreSaleSteps step={2} />
@@ -388,7 +388,7 @@ export default function Sell() {
             <BuyerPreview product={p} farm={farm} requestedGrams={requestedGrams} salesPreview={preview ? salesReadOnly : salesEditor} />
           </View>
         </Scroll>
-      </View>
+      </CollapsingFrame>
       <BottomBar summary={error ? <View accessibilityRole="alert" style={{ gap: 4 }}><T variant="caption" color={tokens.color.error}>{error}</T>{stale ? (
         <Button label="최신 값 다시 불러오기" variant="text" compact disabled={busy} onPress={() => run(async () => {
           setInvalidFields({});

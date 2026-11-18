@@ -267,3 +267,52 @@ test("DEV-361 PR C product list marks unapplied private changes like the server"
   await ok("DELETE", `${BASE}/p-house/product-draft?version=${again.version}`, p);
   assert.equal((await flags())["p-house"], false);
 });
+
+test("DEV-361 PM 11/18 photos stop at 10 (cover included) in PATCH and the product draft", async () => {
+  const { p } = await setup();
+  const ten = Array.from({ length: 10 }, (_, i) => `/photos/cap-${i}.jpg`);
+  const product = await ok("GET", "/api/products/mine/p-house", p);
+  const eleven = await api("PATCH", "/api/products/p-house", p, {
+    version: product.version,
+    photos: [...ten, "/photos/cap-10.jpg"],
+  });
+  assert.equal(eleven.status, 400);
+  assert.equal(eleven.body.details.fields.photos, "사진은 대표사진 포함 10장까지예요.");
+  await ok("PATCH", "/api/products/p-house", p, { version: product.version, photos: ten });
+  assert.deepEqual(db().products["p-house"].photos, ten);
+  const drafted = await api("PUT", `${BASE}/p-house/product-draft`, p, {
+    version: 1,
+    fields: { photos: [...ten, ten[0]] },
+  });
+  assert.equal(drafted.status, 400);
+  assert.equal(drafted.body.details.fields["fields.photos"], "사진은 대표사진 포함 10장까지예요.");
+});
+
+test("DEV-361 PM 11/18 a custom weight option (2.5kg) is saved with its own price row", async () => {
+  const { p } = await setup();
+  const product = await ok("GET", "/api/products/mine/p-house", p);
+  // 앱의 weightOption(2.5)과 같은 꼴: 서버가 라벨에서 만드는 ID처럼 소수점은 밑줄
+  const custom = { optionId: "opt-2_5", label: "2.5kg", weightKg: 2.5 };
+  const options = [custom, ...product.options];
+  // R-18: 뒤 기간이 앞 기간보다 싸면 안 된다
+  const withCustom = stages(product).map((s, i) => ({
+    ...s,
+    options: { ...s.options, "opt-2_5": { price: 12000 + i * 1000, quantity: 20 } },
+  }));
+  const view = await ok("PUT", `${BASE}/p-house/product-draft`, p, {
+    version: 1,
+    fields: { options },
+    stages: withCustom,
+  });
+  assert.ok(view.changes.now.concat(view.changes.newOrders).some((c) => c.field === "options"));
+  await ok("POST", `${BASE}/p-house/apply-all`, p, { version: view.version });
+  const after = await ok("GET", "/api/products/mine/p-house", p);
+  assert.deepEqual(
+    after.options.find((o) => o.optionId === "opt-2_5"),
+    { ...custom, note: null },
+  );
+  assert.deepEqual(
+    [...after.stages].sort((a, b) => a.seq - b.seq).map((s) => s.options["opt-2_5"]?.price),
+    withCustom.map((_, i) => 12000 + i * 1000),
+  );
+});

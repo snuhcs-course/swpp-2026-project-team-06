@@ -11,7 +11,13 @@ import type {
 } from "../productWorkspace";
 import type { StageInput } from "../types";
 import { db, nextId, nowIso, type DB, type ProductRec } from "./db";
-import { missing, myProduct, myProductRec } from "./catalog";
+import {
+  MAX_PRODUCT_PHOTOS,
+  PHOTO_LIMIT_MESSAGE,
+  missing,
+  myProduct,
+  myProductRec,
+} from "./catalog";
 import { holdsStock, validatePeriods } from "./sales";
 import type { Ctx } from "./router";
 import { conflict, fail, idempotent, invalid, register } from "./router";
@@ -320,6 +326,10 @@ function wanted(body: Record<string, unknown>): Values {
         weightKg: o.weightKg,
         note: o.note ?? null,
       }));
+    } else if (k === "photos") {
+      if (!Array.isArray(v) || v.length > MAX_PRODUCT_PHOTOS)
+        invalid({ "fields.photos": PHOTO_LIMIT_MESSAGE });
+      values.photos = v;
     } else values[k] = v;
   }
   if (Array.isArray(body.stages))
