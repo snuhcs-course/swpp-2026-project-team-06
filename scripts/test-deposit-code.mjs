@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { createRequire } from "node:module";
 import { depositCodeName, pickDepositCode } from "../packages/api/src/depositCode.ts";
 import { depositCheckMessage, depositorName } from "../apps/producer/src/lib/orderWho.ts";
+import { nextPrefill, prefillFor } from "../apps/producer/src/lib/chatDraft.ts";
 
 const require = createRequire(import.meta.url);
 const { mockTransport } = require("../.expo/mock-build/packages/api/src/mock/index.js");
@@ -96,6 +97,56 @@ test("AC-12-18 (Mock): a buyer who does not follow the farm sees and answers a c
   const withOrder = await api("POST", "/api/messaging/chats/f-kang/messages", seojun, { text: "주문도 같이", orderId: order.orderId });
   assert.equal(withOrder.status, 404);
   assert.deepEqual((await api("GET", "/api/messaging/chats/f-kang/messages", seojun)).body.orders, []);
+});
+
+test("AC-12-18 (Mock, DEV-362): an empty chat the producer only opened is not listed for a non-follower until a message exists", async () => {
+  reset();
+  // 시드의 서준–강씨네 대화를 지워 처음 대화하는 비팔로워 구매자로 만든다
+  delete db().threads["f-kang:u-seojun"];
+  delete db().threadMeta["f-kang:u-seojun"];
+  const seojun = await login("u-seojun", "consumer");
+  const order = await awaiting(seojun, { recipientName: "이서준" });
+  const kang = await login("u-kang", "producer");
+  const started = await api("POST", "/api/messaging/producer/chats", kang, { orderId: order.orderId });
+  assert.equal(started.status, 200);
+  const listed = async () => (await api("GET", "/api/messaging/chats", seojun)).body.items.some((c) => c.farmId === "f-kang");
+  // '채팅하기'만 누르고 보내지 않았다: 빈 농가 대화('대화를 시작해 보세요')가 생기지 않는다
+  assert.equal(await listed(), false);
+  // 생산자 쪽 목록에는 그대로 있다(생산자 화면은 바꾸지 않음)
+  const mine = (await api("GET", "/api/messaging/producer/chats", kang)).body.items;
+  assert.ok(mine.some((c) => c.consumerId === "u-seojun"), JSON.stringify(mine));
+  const sent = await api("POST", "/api/messaging/producer/chats/u-seojun/messages", kang, { text: "입금 시각을 알려주세요" });
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(await listed(), true);
+});
+
+test("AC-12-18 (Mock, DEV-362): a follower still sees an empty chat the producer only opened", async () => {
+  reset();
+  delete db().threads["f-kang:u-seojun"];
+  delete db().threadMeta["f-kang:u-seojun"];
+  const seojun = await login("u-seojun", "consumer");
+  assert.equal((await api("PUT", "/api/farms/f-kang/follow", seojun)).status, 200);
+  const order = await awaiting(seojun, { recipientName: "이서준" });
+  const kang = await login("u-kang", "producer");
+  assert.equal((await api("POST", "/api/messaging/producer/chats", kang, { orderId: order.orderId })).status, 200);
+  const items = (await api("GET", "/api/messaging/chats", seojun)).body.items;
+  assert.ok(items.some((c) => c.farmId === "f-kang"), JSON.stringify(items));
+});
+
+test("DEV-362: the prefilled text belongs to one buyer and never shows in another buyer's chat", () => {
+  const a = { text: "주문하신 하우스 감귤 확인 글", id: 0, consumerId: "u-a" };
+  assert.equal(prefillFor(a, "u-a"), a);
+  assert.equal(prefillFor(a, "u-b"), undefined);
+  assert.equal(prefillFor(undefined, "u-a"), undefined);
+  // 다른 손님으로 바뀌고 그 손님 글이 없으면 비운다. 같은 손님이면 그대로 둔다
+  assert.equal(nextPrefill(a, "u-b", undefined), undefined);
+  assert.equal(nextPrefill(a, "u-a", undefined), a);
+  // 새 손님 글이 있으면 그 손님 것으로 바꾼다(새 id로 입력칸을 다시 채운다)
+  assert.deepEqual(nextPrefill(a, "u-b", "다른 글", 5), { text: "다른 글", id: 5, consumerId: "u-b" });
+  // 처음 렌더에서 읽은 같은 글이면 그대로(입력칸을 두 번 채우지 않음)
+  assert.equal(nextPrefill(a, "u-a", a.text, 5), a);
+  // 같은 글이어도 다른 손님 것이면 새로 넣는다
+  assert.deepEqual(nextPrefill(a, "u-b", a.text, 6), { text: a.text, id: 6, consumerId: "u-b" });
 });
 
 test("AC-09-13: name cleanup, 3-letter name and fallbacks match the server rule", () => {
