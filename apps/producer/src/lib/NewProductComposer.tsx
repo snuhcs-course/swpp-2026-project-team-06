@@ -129,8 +129,12 @@ type ProductForm = {
 const GRADES = ["특", "상", "보통"];
 /** 대표사진 포함 최대 사진 수(PM 11/18, 1 + 9). 서버도 같은 한도로 거절한다(catalog/schemas.py MAX_PRODUCT_PHOTOS) */
 const MAX_PHOTOS = 10;
-/** 새로 올린 대표사진은 반영 때 맨 앞에 들어가 지금 사진이 밀린다(서버 publish가 같은 문구로 거절). 한도를 넘을 때 안내 */
-const PHOTO_CAP_MESSAGE = `새 대표사진이 맨 앞에 들어가요. 사진은 ${MAX_PHOTOS}장까지라 한 장을 빼 주세요.`;
+/**
+ * 새로 올린 대표사진은 반영 때 맨 앞에 들어가 지금 사진이 밀린다. 한도를 넘으면 잘라 내지 않고 막는다(생산자가 뺄 사진을 고름).
+ * 서버(source_analysis/publish.py `apply_draft`)도 같은 셈·같은 문구로 거절한다. over = 한도를 넘는 장수
+ */
+const photoCapMessage = (over: number) =>
+  `새 대표사진이 맨 앞에 들어가요. 사진은 ${MAX_PHOTOS}장까지라 ${over > 1 ? `${over}장` : "한 장"}을 빼 주세요.`;
 const brixText = (p: Pick<MyProduct, "measuredBrix" | "expectedBrix">) =>
   p.measuredBrix != null ? String(p.measuredBrix) : p.expectedBrix != null ? String(p.expectedBrix) : "";
 const toForm = (p: MyProduct): ProductForm => ({
@@ -805,8 +809,13 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   // 처음 연 뒤 새 대표사진을 올렸다(판매 전·판매 중 모두). 반영 때 맨 앞에 들어가 사진 수가 하나 는다
   const coverReplaced = !productOnly && coverBase.current !== undefined && (coverId ?? null) !== coverBase.current;
   const coverChanged = live && coverReplaced;
-  // 사진 5장 상한(PM 11/18, 3차 scan): 새 대표사진이 들어가면 지금 사진은 4장까지
-  const photoCapHit = coverReplaced && (form?.photos.length ?? 0) >= MAX_PHOTOS;
+  // 사진 10장 상한(PM 11/18, 4차 scan): 반영 뒤 사진 수를 서버 apply_draft와 같은 셈으로 본다.
+  // batch: 새 대표사진이 지금 사진에 이미 있으면(쓰던 사진을 대표로) 그대로, 아니면 맨 앞에 한 장 더.
+  // 상품만 여는 composer: 새 대표사진을 이미 사진 맨 앞에 넣어 두므로 사진 수 그대로
+  const coverUri = cover?.productPhoto?.uri;
+  const coverAdds = !productOnly && coverReplaced && !(coverUri && form?.photos.includes(coverUri)) ? 1 : 0;
+  const photoOver = Math.max(0, (form?.photos.length ?? 0) + coverAdds - MAX_PHOTOS);
+  const photoCapHit = photoOver > 0;
   // An untouched legacy basic-info value must not replace a registered measurement.
   const displayBrix = (input: string) => {
     const value = input.trim() ? Number(input) : null;
@@ -1376,8 +1385,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       if (!form.origin.trim()) missing.origin = "원산지를 적어 주세요.";
       if (!form.variety.trim()) missing["품종명"] = "품종명을 적어 주세요.";
       if (!form.storage.trim()) missing["보관"] = "보관 방법을 적어 주세요.";
-      // 새 대표사진이 반영 때 맨 앞에 들어가면 합계가 5장을 넘는다(서버는 막지 않음, 알려진 한계)
-      if (photoCapHit) missing.photos = PHOTO_CAP_MESSAGE;
+      // 새 대표사진이 반영 때 맨 앞에 들어가 합계가 10장을 넘으면 막는다(서버도 400으로 거절)
+      if (photoCapHit) missing.photos = photoCapMessage(photoOver);
       if (Object.keys(missing).length)
         throw new ApiError(400, { code: "VALIDATION_ERROR", message: Object.values(missing)[0], details: { fields: missing } });
       if (conflicts.length) throw new Error("다른 곳에서 바뀐 칸을 먼저 확인해 주세요.");
@@ -1477,7 +1486,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       return;
     }
     clearValidation("representativePhoto");
-    setField("photos", [picked.uri, ...form.photos.filter((u) => u !== picked.uri)].slice(0, MAX_PHOTOS));
+    clearValidation("photos");
+    // 잘라 내지 않는다(4차 scan): 10장을 넘으면 사진 줄 안내와 '상품에 반영'·'다음' 강조로 생산자가 뺄 사진을 고른다
+    setField("photos", [picked.uri, ...form.photos.filter((u) => u !== picked.uri)]);
   };
   // 판매 전 상품의 ② 판매·가격(SCR-24b). 그 화면의 '판매페이지에서 채우기'가 뒤로 돌아오게 from=composer
   const goNext = () => {
@@ -1638,6 +1649,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     </View>
   ) : null;
   const top = useCollapsingTop();
+  // 오류는 한 곳에만(4차 scan): 하단 바(상품만 여는 composer·판매 종료)나 batch 시트가 보이면 그쪽, 아니면 위
+  const topError = !batch && !(!buyerPreview && (productOnly || readOnly));
   // 위쪽 줄에 둘 것이 있을 때만. 미리보기에서는 구매자 화면 그대로라 단계 표시·판매 종료 안내도 숨긴다(C-32)
   const hasTop = !buyerPreview && !!product && (preSale || readOnly);
   // 구매자에게 보이는 상품의 상품명을 지우는 중이면 지금 상품명을 머리에 둔다('새 상품'으로 보이지 않게)
@@ -1655,8 +1668,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       if (!form.origin.trim()) missing.origin = "원산지를 적어 주세요.";
       if (!variety.trim()) missing["품종명"] = "품종명을 적어 주세요.";
       if (!form.storage.trim()) missing["보관"] = "보관 방법을 적어 주세요.";
-      // 판매 전도 '다음'이 판매페이지를 반영하며 새 대표사진을 맨 앞에 넣는다(사진 5장 상한, 3차 scan)
-      if (photoCapHit) missing.photos = PHOTO_CAP_MESSAGE;
+      // 판매 전도 '다음'이 판매페이지를 반영하며 새 대표사진을 맨 앞에 넣는다(사진 10장 상한, 서버도 거절)
+      if (photoCapHit) missing.photos = photoCapMessage(photoOver);
       if (Object.keys(missing).length)
         throw new ApiError(400, { code: "VALIDATION_ERROR", message: Object.values(missing)[0], details: { fields: missing } });
       if (!batch || !target) {
@@ -1901,9 +1914,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             </View>
           </View>
         ) : null}
-        {(!batch ? errorPanel : null) || notice ? (
+        {(topError ? errorPanel : null) || notice ? (
           <View style={{ padding: tokens.space.gutter, gap: 8 }}>
-            {!batch ? errorPanel : null}
+            {topError ? errorPanel : null}
             {notice ? (
               <View accessibilityRole="alert">
                 <T>{notice}</T>
@@ -2112,9 +2125,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                                   setField("photos", next);
                                 }}
                                 onError={setNotice}
-                                // 새로 올린 대표사진은 반영 때 맨 앞에 들어가 지금 사진이 한 칸씩 밀린다(서버 publish). 합계 5장을 넘지 않게
-                                max={coverReplaced ? MAX_PHOTOS - 1 : MAX_PHOTOS}
-                                note={photoCapHit ? PHOTO_CAP_MESSAGE : undefined}
+                                // 새로 올린 대표사진은 반영 때 맨 앞에 들어가 지금 사진이 한 칸씩 밀린다(서버 publish). 합계 MAX_PHOTOS를 넘지 않게
+                                max={MAX_PHOTOS - coverAdds}
+                                note={photoCapHit ? photoCapMessage(photoOver) : undefined}
                               />
                             </FieldFeedback>
                           )}

@@ -582,7 +582,7 @@ test("DEV-361 PM 11/18 C-34: a custom weight option (2.5kg) gets its own price r
   await expect(editor.getByTestId("invalid-field-customWeight")).toHaveCount(0);
   if (shots) await page.screenshot({ path: `${shots}/dev361c-custom-weight-input.png` });
   await field.getByRole("button", { name: "추가", exact: true }).click();
-  await expect(editor.getByRole("checkbox", { name: "2.5kg" })).toBeVisible();
+  await expect(editor.getByRole("checkbox", { name: "2.5kg", exact: true })).toBeVisible();
   // the price grid picks up the new option: one price and box field per period
   const prices = editor.getByLabel("2.5kg 가격", { exact: true });
   const rows = original.stages.length;
@@ -629,5 +629,82 @@ test("DEV-361 PM 11/18 C-34: a custom weight option (2.5kg) gets its own price r
     }
     await discardDraft(request, "p-house");
   }
+  assertClean();
+});
+
+test("DEV-361 4th scan C-33: the product-only composer never drops a photo for a new cover; it asks to remove one", async ({ page, request }) => {
+  test.setTimeout(120000);
+  const assertClean = monitor(page, [/status of 404/]);
+  await page.route("**/api/source-analysis/config", (route) => route.fulfill({ json: { enabled: false } }));
+  await page.route("**/api/source-analysis/product-workspaces/*/product-draft", (route) =>
+    route.fulfill({ status: 404, json: { code: "NOT_FOUND", message: "찾을 수 없어요.", details: {} } }),
+  );
+  const patches: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "PATCH" && r.url().endsWith("/api/products/p-redhyang")) patches.push(r.postData() ?? "");
+  });
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/p-redhyang/detail`);
+  await expect(page.getByTestId("product-basic-info")).toBeVisible();
+  await expect(page).not.toHaveURL(/composer=1/);
+  await fillPhotos(page, 10);
+  const strip = page.getByTestId("extra-photos");
+  await expect(strip.getByRole("button", { name: "사진 추가", exact: true })).toHaveCount(0);
+  await replaceCover(page);
+  // the old tenth photo is still there (11 in all): nothing is cut silently
+  await expect(strip.getByRole("img", { name: "상품 사진 11" })).toBeVisible();
+  const note = strip.getByText("새 대표사진이 맨 앞에 들어가요. 사진은 10장까지라 한 장을 빼 주세요.", { exact: true });
+  await expect(note).toBeVisible();
+  await page.getByRole("button", { name: /^상품에 반영/ }).click();
+  await expect(page.getByTestId("invalid-field-photos")).toBeVisible();
+  await expect(page.getByTestId("apply-confirm")).toHaveCount(0);
+  expect(patches).toHaveLength(0);
+  // one error, not two (4th scan: the top copy is gone when the bottom bar shows it)
+  await expect(page.getByRole("alert").filter({ hasText: "한 장을 빼 주세요" })).toHaveCount(1);
+  await strip.getByRole("button", { name: "상품 사진 11 빼기", exact: true }).click();
+  await expect(note).toHaveCount(0);
+  await expect(page.getByTestId("invalid-field-photos")).toHaveCount(0);
+  assertClean();
+});
+
+test("DEV-361 4th scan C-34: an unchecked option stays as an unchecked box and comes back with its own ID", async ({ page, request }) => {
+  test.skip(!sourceEnabled, "Requires explicitly enabled local source API");
+  const assertClean = monitor(page);
+  const headers = await producerApi(request);
+  const product = await (await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })).json();
+  const five = product.options.find((o: { weightKg: number }) => o.weightKg === 5);
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/p-house/detail`);
+  await expect(page).toHaveURL(/composer=1/);
+  await page.getByRole("button", { name: "판매 조건 고치기", exact: true }).click();
+  const editor = page.getByTestId("sales-terms-editor");
+  // a custom 2.5kg, unchecked, stays as an unchecked box and the same weight typed again re-checks it
+  await editor.getByRole("button", { name: "직접 입력", exact: true }).click();
+  const field = editor.getByTestId("custom-weight");
+  await field.getByLabel("직접 입력 중량", { exact: true }).fill("2.5");
+  await field.getByRole("button", { name: "추가", exact: true }).click();
+  const custom = editor.getByRole("checkbox", { name: "2.5kg", exact: true });
+  await expect(custom).toBeChecked();
+  await custom.click();
+  await expect(custom).not.toBeChecked();
+  await editor.getByRole("button", { name: "직접 입력", exact: true }).click();
+  await field.getByLabel("직접 입력 중량", { exact: true }).fill("2.5");
+  await field.getByRole("button", { name: "추가", exact: true }).click();
+  await expect(editor.getByRole("checkbox", { name: "2.5kg", exact: true })).toHaveCount(1);
+  await expect(custom).toBeChecked();
+  await custom.click();
+  // the seeded 5kg option: off and on again keeps its prices (same option ID)
+  const fivePrice = editor.getByLabel("5kg 가격", { exact: true }).first();
+  const price = await fivePrice.inputValue();
+  await editor.getByRole("checkbox", { name: "5kg", exact: true }).click();
+  await expect(editor.getByLabel("5kg 가격", { exact: true })).toHaveCount(0);
+  await editor.getByRole("checkbox", { name: "5kg", exact: true }).click();
+  await expect(fivePrice).toHaveValue(price);
+  await page.getByRole("button", { name: "수정 담기", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  // nothing changed in the end: no edit counted
+  await expect(page.getByRole("button", { name: "상품에 반영", exact: true })).toBeVisible();
+  expect(five.optionId).toBeTruthy();
+  await discardDraft(request, "p-house");
   assertClean();
 });

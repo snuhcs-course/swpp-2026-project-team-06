@@ -6,7 +6,7 @@ only), PERIOD_LOCKED. Pending-approval changes need no re-approval; admins see a
 
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.catalog.models import CapacityRequest, Product, ProductChangeEvent
 from app.core.db import get_sessionmaker
@@ -847,16 +847,29 @@ def test_DEV_361_product_patch_and_draft_take_at_most_ten_photos(client, login):
 
 
 def test_DEV_361_a_new_cover_never_pushes_the_product_past_ten_photos(client, login):
-    from app.source_analysis.publish import PHOTO_CAP_MESSAGE
+    from app.source_analysis.models import PublicPhoto
+    from app.source_analysis.publish import photo_cap_message
 
     set_modules()
     set_photos("p-house", TEN)
     row = workspace(client, login)
     uploaded_cover(client, login, row)
+
+    def stored():
+        """Public photo rows and stored files (a copied cover writes a file before the row)."""
+        from app.source_analysis.storage import Storage
+
+        with get_sessionmaker()() as db:
+            rows = db.scalar(select(func.count()).select_from(PublicPhoto))
+        return rows, sum(1 for f in Storage().root.rglob("*") if f.is_file())
+
+    copies = stored()
     full = apply_all(client, login, "p-house", row["version"], page=page_draft(client, login, row))
     assert full.status_code == 400, full.text
-    assert full.json()["details"]["fields"]["photos"] == PHOTO_CAP_MESSAGE
+    assert full.json()["details"]["fields"]["photos"] == photo_cap_message(1)
     assert mine(client, login)["photos"] == TEN  # nothing applied, no photo dropped
+    assert stored() == copies  # rejected before the cover was copied (no orphan file)
+    assert photo_cap_message(3).endswith("3장을 빼 주세요.")
 
     # With nine photos the new cover goes first and the product ends with ten.
     view = put_draft(client, login, "p-house", row["version"], {"photos": TEN[:9]}).json()

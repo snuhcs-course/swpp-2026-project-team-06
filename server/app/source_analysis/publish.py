@@ -19,9 +19,14 @@ from app.source_analysis.models import Draft, ProductWorkspace, PublicPhoto
 from app.source_analysis.photos import page_variant
 from app.source_analysis.storage import Storage
 
-PHOTO_CAP_MESSAGE = (
-    f"새 대표사진이 맨 앞에 들어가요. 사진은 {MAX_PRODUCT_PHOTOS}장까지라 한 장을 빼 주세요."
-)
+
+def photo_cap_message(over: int) -> str:
+    """The composer shows the same words (NewProductComposer `photoCapMessage`)."""
+    count = f"{over}장" if over > 1 else "한 장"
+    return (
+        f"새 대표사진이 맨 앞에 들어가요. 사진은 {MAX_PRODUCT_PHOTOS}장까지라 {count}을 빼 주세요."
+    )
+
 
 public_router = APIRouter()
 
@@ -116,6 +121,15 @@ def apply_draft(db, batch, draft, body, apply_cover=False):
             copied[sid] = photo.id
         return {"uri": f"/api/source-media/{copied[sid]}", "alt": "생산자가 제공한 상품사진"}
 
+    if not keeps_cover:
+        # DEV-361 PM 11/18: the new cover goes first; never past 10 photos. Checked before any photo
+        # is copied, so a rejection leaves no stored file behind. Reject (no trimming) so the
+        # producer chooses which photo to drop; the composer counts the same way first.
+        known = representative.product_photo["uri"] if representative.product_photo else None
+        after = len([p for p in product.photos if p != known]) + 1
+        if after > MAX_PRODUCT_PHOTOS:
+            message = photo_cap_message(after - MAX_PRODUCT_PHOTOS)
+            raise invalid({"photos": message}, message)
     cover = None if keeps_cover else copy_photo(representative.id)
     modules = []
     for module in snap["previewModules"]:
@@ -129,12 +143,7 @@ def apply_draft(db, batch, draft, body, apply_cover=False):
             }
         )
     if cover:
-        photos = [cover["uri"], *[p for p in product.photos if p != cover["uri"]]]
-        # DEV-361 PM 11/18: the new cover goes first; never past 10 photos. Reject (no trimming)
-        # so the producer chooses which photo to drop; the composer checks the same first.
-        if len(photos) > MAX_PRODUCT_PHOTOS:
-            raise invalid({"photos": PHOTO_CAP_MESSAGE}, PHOTO_CAP_MESSAGE)
-        product.photos = photos
+        product.photos = [cover["uri"], *[p for p in product.photos if p != cover["uri"]]]
     product.module_detail = {"schemaVersion": 1, "modules": modules}
     product.version += 1
     if workspace:

@@ -209,26 +209,37 @@ export function SalesTermsEditor({
     error: null,
     attempt: 0,
   });
+  // 이 편집에서 끈 옵션(원래 ID·라벨·메모). 다시 켜면 새로 만들지 않고 이것을 되살린다(4차 scan):
+  // 새 ID로 만들면 서버가 예전 옵션을 지우려 하고, 주문이 있으면 409다. 끈 3·5·10kg 밖 옵션은 꺼진 체크 상자로 남는다
+  const [shelf, setShelf] = useState<ProductOption[]>([]);
+  const byKg = (a: { weightKg: number }, b: { weightKg: number }) => a.weightKg - b.weightKg;
+  const turnOn = (w: number) => {
+    const kept = shelf.find((o) => o.weightKg === w);
+    if (kept) setShelf(shelf.filter((o) => o !== kept));
+    set("options", [...t.options, kept ?? weightOption(w)].sort(byKg));
+  };
   const addCustom = () => {
-    const error = customWeightError(custom.value, t.options);
+    // 꺼 둔 옵션과 같은 중량이면 그 옵션을 다시 켠다
+    const error = shelf.some((o) => o.weightKg === custom.value) ? null : customWeightError(custom.value, t.options);
     if (error) return setCustom((c) => ({ ...c, error, attempt: c.attempt + 1 }));
-    set("options", [...t.options, weightOption(custom.value!)].sort((a, b) => a.weightKg - b.weightKg));
+    turnOn(custom.value!);
     setCustom({ open: false, value: null, error: null, attempt: 0 });
   };
-  // 3·5·10kg와 그 밖의 중량(직접 입력했거나 예전에 만든 옵션)을 가벼운 순서로 한 줄에. 끄면 빠진다(PM 11/18)
+  // 3·5·10kg와 그 밖의 중량(직접 입력, 예전 옵션, 이 편집에서 끈 옵션)을 가벼운 순서로 한 줄에(PM 11/18)
   const weightChoices = [
     ...WEIGHTS.map((w) => ({ key: `w-${w}`, weightKg: w, label: `${w}kg` })),
-    ...t.options.filter((o) => !WEIGHTS.includes(o.weightKg)).map((o) => ({ key: o.optionId, weightKg: o.weightKg, label: o.label })),
-  ].sort((a, b) => a.weightKg - b.weightKg);
+    ...[...t.options, ...shelf]
+      .filter((o) => !WEIGHTS.includes(o.weightKg))
+      .map((o) => ({ key: o.optionId, weightKg: o.weightKg, label: o.label })),
+  ].sort(byKg);
   // 기간 가격·박스 줄도 가벼운 순서
-  const byWeight = [...t.options].sort((a, b) => a.weightKg - b.weightKg);
-  const toggleWeight = (w: number) =>
-    set(
-      "options",
-      t.options.some((o) => o.weightKg === w)
-        ? t.options.filter((o) => o.weightKg !== w)
-        : [...t.options, weightOption(w)].sort((a, b) => a.weightKg - b.weightKg),
-    );
+  const byWeight = [...t.options].sort(byKg);
+  const toggleWeight = (w: number) => {
+    const on = t.options.find((o) => o.weightKg === w);
+    if (!on) return turnOn(w);
+    setShelf([...shelf.filter((o) => o.weightKg !== w), on]);
+    set("options", t.options.filter((o) => o !== on));
+  };
   const setRow = (i: number, patch: Partial<TermsRow>) =>
     set("rows", t.rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const setCell = (i: number, optionId: string, patch: Partial<Cell>) =>
