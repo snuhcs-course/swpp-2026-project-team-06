@@ -29,6 +29,7 @@ import { useSession } from "../../../lib/session";
 import { productPhotoUrl } from "../../../lib/sourcePhoto";
 import {
   productGroup,
+  isPreSale,
   productGroups,
   productStatus,
   draftSaved,
@@ -267,12 +268,15 @@ export default function Products() {
             </View>
             <Button label="판매페이지 수정" variant="outline" onPress={() => router.push(`/products/${product.productId}/detail`)} />
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+              {/* 판매 전 상품의 첫 판매 요청은 판매·가격에서만 한다(DEV-361) */}
               <Button
-                label="판매 설정"
+                label={isPreSale(product) ? "판매·가격" : "판매 설정"}
                 variant="secondary"
                 style={{ flex: 1 }}
                 onPress={() =>
-                  router.push(`/products/${product.productId}/sales`)
+                  router.push(
+                    `/products/${product.productId}/${isPreSale(product) ? "sell" : "sales"}`,
+                  )
                 }
               />
               <Button

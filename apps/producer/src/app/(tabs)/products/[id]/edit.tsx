@@ -42,6 +42,7 @@ import { Pressable, View } from "react-native";
 import { DateSheet, NumField, addDays } from "../../../../lib/fields";
 import { pickMedia } from "../../../../lib/pick";
 import { useHideTabBar, useSession } from "../../../../lib/session";
+import { isPreSale } from "../../../../lib/productGroups";
 import {
   FieldButton,
   LoadError,
@@ -53,6 +54,7 @@ import { isServerTrouble, serverErrorCode } from "../../../../lib/producerEvents
 import { track } from "@farmclub/analytics";
 import { seoulToday } from "../../../../lib/HarvestStart";
 import { OriginFieldHint } from "../../../../lib/OriginFieldHint";
+import { FieldFeedback, FieldFeedbackContext } from "../../../../lib/FieldFeedback";
 
 const STATUS: Record<ProductStatus, string> = {
   DRAFT: "초안",
@@ -118,14 +120,21 @@ function Sec({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+// 판매 전 상품이 이 화면에서 채워야 하는 상품 정보 칸(나머지는 판매·가격에서, DEV-361)
+const INFO_FIELDS = ["name", "variety", "origin", "storage"];
+
 export default function EditProduct() {
   useHideTabBar();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // from=sell: 판매·가격의 '상품 편집에서 채우기'로 왔다(DEV-361). 그때 '판매·가격'은 새로 쌓지 않고 돌아간다
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const router = useRouter();
   const [p, setP] = useState<MyProduct | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // 누르면 막힌 칸으로 옮겨 강조한다(버튼은 끄지 않음, PM 11/18 DEV-361)
+  const [invalid, setInvalid] = useState<Record<string, string>>({});
+  const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const pendingSave = useRef<{ body: string; key: string } | null>(null);
@@ -143,6 +152,7 @@ export default function EditProduct() {
     setLoadError(null);
     try {
       const r = await catalog.myProduct(id);
+      productNow.current = r;
       setP(r);
       setForm(toForm(r));
     } catch (e) {
@@ -154,12 +164,34 @@ export default function EditProduct() {
     void load();
   }, [load]);
 
-  // 단계 화면에서 돌아오면 단계 요약만 다시 읽는다(고치던 값은 유지)
+  // 아래 focus 콜백이 렌더 뒤 최신 '고친 게 있음' 여부를 보도록 둔다(값은 dirty 계산 뒤 매 렌더 갱신)
+  const dirtyNow = useRef(false);
+  // 불러오기·저장이 받은 가장 새 상품(렌더를 기다리지 않음)과 포커스 다시 읽기 순번.
+  // 마지막 요청의 응답만 쓰고, 그사이 저장이 더 새 버전을 받았으면 버린다(늦은 응답이 저장 결과를 되돌리지 않게, DEV-361)
+  const productNow = useRef<MyProduct | null>(null);
+  const focusSeq = useRef(0);
+  // 단계 화면에서 돌아오면 단계 요약만 다시 읽는다(고치던 값은 유지).
+  // 이 화면에서 고친 게 없으면 상품을 통째로 새로 채운다: 판매·가격에서 옵션·받는 시기 등을 저장하고 돌아온 경우
+  // 옛 값·옛 버전이 남아 다음 저장이 409로 막히지 않게(DEV-361)
   useFocusEffect(
     useCallback(() => {
+      const seq = ++focusSeq.current;
       catalog
         .myProduct(id)
-        .then((r) =>
+        .then((r) => {
+          const cur = productNow.current;
+          // 처음 불러오기 전(첫 포커스)이면 load()가 채운다
+          if (!cur || seq !== focusSeq.current || r.version < cur.version) return;
+          if (!dirtyNow.current) {
+            productNow.current = r;
+            setP(r);
+            setForm(toForm(r));
+            // 옛 입력에 대한 오류·강조는 새 값과 맞지 않는다
+            setErrors({});
+            setInvalid({});
+            setFailed(null);
+            return;
+          }
           setP((old) =>
             old
               ? {
@@ -182,8 +214,8 @@ export default function EditProduct() {
                   pendingCapacityRequest: r.pendingCapacityRequest,
                 }
               : old,
-          ),
-        )
+          );
+        })
         .catch(() => undefined);
     }, [id]),
   );
@@ -199,10 +231,16 @@ export default function EditProduct() {
     [form, base],
   );
   const dirty = changed.length > 0;
+  dirtyNow.current = dirty;
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => {
     setForm((f) => (f ? { ...f, [k]: v } : f));
     setErrors((e) => ({ ...e, [k]: "" }));
+    setInvalid((f) => {
+      if (!f[k as string]) return f;
+      const { [k as string]: _, ...rest } = f;
+      return rest;
+    });
   };
 
   if (!form || !p) {
@@ -234,7 +272,19 @@ export default function EditProduct() {
     );
   if (!stagesOk) missing.stages = "아직 가격을 정하지 않았어요";
   const missingCount = Object.keys(missing).length;
-  const err = (k: string) => errors[k] || missing[k];
+  // 판매 전 상품은 받는 시기·가격을 판매·가격에서 채우고 거기서 판매 시작을 요청한다(DEV-361).
+  // 이 화면에서만 채우는 상품 정보 칸이 비어 있으면 넘어가지 않고, 빈 칸 표시도 그 칸만 한다.
+  const preSale = isPreSale(p);
+  const infoMissingCount = INFO_FIELDS.filter((k) => missing[k]).length;
+  // 판매 전 상품의 상품 정보 칸은 '다음: 판매·가격'을 누른 뒤에만 빨갛게 보인다(PM 11/18)
+  const err = (k: string) =>
+    errors[k] ||
+    (preSale ? (INFO_FIELDS.includes(k) ? invalid[k] : undefined) : missing[k]);
+  const salesPath = `/products/${id}/${preSale ? "sell" : "sales"}` as const;
+  const toSales = () =>
+    preSale && from === "sell" && router.canGoBack()
+      ? router.back()
+      : router.push(salesPath);
 
   function patch(): ProductPatch {
     const f = form!;
@@ -278,6 +328,7 @@ export default function EditProduct() {
         pendingSave.current = { body: encoded, key: newIdempotencyKey() };
       const r = await catalog.update(id, body, pendingSave.current.key);
       pendingSave.current = null;
+      productNow.current = r;
       setP(r);
       setForm(toForm(r));
       toast("저장했어요");
@@ -298,6 +349,16 @@ export default function EditProduct() {
   }
 
   async function publish() {
+    // 판매 전 상품: 상품 정보가 비면 넘어가지 않고 그 칸으로 옮겨 강조한다(PM 11/18, DEV-361)
+    if (preSale && infoMissingCount > 0) {
+      const blocked = Object.fromEntries(
+        INFO_FIELDS.filter((k) => missing[k]).map((k) => [k, missing[k]]),
+      );
+      setInvalid(blocked);
+      setAttempt((n) => n + 1);
+      track("form_error_shown", { screen: "product_edit", code: missing.variety ? "variety_required" : "other" });
+      return;
+    }
     setPublishing(true);
     setFailed(null);
     try {
@@ -305,7 +366,7 @@ export default function EditProduct() {
         const ok = await save();
         if (!ok) return;
       }
-      router.push(`/products/${id}/sales`);
+      toSales();
     } catch (e) {
       if (failToast(e, () => void publish())) return;
       if (!isServerTrouble(e)) track("form_error_shown", { screen: "product_edit", code: serverErrorCode(e) });
@@ -361,6 +422,7 @@ export default function EditProduct() {
   };
 
   return (
+    <FieldFeedbackContext.Provider value={{ fields: invalid, clear: () => {}, attempt }}>
     <Screen>
       <HeaderBar title="상품 편집" onBack={back} />
       <Scroll bottom={140}>
@@ -399,7 +461,13 @@ export default function EditProduct() {
             style={{ marginHorizontal: 20, marginTop: 20 }}
           />
         ) : null}
-        {missingCount && !closed && p.status !== "PENDING_APPROVAL" ? (
+        {/* 판매 전 상품은 이 화면에만 있는 상품 정보 칸만 센다(받는 시기·가격은 판매·가격에서, DEV-361) */}
+        {preSale && infoMissingCount ? (
+          <Notice
+            title={`빈 칸 ${infoMissingCount}개를 채우면 판매·가격으로 넘어갈 수 있어요`}
+            style={{ marginHorizontal: 20, marginTop: 20 }}
+          />
+        ) : !preSale && missingCount && !closed && p.status !== "PENDING_APPROVAL" ? (
           <Notice
             title={`빈 칸 ${missingCount}개를 채우면 게시를 요청할 수 있어요`}
             style={{ marginHorizontal: 20, marginTop: 20 }}
@@ -493,20 +561,24 @@ export default function EditProduct() {
         </Sec>
 
         <Sec title="기본 정보">
-          <Input
-            label="상품명"
-            value={form.name}
-            onChangeText={(v) => set("name", v)}
-            error={err("name")}
-            maxLength={40}
-          />
-          <Input
-            label="품종"
-            value={form.variety}
-            onChangeText={(v) => set("variety", v)}
-            error={err("variety")}
-            maxLength={30}
-          />
+          <FieldFeedback field="name" outline={false}>
+            <Input
+              label="상품명"
+              value={form.name}
+              onChangeText={(v) => set("name", v)}
+              error={err("name")}
+              maxLength={40}
+            />
+          </FieldFeedback>
+          <FieldFeedback field="variety" outline={false}>
+            <Input
+              label="품종"
+              value={form.variety}
+              onChangeText={(v) => set("variety", v)}
+              error={err("variety")}
+              maxLength={30}
+            />
+          </FieldFeedback>
           <Input
             label="설명"
             value={form.description}
@@ -516,23 +588,29 @@ export default function EditProduct() {
             maxLength={1000}
           />
           <View style={{ flexDirection: "row", gap: 12 }}>
-            <Input
-              label="원산지"
-              error={err("origin")}
-              value={form.origin}
-              placeholder="예: 서귀포시"
-              onChangeText={(v) => set("origin", v)}
-              style={{ flex: 1 }}
-              maxLength={30}
-            />
-            <Input
-              label="보관"
-              error={err("storage")}
-              value={form.storage}
-              onChangeText={(v) => set("storage", v)}
-              style={{ flex: 1 }}
-              maxLength={30}
-            />
+            <View style={{ flex: 1 }}>
+              <FieldFeedback field="origin" outline={false}>
+                <Input
+                  label="원산지"
+                  error={err("origin")}
+                  value={form.origin}
+                  placeholder="예: 서귀포시"
+                  onChangeText={(v) => set("origin", v)}
+                  maxLength={30}
+                />
+              </FieldFeedback>
+            </View>
+            <View style={{ flex: 1 }}>
+              <FieldFeedback field="storage" outline={false}>
+                <Input
+                  label="보관"
+                  error={err("storage")}
+                  value={form.storage}
+                  onChangeText={(v) => set("storage", v)}
+                  maxLength={30}
+                />
+              </FieldFeedback>
+            </View>
           </View>
           {/* DEV-121: 원산지 표시 형식과 안내 화면 */}
           <OriginFieldHint />
@@ -571,11 +649,13 @@ export default function EditProduct() {
             onPress={() => setSheet("options")}
           />
           <Button
-            label={`물량·판매 설정 · 승인 ${p.approvedSupplyGrams / 1000}kg`}
-            variant="outline"
-            onPress={() =>
-              void save(() => router.push(`/products/${id}/sales`))
+            label={
+              preSale
+                ? "판매·가격"
+                : `물량·판매 설정 · 승인 ${p.approvedSupplyGrams / 1000}kg`
             }
+            variant="outline"
+            onPress={() => void save(toSales)}
           />
         </Sec>
 
@@ -630,7 +710,10 @@ export default function EditProduct() {
         <Pressable
           accessibilityRole="link"
           disabled={saving}
-          onPress={() => void save(() => router.push(`/products/${id}/stages`))}
+          // 판매 전 상품의 기간·가격은 판매·가격에서 정한다(DEV-361)
+          onPress={() =>
+            void save(preSale ? toSales : () => router.push(`/products/${id}/stages`))
+          }
           style={{
             marginHorizontal: 20,
             marginTop: 40,
@@ -652,6 +735,11 @@ export default function EditProduct() {
               <T variant="sub" muted>
                 {p.stages.length}개 기간
                 {firstPrice ? ` · ${won(firstPrice)}부터` : ""}
+              </T>
+            ) : preSale ? (
+              // 판매 전 상품의 가격은 판매·가격에서 정한다(DEV-361) — 오류로 보이지 않는다
+              <T variant="sub" muted>
+                판매·가격에서 정해요
               </T>
             ) : (
               <T variant="sub" color={tokens.color.error}>
@@ -690,18 +778,13 @@ export default function EditProduct() {
             />
             <Button
               label={
-                p.status === "PUBLISHED"
-                  ? "물량·판매 설정"
-                  : p.status === "PENDING_APPROVAL"
-                    ? "물량 심사 확인"
-                    : "공급 물량 신청"
+                p.status === "PENDING_APPROVAL"
+                  ? "물량 심사 확인"
+                  : preSale
+                    ? "다음: 판매·가격"
+                    : "물량·판매 설정"
               }
               size="producer"
-              disabled={
-                p.status !== "PUBLISHED" &&
-                p.status !== "PENDING_APPROVAL" &&
-                missingCount > 0
-              }
               loading={publishing}
               onPress={publish}
               style={{ flex: 2 }}
@@ -876,5 +959,6 @@ export default function EditProduct() {
         </View>
       </Sheet>
     </Screen>
+    </FieldFeedbackContext.Provider>
   );
 }

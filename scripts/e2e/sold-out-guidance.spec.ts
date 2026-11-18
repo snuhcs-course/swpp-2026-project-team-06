@@ -268,9 +268,11 @@ test("SCR-26 AC-04-9 DEV-345: an unapproved product goes back after saving perio
   // 승인 전이라 한도 0 → 서버는 TOTAL_SOLD_OUT이지만 품절 안내 대상이 아니다
   const saved = await api.read(draft.productId);
   expect(saved.availability).toBe("TOTAL_SOLD_OUT");
+  // DEV-361: 판매 전 상품은 물량·판매 설정 대신 판매·가격으로 옮긴다(첫 판매 요청은 거기서만)
   await page.goto(`${producerUrl}/products/${draft.productId}/sales`);
-  await expect(page.getByText("공급 물량을 확인한 뒤 예약을 시작해요", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "공급 물량 승인 요청" })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/products/${draft.productId}/sell$`));
+  await expect(page.getByText("판매를 시작하려면 판매·가격을 먼저 채워 주세요", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "판매 시작 요청" })).toBeVisible();
   await expect(page.getByText("전체 물량 품절")).toHaveCount(0);
   await expect(page.getByText("기간·가격을 저장했어요.")).toHaveCount(0);
   assertClean();
