@@ -639,6 +639,7 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 - **WHEN** the buyer, following my farm or not, opens their chat list and our chat
 - **THEN** the chat is listed, my message is visible, and they can reply with an ordinary message without choosing an order, including a chat-level photo such as a deposit receipt (order-level photos and an order attached to a message stay paid-only)
 - **AND** this order is not made a linked order of the chat, so following after it was opened, or unfollowing after, keeps it a normal chat that stays visible while the deposit is awaited; if the order is canceled without payment a non-follower no longer sees it; once the deposit is confirmed it stays visible. Buyers still cannot start an order chat themselves from an unpaid order
+- **AND** a chat I only opened from the order without any message (and with no order chat or inquiry the buyer opened) is not listed for a buyer who does not follow my farm; it appears once any message exists. A follower's list and my own chat list do not change (DEV-362)
 
 ### FEAT-13: Answers and handoff
 
