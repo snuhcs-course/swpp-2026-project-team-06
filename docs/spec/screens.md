@@ -698,6 +698,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `GET /admin/capacity-requests` | 운영자 | `status`(`PENDING` 기본·`APPROVED`·`REJECTED`·`WITHDRAWN`·`ALL`), `kind`(`real` 기본·`test`·`all`, DEV-307) | 공급 물량 신청 목록(신청 필드 + 상품 이름·상태, 농가 ID·이름, 현재 승인량·판매 한도, 농가 주인 `producerId`·`accountKind`·`withdrawn`), 신청 최신순. 관리자 페이지 공급 물량 승인(DEV-87)이 쓴다 | FEAT-04, R-25 | Should |
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/approve` | 운영자 | version | 공급 총중량 승인. 1.4 계약 | FEAT-04, R-25 | Must |
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/reject` | 운영자 | version,reason | 신청 반려, 기존 판매 유지 | FEAT-04 | Must |
+| `GET /admin/products/{productId}/changes` | 운영자 | `limit` | 생산자가 '상품에 반영'으로 바꾼 기록, 최신순(`eventId`, `productStatus`, `actorUserId`, `changes[{field,label,before,after}]`, `pageChanged`, `deliveryWindowProposed`, `reservedCount`, `createdAt`). 승인 대기 상품 변경은 다시 승인받지 않고 여기에만 남는다. 공급 물량 신청 목록 줄에는 `changesSinceRequest`(신청부터 결정까지의 반영 횟수, DEV-361, [source-integration.md](./source-integration.md)) | FEAT-04, R-25 | Should |
 | `POST /admin/orders/{orderId}/delivered` | 운영자, `Idempotency-Key` | — | `DELIVERED`, 배송 완료일 | FEAT-10, R-19 | Should |
 | `POST /admin/orders/{orderId}/confirm-deposit` | 운영자, `Idempotency-Key` | — | 생산자 대신 입금 확인 → `RESERVED` (DEV-68) | FEAT-09, R-28 | Should |
 | `POST /admin/orders/expire-deposits` | 운영자 | — | 기한 지난 입금 대기 주문을 일괄 취소·물량 복구, 바뀐 수 | FEAT-09, R-28 | Should |
