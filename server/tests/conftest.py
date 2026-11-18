@@ -19,6 +19,12 @@ os.environ["MOCK_LOGIN_ENABLED"] = "true"
 os.environ["APP_ENV"] = "local"
 os.environ["ANTHROPIC_API_KEY"] = ""
 
+# DEV-355: an empty env value is ignored (env_ignore_empty), so a developer's server/.env
+# could still supply live AI keys and providers. Tests read no .env file, same as CI.
+from app.core import config as _config  # noqa: E402
+
+_config.Settings.model_config["env_file"] = None
+
 
 def _ensure_test_database() -> None:
     admin = _base_url.set(drivername="postgresql", database="postgres")
