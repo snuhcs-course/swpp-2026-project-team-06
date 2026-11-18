@@ -21,6 +21,7 @@ from app.orders.schemas import (
     DashboardStage,
     DashboardStageOption,
     DashboardTodo,
+    HarvestedOrders,
     HarvestStarted,
     HarvestTarget,
     OrderInput,
@@ -989,7 +990,8 @@ def dashboard(db: Session, farm) -> Dashboard:
                 1 for o in farm_orders if o.status == "REFUNDED" and o.id in unsettled
             ),
             has_account=farms.has_deposit_account(farm),
-            to_harvest=sum(t.count for t in targets if t.closed),
+            # DEV-361(PM 11/18): 예약 탭 '수확 시작 · n건'과 같은 수 = 농가의 모든 예약 완료 주문
+            to_harvest=sum(1 for o in farm_orders if o.status == "RESERVED"),
             harvest_targets=targets,
         ),
         product=product,
@@ -1114,6 +1116,7 @@ def harvest_start(
     """수확 시작 = 출하 준비 시작(DEV-231, FEAT-17 AC-17-11).
 
     그 기간(없으면 상품 전체)의 예약 완료 주문만 출하 준비로 옮긴다. 입금 대기·환불·취소는 그대로.
+    DEV-361부터 앱은 `harvest_orders`(고른 주문)를 쓴다. 이 함수는 예전 앱 빌드 호환으로 남긴다.
     """
     from app.admin.models import ManagerEvent
     from app.catalog import service as catalog
@@ -1148,6 +1151,62 @@ def harvest_start(
         )
     db.flush()
     return HarvestStarted(changed=len(orders), stage_id=stage_id, order_ids=order_ids)
+
+
+def harvest_orders(
+    db: Session, farm_id: str, actor_id: str, order_ids: list[str]
+) -> HarvestedOrders:
+    """고른 주문 수확 시작 = 출하 준비 시작(DEV-361, FEAT-17 AC-17-11).
+
+    예약 기간과 상관없이 생산자가 주문·출하 화면 예약 탭에서 고른 자기 농가 주문 중 지금 예약 완료인
+    것만 출하 준비로 옮긴다. 하나라도 없거나 다른 농가 주문이면 404이고 아무것도 바꾸지 않는다.
+    그새 예약 완료가 아니게 된 주문(소비자 취소·이미 옮김 등)은 건너뛰고 옮긴 수만 센다.
+    """
+    from app.admin.models import ManagerEvent
+    from app.catalog.models import Product
+
+    wanted = list(dict.fromkeys(order_ids))
+    own = set(
+        db.scalars(
+            select(Order.id)
+            .join(Product, Product.id == Order.product_id)
+            .where(Order.id.in_(wanted), Product.farm_id == farm_id, PRODUCER_VISIBLE)
+        )
+    )
+    if len(own) != len(wanted):
+        raise not_found("찾을 수 없는 주문이에요.")
+    # 잠근 뒤 다시 본다: 그새 소비자가 취소했으면 RESERVED 조건에서 빠진다
+    orders = list(
+        db.scalars(
+            select(Order)
+            .where(Order.id.in_(wanted), Order.status == "RESERVED")
+            .order_by(Order.created_at, Order.id)
+            .with_for_update()
+        )
+    )
+    for order in orders:
+        order.status = "PREPARING"
+    moved = [o.id for o in orders]
+    if orders:
+        timestamp = now()
+        db.add(
+            ManagerEvent(
+                id=new_id("manager-event"),
+                event_type="orders.harvest_started",
+                actor_id=actor_id,
+                target_type="farm",
+                target_id=farm_id,
+                request_summary={"orderIds": wanted},
+                result={"changed": len(orders), "orderIds": moved},
+                status="SUCCEEDED",
+                retryable=False,
+                attempts=1,
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+        )
+    db.flush()
+    return HarvestedOrders(changed=len(moved), order_ids=moved, skipped=len(wanted) - len(moved))
 
 
 def ship_order(

@@ -1,36 +1,23 @@
+// 예약 기간·가격(SCR-26). 수확 시작은 기간별이 아니라 주문·출하 예약 탭에서 한 번에 한다(DEV-361)
 import {
   ApiError,
   catalog,
   newIdempotencyKey,
   type MyProduct,
-  type MyStage,
   type StageInput,
 } from "@farmclub/api";
 import { Button, HeaderBar, Notice, Screen, Scroll, T, tokens } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Platform, View } from "react-native";
-import { HarvestRow, HarvestSheet } from "../../../../lib/HarvestStart";
+import { View } from "react-native";
 import { DateInput, NumField, addDays } from "../../../../lib/fields";
-import { useHideTabBar, useSession } from "../../../../lib/session";
+import { useHideTabBar } from "../../../../lib/session";
 import { seoulToday } from "../../../../lib/HarvestStart";
 import { goBackOr } from "../../../../lib/nav";
 type Row = Omit<StageInput, "options"> & {
   key: string;
   options: Record<string, { price: number | null; quantity: number | null }>;
 };
-/** 저장 안 한 값이 있는지 비교할 모양(DEV-231: 있으면 수확 버튼을 막는다) */
-const snap = (rows: Row[]) =>
-  JSON.stringify(
-    rows.map((r) => ({
-      stageId: r.stageId ?? null,
-      startsAt: r.startsAt,
-      endsAt: r.endsAt,
-      options: Object.entries(r.options)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, v]) => [k, v.price, v.quantity]),
-    })),
-  );
 const kg = (g: number) =>
   `${(g / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg`;
 /** 웹에서 그 자리로 스크롤한다(네이티브 View에는 scrollIntoView가 없어 아무 일도 안 한다) */
@@ -41,16 +28,11 @@ function reveal(node: unknown) {
 }
 export default function Periods() {
   useHideTabBar();
-  const { id, stage: focus, from } = useLocalSearchParams<{
+  const { id, from } = useLocalSearchParams<{
       id: string;
-      stage?: string;
       from?: string;
     }>(),
     router = useRouter(),
-    { toast } = useSession(),
-    [saved, setSaved] = useState(""),
-    [harvestFor, setHarvestFor] = useState<MyStage | null>(null),
-    [notice, setNotice] = useState<string | null>(null),
     [p, setP] = useState<MyProduct | null>(null),
     [rows, setRows] = useState<Row[]>([]),
     [error, setError] = useState(""),
@@ -86,7 +68,6 @@ export default function Periods() {
         }))
       : [blank(r)];
     setRows(next);
-    setSaved(r.stages.length ? snap(next) : "");
   }
   const load = async () => {
     try {
@@ -100,15 +81,6 @@ export default function Periods() {
   useEffect(() => {
     void load();
   }, [id]);
-  // 현황·주문 현황에서 온 기간 카드로 스크롤(DEV-231)
-  useEffect(() => {
-    if (!p || !focus || Platform.OS !== "web") return;
-    const el = (globalThis as { document?: Document }).document?.getElementById(
-      `stage-${focus}`,
-    );
-    el?.scrollIntoView({ block: "center" });
-  }, [p, focus]);
-  const dirty = !!saved && snap(rows) !== saved;
   useEffect(() => {
     if ((error && errorAt === "save") || stillSoldOut !== null)
       reveal(saveResult.current);
@@ -193,7 +165,6 @@ export default function Periods() {
               그대로예요.
             </T>
           ) : null}
-          {notice ? <Notice title={notice} /> : null}
           {error && errorAt === "load" ? (
             <View accessibilityRole="alert" style={{ gap: 8 }}>
               <T color={tokens.color.error}>{error}</T>
@@ -219,7 +190,6 @@ export default function Periods() {
                 return (
                   <View
                     key={r.key}
-                    nativeID={r.stageId ? `stage-${r.stageId}` : undefined}
                     style={{
                       padding: 18,
                       gap: 18,
@@ -323,15 +293,6 @@ export default function Periods() {
                         ) : null}
                       </View>
                     ))}
-                    {old ? (
-                      <HarvestRow
-                        stage={old}
-                        dirty={dirty}
-                        busy={busy}
-                        onStart={() => setHarvestFor(old)}
-                        onOpenPreparing={() => router.push("/ship?status=PREPARING")}
-                      />
-                    ) : null}
                   </View>
                 );
               })
@@ -390,23 +351,6 @@ export default function Periods() {
           ) : null}
         </View>
       </Scroll>
-      <HarvestSheet
-        productId={id}
-        productName={p?.name ?? ""}
-        stage={harvestFor}
-        onClose={() => setHarvestFor(null)}
-        onDone={(changed) => {
-          setHarvestFor(null);
-          setNotice(null);
-          toast(`${changed}건을 출하 준비로 옮겼어요`);
-          void load();
-        }}
-        onStale={() => {
-          setHarvestFor(null);
-          setNotice("이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.");
-          void load();
-        }}
-      />
     </Screen>
   );
 }
