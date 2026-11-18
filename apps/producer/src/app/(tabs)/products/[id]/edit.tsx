@@ -42,6 +42,7 @@ import { Pressable, View } from "react-native";
 import { DateSheet, NumField, addDays } from "../../../../lib/fields";
 import { pickMedia } from "../../../../lib/pick";
 import { useHideTabBar, useSession } from "../../../../lib/session";
+import { isPreSale } from "../../../../lib/productGroups";
 import {
   FieldButton,
   LoadError,
@@ -118,9 +119,13 @@ function Sec({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+// 판매 전 상품이 이 화면에서 채워야 하는 상품 정보 칸(나머지는 판매·가격에서, DEV-361)
+const INFO_FIELDS = ["name", "variety", "origin", "storage"];
+
 export default function EditProduct() {
   useHideTabBar();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // from=sell: 판매·가격의 '상품 편집에서 채우기'로 왔다(DEV-361). 그때 '판매·가격'은 새로 쌓지 않고 돌아간다
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const router = useRouter();
   const [p, setP] = useState<MyProduct | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -143,6 +148,7 @@ export default function EditProduct() {
     setLoadError(null);
     try {
       const r = await catalog.myProduct(id);
+      productNow.current = r;
       setP(r);
       setForm(toForm(r));
     } catch (e) {
@@ -154,12 +160,33 @@ export default function EditProduct() {
     void load();
   }, [load]);
 
-  // 단계 화면에서 돌아오면 단계 요약만 다시 읽는다(고치던 값은 유지)
+  // 아래 focus 콜백이 렌더 뒤 최신 '고친 게 있음' 여부를 보도록 둔다(값은 dirty 계산 뒤 매 렌더 갱신)
+  const dirtyNow = useRef(false);
+  // 불러오기·저장이 받은 가장 새 상품(렌더를 기다리지 않음)과 포커스 다시 읽기 순번.
+  // 마지막 요청의 응답만 쓰고, 그사이 저장이 더 새 버전을 받았으면 버린다(늦은 응답이 저장 결과를 되돌리지 않게, DEV-361)
+  const productNow = useRef<MyProduct | null>(null);
+  const focusSeq = useRef(0);
+  // 단계 화면에서 돌아오면 단계 요약만 다시 읽는다(고치던 값은 유지).
+  // 이 화면에서 고친 게 없으면 상품을 통째로 새로 채운다: 판매·가격에서 옵션·받는 시기 등을 저장하고 돌아온 경우
+  // 옛 값·옛 버전이 남아 다음 저장이 409로 막히지 않게(DEV-361)
   useFocusEffect(
     useCallback(() => {
+      const seq = ++focusSeq.current;
       catalog
         .myProduct(id)
-        .then((r) =>
+        .then((r) => {
+          const cur = productNow.current;
+          // 처음 불러오기 전(첫 포커스)이면 load()가 채운다
+          if (!cur || seq !== focusSeq.current || r.version < cur.version) return;
+          if (!dirtyNow.current) {
+            productNow.current = r;
+            setP(r);
+            setForm(toForm(r));
+            // 옛 입력에 대한 오류는 새 값과 맞지 않는다
+            setErrors({});
+            setFailed(null);
+            return;
+          }
           setP((old) =>
             old
               ? {
@@ -182,8 +209,8 @@ export default function EditProduct() {
                   pendingCapacityRequest: r.pendingCapacityRequest,
                 }
               : old,
-          ),
-        )
+          );
+        })
         .catch(() => undefined);
     }, [id]),
   );
@@ -199,6 +226,7 @@ export default function EditProduct() {
     [form, base],
   );
   const dirty = changed.length > 0;
+  dirtyNow.current = dirty;
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => {
     setForm((f) => (f ? { ...f, [k]: v } : f));
@@ -234,7 +262,17 @@ export default function EditProduct() {
     );
   if (!stagesOk) missing.stages = "아직 가격을 정하지 않았어요";
   const missingCount = Object.keys(missing).length;
-  const err = (k: string) => errors[k] || missing[k];
+  // 판매 전 상품은 받는 시기·가격을 판매·가격에서 채우고 거기서 판매 시작을 요청한다(DEV-361).
+  // 이 화면에서만 채우는 상품 정보 칸이 비어 있으면 넘어가지 않고, 빈 칸 표시도 그 칸만 한다.
+  const preSale = isPreSale(p);
+  const infoMissingCount = INFO_FIELDS.filter((k) => missing[k]).length;
+  const err = (k: string) =>
+    errors[k] || (preSale && !INFO_FIELDS.includes(k) ? undefined : missing[k]);
+  const salesPath = `/products/${id}/${preSale ? "sell" : "sales"}` as const;
+  const toSales = () =>
+    preSale && from === "sell" && router.canGoBack()
+      ? router.back()
+      : router.push(salesPath);
 
   function patch(): ProductPatch {
     const f = form!;
@@ -278,6 +316,7 @@ export default function EditProduct() {
         pendingSave.current = { body: encoded, key: newIdempotencyKey() };
       const r = await catalog.update(id, body, pendingSave.current.key);
       pendingSave.current = null;
+      productNow.current = r;
       setP(r);
       setForm(toForm(r));
       toast("저장했어요");
@@ -305,7 +344,7 @@ export default function EditProduct() {
         const ok = await save();
         if (!ok) return;
       }
-      router.push(`/products/${id}/sales`);
+      toSales();
     } catch (e) {
       if (failToast(e, () => void publish())) return;
       if (!isServerTrouble(e)) track("form_error_shown", { screen: "product_edit", code: serverErrorCode(e) });
@@ -399,7 +438,13 @@ export default function EditProduct() {
             style={{ marginHorizontal: 20, marginTop: 20 }}
           />
         ) : null}
-        {missingCount && !closed && p.status !== "PENDING_APPROVAL" ? (
+        {/* 판매 전 상품은 이 화면에만 있는 상품 정보 칸만 센다(받는 시기·가격은 판매·가격에서, DEV-361) */}
+        {preSale && infoMissingCount ? (
+          <Notice
+            title={`빈 칸 ${infoMissingCount}개를 채우면 판매·가격으로 넘어갈 수 있어요`}
+            style={{ marginHorizontal: 20, marginTop: 20 }}
+          />
+        ) : !preSale && missingCount && !closed && p.status !== "PENDING_APPROVAL" ? (
           <Notice
             title={`빈 칸 ${missingCount}개를 채우면 게시를 요청할 수 있어요`}
             style={{ marginHorizontal: 20, marginTop: 20 }}
@@ -571,11 +616,13 @@ export default function EditProduct() {
             onPress={() => setSheet("options")}
           />
           <Button
-            label={`물량·판매 설정 · 승인 ${p.approvedSupplyGrams / 1000}kg`}
-            variant="outline"
-            onPress={() =>
-              void save(() => router.push(`/products/${id}/sales`))
+            label={
+              preSale
+                ? "판매·가격"
+                : `물량·판매 설정 · 승인 ${p.approvedSupplyGrams / 1000}kg`
             }
+            variant="outline"
+            onPress={() => void save(toSales)}
           />
         </Sec>
 
@@ -630,7 +677,10 @@ export default function EditProduct() {
         <Pressable
           accessibilityRole="link"
           disabled={saving}
-          onPress={() => void save(() => router.push(`/products/${id}/stages`))}
+          // 판매 전 상품의 기간·가격은 판매·가격에서 정한다(DEV-361)
+          onPress={() =>
+            void save(preSale ? toSales : () => router.push(`/products/${id}/stages`))
+          }
           style={{
             marginHorizontal: 20,
             marginTop: 40,
@@ -652,6 +702,11 @@ export default function EditProduct() {
               <T variant="sub" muted>
                 {p.stages.length}개 기간
                 {firstPrice ? ` · ${won(firstPrice)}부터` : ""}
+              </T>
+            ) : preSale ? (
+              // 판매 전 상품의 가격은 판매·가격에서 정한다(DEV-361) — 오류로 보이지 않는다
+              <T variant="sub" muted>
+                판매·가격에서 정해요
               </T>
             ) : (
               <T variant="sub" color={tokens.color.error}>
@@ -690,18 +745,14 @@ export default function EditProduct() {
             />
             <Button
               label={
-                p.status === "PUBLISHED"
-                  ? "물량·판매 설정"
-                  : p.status === "PENDING_APPROVAL"
-                    ? "물량 심사 확인"
-                    : "공급 물량 신청"
+                p.status === "PENDING_APPROVAL"
+                  ? "물량 심사 확인"
+                  : preSale
+                    ? "다음: 판매·가격"
+                    : "물량·판매 설정"
               }
               size="producer"
-              disabled={
-                p.status !== "PUBLISHED" &&
-                p.status !== "PENDING_APPROVAL" &&
-                missingCount > 0
-              }
+              disabled={preSale && infoMissingCount > 0}
               loading={publishing}
               onPress={publish}
               style={{ flex: 2 }}

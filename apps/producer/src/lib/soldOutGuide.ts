@@ -15,7 +15,7 @@ export type SoldOutGuide = {
 /**
  * DEV-345: 물량·판매 설정(`products/[id]/sales.tsx`) 맨 위 안내. 판매 중(PUBLISHED) 품절 상품의 다음 행동 안내. 전체 물량 품절은 판매 한도·승인 물량 중 무엇을 늘려야 하는지,
  * 이번 기간 품절은 박스 수를 늘리면 된다고 알린다. 그 밖의 상태는 안내하지 않는다(null).
- * 승인 전 상품은 한도가 0이라 서버가 TOTAL_SOLD_OUT을 주지만 이 화면은 ‘공급 물량 승인 요청’ 화면이라 안내하지 않는다.
+ * 승인 전 상품은 한도가 0이라 서버가 TOTAL_SOLD_OUT을 주지만 안내하지 않는다(심사 중은 상태만 보이고, 작성 중·반려는 판매·가격으로 옮긴다, DEV-361).
  */
 export function soldOutGuide(
   p: Pick<
