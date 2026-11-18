@@ -670,6 +670,31 @@ def test_DEV_304_kept_capacity_request_forgets_deleted_decider():
     assert report.nulled["capacity_requests.decided_by"] == 1
 
 
+def test_DEV_361_kept_product_change_history_forgets_deleted_actor():
+    # 남는 상품(p-house, f-kang)의 변경 기록은 남기고, 지워지는 사람을 가리키면 비운다
+    with get_sessionmaker()() as s, s.begin():
+        for event_id, actor in (("pchg-kept", "u-kang"), ("pchg-gone", "u-minji")):
+            s.execute(
+                insert(t("product_change_events")).values(
+                    id=event_id,
+                    product_id="p-house",
+                    actor_user_id=actor,
+                    product_status="PUBLISHED",
+                    changes=[],
+                    page_changed=False,
+                    delivery_window_proposed=False,
+                    reserved_count=0,
+                    created_at=WHEN,
+                )
+            )
+    report = purge(KEEP, commit=True, **GUARDS)
+    assert {r["id"]: r["actor_user_id"] for r in rows("product_change_events")} == {
+        "pchg-kept": "u-kang",
+        "pchg-gone": None,
+    }
+    assert report.nulled["product_change_events.actor_user_id"] == 1
+
+
 @pytest.mark.parametrize(
     ("table", "row_id", "values"),
     [

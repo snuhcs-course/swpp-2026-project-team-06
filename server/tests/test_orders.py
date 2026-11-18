@@ -639,8 +639,8 @@ def test_AC_14_1_dashboard_counts(client, login):
         "awaitingDeposit": 0,
         "refundsToSettle": 1,
         "hasAccount": True,
-        # DEV-231: 1단계(10-12까지)는 아직 열려 있어 할 일 수에는 안 들어간다
-        "toHarvest": 0,
+        # DEV-361(PM 11/18): 기간이 열려 있어도 모든 예약 완료 주문을 센다(예약 탭 버튼과 같은 수)
+        "toHarvest": 30,
         "harvestTargets": [
             {
                 "productId": "p-house",

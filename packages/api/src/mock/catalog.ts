@@ -79,7 +79,7 @@ function myStages(p: ProductRec): MyStage[] {
   });
 }
 
-function myProduct(p: ProductRec): MyProduct {
+export function myProduct(p: ProductRec): MyProduct {
   return {
     ...salesState(db(), p),
     productId: p.productId,

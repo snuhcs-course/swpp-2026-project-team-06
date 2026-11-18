@@ -100,6 +100,32 @@ class AdminCapacityRequest(CapacityRequestView):
     producer_id: str
     account_kind: AccountKind
     withdrawn: bool
+    # 신청부터 결정까지(심사 중이면 지금까지) 생산자가 '상품에 반영'한 횟수(DEV-361, 승인 대기
+    # 상품은 다시 승인받지 않는다)
+    changes_since_request: int = 0
+
+
+class ProductChange(CamelModel):
+    """바뀐 칸 하나(DEV-361). before·after는 사람이 읽는 요약 문구, 없으면 None."""
+
+    field: str
+    label: str
+    before: str | None = None
+    after: str | None = None
+
+
+class ProductChangeEventView(CamelModel):
+    """운영자에게만 보이는 상품 변경 기록 한 줄(DEV-361)."""
+
+    event_id: str
+    product_id: str
+    product_status: ProductStatus
+    actor_user_id: str | None
+    changes: list[ProductChange]
+    page_changed: bool
+    delivery_window_proposed: bool
+    reserved_count: int
+    created_at: datetime
 
 
 class ProductCard(SalesState):

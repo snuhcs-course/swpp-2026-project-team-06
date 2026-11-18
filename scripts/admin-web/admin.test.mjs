@@ -116,11 +116,12 @@ test("중계는 가입 신청·공급 물량 경로만 넘기고 나머지 관�
     ["/admin/capacity-requests?status=ALL", "GET"],
     ["/admin/products/p-1/capacity-requests/capacity-p-1/approve", "POST"],
     ["/admin/products/p-1/capacity-requests/capacity-p-1/reject", "POST"],
+    ["/admin/products/p-1/changes", "GET"], // 상품 변경 기록(DEV-361)
   ]) {
     assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
   }
   // 주문 환불은 DEV-106 사용자 화면에서 허용했다. 여전히 막는 운영 API로 확인한다
-  for (const path of ["/admin/orders/expire-deposits", "/admin/products/p-1/capacity-requests", "/admin/capacity-requests/../orders"]) {
+  for (const path of ["/admin/orders/expire-deposits", "/admin/products/p-1/capacity-requests", "/admin/capacity-requests/../orders", "/admin/products/p-1/changes/../capacity-requests"]) {
     assert.equal((await go(path, "POST")).status, 400, path);
   }
 });
@@ -132,6 +133,7 @@ test("공급 물량 승인 화면도 로그인해야 열린다 (DEV-87)", async 
   const ok = await call(page, { url: "/api/page?name=capacity", headers: { cookie } });
   assert.equal(ok.status, 200);
   assert.match(ok.body, /공급 물량 승인/);
+  assert.match(ok.body, /변경 기록 보기/); // 신청 뒤 생산자 변경 기록(DEV-361)
 });
 
 test("중계는 테스트 농가 목록·미리보기·숨기기·되돌리기만 넘긴다 (DEV-98)", async () => {

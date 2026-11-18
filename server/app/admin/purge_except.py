@@ -192,6 +192,8 @@ RULES: dict[str, Rule] = {
     "stages": lambda k: _in(_t("stages").c.product_id, k.products),
     "stage_prices": lambda k: _in(_t("stage_prices").c.product_id, k.products),
     "stage_allocations": lambda k: _in(_t("stage_allocations").c.product_id, k.products),
+    # 상품 변경 기록(DEV-361). 반영한 사람이 지워지면 아래 _null_dangling이 비운다
+    "product_change_events": lambda k: _in(_t("product_change_events").c.product_id, k.products),
     # 주문 쪽은 전부 지운다(실거래 없음). 남는 사용자는 생산자·운영자뿐이다
     "orders": lambda k: false(),
     "payments": lambda k: false(),
@@ -483,6 +485,7 @@ def _null_dangling(session: Session, keep: Keep) -> dict[str, int]:
     for column in ("actor_id", "last_retried_by", "resolved_by"):
         null("manager_events", column, keep.users)
     null("capacity_requests", "decided_by", keep.users)
+    null("product_change_events", "actor_user_id", keep.users)
     null("escalations", "resolved_by", keep.users)
     # 지운 답장을 인용한 소식은 인용 ID와 답장 본문 스냅샷(reply_to)을 함께 비운다
     null("broadcasts", "quoted_reply_id", keep.replies, "reply_to")

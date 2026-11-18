@@ -16,6 +16,8 @@ from app.orders.schemas import (
     Changed,
     Dashboard,
     DeliveryWindowResponse,
+    HarvestedOrders,
+    HarvestOrdersInput,
     HarvestStarted,
     HarvestStartInput,
     OrderInput,
@@ -74,7 +76,10 @@ def producer_orders(
 def harvest_start(
     db: Db, producer: ApprovedProducer, body: HarvestStartInput, key: IdempotencyKey = None
 ):
-    """수확 시작 = 출하 준비 시작(DEV-231, AC-17-11). Idempotency-Key 필수."""
+    """기간 단위 수확 시작(DEV-231, AC-17-11). Idempotency-Key 필수.
+
+    DEV-361부터 앱은 harvest-orders를 쓴다. 예전 앱 빌드가 부를 수 있어 남긴다.
+    """
     user, farm = producer
     return run_idempotent(
         db,
@@ -83,6 +88,25 @@ def harvest_start(
         key,
         body,
         lambda: service.harvest_start(db, farm.id, user.id, body.product_id, body.stage_id),
+    )
+
+
+@router.post("/producer/harvest-orders", response_model=HarvestedOrders)
+def harvest_orders(
+    db: Db, producer: ApprovedProducer, body: HarvestOrdersInput, key: IdempotencyKey = None
+):
+    """고른 예약 완료 주문 수확 시작(DEV-361, AC-17-11·12). Idempotency-Key 필수.
+
+    자기 농가 주문만(하나라도 아니면 404), 지금 예약 완료인 주문만 옮기고 옮긴 수를 돌려준다.
+    """
+    user, farm = producer
+    return run_idempotent(
+        db,
+        user.id,
+        "orders.harvest_orders",
+        key,
+        body,
+        lambda: service.harvest_orders(db, farm.id, user.id, body.order_ids),
     )
 
 

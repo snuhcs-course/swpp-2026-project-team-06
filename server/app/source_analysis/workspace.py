@@ -11,9 +11,10 @@ from pydantic import Field, model_validator
 from sqlalchemy import delete, select, text
 
 from app.catalog import service as catalog
+from app.catalog.models import Product
 from app.core.clock import now
 from app.core.detail import DetailContent
-from app.core.errors import invalid
+from app.core.errors import invalid, not_found
 from app.source_analysis import service as s
 from app.source_analysis.models import (
     Asset,
@@ -115,8 +116,10 @@ def published(product):
 
 def view(row):
     return {
-        **s.json_row(row, ("page_source", "page_draft_id")),  # internal DEV-346 bookkeeping
+        # internal DEV-346 bookkeeping; the DEV-361 product draft has its own view
+        **s.json_row(row, ("page_source", "page_draft_id", "product_draft")),
         "hasUnpublishedChanges": row.snapshot != row.published_snapshot,
+        "hasProductDraft": bool(row.product_draft),
     }
 
 
@@ -126,7 +129,10 @@ def product_lock(db, farm, pid):
     db.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"), {"key": "page:" + pid}
     )
-    product = catalog.load_my_product(db, farm.id, pid).product
+    # Ownership only (a column): the product and its options/stages are first read under the lock
+    # below, so nothing committed while waiting is seen stale (DEV-361).
+    if db.scalar(select(Product.farm_id).where(Product.id == pid)) != farm.id:
+        raise not_found("찾을 수 없는 상품이에요.")
     row = db.get(ProductWorkspace, pid)
     if row:
         db.scalar(

@@ -54,9 +54,10 @@
 - POST /admin/products/{productId}/capacity-requests/{requestId}/reject: {version,reason}; 비어 있지 않은 사유 필수. 최초 상품만 REJECTED로 전환하고 증액 반려는 기존 판매 상태·한도를 유지한다.
 - PUT /api/products/{productId}/sales-settings: {salesLimitGrams,maxQuantityPerOrder,salesPaused,version}; 응답은 `SalesState`(중량 집계 approvedSupplyGrams·salesLimitGrams·reservedGrams·shippedGrams·soldQuantity·remainingGrams, 판매 상태 salesPaused·availability, version)다. 상품 ID(경로에 있음)와 한 주문 상한(요청에 보낸 값을 그대로 저장)은 응답에 없다. 화면은 저장 뒤 상품 상세를 다시 읽는다(DEV-342에서 코드에 맞춰 정정). 초안은 salesLimitGrams=0만, 승인 상품은 사용량≤한도≤승인량. 재개 검사(현재 또는 미래 기간의 판매 가능 옵션 존재 여부, 없으면 409 NOT_RESUMABLE)는 salesPaused true→false일 때만 한다. 중지가 아닌 상품의 한도·주문당 상한 저장은 품절이어도 검사하지 않는다(DEV-344: 품절 상품이 한도를 먼저 올리거나 주문당 상한을 바꿀 수 있어야 한다). 승인량을 넘는 한도는 409 APPROVED_CAP_EXCEEDED '승인 물량을 넘어요. 물량 추가를 신청해 주세요.'
 - PATCH /api/products/{productId}: 편집 입력에 version 필수. 신청 중 최초 상품은 변경 불가. 승인 상품은 검증 후 즉시 반영하며 상품 version 증가.
+- (DEV-361) 판매 중·승인 대기 상품의 상품 칸·가격·기간·박스 변경은 composer의 비공개 상품 초안에 두고 `POST /api/source-analysis/product-workspaces/{productId}/apply-all`로 한 번에 반영한다. PATCH·PUT stages와 같은 검증(R-18, PERIOD_LOCKED, 예약 박스 이상)을 쓰고 R-25대로 새 주문부터 적용된다. 승인 대기 상품도 이 경로로는 다시 승인받지 않고 운영자 변경 기록(`GET /admin/products/{productId}/changes`)에 남는다. 공급 물량 신청과 판매 설정은 바로 적용 그대로다. 상세는 [source-integration.md DEV-361 절](./source-integration.md).
 - PUT /api/products/{productId}/stages: 기존 입력 유지, 응답 {version,stages}. 기존 기간은 stageId로 대응하고 빠진 ID만 삭제한다. ID 없는 입력은 새 기간이며 다른 상품·모르는·중복 ID는 400이다. 날짜순 seq와 단계 이름을 다시 매기고, 주문 잠금·예약 박스 검사는 같은 stageId 기준으로 수행한다(AC-05-4, DEV-336). 승인 사본 없음.
 - 구형 POST publish-request 및 /admin/products/{productId}/approve|reject는 새 신청 API로 대체한다. 소비자/생산자 앱의 공개 경로는 변경하지 않는다.
-- 오류 409 reason 추가: APPROVED_CAP_EXCEEDED, CAP_BELOW_COMMITTED, CAPACITY_REQUEST_PENDING, INVALID_TRANSITION. STALE_VERSION·PERIOD_LOCKED·STAGE_CHANGED·TOTAL_LIMIT_REACHED·SOLD_OUT 유지. 초과 요청은 400 필드 오류 또는 해당 409로 실패하며 부분 저장하지 않는다.
+- 오류 409 reason 추가: APPROVED_CAP_EXCEEDED, CAP_BELOW_COMMITTED, CAPACITY_REQUEST_PENDING, INVALID_TRANSITION, PRODUCT_CHANGED·DELIVERY_CONSENT_REQUIRED·PHOTO_CHANGED(DEV-361 apply-all). STALE_VERSION·PERIOD_LOCKED·STAGE_CHANGED·TOTAL_LIMIT_REACHED·SOLD_OUT 유지. 초과 요청은 400 필드 오류 또는 해당 409로 실패하며 부분 저장하지 않는다.
 
 ## 5. 화면
 
