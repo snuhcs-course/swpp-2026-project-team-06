@@ -151,7 +151,7 @@ flowchart TD
 | SCR-30 하위 | 프로필 항목 고치기 | `/farm/edit/:field` | 농가 이름·지역·소개 중 하나 고치기 | FEAT-02 |
 | SCR-30 하위 | 입금 계좌 | `/farm/account` | 은행·계좌번호·예금주 등록·수정(DEV-68, DEV-233에서 표에 추가) | FEAT-09 |
 | SCR-30 하위 | 농가 상세 편집 | `/farm/detail` | 농가 긴 소개(상세 블록) 초안 생성·편집·저장(DEV-233에서 구현대로 표에 추가, 감사 J8) | FEAT-02 |
-| SCR-33 | 설정 | `/settings` | 프로필·공유 링크·AI 설정·로그아웃·회원 탈퇴(DEV-94) | FEAT-02, 19, 32 |
+| SCR-33 | 설정 | `/settings` | 프로필·공유 링크·AI 설정·소비자 앱에서 내 농가 보기(DEV-370)·로그아웃·회원 탈퇴(DEV-94) | FEAT-02, 19, 32 |
 | SCR-31 | AI 응답 설정 | `/farm/ai-settings` | 농가 AI ON/OFF·원칙·FAQ·미리보기 | FEAT-32 |
 
 추가 소비자 화면: SCR-32 주문 문제 문의 `/orders/:orderId/inquiry`(FEAT-33). 소식방 하위 경로는 양 앱 `/news/:farmId`. 소비자는 팔로우한 방, 생산자는 자기 농가만 접근한다. 본인 결제 주문 문의는 팔로우 예외를 적용한다.

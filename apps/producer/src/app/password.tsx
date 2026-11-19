@@ -31,11 +31,11 @@ export default function Password() {
           <T variant="title" accessibilityRole="header">
             {forced ? "새 비밀번호를\n정해 주세요" : "비밀번호를\n바꿔요"}
           </T>
-          <T variant="body" muted>
-            {forced
-              ? "임시 비밀번호로 들어왔어요. 새 비밀번호로 바꾸면 농가 화면을 계속 쓸 수 있어요."
-              : `아이디 ${user?.username ?? ""}의 비밀번호를 바꿔요.`}
-          </T>
+          {forced ? (
+            <T variant="body" muted>
+              임시 비밀번호로 들어왔어요. 새 비밀번호로 바꾸면 농가 화면을 계속 쓸 수 있어요.
+            </T>
+          ) : null}
         </View>
         <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 24, gap: 12 }}>
           <PasswordChangeForm

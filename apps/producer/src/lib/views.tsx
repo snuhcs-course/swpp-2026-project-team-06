@@ -4,7 +4,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import * as Clipboard from "expo-clipboard";
-import { Pressable, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
+
+const CONSUMER_URL = process.env.EXPO_PUBLIC_CONSUMER_URL || "https://farmclub.kr";
+
+export function openConsumerFarm(farmId: string) {
+  return Linking.openURL(`${CONSUMER_URL.replace(/\/+$/, "")}/farms/${encodeURIComponent(farmId)}`);
+}
 
 export const ORDER_STATUS: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "입금 안내 전",

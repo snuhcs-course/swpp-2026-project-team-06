@@ -20,11 +20,12 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { HelpButton } from "../../lib/Tour";
 import { useSession } from "../../lib/session";
-import { LoadError } from "../../lib/views";
+import { LoadError, openConsumerFarm } from "../../lib/views";
 export default function Settings() {
   const router = useRouter(),
     { refresh, user } = useSession();
   const farm = useAsync(() => farms.mine(), []);
+  const farmId = farm.data?.farmId;
   const [withdrawing, setWithdrawing] = useState(false);
   const [reset, setReset] = useState(false),
     [busy, setBusy] = useState(false),
@@ -93,8 +94,13 @@ export default function Settings() {
           {user?.username ? (
             <ListRow
               label="비밀번호 변경"
-              sub={`아이디 ${user.username}`}
               onPress={() => router.push("/password")}
+            />
+          ) : null}
+          {farmId ? (
+            <ListRow
+              label="소비자 앱에서 내 농가 보기"
+              onPress={() => void openConsumerFarm(farmId)}
             />
           ) : null}
           <ListRow label="로그아웃" onPress={() => auth.logout()} last={!!user?.isTestAccount} />
