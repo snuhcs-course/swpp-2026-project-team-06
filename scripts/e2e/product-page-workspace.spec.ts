@@ -1,20 +1,24 @@
 import { test, expect } from "./fixtures";
-import { producerUrl, loginProducer, monitor } from "./helpers";
+import { apiUrl, producerUrl, loginProducer, monitor } from "./helpers";
 
 // DEV-346: 판매페이지 수정은 composer로 연다(scripts/e2e/page-editor-unified.spec.ts).
-// 이 파일은 composer로 옮기지 못한 페이지·예전 서버에서 쓰는 기존 편집기(ProductPageEditor)를 본다.
-// 첫 테스트는 요약 한 칸(3000자)을 넘는 블록 페이지(서버가 옮기지 않아 composer: false), 나머지는
-// 요청에서 composer를 빼서 응답에 composer가 없게 해(composer 도입 전 앱의 요청과 같음) 기존 편집기로 연다.
-// 시드 p-house를 바꾸므로 파일 끝에 되돌린다.
+// DEV-361 PR C: 예전 편집기(ProductPageEditor)는 지웠다. composer로 옮기지 못한 페이지(요약 한 칸 3000자를 넘는 블록
+// 페이지, 서버가 composer: false)는 같은 composer를 상품만으로 열고(C-1), 예전 편집기 수정본이 composer 작업과 겹치면
+// (LEGACY_REVISION) '상품 수정'이 고르게 한다(C-17). 시드 p-house를 바꾸므로 파일 끝에 되돌린다.
+// DEV-361 PR C: removed "AC-SRC-11 {360,390,430}px: heading visibility preserves excluded items through save and apply"
+// (the old editor's always-visible section eye switch, its dimmed heading and '수정본 저장'; the composer canvas shows
+// that switch only for an already hidden section, so there is no composer equivalent. Section exclude/add membership is
+// covered by "AC-SRC-11: introduction can be removed and two empty additions retain independent membership" in
+// producer-hardening.spec.ts, and excluded items in the preview by "DEV-179 AC-SRC-11: composer preview preserves excluded
+// summary and retains the enabled taste field" in source-review-regressions.spec.ts).
+// DEV-361 PR C: removed "AC-SRC-11: first editor upload preserves both representative and module placement" (a bug of
+// the old editor's page snapshot, where one canvas upload set both the cover and the module photo; the composer keeps the
+// cover in the batch and has no such combined upload. Cover selection in the composer is covered by "AC-SRC-11: text edits
+// stay inside cards and representative selection survives reload and deletion" in source-editor.spec.ts).
 const LONG = `${"가".repeat(2000)}`;
-async function legacyEditorOnly(page: import("@playwright/test").Page) {
-  await page.route("**/api/source-analysis/product-workspaces", async (route) => {
-    const body = route.request().postDataJSON() ?? {};
-    delete body.composer;
-    await route.continue({ postData: JSON.stringify(body) });
-  });
-}
-async function unfitPage(script: string) {
+// 첫 테스트가 '상품에 반영'으로 바꾼 상품명을 되돌릴 시드 이름
+let seedName = "";
+async function unfitPage(script: string, extra = "") {
   const { execFileSync } = await import("node:child_process");
   const path = await import("node:path");
   execFileSync(
@@ -28,29 +32,37 @@ from app.catalog.models import Product
 from app.source_analysis.models import ProductWorkspace
 import sys
 LONG = sys.argv[1]
+EXTRA = sys.argv[2]
 with get_sessionmaker()() as db:
 ${script}
  db.commit()
 `,
       LONG,
+      extra,
     ],
     { cwd: path.resolve("server"), env: process.env },
   );
 }
 
-test.afterAll(async () => {
-  await unfitPage(` p = db.get(Product, 'p-house')
+// 상품 초안은 workspace 행에 있으므로 행을 지우면 남은 초안도 지워진다
+const resetHouse = ` p = db.get(Product, 'p-house')
  p.module_detail = None
  p.detail_content = None
+ if EXTRA: p.name = EXTRA
  p.version += 1
  row = db.get(ProductWorkspace, 'p-house')
- if row: db.delete(row)`);
+ if row: db.delete(row)`;
+
+test.afterAll(async () => {
+  if (process.env.SOURCE_ANALYSIS_ENABLED !== "true") return;
+  await unfitPage(resetHouse, seedName);
 });
 
-test("AC-SRC-9: selling product edits remain private until explicit apply", async ({
+test("AC-SRC-9 DEV-361 C-1 C-7 C-8: a page the composer cannot take opens the product only and keeps edits private until explicit apply", async ({
   page,
 }) => {
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
+  test.setTimeout(90000);
   await unfitPage(` p = db.get(Product, 'p-house')
  p.module_detail = None
  p.detail_content = {'blocks': [{'id': f'long{i}', 'type': 'text', 'title': '', 'body': LONG} for i in (1, 2)]}
@@ -58,274 +70,104 @@ test("AC-SRC-9: selling product edits remain private until explicit apply", asyn
  row = db.get(ProductWorkspace, 'p-house')
  if row: db.delete(row)`);
   const clean = monitor(page);
+  const publicName = async () =>
+    (await (await page.request.get(`${apiUrl}/api/products/p-house`)).json()).name as string;
+  const original = await publicName();
+  seedName ||= original;
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products?filter=selling`);
   // The default group is selling; use the product-specific action, never generic upload entry.
   const card = page
-    .getByRole("button", { name: /하우스 감귤 5kg.*편집/ })
+    .getByRole("button", { name: /하우스 감귤 5kg.*상품 수정/ })
     .locator("..");
-  await card
-    .getByRole("button", { name: "판매페이지 수정", exact: true })
-    .click();
+  await card.getByRole("button", { name: "상품 수정", exact: true }).click();
   await expect(page).toHaveURL(/\/products\/p-house\/detail$/);
-  // composer로 옮기지 못한 페이지라 기존 편집기에 남는다(DEV-346).
+  // composer로 옮기지 못한 페이지라 batch composer가 아니라 상품만 여는 composer다(DEV-361 C-1).
+  const basic = page.getByTestId("product-basic-info");
+  await expect(basic).toBeVisible();
   await expect(page).not.toHaveURL(/composer=1/);
+  await expect(page.getByRole("button", { name: "AI 시트 열기" })).toHaveCount(0);
+  // The long block page is shown as it is (read-only); '상세 고치기' is where it is edited.
+  await expect(page.getByTestId("product-detail-page")).toContainText("가".repeat(40));
+  await expect(page.getByRole("button", { name: "상세 고치기", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "상품에 반영", exact: true })).toBeVisible(); // no unapplied count
+  // This server keeps a private product draft, so edits stay private until '상품에 반영' (C-7).
+  const name = `${original} 산지직송`;
+  await basic.getByLabel("상품명", { exact: true }).fill(name);
+  await expect(page.getByRole("button", { name: "상품에 반영 (1)", exact: true })).toBeVisible();
+  await expect(basic.getByLabel("상품명 수정됨", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
   await expect(
-    page.getByTestId("page-save-state"),
-  ).toHaveText("지금 상품에 반영된 내용이에요");
-  await page.getByRole("button", { name: "설명 추가", exact: true }).click();
-  const content = `판매페이지 수정 검증 ${Date.now()}`;
-  await page.getByLabel("내용 3", { exact: true }).fill(content);
-  await expect(page.getByTestId("page-save-state")).toHaveText("저장 안 한 수정이 있어요");
-  await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
-  // DEV-324: 저장하면 하단 토스트 + '지금 반영', 상태 줄은 반영 전, 하단 주 버튼은 '상품에 반영'
-  const saved = page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" });
-  await expect(saved).toBeVisible();
-  await expect(saved.getByRole("button", { name: "지금 반영", exact: true })).toBeVisible();
-  await expect(page.getByTestId("page-save-state")).toHaveText("저장됨 · 아직 소비자에게 안 보여요");
-  await expect(page.getByRole("button", { name: "상품에 반영", exact: true })).toBeEnabled();
-  // '지금 반영'은 반영 확인 시트를 연다(고친 것이 없으면 확인 가능). 여기서는 취소한다
-  await saved.getByRole("button", { name: "지금 반영", exact: true }).click();
-  await expect(page.getByRole("button", { name: "확인 · 상품에 반영", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "취소", exact: true }).click();
-  // 다시 저장하고 토스트가 떠 있는 동안 고치기 시작하면 '지금 반영' 토스트는 닫힌다(고치는 중엔 반영 불가)
-  await page.getByLabel("내용 3", { exact: true }).fill(`${content} 고침`);
-  await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" })).toBeVisible();
-  await page.getByLabel("내용 3", { exact: true }).fill(content);
-  // 토스트는 4초 뒤 저절로도 닫히므로 그보다 짧게 기다려 '고치면 닫힘'을 확인한다
-  await expect(page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" })).toHaveCount(0, { timeout: 1_000 });
-  await expect(page.getByTestId("page-save-state")).toHaveText("저장 안 한 수정이 있어요");
-  await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
-  await expect(page.getByTestId("page-save-state")).toHaveText("저장됨 · 아직 소비자에게 안 보여요");
-  await page.reload();
-  await expect(page.getByLabel("내용 3", { exact: true })).toHaveValue(content);
-  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
-  await expect(page.getByTestId("product-page-preview")).toContainText(content);
-  await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
-  await expect(page.getByLabel("내용 3", { exact: true })).toHaveValue(content);
-  await page.getByRole("button", { name: "상품에 반영", exact: true }).click();
-  await expect(
-    page.getByText("반영하면 구매자가 보는 판매페이지가 바로 바뀌어요.", {
-      exact: true,
-    }),
+    page.getByText("비공개로 저장했어요. '상품에 반영'을 누르기 전까지 구매자 화면은 그대로예요.", { exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "확인 · 상품에 반영", exact: true })
-    .click();
-  // DEV-324: 판매 중 상품은 '소비자 화면에 반영했어요' + 소비자 앱 상품 페이지 '보기'
-  const applied = page.getByRole("alert").filter({ hasText: "소비자 화면에 반영했어요" });
-  await expect(applied).toBeVisible();
-  await expect(applied.getByRole("button", { name: "보기", exact: true })).toBeVisible();
-  await expect(page.getByTestId("page-save-state")).toHaveText("지금 상품에 반영된 내용이에요");
+  expect(await publicName()).toBe(original);
+  await page.reload();
+  await expect(basic.getByLabel("상품명", { exact: true })).toHaveValue(name);
+  await expect(page.getByRole("button", { name: "상품에 반영 (1)", exact: true })).toBeVisible();
+  // Buyer preview (the composer's header '미리보기') shows the edit and comes back with it.
+  await page.getByRole("button", { name: "구매자 화면 보기", exact: true }).click();
+  await expect(page.getByRole("button", { name: "편집하기", exact: true })).toBeVisible();
+  await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("가".repeat(40)).first()).toBeVisible();
+  await page.getByRole("button", { name: "편집하기", exact: true }).click();
+  await expect(basic.getByLabel("상품명", { exact: true })).toHaveValue(name);
+  // The confirm sheet lists what buyers will see; '더 고치기' changes nothing.
+  await page.getByRole("button", { name: "상품에 반영 (1)", exact: true }).click();
+  const sheet = page.getByTestId("apply-confirm");
+  await expect(sheet.getByText("판매 중인 상품이에요. 바뀌는 내용을 확인해 주세요.", { exact: true })).toBeVisible();
+  await expect(sheet.getByTestId("change-group-now").getByLabel(`상품명, ${original}에서 ${name}으로`)).toBeVisible();
+  await sheet.getByRole("button", { name: "더 고치기", exact: true }).click();
+  expect(await publicName()).toBe(original);
+  await page.getByRole("button", { name: "상품에 반영 (1)", exact: true }).click();
+  await page.getByTestId("apply-confirm").getByRole("button", { name: "반영하기", exact: true }).click();
+  await expect(page.getByText("상품에 반영했어요", { exact: true })).toBeVisible();
+  // Stays on 상품 수정 after applying (C-8)
+  await expect(page).toHaveURL(/\/products\/p-house\/detail$/);
+  await expect(page.getByRole("button", { name: "상품에 반영", exact: true })).toBeVisible(); // no unapplied count
+  expect(await publicName()).toBe(name);
   clean();
 });
 
-for (const width of [360, 390, 430]) {
-  test(`AC-SRC-11 ${width}px: heading visibility preserves excluded items through save and apply`, async ({
-    page,
-  }) => {
-    test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
-    const { execFileSync } = await import("node:child_process");
-    const path = await import("node:path");
-    execFileSync(
-      path.resolve("server/.venv/bin/python"),
-      [
-        "-c",
-        `
-from tests import migrations_models
-from app.core.db import get_sessionmaker
-from app.catalog.models import Product
-from app.source_analysis.models import ProductWorkspace
-with get_sessionmaker()() as db:
- p = db.get(Product, 'p-house')
- p.module_detail = {'schemaVersion':1, 'modules':[{'id':k,'texts':[{'fieldKey':k,'value':v}],'photos':[]} for k,v in [('taste','달고 상큼해요'),('specification','중과'),('storage','서늘하게 보관')]]}
- p.version += 1
- row = db.get(ProductWorkspace, 'p-house')
- if row: db.delete(row)
- db.commit()
-`,
-      ],
-      { cwd: path.resolve("server"), env: process.env },
-    );
-    await legacyEditorOnly(page);
-    await page.setViewportSize({ width, height: 900 });
-    const clean = monitor(page);
-    await loginProducer(page, "강영수");
-    await page.goto(`${producerUrl}/products/p-house/detail`);
-    const section = page.getByTestId("source-section-taste");
-    const eye = section.getByRole("switch", {
-      name: "맛과 크기 표시",
-      exact: true,
-    });
-    const heading = section.getByRole("heading", {
-      name: "맛과 크기",
-      exact: true,
-    });
-    await expect(eye).toBeChecked();
-    const eyeBox = await eye.boundingBox(),
-      titleBox = await heading.boundingBox();
-    expect(eyeBox!.x).toBeGreaterThanOrEqual(titleBox!.x + titleBox!.width);
-    await expect(
-      page.getByRole("button", { name: "+ 항목 추가", exact: true }),
-    ).toHaveCount(0);
-    expect(
-      Math.abs(
-        eyeBox!.y + eyeBox!.height / 2 - titleBox!.y - titleBox!.height / 2,
-      ),
-    ).toBeLessThan(2);
-    await section
-      .getByRole("button", { name: "규격 제외", exact: true })
-      .click();
-    await expect(page.getByTestId("canvas-content-specification")).toHaveCSS(
-      "opacity",
-      "0.45",
-    );
-    await eye.uncheck();
-    await expect(heading).toHaveCSS("opacity", "0.35");
-    await expect(page.getByLabel("맛과 향 내용", { exact: true })).toHaveCount(
-      0,
-    );
-    await page
-      .getByRole("button", { name: "수정본 저장", exact: true })
-      .click();
-    await expect(
-      page.getByText("수정본을 저장했어요", { exact: true }),
-    ).toBeVisible();
-    await page.reload();
-    await expect(eye).not.toBeChecked();
-    await eye.check();
-    await expect(heading).toHaveCSS("opacity", "1");
-    await expect(page.getByLabel("맛과 향 내용", { exact: true })).toHaveValue(
-      "달고 상큼해요",
-    );
-    await expect(page.getByTestId("canvas-content-specification")).toHaveCSS(
-      "opacity",
-      "0.45",
-    );
-    await page.getByLabel("규격 내용", { exact: true }).click();
-    await expect(page.getByTestId("canvas-content-specification")).toHaveCSS(
-      "opacity",
-      "1",
-    );
-    await expect(page.getByLabel("규격 내용", { exact: true })).toHaveValue(
-      "중과",
-    );
-    await page.getByLabel("규격 내용", { exact: true }).fill("");
-    expect(
-      await page
-        .getByLabel("규격 내용", { exact: true })
-        .evaluate((el) => getComputedStyle(el, "::placeholder").color),
-    ).toBe("rgb(181, 181, 181)");
-    await page.getByLabel("맛과 향 내용", { exact: true }).fill("   ");
-    await expect(heading).toHaveCSS("opacity", "0.35");
-    await expect(eye).toBeChecked();
-    await expect(page.getByLabel("규격 내용", { exact: true })).toHaveAttribute(
-      "placeholder",
-      "내용을 입력해주세요",
-    );
-    // DEV-287: an added section remains enabled when its content is cleared.
-    // Only the explicit exclude action removes it; refilling still restores it.
-    const removeSpecification = section.getByRole("button", { name: "규격 제외", exact: true });
-    await expect(removeSpecification).toBeEnabled();
-    await removeSpecification.click();
-    await expect(removeSpecification).toHaveCount(0);
-    await expect(page.getByLabel("규격 내용", { exact: true })).toHaveValue("");
-    await expect(page.getByTestId("canvas-content-specification")).toHaveCSS("opacity", "0.45");
-    await page
-      .getByLabel("맛과 향 내용", { exact: true })
-      .fill("달고 상큼해요");
-    await expect(heading).toHaveCSS("opacity", "1");
-    await page.getByLabel("규격 내용", { exact: true }).fill("중과");
-    const removeBox = await section
-      .getByRole("button", { name: "규격 제외", exact: true })
-      .boundingBox();
-    const subheadingBox = await section
-      .getByRole("heading", { name: "규격", exact: true })
-      .boundingBox();
-    expect(Math.abs(removeBox!.y - subheadingBox!.y)).toBeLessThan(2);
-    await section.screenshot({
-      path: `.artifacts/section-editor-${width}.png`,
-    });
-    await eye.uncheck();
-    await page
-      .getByRole("button", { name: "수정본 저장", exact: true })
-      .click();
-    await expect(
-      page.getByText("수정본을 저장했어요", { exact: true }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
-    await expect(page.getByTestId("product-page-preview")).not.toContainText(
-      "맛과 크기",
-    );
-    await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
-    await page
-      .getByRole("button", { name: "상품에 반영", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "확인 · 상품에 반영", exact: true })
-      .click();
-    await expect(
-      page.getByText("소비자 화면에 반영했어요", { exact: true }),
-    ).toBeVisible();
-    const { apiUrl } = await import("./helpers");
-    const product = await (
-      await page.request.get(`${apiUrl}/api/products/p-house`)
-    ).json();
-    expect(
-      product.moduleDetail.modules.map((m: { id: string }) => m.id),
-    ).toEqual(["storage"]);
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
-    ).toBeTruthy();
-    clean();
-  });
-}
-
-test("AC-SRC-11: first editor upload preserves both representative and module placement", async ({ page }) => {
+test("AC-SRC-9 DEV-361 C-17: an unapplied old-editor revision offers discarding it or opening the product only", async ({
+  page,
+}) => {
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
-  const { apiUrl, apiLogin } = await import("./helpers");
-  const token = await apiLogin(page.request, "u-kang", "producer");
-  const created = await page.request.post(`${apiUrl}/api/products`, {
-    headers: { Authorization: `Bearer ${token}` }, data: {},
-  });
-  expect(created.ok()).toBeTruthy();
-  const pid = (await created.json()).productId;
-  const { execFileSync } = await import("node:child_process");
-  const path = await import("node:path");
-  execFileSync(path.resolve("server/.venv/bin/python"), ["-c", `
-from tests import migrations_models
-from app.core.db import get_sessionmaker
-from app.catalog.models import Product
-import sys
-with get_sessionmaker()() as db:
- p = db.get(Product, sys.argv[1])
- p.module_detail = {'schemaVersion': 1, 'modules': []}
- db.commit()
-`, pid], { cwd: path.resolve("server"), env: process.env });
-  await legacyEditorOnly(page);
+  await unfitPage(resetHouse, seedName);
   const clean = monitor(page);
-  await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products/${pid}/detail`);
-  await page.getByRole("button", { name: "상품 소개 사진 추가", exact: true }).click();
-  const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "새 사진 추가", exact: true }).click();
-  await (await chooser).setFiles("apps/consumer/public/photos/branch.jpg");
-  await expect(page.getByRole("button", { name: "대표사진", exact: true })).toBeVisible();
-  await expect(page.getByRole("img", { name: "대표사진", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
-  await expect(page.getByText("수정본을 저장했어요", { exact: true })).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole("button", { name: "대표사진", exact: true })).toBeVisible();
-  await expect(page.getByRole("img", { name: "대표사진", exact: true })).toBeVisible();
-  const response = await page.request.post(`${apiUrl}/api/source-analysis/product-workspaces`, {
-    headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": `inspect-${pid}` },
-    data: { productId: pid },
+  // The server answers LEGACY_REVISION only when an old-editor revision and composer work overlap (server tests cover
+  // that state); here every composer open that does not discard is answered that way, from the real response.
+  const opens: Record<string, unknown>[] = [];
+  let blockedVersion = 0;
+  await page.route("**/api/source-analysis/product-workspaces", async (route) => {
+    const body = (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+    opens.push(body);
+    const response = await route.fetch();
+    if (body.composer && !body.discardChanges && response.ok()) {
+      const json = await response.json();
+      blockedVersion = json.version;
+      return route.fulfill({ response, json: { ...json, composer: false, composerBlocked: "LEGACY_REVISION" } });
+    }
+    return route.fulfill({ response });
   });
-  expect(response.ok()).toBeTruthy();
-  const { snapshot } = await response.json();
-  expect(snapshot.representativeUri).toBe(snapshot.modules.find((m: { id: string }) => m.id === "hero").photos[0].uri);
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/p-house/detail`);
+  await expect(page.getByText("예전 판매페이지 화면에 반영하지 않은 수정이 있어요.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "그 수정 버리고 열기", exact: true })).toBeVisible();
+  // '상품만 열기': the product-only composer, the page left as it is
+  await page.getByRole("button", { name: "상품만 열기", exact: true }).click();
+  await expect(page.getByTestId("product-basic-info")).toBeVisible();
+  await expect(page).not.toHaveURL(/composer=1/);
+  await expect(page.getByRole("button", { name: "AI 시트 열기" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "상세 고치기", exact: true })).toBeVisible();
+  expect(opens.filter((o) => o.discardChanges)).toHaveLength(0);
+  // '그 수정 버리고 열기': opens again discarding that revision at the version it was shown with, then the composer
+  await page.goto(`${producerUrl}/products/p-house/detail`);
+  await page.getByRole("button", { name: "그 수정 버리고 열기", exact: true }).click();
+  await expect(page).toHaveURL(/composer=1/);
+  await expect(page.getByTestId("product-basic-info")).toBeVisible();
+  await expect(page.getByRole("button", { name: "AI 시트 열기", exact: true })).toBeVisible();
+  const discards = opens.filter((o) => o.discardChanges);
+  expect(discards).toHaveLength(1);
+  expect(discards[0]).toMatchObject({ productId: "p-house", discardChanges: true, version: blockedVersion, composer: true });
   clean();
 });

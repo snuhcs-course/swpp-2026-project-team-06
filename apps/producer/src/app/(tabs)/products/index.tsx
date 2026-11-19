@@ -213,23 +213,41 @@ export default function Products() {
           >
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${product.name || "이름 없는 초안"} 편집`}
-              onPress={() => router.push(`/products/${product.productId}/edit`)}
+              accessibilityLabel={`${product.name || "이름 없는 초안"}${product.hasUnappliedChanges ? " (반영 안 한 수정 있음)" : ""} 상품 수정`}
+              onPress={() => router.push(`/products/${product.productId}/detail`)}
               style={{ flexDirection: "row", gap: 16, minHeight: 64 }}
             >
               <CardPhoto product={product} />
               <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                <T
-                  variant="caption"
-                  weight="semibold"
-                  color={
-                    product.status === "REJECTED"
-                      ? tokens.color.error
-                      : tokens.color.textMuted
-                  }
-                >
-                  {productStatus(product)}
-                </T>
+                <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  <T
+                    variant="caption"
+                    weight="semibold"
+                    color={
+                      product.status === "REJECTED"
+                        ? tokens.color.error
+                        : tokens.color.textMuted
+                    }
+                  >
+                    {productStatus(product)}
+                  </T>
+                  {/* DEV-361 PR C: 상품 수정에서 '상품에 반영'하지 않은 비공개 수정이 있다(구매자는 이전 내용을 봄) */}
+                  {product.hasUnappliedChanges ? (
+                    <View
+                      testID="unapplied-chip"
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: 999,
+                        backgroundColor: tokens.color.surface,
+                      }}
+                    >
+                      <T variant="caption" muted>
+                        반영 안 한 수정 있음
+                      </T>
+                    </View>
+                  ) : null}
+                </View>
                 <T weight="semibold" numberOfLines={2}>
                   {product.name || "이름 없는 초안"}
                 </T>
@@ -266,25 +284,22 @@ export default function Products() {
                 {product.remainingGrams / 1000}kg
               </T>
             </View>
-            <Button label="판매페이지 수정" variant="outline" onPress={() => router.push(`/products/${product.productId}/detail`)} />
+            {/* DEV-361 PR C: 상품 수정은 composer 한 화면. 둘째 버튼은 판매 전 '판매·가격'(첫 판매 요청), 그 밖 '물량·판매 설정' */}
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-              {/* 판매 전 상품의 첫 판매 요청은 판매·가격에서만 한다(DEV-361) */}
               <Button
-                label={isPreSale(product) ? "판매·가격" : "판매 설정"}
+                label="상품 수정"
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => router.push(`/products/${product.productId}/detail`)}
+              />
+              <Button
+                label={isPreSale(product) ? "판매·가격" : "물량·판매 설정"}
                 variant="secondary"
                 style={{ flex: 1 }}
                 onPress={() =>
                   router.push(
                     `/products/${product.productId}/${isPreSale(product) ? "sell" : "sales"}`,
                   )
-                }
-              />
-              <Button
-                label="기간·가격"
-                variant="outline"
-                style={{ flex: 1 }}
-                onPress={() =>
-                  router.push(`/products/${product.productId}/stages`)
                 }
               />
             </View>

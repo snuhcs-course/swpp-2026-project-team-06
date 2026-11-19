@@ -137,7 +137,7 @@ export default function Sales() {
           : "처리하지 못했어요",
     );
   }
-  // 기간·가격에서 박스를 고치고 돌아오면(DEV-345) 최신 상태로 다시 읽는다. 처음 열 때도 여기서 읽는다.
+  // 상품 수정(판매 조건)에서 박스를 고치고 돌아오면(DEV-345, DEV-361) 최신 상태로 다시 읽는다. 처음 열 때도 여기서 읽는다.
   // 지난 결과 안내는 지우고, 생산자가 고친 입력칸은 그대로 둔다
   useFocusEffect(
     useCallback(() => {
@@ -336,11 +336,12 @@ export default function Sales() {
                           ) : null}
                           {guide.toStages ? (
                             <Button
-                              label="기간·가격에서 박스 늘리기"
+                              label="판매 조건에서 박스 늘리기"
                               variant="outline"
                               compact
+                              // DEV-361 PR C: 기간·가격은 상품 수정(composer)의 판매 조건 시트에서 고친다
                               onPress={() =>
-                                router.push(`/products/${id}/stages?from=sales`)
+                                router.push({ pathname: "/products/[id]/detail", params: { id, terms: "1", from: "sales" } })
                               }
                             />
                           ) : null}
@@ -451,6 +452,10 @@ export default function Sales() {
                   />
                 ) : null}
                 {feedback("pause")}
+                {/* DEV-361 PR C: 이 화면은 바로 적용되는 운영 조작만. 나머지는 상품 수정 한 화면에서 고치고 한 번에 반영 */}
+                <T variant="caption" muted>
+                  가격·기간·받는 시기·사진은 &apos;상품 수정&apos;에서 바꾸고 &apos;상품에 반영&apos;해요.
+                </T>
               </View>
               <View
                 ref={requestSection}

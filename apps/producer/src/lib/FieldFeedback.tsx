@@ -5,7 +5,11 @@ import { tokens } from "@farmclub/ui";
 // attempt: 누를 때마다 올리는 번호. 주면 스크롤은 누를 때만 하고, 칸을 고쳐 fields가 줄어도 다시 스크롤하지 않는다(DEV-361).
 // 주지 않으면 예전처럼 fields가 바뀔 때 첫 칸으로 스크롤한다.
 export const FieldFeedbackContext = createContext<{ fields: Record<string, string>; clear: (key: string) => void; attempt?: number }>({ fields: {}, clear: () => {} });
-// outline=false: 테두리 상자 없이 스크롤만 한다. 칸 자체가 오류 테두리를 그리는 입력칸에 쓴다(DEV-361 PM 11/18).
+/**
+ * 칸 하나(또는 칸 묶음)의 오류 표시. 첫 오류 칸으로 스크롤하고 testID `invalid-field-{field}`를 단다.
+ * outline=false(글 입력 칸 하나): 바깥 강조 상자 없이 입력 칸 자기 오류 테두리·문구만 쓴다(PM 11/18).
+ * 기본(outline=true)은 입력 칸 하나로 가리킬 수 없는 묶음(옵션 칩, 날짜 고르기, 기간·가격 표)에 쓴다.
+ */
 export function FieldFeedback({ field, children, outline = true }: { field: string; children: ReactNode; outline?: boolean }) {
   const { fields, attempt } = useContext(FieldFeedbackContext);
   const invalid = !!fields[field];

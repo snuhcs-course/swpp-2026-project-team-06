@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.catalog.models import (
@@ -466,7 +466,58 @@ def card_options(item: Loaded, cur: Stage | None) -> list[MyProductCardOption]:
     return rows
 
 
-def my_product_card(db: Session, item: Loaded) -> MyProductCard:
+def unapplied_changes(db: Session, products: list[Product]) -> set[str]:
+    """구매자에게 보이는 상품 중 반영 안 한 비공개 수정이 있는 상품 ID(DEV-361 PR C, 목록 카드).
+
+    상품 초안(`product_draft`), 예전 편집기 수정본(snapshot != published_snapshot),
+    마지막으로 반영·맞춘 판매페이지 초안(`page_draft_id`)과 내용이 다른 더 새 composer 초안.
+    상품 수와 상관없이 쿼리 세 번이다.
+    """
+    # source_analysis가 catalog를 import하므로 여기서 읽는다(순환 import 방지)
+    from app.source_analysis.models import Draft, ProductWorkspace
+    from app.source_analysis.workspace import draft_content
+
+    ids = [p.id for p in products if p.status in ("PUBLISHED", "PENDING_APPROVAL")]
+    if not ids:
+        return set()
+    rows = list(db.scalars(select(ProductWorkspace).where(ProductWorkspace.product_id.in_(ids))))
+    found = {
+        r.product_id for r in rows if r.product_draft or r.snapshot != r.published_snapshot
+    }
+    pages = [r for r in rows if r.product_id not in found and r.page_draft_id]
+    if not pages:
+        return found
+    ranked = (
+        select(
+            Draft.id,
+            func.row_number()
+            .over(
+                partition_by=(Draft.batch_id, Draft.target_id),
+                order_by=(Draft.created_at.desc(), Draft.id.desc()),
+            )
+            .label("rank"),
+        )
+        .where(Draft.batch_id.in_([r.batch_id for r in pages]))
+        .subquery()
+    )
+    latest_ids = select(ranked.c.id).where(ranked.c.rank == 1)
+    wanted = {r.page_draft_id for r in pages}
+    drafts = {
+        d.id: d
+        for d in db.scalars(select(Draft).where(Draft.id.in_(latest_ids) | Draft.id.in_(wanted)))
+    }
+    latest = {(d.batch_id, d.target_id): d for d in drafts.values() if d.id not in wanted}
+    for r in pages:
+        newest = latest.get((r.batch_id, r.target_id))
+        matched = drafts.get(r.page_draft_id)
+        if newest is None or matched is None:
+            continue
+        if draft_content(newest) != draft_content(matched):
+            found.add(r.product_id)
+    return found
+
+
+def my_product_card(db: Session, item: Loaded, unapplied: bool = False) -> MyProductCard:
     p = item.product
     cur = current_stage(item)
     return MyProductCard(
@@ -481,6 +532,7 @@ def my_product_card(db: Session, item: Loaded) -> MyProductCard:
         current_stage_label=f"{cur.starts_at} ~ {cur.ends_at}" if cur else None,
         updated_at=p.updated_at,
         options=card_options(item, cur),
+        has_unapplied_changes=unapplied,
     )
 
 
@@ -503,7 +555,11 @@ def my_product_cards(db: Session, farm_id: str, status: str | None = None) -> li
             product.id,
         )
     )
-    return [my_product_card(db, item) for item in load_products(db, products)]
+    unapplied = unapplied_changes(db, products)
+    return [
+        my_product_card(db, item, item.product.id in unapplied)
+        for item in load_products(db, products)
+    ]
 
 
 def load_my_product(db: Session, farm_id: str, product_id: str, lock: bool = False) -> Loaded:

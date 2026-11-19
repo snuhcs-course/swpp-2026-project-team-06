@@ -1,9 +1,10 @@
 """catalog 모듈 Pydantic 입출력 스키마 (screens.md 7.2 catalog)."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import AfterValidator, Field, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.accounts.schemas import AccountKind
 from app.core.detail import DetailContent, MediaUri
@@ -230,6 +231,23 @@ class MyProductCard(SalesState):
     current_stage_label: str | None
     updated_at: datetime
     options: list[MyProductCardOption]
+    # DEV-361 PR C: 구매자에게 보이는 상품(판매 중·승인 대기)에 '상품에 반영'하지 않은
+    # 비공개 수정이 있다(상품 초안, 예전 편집기 수정본, 반영한 것과 내용이 다른 composer 초안)
+    has_unapplied_changes: bool = False
+
+
+# DEV-361 PM 11/18: a product has at most 10 photos, cover included (1 + 9).
+MAX_PRODUCT_PHOTOS = 10
+PHOTO_LIMIT_MESSAGE = f"사진은 대표사진 포함 {MAX_PRODUCT_PHOTOS}장까지예요."
+
+
+def _photo_count(photos: list[str]) -> list[str]:
+    if len(photos) > MAX_PRODUCT_PHOTOS:
+        raise PydanticCustomError("too_many_photos", PHOTO_LIMIT_MESSAGE)
+    return photos
+
+
+ProductPhotos = Annotated[list[MediaUri], AfterValidator(_photo_count)]
 
 
 class ProductOptionInput(CamelModel):
@@ -254,7 +272,7 @@ class ProductPatch(CamelModel):
     shipping_fee_type: ShippingFeeType | None = None
     shipping_fee: int | None = Field(default=None, ge=0)
     remote_area_fee: int | None = Field(default=None, ge=0)
-    photos: list[MediaUri] | None = None
+    photos: ProductPhotos | None = None
     info: ProductInfo | None = None
     detail_content: DetailContent | None = None
 

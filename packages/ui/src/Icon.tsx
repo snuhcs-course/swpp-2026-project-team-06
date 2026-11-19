@@ -36,6 +36,7 @@ export type IconName =
   | "lock"
   | "offline"
   | "alert"
+  | "warning"
   | "external"
   | "forward"
   | "truck"
@@ -233,6 +234,13 @@ export function Icon({
         <>
           <Circle cx={12} cy={12} r={9} {...p} />
           <Path d="M12 7v6M12 17h.01" {...p} />
+        </>
+      )}
+      {name === "warning" && (
+        <>
+          {/* 경고 삼각형(둥근 모서리) + 느낌표. 판매 종료 안내 등(DEV-361, PM 11/18) */}
+          <Path d="M10.3 4.2 2.6 17.6A2 2 0 0 0 4.3 20.6h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z" {...p} />
+          <Path d="M12 9.5v4.5M12 17.3h.01" {...p} />
         </>
       )}
       {name === "external" && <Path d="M7 17L17 7M9 7h8v8" {...p} />}

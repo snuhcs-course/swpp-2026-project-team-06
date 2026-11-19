@@ -8,7 +8,7 @@ export type SoldOutGuide = {
   body: string;
   /** 보조 글자(없으면 null) */
   hint: string | null;
-  /** ‘기간·가격에서 박스 늘리기’ 버튼을 보일지 */
+  /** ‘판매 조건에서 박스 늘리기’ 버튼(상품 수정의 판매 조건 시트, DEV-361)을 보일지 */
   toStages: boolean;
 };
 
@@ -48,8 +48,8 @@ export function soldOutGuide(
         title: "전체 물량 품절",
         body: `판매 한도 ${kg(p.salesLimitGrams)}를 모두 채웠어요. 승인 ${kg(p.approvedSupplyGrams)}까지 늘릴 수 있어요.`,
         hint: boxesOut
-          ? "이번 기간에 남은 박스도 없어요. 기간·가격에서 박스 수도 늘려 주세요."
-          : "한도를 늘린 뒤 박스가 모자라면 기간·가격에서 박스 수도 늘려 주세요.",
+          ? "이번 기간에 남은 박스도 없어요. 상품 수정의 판매 조건에서 박스 수도 늘려 주세요."
+          : "한도를 늘린 뒤 박스가 모자라면 상품 수정의 판매 조건에서 박스 수도 늘려 주세요.",
         toStages: boxesOut,
       };
     return {
@@ -64,7 +64,7 @@ export function soldOutGuide(
   if (p.availability === "PERIOD_SOLD_OUT" || p.availability === "TOTAL_SOLD_OUT")
     return {
       title: "이번 기간 품절",
-      body: "이번 기간에 남은 박스가 없어요. 기간·가격에서 박스 수를 늘리면 바로 다시 예약받아요.",
+      body: "이번 기간에 남은 박스가 없어요. 상품 수정의 판매 조건에서 박스 수를 늘려 '상품에 반영'하면 다시 예약받아요.",
       hint: null,
       toStages: true,
     };
