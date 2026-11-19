@@ -8,7 +8,6 @@ declare const process: {
     EXPO_PUBLIC_API_URL?: string;
     EXPO_PUBLIC_API_MOCK?: string;
     EXPO_PUBLIC_SHARED_MOCK_URL?: string;
-    EXPO_PUBLIC_EVALUATOR_LOGIN?: string;
   };
 };
 // Metro(앱)와 CommonJS(Mock 테스트 빌드)의 모듈 require. 아래 Mock 한 곳에서만 쓴다.
@@ -34,10 +33,6 @@ export const isMock =
 // 바꾸면 운영 빌드(=0)에서는 조건이 false로 접혀 Metro가 Mock 모듈을 번들에 넣지 않는다. 조건을 변수로 빼지 않는다.
 const browserMock =
   process.env.EXPO_PUBLIC_API_MOCK === "1" ? require("./mock") : null;
-// 평가용 빌드(DEV-200): 앱에는 주소창이 없어 ?evaluator=1(DEV-198)을 줄 수 없으므로 빌드 변수로 켠다.
-// EAS preview 환경에만 둔다. 웹(Vercel)과 production 채널에는 넣지 않는다.
-export const evaluatorBuild = process.env.EXPO_PUBLIC_EVALUATOR_LOGIN === "1";
-
 export class ApiError extends Error {
   readonly code: ErrorCode;
   readonly details: ErrorBody["details"];
