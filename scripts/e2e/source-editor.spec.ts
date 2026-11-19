@@ -226,7 +226,11 @@ test("AC-SRC-11 DEV-361: photos without descriptions remain available for manual
   await expect(page.getByTestId("hero-photo")).toBeVisible();
   await dismissExclusions(page);
   // The composer canvas shows a section's photo controls once it is picked from '내용 추가'
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByRole("button", { name: "상품 소개 추가", exact: true }).click();
+  const addedNote = page.getByTestId("canvas-section-hero").getByText("상품 소개 항목을 추가했어요");
+  await expect(addedNote).toBeInViewport();
   await page
     .getByRole("button", { name: "상품 소개 사진 추가", exact: true })
     .click();
@@ -236,6 +240,7 @@ test("AC-SRC-11 DEV-361: photos without descriptions remain available for manual
   await expect(
     page.getByTestId("source-photo-frame").getByRole("img"),
   ).toBeVisible();
+  await expect(addedNote).toHaveCount(0);
 });
 
 test("AC-SRC-11 DEV-361: inline photo description survives failure and flushes before analysis", async ({

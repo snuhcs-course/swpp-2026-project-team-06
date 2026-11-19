@@ -11,8 +11,8 @@ import {
   StoryImage,
   tokens,
 } from "@farmclub/ui";
-import { Children, useContext, useState, type ReactNode } from "react";
-import { Image, Pressable, TextInput, View, type TextStyle } from "react-native";
+import { Children, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { AccessibilityInfo, Image, Platform, Pressable, TextInput, View, type ScrollView, type TextStyle } from "react-native";
 import { SectionSwitch } from "./SectionSwitch";
 export type CanvasModule = {
   id: string;
@@ -39,6 +39,7 @@ export function PageCanvas({
   onUploading,
   uploadLabel,
   blocked = [],
+  scrollRef,
 }: {
   representativeUri?: string | null;
   onRepresentativeChange?: (uri: string) => void;
@@ -60,6 +61,7 @@ export function PageCanvas({
   /** 올리는 중 '새 사진 추가' 버튼에 보일 진행 문구(예: '사진 올리는 중 1/2', DEV-341) */
   uploadLabel?: string;
   blocked?: string[];
+  scrollRef?: RefObject<ScrollView | null>;
 }) {
   const validation = useContext(FieldFeedbackContext);
   const [selected, setSelected] = useState<string | null>(null),
@@ -69,6 +71,40 @@ export function PageCanvas({
   const [picker, setPicker] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [heights, setHeights] = useState<Record<string, number>>({});
+  const [recentlyAdded, setRecentlyAdded] = useState<string | null>(null);
+  const addedNode = useRef<View>(null);
+  useEffect(() => {
+    if (!recentlyAdded) return;
+    if (preview) {
+      setRecentlyAdded(null);
+      return;
+    }
+    let cancelled = false;
+    const node = addedNode.current;
+    const scroll = scrollRef?.current;
+    const reduceMotion = Platform.OS === "web"
+      ? Promise.resolve(globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false)
+      : AccessibilityInfo.isReduceMotionEnabled();
+    void reduceMotion.catch(() => true).then((reduced) => {
+      if (cancelled || !node) return;
+      if (Platform.OS === "web") {
+        (node as unknown as HTMLElement).scrollIntoView({
+          block: "center",
+          behavior: reduced ? "instant" : "smooth",
+        });
+      } else if (scroll) {
+        const content = (scroll as ScrollView & { getInnerViewRef(): View | null }).getInnerViewRef();
+        if (content) node.measureLayout(content, (_x, y) => {
+          if (!cancelled) scroll.scrollTo({ y: Math.max(0, y - tokens.space.md), animated: !reduced });
+        });
+      }
+    });
+    const timer = setTimeout(() => setRecentlyAdded(null), 2800);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [preview, recentlyAdded, scrollRef]);
   const title = (id: string) =>
     SOURCE_MODULES.find(([key]) => key === id)?.[1] ?? id;
   const displayModules: CanvasModule[] = SOURCE_MODULES.map(([id]) => {
@@ -144,6 +180,7 @@ export function PageCanvas({
   );
   const editing = {
     hiddenSectionIds,
+    revealedModuleId: emptyHint ? selected : null,
     active,
     // 미리보기 모양에서는 숨긴 섹션만 다시 켤 수 있게 눈 스위치를 보인다.
     sectionControl: (id: string, label: string) =>
@@ -466,11 +503,24 @@ export function PageCanvas({
     ),
     wrap: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => {
       const isActive = active(m.id);
+      const added = recentlyAdded === m.id;
       return (
         <FieldFeedback field={m.id}><View
           testID={`canvas-section-${m.id}`}
           style={{ gap: selected === m.id ? 8 : 0 }}
         >
+          {added ? (
+            <View
+              ref={addedNode}
+              collapsable={false}
+              accessibilityLiveRegion="polite"
+              style={{ paddingLeft: tokens.space.sm }}
+            >
+              <T variant="caption" weight="semibold" color={tokens.color.accent}>
+                {title(m.id)} 항목을 추가했어요
+              </T>
+            </View>
+          ) : null}
           {displayModules.find(module => module.id === m.id)?.enabled &&
             (!emptyHint || selected === m.id) &&
             removeButton(`${title(m.id)} 제외`, () => {
@@ -514,6 +564,15 @@ export function PageCanvas({
               ) : null}
               {details?.(m.id)}
             </View>
+          ) : null}
+          {added ? (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
+                borderWidth: 2, borderColor: tokens.color.accent, borderRadius: tokens.radius.md,
+              }}
+            />
           ) : null}
         </View></FieldFeedback>
       );
@@ -562,6 +621,7 @@ export function PageCanvas({
               disabled={busy || uploading}
               onPress={() => {
                 setSelected(m.id);
+                setRecentlyAdded(m.id);
                 if (!blocked.includes(m.id)) update(m.id, n => { n.enabled = true; });
               }}
               style={({ pressed }) => ({

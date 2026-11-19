@@ -38,6 +38,7 @@ export type StoryModule = {
 };
 export type StoryEditing = {
   hiddenSectionIds: string[];
+  revealedModuleId?: string | null;
   sectionControl: (id: string, title: string) => ReactNode;
   active: (id: string) => boolean;
   text: (module: StoryModule, index: number, style: TextStyle) => ReactNode;
@@ -275,7 +276,9 @@ export function ModuleStory({
   if (!filled.length) return null;
   const hero = filled.find((module) => module.id === "hero");
   const summary = filled.find((module) => module.id === "summary");
-  const heroBody = hero ? <>
+  const showHero = !introHidden || editing?.revealedModuleId === "hero";
+  const showSummary = !introHidden || editing?.revealedModuleId === "summary";
+  const heroBody = hero && showHero ? <>
     {editing ? editing.photos(hero, hero.photos.map((photo, i) => <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />)) : hero.photos.map((photo, i) => <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />)}
     <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 24, gap: 16 }}>
       {hero.texts.map((text, i) => text.value.trim() || editing ? <View key={`${text.fieldKey}-${i}`}>
@@ -295,11 +298,11 @@ export function ModuleStory({
           style={{ paddingTop: 12, paddingBottom: 18 }}
         >
           {editing ? <View style={{ position: "absolute", right: tokens.space.gutter, top: 0, zIndex: 1 }}>{editing.sectionControl("intro", "상품 소개")}</View> : null}
-          {!introHidden ? (
+          {showHero || showSummary ? (
             <>
-              {hero ? (editing ? editing.wrap(hero, heroBody) : heroBody) : null}
+              {hero && showHero ? (editing ? editing.wrap(hero, heroBody) : heroBody) : null}
               <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: hero ? 16 : 24, gap: 16 }}>
-                {summary ? (
+                {summary && showSummary ? (
                   <View
                     style={{
                       gap: 16,
@@ -374,8 +377,9 @@ export function ModuleStory({
               />
               {editing?.sectionControl(group.id, group.title)}
             </View>
-            {!isHidden &&
-              modules.map((module) => (
+            {modules
+              .filter((module) => !isHidden || module.id === editing?.revealedModuleId)
+              .map((module) => (
                 <ModuleBody
                   key={module.id}
                   module={module}

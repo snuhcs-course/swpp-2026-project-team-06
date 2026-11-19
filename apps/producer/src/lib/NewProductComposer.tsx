@@ -66,7 +66,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, TextInput, View, type ScrollView } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { toPageData } from "./BuyerPreview";
 import { useHideTabBar, useSession } from "./session";
@@ -623,6 +623,7 @@ function BasicInfo({
  * `productId`를 주면 자료 작업(batch) 없이 상품만 연다(Mock·자료 분석이 꺼진 서버·composer로 못 옮긴 페이지, DEV-361 C-1).
  */
 export function NewProductComposer({ productId: fixedProductId }: { productId?: string } = {}) {
+  const scrollRef = useRef<ScrollView>(null);
   useHideTabBar();
   const { toast } = useSession();
   const flushAttachments = useRef<(() => Promise<void>) | null>(null);
@@ -1885,7 +1886,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           ) : null}
         </CollapsingTop>
       ) : null}
-      <Scroll bottom={batch && !readOnly ? footerHeight + 24 : 140} onScroll={top.onScroll}>
+      <Scroll bottom={batch && !readOnly ? footerHeight + 24 : 140} onScroll={top.onScroll} scrollRef={scrollRef}>
         {/* 미리보기와 같은 구매자 화면(ProductPageBody)에서 빈 칸만 점선으로, 누르면 그 자리에서 고친다(DEV-184). */}
         {hasTop ? <CollapsingSpacer height={top.height} /> : null}
         {soldOutAfter !== null && live && !buyerPreview ? (
@@ -2236,6 +2237,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                           ) : showEditor && review && batch ? (
                             <>
                               <SourceDetailsEditor
+                                scrollRef={scrollRef}
                                 locked={busy || working || readOnly}
                                 key={batch.id}
                                 emptyHint
