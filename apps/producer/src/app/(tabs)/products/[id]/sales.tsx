@@ -21,7 +21,8 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TextInput, View } from "react-native";
-import { useHideTabBar } from "../../../../lib/session";
+import { useHideTabBar, useSession } from "../../../../lib/session";
+import { isPreSale } from "../../../../lib/productGroups";
 import { goBackOr } from "../../../../lib/nav";
 import { isServerTrouble, serverErrorCode } from "../../../../lib/producerEvents";
 import { track } from "@farmclub/analytics";
@@ -37,6 +38,8 @@ function grams(text: string) {
   if (!Number.isSafeInteger(n)) throw new Error("중량이 너무 커요.");
   return n;
 }
+/** 판매 전 상품이 들어오면 판매·가격으로 보내며 띄우는 안내(DEV-361) */
+const PRE_SALE_TOAST = "판매를 시작하려면 판매·가격을 먼저 채워 주세요";
 const statusText = {
   PENDING: "심사 중",
   APPROVED: "승인",
@@ -54,7 +57,8 @@ type Where = "save" | "pause" | "request" | "page";
 export default function Sales() {
   useHideTabBar();
   const { id } = useLocalSearchParams<{ id: string }>(),
-    router = useRouter();
+    router = useRouter(),
+    { toast } = useSession();
   const [p, setP] = useState<MyProduct | null>(null),
     [history, setHistory] = useState<CapacityRequest[]>([]);
   const [total, setTotal] = useState(""),
@@ -75,11 +79,25 @@ export default function Sales() {
   const pending = useRef<{ body: string; key: string } | null>(null);
   // 마지막으로 불러와 칸에 넣은 값. 다시 들어와 읽을 때 이 값과 다르면 생산자가 고친 것이라 덮지 않는다(DEV-345)
   const loaded = useRef({ total: "", perOrder: "" });
-  async function load(keepEdits = false) {
-    const [product, requests] = await Promise.all([
-      catalog.myProduct(id),
-      allPages((cursor) => catalog.capacityRequests(id, { cursor, limit: 50 })),
-    ]);
+  // 이 화면이 보이는 동안만 판매·가격으로 옮긴다(응답 전에 떠난 뒤 늦게 온 응답이 다른 화면을 바꾸지 않게)
+  const focused = useRef(false);
+  /**
+   * 상품과 신청 이력을 읽는다. 판매 전 상품(작성 중·반려, 승인 물량 0)이면 이 화면을 보이지 않고
+   * 판매·가격으로 바꿔 열고 true를 돌려준다(DEV-361: 첫 판매 요청은 판매·가격에서만).
+   */
+  async function load(keepEdits = false, preSaleToast = PRE_SALE_TOAST) {
+    // 판매 전인지 먼저 보고, 옮길 때는 신청 이력을 읽지 않는다
+    const product = await catalog.myProduct(id);
+    if (isPreSale(product)) {
+      if (focused.current) {
+        toast(preSaleToast);
+        router.replace(`/products/${id}/sell`);
+      }
+      return true;
+    }
+    const requests = await allPages((cursor) =>
+      catalog.capacityRequests(id, { cursor, limit: 50 }),
+    );
     setP(product);
     setHistory(requests);
     const prev = loaded.current,
@@ -92,11 +110,12 @@ export default function Sales() {
     setPerOrder((cur) =>
       keepEdits && cur !== prev.perOrder ? cur : next.perOrder,
     );
+    return false;
   }
   /**
    * 저장·신청에서 생산자에게 보인 오류 안내. 위치·종류만 보낸다(글자 없음, DEV-312).
    * 화면 검사(kg·박스 수, ApiError가 아닌 Error)는 quantity_invalid, 연결·서버·충돌 실패는 세지 않는다
-   * (생산자가 고칠 409 — 판매 한도 거절은 quantity_invalid, 입금 계좌 없음은 deposit_account_required — 는 센다).
+   * (생산자가 고칠 409 — 판매 한도 거절은 quantity_invalid — 는 센다. 입금 계좌 검사는 첫 신청뿐이라 판매·가격에서, DEV-361).
    */
   function shownFailure(e: unknown, where: Where = "page") {
     if (e instanceof Error && !(e instanceof ApiError) && !(e instanceof TypeError))
@@ -110,9 +129,6 @@ export default function Sales() {
     setCapExceeded(
       e instanceof ApiError && e.details.reason === "APPROVED_CAP_EXCEEDED",
     );
-    // 입금 계좌가 없으면 초기 승인 요청을 막는다(DEV-68). 어디서 등록하는지 함께 알린다
-    if (e instanceof ApiError && e.details.reason === "NO_FARM_ACCOUNT")
-      return setError(`${e.message} (설정 › 농가 프로필 › 입금 계좌)`);
     setError(
       e instanceof ApiError && e.details.fields
         ? Object.values(e.details.fields).join("\n")
@@ -121,15 +137,19 @@ export default function Sales() {
           : "처리하지 못했어요",
     );
   }
-  // 기간·가격에서 박스를 고치고 돌아오면(DEV-345) 최신 상태로 다시 읽는다. 처음 열 때도 여기서 읽는다.
+  // 상품 수정(판매 조건)에서 박스를 고치고 돌아오면(DEV-345, DEV-361) 최신 상태로 다시 읽는다. 처음 열 때도 여기서 읽는다.
   // 지난 결과 안내는 지우고, 생산자가 고친 입력칸은 그대로 둔다
   useFocusEffect(
     useCallback(() => {
+      focused.current = true;
       setError("");
       setNote("");
       setAt("page");
       setCapExceeded(false);
       void load(true).catch((e) => failure(e));
+      return () => {
+        focused.current = false;
+      };
     }, [id]),
   );
   // 버튼 아래 안내가 화면 밖이면 보이는 곳까지 스크롤(웹)
@@ -185,8 +205,8 @@ export default function Sales() {
           p.version,
           pending.current.key,
         );
-        // 서버 CapacityRequest.kind와 같은 기준: 승인 물량이 0이면 첫 신청(DEV-312)
-        track("sale_start_requested", { productId: id, screen: "product_sales", requestKind: p.approvedSupplyGrams === 0 ? "initial" : "increase" });
+        // 첫 신청은 판매·가격에서만 하므로(DEV-361) 여기서는 늘 증액이다(서버 CapacityRequest.kind, DEV-312)
+        track("sale_start_requested", { productId: id, screen: "product_sales", requestKind: "increase" });
       }
       else if (action === "withdraw")
         await catalog.withdrawCapacity(
@@ -209,7 +229,16 @@ export default function Sales() {
       pending.current = null;
       setConfirm(null);
       setRequested("");
-      await load();
+      // 첫 신청을 철회하면 작성 중으로 돌아가 판매·가격으로 옮긴다(DEV-361)
+      if (
+        await load(
+          false,
+          action === "withdraw"
+            ? "신청을 철회했어요. 판매·가격에서 고친 뒤 다시 요청해 주세요."
+            : undefined,
+        )
+      )
+        return;
       setNote(
         action === "request"
           ? "공급 물량을 신청했어요. 기존 승인 물량은 계속 판매할 수 있어요."
@@ -307,11 +336,12 @@ export default function Sales() {
                           ) : null}
                           {guide.toStages ? (
                             <Button
-                              label="기간·가격에서 박스 늘리기"
+                              label="판매 조건에서 박스 늘리기"
                               variant="outline"
                               compact
+                              // DEV-361 PR C: 기간·가격은 상품 수정(composer)의 판매 조건 시트에서 고친다
                               onPress={() =>
-                                router.push(`/products/${id}/stages?from=sales`)
+                                router.push({ pathname: "/products/[id]/detail", params: { id, terms: "1", from: "sales" } })
                               }
                             />
                           ) : null}
@@ -422,6 +452,10 @@ export default function Sales() {
                   />
                 ) : null}
                 {feedback("pause")}
+                {/* DEV-361 PR C: 이 화면은 바로 적용되는 운영 조작만. 나머지는 상품 수정 한 화면에서 고치고 한 번에 반영 */}
+                <T variant="caption" muted>
+                  가격·기간·받는 시기·사진은 &apos;상품 수정&apos;에서 바꾸고 &apos;상품에 반영&apos;해요.
+                </T>
               </View>
               <View
                 ref={requestSection}
@@ -432,10 +466,9 @@ export default function Sales() {
                   paddingTop: 24,
                 }}
               >
+                {/* 첫 신청(판매 시작 요청)은 판매·가격에서만 한다(DEV-361). 여기서는 심사 중인 첫 신청의 상태만 보인다 */}
                 <T variant="heading">
-                  {p.approvedSupplyGrams > 0
-                    ? "물량 추가 신청"
-                    : "공급 물량 승인 요청"}
+                  {p.approvedSupplyGrams > 0 ? "물량 추가 신청" : "판매 시작 요청"}
                 </T>
                 {p.pendingCapacityRequest ? (
                   <View
@@ -462,12 +495,11 @@ export default function Sales() {
                       onPress={() => setConfirm("withdraw")}
                     />
                   </View>
-                ) : p.status !== "CLOSED" ? (
+                ) : p.status !== "CLOSED" && p.approvedSupplyGrams > 0 ? (
                   <>
                     <T variant="sub" muted>
-                      {p.approvedSupplyGrams > 0
-                        ? "추가분을 포함한 총중량을 적어 주세요. 승인 후 판매 한도를 직접 늘릴 수 있어요."
-                        : "이 상품으로 공급할 수 있는 총중량을 알려 주세요."}
+                      추가분을 포함한 총중량을 적어 주세요. 승인 후 판매 한도를
+                      직접 늘릴 수 있어요.
                     </T>
                     <Input
                       label="신청 후 총 공급 물량 (kg)"
@@ -478,31 +510,18 @@ export default function Sales() {
                       placeholder="예: 1500"
                       inputRef={requestInput}
                     />
-                    {p.missingFields.length && p.approvedSupplyGrams === 0 ? (
-                      <T color={tokens.color.error}>
-                        먼저 입력해 주세요: {p.missingFields.join(", ")}
-                      </T>
-                    ) : null}
                     <Button
-                      label={
-                        p.approvedSupplyGrams > 0
-                          ? "물량 추가 신청"
-                          : "공급 물량 승인 요청"
-                      }
+                      label="물량 추가 신청"
                       variant="secondary"
-                      disabled={
-                        busy ||
-                        (p.approvedSupplyGrams === 0 &&
-                          p.missingFields.length > 0)
-                      }
+                      disabled={busy}
                       onPress={requestConfirmation}
                     />
                   </>
-                ) : (
+                ) : p.status === "CLOSED" ? (
                   <T muted>
                     종료된 상품이에요. 다음 수확은 새 상품으로 등록해 주세요.
                   </T>
-                )}
+                ) : null}
                 {feedback("request")}
               </View>
               {history.length ? (

@@ -3,7 +3,7 @@
 // 고치기 전에는 닫힘 애니메이션이 끝나지 않아 시트가 새 화면 위에 계속 남았다.
 import { expect, test, type Page } from "./fixtures";
 
-import { consumerUrl, loginConsumer, loginProducer, monitor, producerUrl } from "./helpers";
+import { apiUrl, consumerUrl, loginConsumer, loginProducer, monitor, producerUrl } from "./helpers";
 
 /** 열린 시트의 여는 애니메이션이 끝날 때까지 기다린 뒤 페이지의 애니메이션을 멈춘다 */
 async function freezeAnimations(page: Page) {
@@ -71,21 +71,31 @@ test("DEV-225 decision 25: gate sheet is gone on login and option sheet is gone 
   assertClean();
 });
 
-// 웹에서는 나가기가 편집 화면을 스택에서 빼 시트도 함께 사라지므로 고치기 전에도 통과한다. 도우미로 바꾼 나가기 흐름이 그대로 동작하는지 본다
-test("DEV-225 SCR-25: leave-without-saving sheet is gone once the product list appears", async ({
+// DEV-361 PR C: 상품 편집(SCR-25)의 '저장하지 않고 나가기' 시트는 상품 수정(composer)과 함께 없어졌다.
+// 구매자에게 보이는 상품은 나가기 확인(PM 11/18)에서 '임시 저장하고 나가기'를 고르면 상품 초안에 저장하고 나간다. 나간 뒤 시트·덮개가 남지 않는지 본다
+test("DEV-225 DEV-361: leaving 상품 수정 with edits asks, saves privately and nothing stays over the product list", async ({
   page,
+  request,
 }) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires explicitly enabled local source API");
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products/p-house/edit`);
-  await page.getByLabel("보관", { exact: true }).fill("서늘한 곳에 두세요 (DEV-225)");
+  await expect(page).toHaveURL(/composer=1/);
+  await page.getByText("상품정보", { exact: true }).click();
+  await page.getByTestId("product-basic-info").getByLabel("보관", { exact: true }).fill("서늘한 곳에 두세요 (DEV-225)");
   await page.getByRole("button", { name: "뒤로" }).first().click();
-  const leave = page.getByText("저장하지 않고", { exact: false });
-  await expect(leave).toBeVisible();
-  const resume = await freezeAnimations(page);
-  await page.getByRole("button", { name: "나가기", exact: true }).click();
+  // PM 11/18: 반영 안 한 수정이 있으면 나가기 전에 묻는다
+  await page.getByTestId("leave-confirm").getByRole("button", { name: "임시 저장하고 나가기", exact: true }).click();
+  await expect(page.getByText("임시 저장됐어요", { exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/products\/?$/);
-  await expect(leave).toHaveCount(0);
-  await resume();
+  await expect(page.getByTestId("apply-confirm")).toHaveCount(0);
+  await expect(page.getByTestId("leave-confirm")).toHaveCount(0);
+  // 다른 spec이 보는 시드 상품에 비공개 초안을 남기지 않는다
+  const token = (await (await request.post(`${apiUrl}/api/auth/test-login`, { data: { userId: "u-kang", app: "producer" } })).json()).accessToken;
+  const headers = { Authorization: `Bearer ${token}` };
+  const view = await (await request.get(`${apiUrl}/api/source-analysis/product-workspaces/p-house/product-draft`, { headers })).json();
+  expect(view.draft?.fields?.info?.storage).toBe("서늘한 곳에 두세요 (DEV-225)");
+  await request.delete(`${apiUrl}/api/source-analysis/product-workspaces/p-house/product-draft?version=${view.version}`, { headers });
   assertClean();
 });

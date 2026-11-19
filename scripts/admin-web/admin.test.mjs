@@ -1,6 +1,7 @@
 // 관리자 페이지 로그인·세션 테스트(DEV-83). 실행: cd scripts/admin-web && npm test
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 process.env.ADMIN_WEB_PASSWORD = "test-password";
 process.env.ADMIN_TOKEN = "test-token";
@@ -116,11 +117,12 @@ test("중계는 가입 신청·공급 물량 경로만 넘기고 나머지 관�
     ["/admin/capacity-requests?status=ALL", "GET"],
     ["/admin/products/p-1/capacity-requests/capacity-p-1/approve", "POST"],
     ["/admin/products/p-1/capacity-requests/capacity-p-1/reject", "POST"],
+    ["/admin/products/p-1/changes", "GET"], // 상품 변경 기록(DEV-361)
   ]) {
     assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
   }
   // 주문 환불은 DEV-106 사용자 화면에서 허용했다. 여전히 막는 운영 API로 확인한다
-  for (const path of ["/admin/orders/expire-deposits", "/admin/products/p-1/capacity-requests", "/admin/capacity-requests/../orders"]) {
+  for (const path of ["/admin/orders/expire-deposits", "/admin/products/p-1/capacity-requests", "/admin/capacity-requests/../orders", "/admin/products/p-1/changes/../capacity-requests"]) {
     assert.equal((await go(path, "POST")).status, 400, path);
   }
 });
@@ -132,6 +134,7 @@ test("공급 물량 승인 화면도 로그인해야 열린다 (DEV-87)", async 
   const ok = await call(page, { url: "/api/page?name=capacity", headers: { cookie } });
   assert.equal(ok.status, 200);
   assert.match(ok.body, /공급 물량 승인/);
+  assert.match(ok.body, /변경 기록 보기/); // 신청 뒤 생산자 변경 기록(DEV-361)
 });
 
 test("중계는 테스트 농가 목록·미리보기·숨기기·되돌리기만 넘긴다 (DEV-98)", async () => {
@@ -326,5 +329,134 @@ test("중계는 정지·정지 풀기·되돌리기·이력·활동 로그·홈 
     "/admin/home/x", "/admin/home?x=1", "/admin/support?kind=a/b", "/admin/support?kind=wrong", "/admin/producers/f-1/revert/x", "/admin/farms/../orders",
   ]) {
     assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
+
+const proxyGo = (cookie) => (path, method = "GET") =>
+  call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+const source = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
+
+test("AC-01-22 중계는 아이디 계정 목록·만들기만 넘기고 이웃 경로는 400 (DEV-363)", async () => {
+  const go = proxyGo(await signIn());
+  for (const [path, method] of [
+    ["/admin/id-accounts", "GET"],
+    ["/admin/id-accounts?" + new URLSearchParams({ app: "producer", q: "농가", limit: "100" }), "GET"],
+    ["/admin/id-accounts", "POST"],
+  ]) {
+    assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
+  }
+  for (const path of [
+    "/admin/id-accounts/u-pw-1", "/admin/id-accounts/u-pw-1/temporary-password", "/admin/id-accounts/x/delete",
+    "/admin/id-accounts?q=a/b", "/admin/id-accounts/../users", "/admin/id-accountsx", "/admin/signups", "/admin/signups/u-1/approve",
+  ]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
+
+test("AC-01-31 중계는 임시 비밀번호 발급 경로만 넘기고 이웃 경로는 400 (DEV-363)", async () => {
+  const go = proxyGo(await signIn());
+  assert.equal((await go("/admin/users/u-pw-1/temporary-password", "POST")).status, 502);
+  for (const path of [
+    "/admin/users/u-pw-1/temporary-password/extra", "/admin/users/u-pw-1/temporary-password?x=1",
+    "/admin/users/u-pw-1/temporary_password", "/admin/users/u-pw-1/password", "/admin/users/../users/u-1/temporary-password",
+  ]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
+
+// 가짜 실서버로 바꿔 중계 응답 헤더·본문과 콘솔 기록을 본다. 본문 없는 POST는 가짜 req라 body를 문자열로 둔다
+async function relaySecret(cookie, path, reqBody, upstreamBody) {
+  const realFetch = globalThis.fetch;
+  const logged = [], saved = {};
+  for (const k of ["log", "info", "warn", "error", "debug"]) { saved[k] = console[k]; console[k] = (...a) => logged.push(a.join(" ")); }
+  let seen;
+  globalThis.fetch = async (url, init) => {
+    seen = { url, method: init.method, headers: init.headers, body: init.body };
+    return new Response(JSON.stringify(upstreamBody), { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+  };
+  try {
+    const r = await call(proxy, {
+      method: "POST", url: "/api/proxy?path=" + encodeURIComponent(path),
+      headers: { cookie, "idempotency-key": "k-1", "content-type": "application/json" }, body: reqBody,
+    });
+    return { r, seen, logged };
+  } finally {
+    globalThis.fetch = realFetch;
+    Object.assign(console, saved);
+  }
+}
+
+test("AC-01-22 아이디 계정 만들기 응답은 no-store로 그대로 넘기고 멱등 키를 붙이며 콘솔에 남기지 않는다 (DEV-363)", async () => {
+  const cookie = await signIn();
+  const secret = "Tmp-Create-5678";
+  const { r, seen, logged } = await relaySecret(cookie, "/admin/id-accounts", JSON.stringify({ app: "consumer", username: "uat01", nickname: "테스터" }), {
+    userId: "u-pw-2", role: "CONSUMER", username: "uat01", mustChangePassword: true, consented: false, issueId: "abc", temporaryPassword: secret,
+  });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers["cache-control"], "no-store");
+  assert.equal(JSON.parse(r.body).temporaryPassword, secret);
+  assert.equal(seen.method, "POST");
+  assert.match(seen.url, /\/admin\/id-accounts$/);
+  assert.equal(seen.headers["idempotency-key"], "k-1"); // 서버가 멱등 키를 요구한다
+  assert.equal(JSON.parse(seen.body).username, "uat01");
+  assert.ok(!logged.some((l) => l.includes(secret)), "임시 비밀번호가 콘솔에 남으면 안 된다");
+});
+
+test("AC-01-31 임시 비밀번호 응답은 no-store로 그대로 넘기고 콘솔에 남기지 않는다 (DEV-363)", async () => {
+  const cookie = await signIn();
+  const secret = "Tmp-Secret-1234";
+  const { r, seen, logged } = await relaySecret(cookie, "/admin/users/u-pw-1/temporary-password", "", {
+    userId: "u-pw-1", username: "minji01", temporaryPassword: secret, mustChangePassword: true,
+  });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers["cache-control"], "no-store");
+  assert.equal(JSON.parse(r.body).temporaryPassword, secret);
+  assert.equal(seen.method, "POST");
+  assert.match(seen.url, /\/admin\/users\/u-pw-1\/temporary-password$/);
+  assert.ok(!logged.some((l) => l.includes(secret)), "임시 비밀번호가 콘솔에 남으면 안 된다");
+  assert.doesNotMatch(source("./api/proxy.js") + source("./server.mjs"), /console\.(log|info|warn|error|debug)\([^)]*(body|text\(\))/);
+});
+
+test("AC-01-22 아이디 계정 화면은 로그인해야 열리고 메뉴는 가입 신청 바로 다음, 가입 승인 화면은 없다 (DEV-363)", async () => {
+  const r = await call(page, { url: "/api/page?name=id-accounts" });
+  assert.equal(r.headers.location, "/login?next=%2Fid-accounts");
+  const cookie = await signIn();
+  const ok = await call(page, { url: "/api/page?name=id-accounts", headers: { cookie } });
+  assert.equal(ok.status, 200);
+  assert.match(ok.body, /<h1>아이디 계정<\/h1>/);
+  assert.match(ok.body, /아이디 계정 만들기/);
+  assert.match(ok.body, /call\("\/admin\/id-accounts", "POST", body\)/);
+  assert.match(ok.body, /err\.fields/); // 서버 details.fields를 칸별 빨간 오류로
+  assert.match(ok.body, /이 창을 닫으면 다시 볼 수 없어요\. 사용자에게 아이디와 함께 알려 주면, 처음 로그인할 때 새 비밀번호로 바꾸고 약관에 동의해요\./);
+  assert.match(ok.body, /임시 비밀번호 사용 중/);
+  assert.match(ok.body, /약관 동의 전/);
+  assert.match(ok.body, /data-act="temp-password"/);
+  // 공개 아이디 가입이 없어져(PM 11/18) 가입 승인 화면·경로를 지웠다
+  const gone = await call(page, { url: "/api/page?name=signups", headers: { cookie } });
+  assert.equal(gone.status, 302);
+  assert.equal(gone.headers.location, "/");
+  const rewrites = JSON.parse(source("./vercel.json")).rewrites;
+  assert.ok(rewrites.some((w) => w.source === "/id-accounts" && w.destination === "/api/page?name=id-accounts"));
+  assert.ok(!rewrites.some((w) => w.source === "/signups"));
+  const nav = [...source("./assets/admin.js").matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(nav[nav.indexOf("/producers") + 1], "/id-accounts");
+  assert.ok(!nav.includes("/signups"));
+});
+
+test("AC-01-31 임시 비밀번호는 아이디 계정·사용자 화면에서 한 번만 보이고 저장·기록하지 않는다 (DEV-363)", async () => {
+  const cookie = await signIn();
+  const users = (await call(page, { url: "/api/page?name=users", headers: { cookie } })).body;
+  const ids = (await call(page, { url: "/api/page?name=id-accounts", headers: { cookie } })).body;
+  const shared = source("./assets/admin.js");
+  assert.match(users, /signup === "PASSWORD"/);
+  assert.match(users, /issueTemporaryPassword\(b, slot, id, who\)/);
+  assert.doesNotMatch(users, /signupStatus|\/signups/); // 가입 승인 상태는 없어졌다
+  assert.match(shared, /이 사용자의 지금 비밀번호와 모든 로그인이 바로 풀려요/);
+  assert.match(shared, /이 창을 닫으면 다시 볼 수 없어요\. 사용자에게 알려 주면, 로그인한 뒤 바로 새 비밀번호로 바꿔요\./);
+  assert.match(shared, /addEventListener\("pagehide", clearSecrets\)/);
+  for (const [name, text] of [["users.html", users], ["id-accounts.html", ids], ["admin.js", shared]]) {
+    for (const banned of [/localStorage/, /sessionStorage/, /indexedDB/, /document\.cookie/, /console\./]) {
+      assert.doesNotMatch(text, banned, `${name}: ${banned}`);
+    }
   }
 });

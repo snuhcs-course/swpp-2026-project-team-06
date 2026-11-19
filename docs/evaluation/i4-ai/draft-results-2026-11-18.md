@@ -98,7 +98,42 @@ The two after runs use identical code, yet 35 facts went PASS→FAIL and 34 FAIL
 
 The pass lines are not lowered. The I4 decision (limit exposure, manual fallback, or move to I5) is the PM's.
 
+## Holdout v2 — the unseen check (2026-11-18, run once)
+
+12 sources the improver never saw, scored on the merged code `472047bd`. Zahra ran it in her own terminal on a fresh local database. The agent saw only the totals below. No per-source output was shared.
+
+**Attempt record:**
+- The folder already held a run-once marker dated 2026-11-05, from an earlier unfinished v2 attempt. The PM confirmed on 11/16 that the earlier attempt showed no per-source results.
+- The first try today stopped at that marker before any model call ($0, nothing produced).
+- This run is therefore recorded by the script as attempt 2 (`--force-rerun`), with the reason saved in the marker. The earlier marker is kept.
+
+| Format | Sources | Facts (strict) | Critical | Forbidden | Unsupported |
+| --- | ---: | --- | --- | ---: | ---: |
+| text | 3 | 27/49 (55.1%) | 10/15 | 1 | 2 |
+| image | 3 | 14/25 (56.0%) | 5/6 | 0 | 0 |
+| long_image | 3 | 16/24 (66.7%) | 3/3 | 1 | 0 |
+| pdf | 3 | 18/36 (50.0%) | 7/9 | 1 | 0 |
+| **overall** | **12** | **75/134 (56.0%)** | **25/33 (75.8%)** | **3** | **2** |
+
+- **Semantic recall** (`fact-judge-v1`, PM-approved, no-training providers only): 95/134 (70.9%) facts, 25/33 critical.
+- **Run:** all 12 sources EVALUATED. Cost $0.148, plus $0.007 for the judge.
+
+**Against development:**
+
+| | Holdout v2 | Development (final mean) |
+|---|---|---|
+| Critical facts | 75.8% | 75.4% |
+| All facts | 56.0% | 67.7% |
+| Safety (forbidden / unsupported) | 3 / 2 | 0–1 / 0–1 |
+
+- **Critical facts hold** on unseen sources.
+- **All facts are about 12 points lower** than on development. Part of the development gain is tuning to those sources.
+- **Safety is worse on unseen data.** Deterministic code checks are the next step (DEV-355).
+- There is no holdout "before" number: v2 had never produced results. This is one after-point, not a before/after comparison.
+
+**Pass lines:** not met (facts ≥ 95%, forbidden 0, unsupported 0). Not lowered.
+
 ## Not done / next
-- **Holdout v2**, once, on the merged code. Zahra runs it in her own terminal on a fresh database and pastes back only totals. Semantic recall on holdout was approved by Jinwoo on 11/17, on four conditions: no-training providers only (enforced in code), totals shared only, strict recall stays the pass line, one run (`--allow-holdout`).
+- ~~Holdout v2~~: done, see above.
 - **Human review** of the drafts (Jinwoo).
 - **Cost of this work:** about $5.5 of the $6 approved, development runs and judge included.

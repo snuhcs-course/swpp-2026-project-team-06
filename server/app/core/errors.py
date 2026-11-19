@@ -7,6 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.masking import redact_secret_fields
+
 _DEFAULT_CODES = {
     400: "VALIDATION_ERROR",
     401: "UNAUTHENTICATED",
@@ -14,16 +16,25 @@ _DEFAULT_CODES = {
     404: "NOT_FOUND",
     409: "CONFLICT",
     413: "PAYLOAD_TOO_LARGE",
+    429: "RATE_LIMITED",
 }
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, code: str, message: str, details: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        status: int,
+        code: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ):
         super().__init__(message)
         self.status = status
         self.code = code
         self.message = message
         self.details = details or {}
+        self.headers = headers
 
 
 def invalid(fields: dict[str, str], message: str = "입력한 내용을 확인해 주세요.") -> ApiError:
@@ -46,6 +57,17 @@ def conflict(reason: str, message: str, **details: Any) -> ApiError:
     return ApiError(409, "CONFLICT", message, {"reason": reason, **details})
 
 
+def too_many_requests(message: str, retry_after: int) -> ApiError:
+    """429 RATE_LIMITED + Retry-After(초). 아이디별 로그인 잠금(DEV-363)."""
+    return ApiError(
+        429,
+        "RATE_LIMITED",
+        message,
+        {"retryAfter": retry_after},
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
 def error_body(code: str, message: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
     return {"code": code, "message": message, "details": details or {}}
 
@@ -58,11 +80,16 @@ def _field_name(loc: tuple[Any, ...]) -> str:
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError) -> JSONResponse:
-        return JSONResponse(error_body(exc.code, exc.message, exc.details), exc.status)
+        return JSONResponse(
+            error_body(exc.code, exc.message, exc.details), exc.status, headers=exc.headers
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
-        fields = {_field_name(tuple(e["loc"])): e["msg"] for e in exc.errors()}
+        # 입력값(input)은 돌려주지 않고 메시지만. 비밀번호 칸은 메시지도 고정 문구로(DEV-363)
+        fields = redact_secret_fields(
+            {_field_name(tuple(e["loc"])): e["msg"] for e in exc.errors()}
+        )
         body = error_body("VALIDATION_ERROR", "입력한 내용을 확인해 주세요.", {"fields": fields})
         return JSONResponse(body, 400)
 

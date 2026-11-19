@@ -2,6 +2,7 @@
 import {
   auth,
   configureApi,
+  onAccountGate,
   onAuthChange,
   onOnboardingRequired,
   getToken,
@@ -183,11 +184,31 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [refresh, router],
   );
 
+  // 아이디 계정 관문(DEV-363): 임시 비밀번호로 들어왔으면 비밀번호 변경만, 그다음 약관 동의 전이면 온보딩(SCR-06)만 연다.
+  // 다른 API가 403 PASSWORD_CHANGE_REQUIRED를 주면 내 정보를 다시 읽어 여기로 온다(동의 전 403은 ONBOARDING_REQUIRED로 온보딩)
+  useEffect(() => onAccountGate(() => void refresh()), [refresh]);
+  // 로그인 직후 내 정보를 두 번 읽으면(로그인 화면 + 토큰 변경 알림) 같은 주소에서 두 번 옮겨 화면이 겹친다.
+  // 한 주소에서는 한 번만 옮긴다
+  const gatedFrom = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ready || !user) return;
+    const gated = accountGatePath(user);
+    if (!gated || gateAllows(gated, pathname)) {
+      gatedFrom.current = null;
+      return;
+    }
+    if (gatedFrom.current === pathname) return;
+    gatedFrom.current = pathname;
+    router.replace(gated as never);
+  }, [ready, user, pathname, router]);
+
   // 약관·처리방침 버전이 바뀌었거나 필수 동의가 없으면(DEV-113) 앱을 열 때 한 번 동의 화면을 띄운다.
   // 닫아도 주문·팔로우·채팅은 서버가 403 ONBOARDING_REQUIRED로 막고 그때 다시 이 화면이 열린다
   const askedConsent = useRef(false);
   useEffect(() => {
     if (!ready || !user?.consentRequired || askedConsent.current) return;
+    // 아이디 계정(DEV-363)은 위 관문이 비밀번호 변경 → 온보딩 순서로 옮긴다(여기서 또 열면 화면이 겹친다)
+    if (user.username) return;
     if (/^\/(onboarding|login|auth|privacy|terms)(\/|$)/.test(pathname)) return;
     askedConsent.current = true;
     router.push({ pathname: "/onboarding", params: { next: pathname } });
@@ -320,6 +341,21 @@ export function useSession() {
   const s = useContext(Ctx);
   if (!s) throw new Error("SessionProvider 밖");
   return s;
+}
+
+/**
+ * 운영자가 만든 아이디 계정이 머물러야 하는 화면(DEV-363). 관문이 없으면 null.
+ * 임시 비밀번호면 비밀번호 변경, 그다음 필수 약관 동의 전이면 온보딩(SCR-06, 카카오 가입과 같은 동의)
+ */
+export function accountGatePath(user: User | null): "/password" | "/onboarding" | null {
+  if (!user) return null;
+  if (user.mustChangePassword) return "/password";
+  if (user.username && user.consentRequired) return "/onboarding";
+  return null;
+}
+/** 관문에 걸린 동안에도 열리는 화면: 그 화면(하위 포함)과 약관·처리방침 */
+export function gateAllows(gated: string, pathname: string): boolean {
+  return pathname === gated || pathname.startsWith(`${gated}/`) || /^\/(privacy|terms)(\/|$)/.test(pathname);
 }
 
 /** 하단 고정 바에 주 행동이 있는 작업 화면은 탭 바를 숨긴다(docs/design 레이아웃 규칙) */

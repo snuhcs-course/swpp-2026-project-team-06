@@ -158,7 +158,7 @@ function inquiries(d: DB, t: Thread) {
 }
 type Source = "CONSUMER" | "PRODUCER";
 const ANY: Source[] = ["CONSUMER", "PRODUCER"];
-/** 기본은 연결 주문(소비자 쪽 문맥·문의). 보기 판단은 ANY, 생산자 쪽만은 ["PRODUCER"](DEV-342) */
+/** 기본은 연결 주문(소비자 쪽 문맥·문의). 열기·사진 권한은 ANY, 생산자 쪽만은 ["PRODUCER"](DEV-342). 목록은 listedWithoutFollow(DEV-362) */
 function eligibleOrderIds(d: DB, t: Thread, sources: Source[] = ["CONSUMER"]): string[] {
   const recorded = new Set([
     ...(sources.includes("CONSUMER") ? inquiries(d, t).map(i => i.orderId) : []),
@@ -171,6 +171,12 @@ function eligibleOrderIds(d: DB, t: Thread, sources: Source[] = ["CONSUMER"]): s
     return o && chatEligible(o) && o.consumerId === t.consumerId &&
       d.products[o.productId]?.farmId === t.farmId;
   }).sort();
+}
+/** 팔로우하지 않은 농가 대화를 소비자 목록에 올릴지(서버 _listed_without_follow). 연결 주문이 있으면 올리고,
+ *  생산자 쪽 문맥만 있으면 메시지가 하나라도 있을 때만: '채팅하기'만 누르고 안 보낸 빈 대화는 숨긴다(DEV-362) */
+function listedWithoutFollow(d: DB, t: Thread): boolean {
+  if (eligibleOrderIds(d, t).length) return true;
+  return list(d, t).length > 0 && eligibleOrderIds(d, t, ["PRODUCER"]).length > 0;
 }
 /** 대화를 보게 하는 주문 문맥: 결제 이력 또는 입금 대기(DEV-342, 서버 get_chat_order_of). 메시지 주문·연결 주문은 결제 주문만 */
 const chatEligible = (o: OrderRec) => !!o.paidAt || o.status === "AWAITING_DEPOSIT";
@@ -717,8 +723,7 @@ register({
           (t) =>
             t.consumerId === u.userId &&
             ctx.db.farms[t.farmId]?.status === "APPROVED" &&
-            (following(ctx.db, t.farmId, u.userId) ||
-              eligibleOrderIds(ctx.db, t, ANY).length > 0),
+            (following(ctx.db, t.farmId, u.userId) || listedWithoutFollow(ctx.db, t)),
         )
         .map((t): ChatSummary => {
           const f = ctx.db.farms[t.farmId],

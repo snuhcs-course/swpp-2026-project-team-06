@@ -1,10 +1,11 @@
-// SCR-19 로그인(생산자 앱) — 카카오로 시작하기(I2, DEV-74) 또는 생산자 테스트 계정 선택(ADR 0009·0010) — design: p-scr-19
+// SCR-19 로그인(생산자 앱) — 카카오로 시작하기(I2, DEV-74), 아이디·비밀번호(DEV-363, 운영자가 만든 계정) 또는 생산자 테스트 계정 선택(ADR 0009·0010) — design: p-scr-19
 import { auth, evaluatorBuild, isMock, type TestAccount } from "@farmclub/api";
 import {
   BrandLogo,
   Button,
   EmptyState,
   LegalFooter,
+  PasswordLoginForm,
   Radio,
   Screen,
   Scroll,
@@ -176,6 +177,13 @@ export default function Login() {
     }
   }
 
+  // 아이디·비밀번호 로그인(DEV-363). 다시 읽으면 관문이 상태별 화면(임시 비밀번호면 변경 → 약관 동의 → 가입 신청)으로 보낸다
+  async function passwordLogin(username: string, password: string) {
+    setFailed(null);
+    await auth.passwordLogin(username, password);
+    await refresh();
+  }
+
   const kakaoButton = (
     <Pressable
       accessibilityRole="button"
@@ -239,6 +247,22 @@ export default function Login() {
             ) : null}
           </View>
         ) : null}
+        {/* 아이디·비밀번호 로그인(DEV-363). 계정은 운영자가 만들어 공개 가입 버튼은 없다(PM 11/18). 평가용 테스트 계정 목록은 그대로 아래에 */}
+        <View
+          testID="password-login-section"
+          style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 32, gap: 16 }}
+        >
+          {kakaoOn ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: tokens.color.border }} />
+              <T variant="caption" muted>
+                또는 아이디로 로그인
+              </T>
+              <View style={{ flex: 1, height: 1, backgroundColor: tokens.color.border }} />
+            </View>
+          ) : null}
+          <PasswordLoginForm size="producer" onLogin={passwordLogin} disabled={busy} />
+        </View>
         {!showTest ? null : error ? (
           isStatus(error, 404) ? (
             <EmptyState

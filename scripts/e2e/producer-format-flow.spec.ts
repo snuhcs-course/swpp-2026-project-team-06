@@ -6,7 +6,11 @@ import { test, expect } from "./fixtures";
 import { apiLogin, apiUrl, consumerUrl, loginProducer, producerUrl } from "./helpers";
 
 const mockText = "테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.";
-const savedNotice = "비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.";
+// DEV-361 PR C: the 2-tab workspace screen is gone. The selling p-house is opened in the composer ('상품 수정' →
+// `/products/p-house/detail`), its AI sheet takes the source, '임시 저장' keeps the page private and '상품에 반영'
+// applies it after the confirm sheet. The AI sheet shows the run state ('실패') and, like the 2-tab screen, the per-file
+// failure line ('자료를 처리하지 못했어요…', C-25).
+const savedNotice = "비공개로 저장했어요. '상품에 반영'을 누르기 전까지 구매자 화면은 그대로예요.";
 const formats = ["text", "image", "long-image", "pdf"] as const;
 
 // Same run_once driver as new-product-composer. Guard both settings and persisted
@@ -56,7 +60,9 @@ with get_sessionmaker()() as db, db.begin():
  aids = [asset.id for asset in assets]
  pages = list(db.scalars(select(Page).where(Page.asset_id.in_(aids))))
  photos = list(db.scalars(select(PublicPhoto).where(PublicPhoto.product_id == pid)))
- storage_keys = {asset.storage_key for asset in assets}
+ # Product photo references have no private file (storage_key='').
+ # Earlier composer specs can leave these references in the shared seed product.
+ storage_keys = {asset.storage_key for asset in assets if not asset.product_photo}
  storage_keys.update(key for page in pages
   for key in (page.image_key, page.sanitized_key) if key)
  storage_keys.update(photo.storage_key for photo in photos)
@@ -90,13 +96,30 @@ for key in storage_keys:
  store.delete(key)
 `;
 
-test.beforeAll(() => {
+// DEV-361: the composer moves an existing page into its draft (DEV-346), and producer-confirmed values win over AI
+// results. Each format starts from p-house without a page (no description, photos or detail) so the composer opens
+// it empty and the analysis fills it, as the 2-tab screen's fresh batch did.
+const clearPage = `
+from tests import migrations_models
+from app.catalog.models import Product
+from app.core.db import get_sessionmaker
+with get_sessionmaker()() as db, db.begin():
+ product = db.get(Product, 'p-house')
+ product.description = ''
+ product.photos = []
+ product.detail_content = None
+ product.module_detail = None
+ product.version += 1
+`;
+
+test.beforeEach(() => {
   if (process.env.SOURCE_ANALYSIS_ENABLED !== "true") return;
   expect(process.env.SOURCE_ANALYSIS_PROVIDER).toBe("mock");
   python(restoreSeed);
+  python(clearPage);
 });
 
-// Playwright runs afterAll even on a failed test, before restarting its worker.
+// Playwright runs afterAll even on a failed test, before restarting its worker. Restores the seed page too.
 test.afterAll(() => {
   if (process.env.SOURCE_ANALYSIS_ENABLED === "true") python(restoreSeed);
 });
@@ -122,7 +145,7 @@ else:
 }
 
 for (const format of formats) {
-  test(`DEV-171 AC-SRC-1/2/5/6/7/9/11 ${format}: ${format === "text" ? "extracted" : "manual recovery"} draft to consumer`, async ({ page, browser }, testInfo) => {
+  test(`DEV-171 DEV-361 AC-SRC-1/2/5/6/7/9/11 ${format}: ${format === "text" ? "extracted" : "manual recovery"} draft to consumer`, async ({ page, browser }, testInfo) => {
     test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires enabled local source API and isolated worker DB");
     test.setTimeout(240_000);
     expect(process.env.SOURCE_ANALYSIS_PROVIDER, "Explicitly select mock for the API and worker").toBe("mock");
@@ -161,17 +184,21 @@ for (const format of formats) {
       return response.json();
     };
     const before = await publicProduct();
-    await page.goto(`${producerUrl}/products/source-analysis`);
-    await page.getByRole("checkbox").filter({ hasText: "하우스" }).first().click();
-    await page.getByRole("button", { name: "자료 작업 시작", exact: true }).click();
-    await expect(page).toHaveURL(/batchId=/);
+    // '상품 수정' opens the product's own batch in the composer (DEV-346, DEV-361 C-1)
+    await page.goto(`${producerUrl}/products/p-house/detail`);
+    await expect(page).toHaveURL(/composer=1/);
     const batchId = new URL(page.url()).searchParams.get("batchId")!;
     const base = `/api/source-analysis/batches/${batchId}`;
     const batch = () => get<SourceBatch>(base);
     const review = () => get<SourceReview>(`${base}/review`);
     const runs = () => get<{ items: SourceRun[] }>(`${base}/runs`);
-    const edit = page.getByRole("button", { name: "상세페이지 편집", exact: true });
-    const start = page.getByRole("button", { name: "자료 준비·분석 시작", exact: true });
+    const openButton = page.getByRole("button", { name: "AI 시트 열기", exact: true });
+    const closeSheet = () => page.getByRole("button", { name: "AI 시트 닫기", exact: true }).first().click();
+    const start = page.getByRole("button", { name: /^AI로 (?:다시 )?채우기$/ });
+    const status = page.getByTestId("source-analysis-status");
+    await openButton.click();
+    // The analysis input mirrors the selling product's variety (DEV-346 refresh_basic_info)
+    await expect(page.getByLabel("과일 품종명", { exact: true })).toHaveValue(before.variety);
 
     let original: Buffer;
     if (format === "text") {
@@ -221,13 +248,16 @@ Path(output).write_bytes(data)
     await shot("upload");
 
     const analyze = async () => {
+      // 'AI로 채우기' lives in the AI sheet, which closes once an analysis starts
+      if (await openButton.isVisible()) await openButton.click();
       const started = page.waitForResponse((r) => r.url().endsWith(`${base}/runs`) && r.request().method() === "POST");
       await start.click();
       expect((await started).status()).toBe(202);
       work();
       await expect.poll(async () => (await runs()).items[0].status, { timeout: 20_000 })
         .toBe(format === "text" ? "SUCCEEDED" : "FAILED");
-      await expect(edit).toBeEnabled({ timeout: 20_000 });
+      await expect(status).toHaveCount(0, { timeout: 20_000 });
+      await expect(page.getByTestId("product-detail-page")).toBeVisible();
     };
     await analyze();
     if (format !== "text") {
@@ -239,6 +269,9 @@ Path(output).write_bytes(data)
           (i) => i.status === "FAILED" && ["OCR_NOT_CONFIGURED", "UNSUPPORTED_MOCK_SOURCE"].includes(i.error ?? ""),
         ),
       ).toBe(true);
+      await openButton.click();
+      await expect(page.getByText("실패 · 테스트 결과", { exact: true })).toBeVisible();
+      // DEV-361 C-25: the AI sheet's run panel names the failed file as the 2-tab screen did
       await expect(page.getByText("자료를 처리하지 못했어요. 내용을 확인한 후 다시 시도해 주세요.", { exact: false }).first()).toBeVisible();
       // DEV-287: retry directly, keep the local click gate, and drain the real mock retry.
       const retry = page.getByRole("button", { name: "재시도", exact: true });
@@ -250,26 +283,30 @@ Path(output).write_bytes(data)
         && r.request().method() === "POST");
       await retry.click();
       expect((await retried).status()).toBe(202);
-      await expect(edit).toBeDisabled();
+      await expect(status).toBeVisible();
       await expect(retry).toHaveCount(0);
       work();
       await expect.poll(async () => (await runs()).items[0].status, { timeout: 20_000 }).toBe("FAILED");
       // Poll the completed run while still inside the three-second local gate.
       await page.clock.fastForward(2500);
-      await expect(edit).toBeEnabled();
+      await expect(status).toHaveCount(0);
       await expect(retry).toBeDisabled();
       await page.clock.fastForward(501);
       await expect(retry).toBeEnabled();
       await page.clock.resume();
       await shot("analysis-failure");
+      await closeSheet();
       testInfo.annotations.push({ type: "gap", description: "Visual extraction success/evidence NOT RUN: mock accepts only text fixture checksums. Remaining steps exercise manual recovery after real analysis failure." });
     }
-    await edit.click();
-    await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue(format === "text" ? "제주산 감귤입니다." : "");
+    const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
+    const storageText = page.getByLabel("보관 방법 내용", { exact: true });
+    // An empty introduction is added from the composer's '내용 추가' chips
+    if (format !== "text") await page.getByRole("button", { name: "상품 소개 추가", exact: true }).click();
+    await expect(summary).toHaveValue(format === "text" ? "제주산 감귤입니다." : "");
     expect((await publicProduct()).moduleDetail).toEqual(before.moduleDetail);
     await shot("private-draft");
     if (format === "text") {
-      await page.getByLabel("상품 소개 보충 내용", { exact: true }).click();
+      await summary.click();
       await expect(page.getByRole("button", { name: "원문 보기", exact: true })).toHaveCount(0);
       const candidate = (await review()).candidates.find((c) => c.fieldKey === "summary")!;
       expect(candidate.evidence[0]).toMatchObject({ sourceId: source.id, page: 1, quote: "제주산 감귤입니다." });
@@ -281,15 +318,16 @@ Path(output).write_bytes(data)
 
     const manual = `T12 ${format} 생산자가 확인한 소개`;
     const storage = `T12 ${format} 서늘한 곳에 보관해 주세요.`;
-    const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
     await summary.fill(manual);
-    await page.getByLabel("보관 방법 내용", { exact: true }).fill(storage);
+    if (format !== "text") await page.getByRole("button", { name: "보관 방법 추가", exact: true }).click();
+    await storageText.fill(storage);
     await shot("edit");
-    const visibility = page.getByRole("switch", { name: "보관 방법 표시", exact: true });
-    await visibility.uncheck();
-    await expect(page.getByLabel("보관 방법 내용", { exact: true })).toHaveCount(0);
+    // The composer removes a module instead of hiding its section; its text stays in the draft.
+    await storageText.focus();
+    await page.getByRole("button", { name: "보관 방법 제외", exact: true }).click();
+    await expect(storageText).toHaveCount(0);
     await shot("hide");
-    const save = page.getByRole("button", { name: "비공개 저장", exact: true });
+    const save = page.getByRole("button", { name: "임시 저장", exact: true });
     const keys: string[] = [];
     await page.route(`**${base}/editor`, async (route) => {
       keys.push(route.request().headers()["idempotency-key"]);
@@ -300,7 +338,7 @@ Path(output).write_bytes(data)
     await save.click();
     await expect(page.getByText("T12 저장 연결 실패", { exact: true })).toBeVisible();
     await expect(summary).toHaveValue(manual);
-    await expect(visibility).not.toBeChecked();
+    await expect(storageText).toHaveCount(0);
     await shot("failure");
     await save.click();
     await expect(page.getByText(savedNotice, { exact: true })).toBeVisible();
@@ -309,25 +347,21 @@ Path(output).write_bytes(data)
     expect(keys[1]).toBe(keys[0]);
     await shot("recovery");
     await page.reload();
-    await edit.click();
     await expect(summary).toHaveValue(manual);
-    await expect(visibility).not.toBeChecked();
-    await visibility.check();
-    await expect(page.getByLabel("보관 방법 내용", { exact: true })).toHaveValue(storage);
+    await expect(storageText).toHaveCount(0);
+    await page.getByRole("button", { name: "보관 방법 추가", exact: true }).click();
+    await expect(storageText).toHaveValue(storage);
     await shot("restore");
     await save.click();
     await expect(page.getByText(savedNotice, { exact: true })).toBeVisible();
     await shot("save");
     await page.reload();
-    await edit.click();
     await expect(summary).toHaveValue(manual);
-    await expect(visibility).toBeChecked();
+    await expect(storageText).toHaveValue(storage);
     await shot("reopen");
-    await page.getByRole("button", { name: "자료", exact: true }).click();
     await analyze();
-    await edit.click();
     await expect(summary).toHaveValue(manual);
-    await expect(page.getByLabel("보관 방법 내용", { exact: true })).toHaveValue(storage);
+    await expect(storageText).toHaveValue(storage);
     await shot("reanalysis");
     await save.click();
     await expect(page.getByText(savedNotice, { exact: true })).toBeVisible();
@@ -344,21 +378,25 @@ Path(output).write_bytes(data)
       };
       await unchanged();
       await buyer.screenshot({ path: path.join(artifacts, `t12-${format}-before-apply.png`), fullPage: true });
-      await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).first().click();
+      await page.getByRole("button", { name: "구매자 화면 보기", exact: true }).click();
       const preview = page.getByTestId("source-detail").last();
       await expect(preview.getByText(manual, { exact: true })).toBeVisible();
       const previewText = await preview.innerText();
       const drafts = await get<{ items: SourceDraft[] }>(`${base}/drafts`);
       const approved = drafts.items[0].snapshot.previewModules;
       expect(approved.find((m) => m.id === "summary")!.texts[0].value).toBe(manual);
-      await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
-      await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue(manual);
-      await page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true }).first().click();
-      await expect(page.getByRole("button", { name: "확인 · 상품 상세 적용", exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "편집하기", exact: true }).click();
+      await expect(summary).toHaveValue(manual);
+      // A selling product applies through the confirm sheet (DEV-361 C-8)
+      await page.getByRole("button", { name: /^상품에 반영/ }).click();
+      const confirm = page.getByTestId("apply-confirm");
+      await expect(confirm.getByRole("button", { name: "반영하기", exact: true })).toBeVisible();
+      await expect(confirm.getByTestId("change-group-now")).toContainText("판매페이지 상세");
       await unchanged();
       await shot("apply-confirmation");
-      await page.getByRole("button", { name: "확인 · 상품 상세 적용", exact: true }).click();
-      await expect(page.getByText("상품 상세에 적용했어요.", { exact: true })).toBeVisible();
+      await confirm.getByRole("button", { name: "반영하기", exact: true }).click();
+      await expect(page.getByText("상품에 반영했어요", { exact: true })).toBeVisible();
+      await expect(page).toHaveURL(/composer=1/);
       await shot("apply");
       const applied = await publicProduct();
       expect(applied.moduleDetail.modules.map((m: { id: string; texts: unknown }) => ({ id: m.id, texts: m.texts })))

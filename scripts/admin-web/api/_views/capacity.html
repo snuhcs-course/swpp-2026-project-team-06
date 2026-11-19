@@ -56,10 +56,24 @@ function card(r) {
       ${r.decidedAt ? `<dt>${r.status === "WITHDRAWN" ? "철회" : "결정"}</dt><dd>${when(r.decidedAt)}</dd>` : ""}
       ${r.reason ? `<dt>반려 사유</dt><dd>${esc(r.reason)}</dd>` : ""}
       <dt>상품 ID</dt><dd><code>${esc(r.productId)}</code></dd>
+      ${r.changesSinceRequest ? `<dt>${pending ? "신청 뒤 변경" : "심사 중 변경"}</dt><dd>생산자가 ${r.changesSinceRequest}번 반영${pending ? ` <span class="hint">· 다시 승인할 필요 없음</span>` : ""}</dd>` : ""}
     </dl>
-    ${pending ? `<div class="row"><button class="primary" data-act="approve">승인</button><button class="danger" data-act="reject">반려</button></div>` : ""}
+    ${pending || r.changesSinceRequest ? `<div class="row">${pending ? `<button class="primary" data-act="approve">승인</button><button class="danger" data-act="reject">반려</button>` : ""}${r.changesSinceRequest ? `<button class="text" data-act="changes">변경 기록 보기</button>` : ""}</div>` : ""}
+    <div class="changes"></div>
     <div class="slot"></div>
   </article>`;
+}
+
+// 생산자가 '상품에 반영'한 기록(DEV-361). 승인 대기 상품의 변경은 다시 승인받지 않고 여기에만 남는다
+function changeList(events) {
+  if (!events.length) return `<p class="hint">변경 기록이 없어요.</p>`;
+  return `<ul class="change-log">${events.map((ev) => {
+    const items = ev.changes.map((c) => c.field === "page"
+      ? `<li>판매페이지(상세) 바뀜</li>`
+      : `<li><strong>${esc(c.label)}</strong> ${esc(c.before ?? "없음")} → ${esc(c.after ?? "없음")}</li>`).join("");
+    const consent = ev.deliveryWindowProposed ? `<li class="hint">예약 ${ev.reservedCount}명에게 새 받는 시기 동의 요청</li>` : "";
+    return `<li><span class="hint">${when(ev.createdAt)} · ${PRODUCT[ev.productStatus] || esc(ev.productStatus)}일 때</span><ul>${items}${consent}</ul></li>`;
+  }).join("")}</ul>`;
 }
 
 function renderList() {
@@ -82,6 +96,25 @@ $("#list").onclick = async (e) => {
   const el = b.closest("article"), id = el.dataset.id, slot = el.querySelector(".slot"), act = b.dataset.act;
   const row = rows.find((r) => r.requestId === id);
   const base = `/admin/products/${row.productId}/capacity-requests/${id}`;
+  if (act === "changes") {
+    const box = el.querySelector(".changes");
+    if (box.innerHTML) { box.innerHTML = ""; b.textContent = "변경 기록 보기"; return; }
+    b.disabled = true;
+    try {
+      // 카드의 N번과 같은 범위: 신청부터 결정까지(심사 중이면 지금까지)
+      const t = (v) => new Date(v).getTime();
+      const events = (await call(`/admin/products/${row.productId}/changes?limit=50`))
+        .filter((ev) => t(ev.createdAt) >= t(row.createdAt) && (!row.decidedAt || t(ev.createdAt) <= t(row.decidedAt)));
+      const cut = events.length < row.changesSinceRequest;
+      box.innerHTML = cut && !events.length
+        ? `<p class="hint">이 신청 기간의 기록은 최근 50건보다 오래돼서 여기서 볼 수 없어요.</p>`
+        : changeList(events) + (cut ? `<p class="hint">최근 50건 안의 기록만 보여요.</p>` : "");
+      b.textContent = "변경 기록 접기";
+    }
+    catch (err) { toast(err.message, true); }
+    finally { b.disabled = false; }
+    return;
+  }
   if (act === "approve") {
     if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = `${kg(row.requestedTotalGrams)} 승인할까요? 한 번 더 누르기`; return; }
     busy = true; b.disabled = true;

@@ -300,6 +300,10 @@ export default function Pending() {
               onPress={() => router.push("/support")}
             />
           ) : null}
+          {/* 운영자가 만든 아이디 계정은 승인 전에도 비밀번호를 바꿀 수 있다(DEV-363, PM 11/18). 환경설정은 승인 뒤에만 열린다 */}
+          {user?.username ? (
+            <Button label="비밀번호 변경" variant="text" onPress={() => router.push("/password")} />
+          ) : null}
           <Button label="로그아웃" variant="text" onPress={() => auth.logout()} />
           {/* 확인 중·반려 상태에서도 탈퇴할 수 있다(DEV-94). 환경설정은 승인 뒤에만 열린다 */}
           {user?.isTestAccount ? null : (

@@ -267,11 +267,9 @@ export function order(d: DB, o: OrderRec): Order {
 export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
   const p = d.products[o.productId];
   const opt = p?.options.find((x) => x.optionId === o.optionId);
-  // R-15: 배송 완료 전 주문만 배송 정보를 보여준다. 입금 전에도 배송지는 숨긴다(DEV-68)
-  const hide =
-    o.status === "DELIVERED" ||
-    o.status === "COMPLETED" ||
-    !o.paidAt;
+  // R-15: 배송 완료 뒤 환불돼도 수령인·배송 정보를 다시 노출하지 않는다.
+  const delivered = !!o.deliveredAt || o.status === "DELIVERED" || o.status === "COMPLETED";
+  const hide = delivered || !o.paidAt;
   return {
     orderId: o.orderId,
     orderNo: o.orderNo,
@@ -297,7 +295,7 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
       o.status === "REFUNDED" && !o.refundSettledAt
         ? (o.refundIssue ?? null)
         : null,
-    recipientName: o.recipientName,
+    recipientName: delivered ? "○○○" : o.recipientName,
     recipientPhone: hide ? "" : o.recipientPhone,
     postalCode: hide ? "" : o.postalCode,
     address: hide ? "" : o.address,

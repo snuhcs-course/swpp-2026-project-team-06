@@ -5,6 +5,7 @@ import {
   auth,
   configureApi,
   getToken,
+  onAccountGate,
   onAuthChange,
   onConsentRequired,
   type User,
@@ -114,9 +115,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const offAuth = onAuthChange(() => void refresh());
     // 쓰는 중에 약관 버전이 바뀌어 403 CONSENT_REQUIRED를 받으면 다시 읽어 관문이 동의 화면으로 보낸다
     const offConsent = onConsentRequired(() => void refresh());
+    // 임시 비밀번호로 들어와 403 PASSWORD_CHANGE_REQUIRED를 받으면 다시 읽어 관문이 비밀번호 변경으로 보낸다(DEV-363)
+    const offGate = onAccountGate(() => void refresh());
     return () => {
       offAuth();
       offConsent();
+      offGate();
     };
   }, [refresh]);
 
