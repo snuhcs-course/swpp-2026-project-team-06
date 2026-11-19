@@ -1,6 +1,7 @@
 // 관리자 페이지의 중계(DEV-82, DEV-83, DEV-87, DEV-98, DEV-111). 브라우저 → 이 함수 → 실서버 /admin/….
 // 실서버 CORS는 소비자·생산자 앱 주소만 허용하므로 서버 쪽에서 대신 부른다.
-// 아래 ALLOWED 경로만 넘긴다(가입 신청, 공급 물량 신청, 테스트 농가 숨기기 DEV-98, 정지·활동 로그·홈 DEV-307). 로그인 세션 쿠키가 맞으면
+// 아래 ALLOWED 경로만 넘긴다(가입 신청, 공급 물량 신청, 테스트 농가 숨기기 DEV-98, 정지·활동 로그·홈 DEV-307,
+// 아이디 계정 만들기·임시 비밀번호 DEV-363). 로그인 세션 쿠키가 맞으면
 // 이 함수 환경 변수에 둔 운영자 토큰(ADMIN_TOKEN)을 붙인다. 토큰은 브라우저로 가지 않는다.
 import { configured, loggedIn, readBody, sameOrigin, sendJson } from "./_lib/session.js";
 
@@ -13,14 +14,20 @@ const REF = "(?:[A-Za-z0-9_-]|%[89A-Fa-f][0-9A-Fa-f])+";
 const ALLOWED = [
   // 반려 되돌리기(revert)는 DEV-307
   new RegExp(`^/admin/producers(/${ID}/(approve|reject|decisions|revert))?${QUERY}$`),
+  // 운영자가 만드는 아이디 계정(DEV-363): 목록(GET, 검색어는 한글이라 퍼센트 인코딩까지)·만들기(POST).
+  // 만들기 응답에 평문 임시 비밀번호가 있어 아래에서 본문을 기록·저장하지 않고 no-store로만 넘긴다
+  new RegExp(`^/admin/id-accounts(\\?[A-Za-z0-9=&_%.+-]*)?$`),
   new RegExp(`^/admin/capacity-requests${QUERY}$`),
   new RegExp(`^/admin/products/${ID}/capacity-requests/${ID}/(approve|reject)$`),
+  new RegExp(`^/admin/products/${ID}/changes${QUERY}$`), // 상품 변경 기록(DEV-361, 조회만)
   // 정지 미리보기·정지·정지 풀기·결정 이력(DEV-307)
   new RegExp(`^/admin/farms(/${ID}/(preview|retire|restore|suspend-preview|suspend|unsuspend|history))?$`),
   // 사용자 검색어는 한글이라 퍼센트 인코딩(%·+·.)까지 받는다(DEV-107)
   new RegExp(`^/admin/users(\\?[A-Za-z0-9=&_%.+-]*)?$`),
   new RegExp(`^/admin/users/${ID}/(mark|unmark)-tester$`),
   new RegExp(`^/admin/users/${ID}/activity$`), // 활동 로그(DEV-307)
+  // 아이디 계정 임시 비밀번호 발급(DEV-363). 응답에 평문 비밀번호가 있어 아래에서 본문을 기록·저장하지 않고 no-store로만 넘긴다
+  new RegExp(`^/admin/users/${ID}/temporary-password$`),
   new RegExp(`^/admin/home(\\?kind=(real|test|all))?$`), // 홈 할 일 건수(DEV-307)
   // 사용자 상세와 그 화면의 주문 처리 버튼(DEV-106). 운영 API는 기존 것을 그대로 쓴다
   new RegExp(`^/admin/users/(${ID}|by-order/${REF})$`),
@@ -65,7 +72,7 @@ export default async function handler(req, res) {
     }
     res.statusCode = upstream.status;
     res.setHeader("Content-Type", upstream.headers.get("content-type") || "application/json");
-    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Cache-Control", "no-store"); // 임시 비밀번호·아이디 계정 만들기(DEV-363) 응답이 브라우저·중간 캐시에 남지 않게. 본문은 기록하지 않는다
     res.end(await upstream.text());
   } catch {
     send(res, 502, "UPSTREAM_ERROR", "실서버에 연결하지 못했어요.");

@@ -4,10 +4,11 @@ import re
 from dataclasses import dataclass
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.accounts import passwords, throttle
 from app.accounts.models import NoticeRead, ShippingAddress, User, UserConsent
 from app.accounts.schemas import (
     CONSENT_VERSION,
@@ -19,6 +20,7 @@ from app.accounts.schemas import (
     AdminProducerApplication,
     ConsentsInput,
     ConsentView,
+    IdAccountInput,
     KakaoConfig,
     KakaoLoginResult,
     KakaoSignup,
@@ -27,6 +29,8 @@ from app.accounts.schemas import (
     MeUpdateInput,
     NoticeReadInput,
     NoticeReadView,
+    PasswordChangeInput,
+    PasswordLoginInput,
     ProducerApplication,
     ProducerApplicationInput,
     ProducerDecision,
@@ -36,7 +40,7 @@ from app.accounts.schemas import (
 )
 from app.core.clock import now
 from app.core.config import get_settings
-from app.core.errors import conflict, forbidden, invalid, not_found
+from app.core.errors import ApiError, conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
 from app.core.security import issue_signup_token, issue_token, read_signup_token
 
@@ -176,6 +180,8 @@ def user_view(db: Session, user: User) -> UserView:
         needs_onboarding=needs_onboarding(db, user),
         consent_required=consent_required(db, user),
         origin_notice_read_at=origin_notice_read_at(db, user),
+        username=user.username,
+        must_change_password=bool(user.must_change_password),
     )
 
 
@@ -300,7 +306,7 @@ def test_login(db: Session, user_id: str, app: str) -> LoginResult:
         raise not_found("테스트 계정이 아니에요.")
     if user.role != APP_ROLE[app]:
         raise forbidden("이 앱의 계정이 아니에요.", reason="WRONG_APP")
-    return LoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
+    return _login_result(db, user)
 
 
 # ---- 카카오 로그인 (FEAT-01 I2, ADR 0003·0010) ----
@@ -450,7 +456,10 @@ def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> KakaoLog
     if not user.phone.strip() and kakao_phone:
         user.phone = kakao_phone
     db.flush()
-    return KakaoLoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
+    return KakaoLoginResult(
+        access_token=issue_token(user.id, user.role, user.token_version),
+        user=user_view(db, user),
+    )
 
 
 def kakao_signup(db: Session, data: KakaoSignupInput) -> LoginResult:
@@ -498,7 +507,215 @@ def kakao_signup(db: Session, data: KakaoSignupInput) -> LoginResult:
 
             ensure_consumer_support(db, user.id)
     save_consents(db, user, ConsentsInput(consents=data.consents))
-    return LoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
+    return _login_result(db, user)
+
+
+# ---- 아이디·비밀번호 로그인 (DEV-363, FEAT-01 AC-01-22~33) ----
+# 공개 가입은 없다. 운영자가 관리자 웹에서 아이디 계정을 만들고 임시 비밀번호를 알려 준다(PM 11/18).
+
+INVALID_LOGIN_MESSAGE = "아이디 또는 비밀번호가 맞지 않아요"
+# 아이디로 가입한 생산자의 자리 이름(가입 신청 SCR-20에서 대표자 이름으로 바뀐다)
+PASSWORD_PLACEHOLDER_NAME = "농가 사용자"
+
+
+def _password_user(db: Session, username: str, role: str) -> User | None:
+    return db.scalar(
+        select(User).where(
+            User.username == username, User.role == role, User.deleted_at.is_(None)
+        )
+    )
+
+
+def _login_key(role: str, username: str) -> str:
+    return f"{role}:{username}"
+
+
+def _login_result(db: Session, user: User) -> LoginResult:
+    return LoginResult(
+        access_token=issue_token(user.id, user.role, user.token_version),
+        user=user_view(db, user),
+    )
+
+
+def create_id_account(db: Session, data: IdAccountInput) -> tuple[User, str]:
+    """운영자가 아이디 계정을 만든다(AC-01-22). 임시 비밀번호를 서버가 만들어 해시만 저장하고
+    평문은 돌려줄 뿐이다. 첫 로그인에서 비밀번호를 바꾸고(AC-01-31)
+    필수 약관에 동의해야 쓴다(AC-01-23).
+
+    소비자는 닉네임(2~12자)이 필요하고 휴대폰은 선택이다(없으면 첫 로그인 온보딩에서 받는다).
+    생산자는 농가 없는 계정으로 생기고 동의 뒤 가입 신청(SCR-20)으로 간다.
+    호출한 쪽이 감사·커밋을 맡는다.
+    """
+    role = APP_ROLE[data.app]
+    username = passwords.normalize_username(data.username)
+    nickname = (data.nickname or "").strip()
+    phone = (data.phone or "").strip()
+    fields: dict[str, str] = {}
+    if error := passwords.username_error(username):
+        fields["username"] = error
+    if role == "CONSUMER":
+        if not 2 <= len(nickname) <= 12:
+            fields["nickname"] = "닉네임은 2~12자로 적어 주세요"
+        if phone and not PHONE.fullmatch(phone):
+            fields["phone"] = "휴대폰 번호 형식으로 입력해 주세요"
+    elif nickname and not 2 <= len(nickname) <= 20:
+        fields["nickname"] = "이름은 2~20자로 적어 주세요"
+    if "username" not in fields and _password_user(db, username, role) is not None:
+        fields["username"] = "이미 쓰는 아이디예요"
+    if fields:
+        raise invalid(fields)
+    value = passwords.temporary_password()
+    user = User(
+        id=new_id("u"),
+        kakao_id=None,
+        is_test_account=False,
+        role=role,
+        name="" if role == "CONSUMER" else (nickname or PASSWORD_PLACEHOLDER_NAME),
+        phone=phone if role == "CONSUMER" else "",
+        nickname=nickname if role == "CONSUMER" else None,
+        email=None,
+        created_at=now(),
+        username=username,
+        password_hash=passwords.hash_password(value),
+        must_change_password=True,
+        token_version=0,
+    )
+    try:
+        with db.begin_nested():
+            db.add(user)
+            db.flush()
+    except IntegrityError:
+        raise invalid({"username": "이미 쓰는 아이디예요"}) from None
+    if role == "CONSUMER":
+        # 카카오 가입처럼 farmclub 문의 대화방을 연다(DEV-150, FEAT-34)
+        from app.messaging.support import ensure_consumer_support
+
+        ensure_consumer_support(db, user.id)
+    return user, value
+
+
+def password_login(db: Session, data: PasswordLoginInput) -> LoginResult:
+    """아이디·비밀번호 로그인(AC-01-26·27). 틀린 아이디·틀린 비밀번호는 같은 401 문구.
+
+    잠겨 있으면 검증 전에 429. 없는 아이디도 더미 해시를 검증한다(시간 차이 없음).
+    """
+    role = APP_ROLE[data.app]
+    username = passwords.normalize_username(data.username)
+    key = _login_key(role, username)
+    # 검증 전에 아이디 시도를 먼저 센다(행 잠금 안에서). 동시에 여러 번 보내도 10번을 넘겨
+    # 맞혀 볼 수 없고, 이미 잠겼으면 여기서 429. 성공하면 커밋 뒤 라우터가 지운다
+    throttle.hit(key)
+    user_id: str | None = None
+    old_hash: str | None = None
+    if passwords.USERNAME_RE.fullmatch(username):
+        row = db.execute(
+            select(User.id, User.password_hash).where(
+                User.username == username, User.role == role, User.deleted_at.is_(None)
+            )
+        ).first()
+        if row is not None:
+            user_id, old_hash = row
+    # argon2(세마포어 대기 포함)를 도는 동안 DB 연결을 쥐지 않는다
+    # (로그인이 몰려도 연결 풀을 묶지 않게)
+    db.rollback()
+    if user_id is None or not old_hash:
+        passwords.dummy_verify(data.password)
+        ok = False
+    else:
+        ok = passwords.verify_password(old_hash, data.password)
+    if not ok:
+        raise _invalid_login()
+    new_hash: str | None = None
+    if passwords.needs_rehash(old_hash):
+        candidate = passwords.hash_password(data.password)
+        # 그사이 비밀번호 변경·임시 비밀번호 발급이 있었으면 덮어쓰지 않는다
+        # (옛 비밀번호를 되살리지 않게)
+        changed = db.execute(
+            update(User)
+            .where(User.id == user_id, User.password_hash == old_hash)
+            .values(password_hash=candidate)
+        ).rowcount
+        if changed:
+            new_hash = candidate
+    user = db.get(User, user_id)
+    # 검증한 뒤 비밀번호가 바뀌었거나 탈퇴했으면 이 로그인은 받지 않는다
+    stale = user is None or user.deleted_at is not None
+    if stale or user.password_hash not in (old_hash, new_hash):
+        db.rollback()
+        raise _invalid_login()
+    return _login_result(db, user)
+
+
+def _invalid_login() -> ApiError:
+    return ApiError(
+        401, "UNAUTHENTICATED", INVALID_LOGIN_MESSAGE, {"reason": "INVALID_CREDENTIALS"}
+    )
+
+
+def finish_login(role: str, username: str) -> None:
+    """로그인이 커밋된 뒤 그 아이디의 시도 수를 지운다."""
+    throttle.reset(_login_key(role, passwords.normalize_username(username)))
+
+
+def change_password(db: Session, user: User, data: PasswordChangeInput) -> LoginResult:
+    """비밀번호 변경(AC-01-30·31). 지금 비밀번호가 맞아야 하고, 그 사용자의 모든 토큰을 끊는다.
+
+    틀린 지금 비밀번호는 로그인 실패처럼 세어 10번이면 잠긴다. 새 토큰을 돌려준다.
+    """
+    if not user.username or not user.password_hash:
+        raise forbidden(
+            "아이디로 가입한 계정만 비밀번호를 바꿀 수 있어요.", reason="NOT_PASSWORD_ACCOUNT"
+        )
+    user_id, role, username = user.id, user.role, user.username
+    # 새 비밀번호 규칙은 시도를 세기 전에 본다(지금 비밀번호를 맞혀 보는 시도가 아니므로)
+    if error := passwords.password_error(data.new_password, username):
+        raise invalid({"newPassword": error})
+    if data.new_password == data.current_password:
+        raise invalid({"newPassword": "지금과 다른 비밀번호를 써 주세요"})
+    # 로그인처럼 시도를 먼저 센다(지금 비밀번호 추측도 아이디 잠금에 든다). 잠겼으면 429
+    db.rollback()
+    throttle.hit(_login_key(role, username))
+    # 행을 잠그고 최신 값으로 다시 읽은 뒤 검증한다(동시 변경·임시 비밀번호 발급과 덮어쓰지 않게)
+    locked = db.scalar(
+        select(User)
+        .where(User.id == user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if locked is None or not locked.password_hash:
+        raise not_found()
+    if not passwords.verify_password(locked.password_hash, data.current_password):
+        db.rollback()
+        raise invalid({"currentPassword": "지금 비밀번호가 맞지 않아요"})
+    locked.password_hash = passwords.hash_password(data.new_password)
+    locked.must_change_password = False
+    locked.token_version += 1
+    db.flush()
+    return _login_result(db, locked)
+
+
+def issue_temporary_password(db: Session, user: User) -> str:
+    """운영자 임시 비밀번호(AC-01-31). 해시만 저장하고 평문은 돌려줄 뿐 남기지 않는다.
+
+    바꿀 때까지 다른 API는 막히고(`must_change_password`), 그 전 토큰은 모두 끊긴다.
+    호출한 쪽이 감사 기록·커밋을 맡는다.
+    """
+    if user.role not in ("CONSUMER", "PRODUCER") or not user.username or user.deleted_at:
+        raise conflict(
+            "NOT_PASSWORD_ACCOUNT", "아이디로 가입한 계정만 임시 비밀번호를 줄 수 있어요."
+        )
+    value = passwords.temporary_password()
+    user.password_hash = passwords.hash_password(value)
+    user.must_change_password = True
+    user.token_version += 1
+    db.flush()
+    return value
+
+
+def unlock_login(role: str, username: str | None) -> None:
+    """임시 비밀번호 발급·비밀번호 변경 뒤 그 아이디의 로그인 잠금을 푼다(커밋 뒤에 부른다)."""
+    if username:
+        throttle.reset(_login_key(role, username))
 
 
 def _application_view(user: User, farm) -> ProducerApplication:
@@ -849,6 +1066,11 @@ def withdraw(db: Session, user: User) -> None:
     user.phone = ""
     user.email = None
     user.kakao_id = None
+    # 아이디·비밀번호도 지운다(DEV-363). 아이디는 예약하지 않아 다시 가입할 수 있고,
+    # 그러면 새 사용자다
+    user.username = None
+    user.password_hash = None
+    user.must_change_password = False
     user.deleted_at = now()
     db.flush()
 

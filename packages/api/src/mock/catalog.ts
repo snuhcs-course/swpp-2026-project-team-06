@@ -59,6 +59,9 @@ export function editable(p: ProductRec) {
 }
 
 const HARVESTED = ["PREPARING", "SHIPPED", "DELIVERED", "COMPLETED"];
+/** DEV-361 PM 11/18: 사진은 대표사진 포함 10장까지(서버 catalog/schemas.py와 같다) */
+export const MAX_PRODUCT_PHOTOS = 10;
+export const PHOTO_LIMIT_MESSAGE = `사진은 대표사진 포함 ${MAX_PRODUCT_PHOTOS}장까지예요.`;
 
 /** 기간별 주문 수·수확 시작 여부(DEV-231, 서버 my_stage_views와 같은 규칙) */
 function myStages(p: ProductRec): MyStage[] {
@@ -79,7 +82,7 @@ function myStages(p: ProductRec): MyStage[] {
   });
 }
 
-function myProduct(p: ProductRec): MyProduct {
+export function myProduct(p: ProductRec): MyProduct {
   return {
     ...salesState(db(), p),
     productId: p.productId,
@@ -237,6 +240,14 @@ register({
             ),
             price: cur?.options[o.optionId]?.price ?? null,
           })),
+          // DEV-361 PR C: 서버 unapplied_changes와 같다(Mock에는 판매페이지 초안이 없어 상품 초안만 본다).
+          // productDraft.ts가 이 파일을 import하므로 저장소만 직접 읽는다(순환 import 방지)
+          hasUnappliedChanges:
+            (p.status === "PUBLISHED" || p.status === "PENDING_APPROVAL") &&
+            Object.keys(
+              (ctx.db as { productDrafts?: Record<string, { values: object }> })
+                .productDrafts?.[p.productId]?.values ?? {},
+            ).length > 0,
         };
       });
     return paginate(list, ctx.query);
@@ -396,6 +407,8 @@ register({
       ] as const)
         if (k in b) Object.assign(next, { [k]: b[k] });
       if (b.info) next.info = { ...next.info, ...b.info };
+      if (Array.isArray(b.photos) && b.photos.length > MAX_PRODUCT_PHOTOS)
+        invalid({ photos: PHOTO_LIMIT_MESSAGE });
       for (const k of ["shippingFee", "remoteAreaFee"] as const)
         if (!Number.isSafeInteger(next[k]) || next[k] < 0)
           invalid({ [k]: "0 이상의 정수로 입력해 주세요" });

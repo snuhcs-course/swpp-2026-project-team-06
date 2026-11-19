@@ -75,7 +75,8 @@ class AdminUserView(CamelModel):
     name: str
     nickname: str | None
     role: str
-    signup: str  # SEED(kakao_id 없음) | KAKAO
+    signup: str  # SEED(kakao_id 없음) | KAKAO | PASSWORD(운영자가 만든 아이디 계정, DEV-363)
+    username: str | None = None
     is_test_account: bool
     ops_tester: bool
     account_kind: AccountKind  # DEV-307: REAL · SEED_TEST · OPS_TESTER

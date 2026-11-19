@@ -155,6 +155,131 @@ def test_AC_SRC_3_validation_cited_quotes_ranges_and_units():
     assert refinement.validate(bad, source, "target")[1]["rejectedCount"] == 1
 
 
+def test_AC_SRC_3_combined_numbers_pass_only_when_every_source_is_cited():
+    """DEV-264: "2kg: 8~18과" joins a weight and a piece count. The validator is unchanged:
+    citing only the count candidate is still rejected; citing both passes."""
+    from app.ai.source_refine import PROMPT
+
+    base = candidates()[0]
+    weight = {**base, "id": "w", "fieldKey": "composition", "value": "2kg"}
+    count = {**base, "id": "n", "fieldKey": "pieceCount", "value": "8~18과"}
+    weight["evidence"] = [{"quote": "중량 : 2kg"}]
+    count["evidence"] = [{"quote": "수 량 : 8~18과"}]
+    source = [weight, count]
+
+    def text(ids):
+        texts = [{"value": "2kg: 8~18과", "candidateIds": ids}]
+        return Refinement(modules=[{"module": "pieceCount", "texts": texts}])
+
+    assert refinement.validate(text(["n"]), source, "target")[1]["rejectedCount"] == 1
+    assert refinement.validate(text(["w", "n"]), source, "target")[1]["rejectedCount"] == 0
+    assert "cite ALL of those candidates" in PROMPT
+
+
+def test_AC_SRC_3_prompt_keeps_other_product_lists_out_of_composition():
+    from app.ai.source_refine import PROMPT
+
+    assert "are never part of this\npage, not even farmStory" in PROMPT
+    assert "exclude them as other_product" in PROMPT
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "최고의 당도와 풍미를 자랑합니다.",
+        "한라봉이나 레드향 등 다른 감귤류보다 높은 당도를 자랑합니다",
+        "지금 바로 제주도의 카라향을 만나보세요!",
+        "효돈 마을 감귤이 으뜸입니다.",
+    ],
+)
+def test_AC_SRC_3_exaggeration_text_is_rejected(value):
+    """DEV-264: superlatives, comparisons and calls to action never reach the page."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = value
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "taste", "texts": texts}])
+    accepted, diagnostics = refinement.validate(out, source, "target")
+    assert diagnostics["rejectedCount"] == 1
+    assert diagnostics["rejected"][0]["code"] == "EXAGGERATION"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "당도 13~14 브릭스예요.",
+        "최고 당도 15브릭스까지 나와요.",
+        "보다 신선하게 보내려고 당일 수확해요.",
+    ],
+)
+def test_AC_SRC_3_factual_clauses_are_not_exaggeration(value):
+    from app.source_analysis.text_safety import has_exaggeration
+
+    assert not has_exaggeration(value)
+
+
+@pytest.mark.parametrize(
+    ("quote", "value", "code"),
+    [
+        ("당도측정결과 13.2Brix 13.5Brix", "당도 13.2Brix~13.5Brix", "UNSUPPORTED_RANGE"),
+        ("당도측정결과 13.2Brix 13.5Brix", "당도 13.2Brix, 13.5Brix", None),
+        ("당도 13~14 브릭스", "당도 13~14브릭스", None),
+        ("2kg 8-18과", "2kg 8~18과", None),
+    ],
+)
+def test_AC_SRC_3_range_needs_a_range_in_the_quote(quote, value, code):
+    """DEV-264: two separate samples must not become a range."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = quote
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "taste", "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target")[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ([code] if code else [])
+
+
+def test_AC_SRC_2_prompt_routes_commonly_misplaced_facts():
+    """DEV-264: routing lines for the facts most often placed in the wrong section."""
+    from app.ai.source_refine import PROMPT
+
+    for line in (
+        "cultivar background and parentage",
+        "package type (선물용/가정용/실속형 포장)",
+        "keeping, ripening and room-temperature durations",
+        "growing conditions and harvest timing",
+        "short factual tagline",
+    ):
+        assert line in PROMPT
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "상품 파손이나 상한 귤이 발생할 경우 부분 보상 또는 환불 처리를 도와드립니다.",
+        "3kg 중과 선택 시 12과~15과 랜덤 발송됩니다.",
+        "요청이 없을 시 14과~19과 랜덤 발송됩니다.",
+        "판매가 올해 종료되었습니다.",
+        "반품 시 연락 주세요",
+        "배송일은 미확정입니다.",
+    ],
+)
+def test_AC_SRC_3_clear_policy_text_is_rejected(value):
+    """DEV-264: refund/compensation, order options and sales status never reach the page."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = value
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "delivery", "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target")[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ["POLICY_TEXT"]
+
+
+def test_AC_SRC_3_health_phrase_follows_gold_and_neutral_growing_stays():
+    from app.source_analysis.text_safety import has_health_claim, has_policy_text
+
+    assert has_health_claim("물댄동산농장의 귤은 건강함을 담아 키웠습니다.")
+    assert not has_health_claim("건강하게 키운 감귤")
+    assert not has_policy_text("제주 농장에서 택배로 직접 보내요.")
+    assert not has_policy_text("교환 가능한 선물용 박스예요.")
+
+
 def fixture_extract(mode, model, chunk, targets, images):
     assert mode == "mock" and images == []
     return ExtractionResponse(
@@ -1496,7 +1621,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v7-farm-common"
+    assert PROMPT_VERSION == "source-refine-v11-routing"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 
@@ -1529,7 +1654,8 @@ def test_AC_SRC_3_safety_lists_utf8_independent_of_locale(monkeypatch):
 @pytest.mark.parametrize(
     "value,code",
     [
-        ("반품 시 연락 주세요", "PLATFORM_TEXT"),
+        # DEV-264: 반품/환불/보상 are now rejected (POLICY_TEXT); weaker words still warn.
+        ("교환 문의는 채팅으로 주세요", "PLATFORM_TEXT"),
         ("고객센터 평일 10시~5시", "PLATFORM_TEXT"),
         ("1-3일 이내 도착", "PERIOD_TEXT"),
     ],
@@ -1661,7 +1787,7 @@ def test_AC_SRC_3_final_prompt_keeps_r3_coverage_and_excludes_contact_policy():
     from app.ai.source_analysis import PROMPT_VERSION as EXTRACT_VERSION
     from app.ai.source_refine import PROMPT
 
-    assert EXTRACT_VERSION == "source-v8-exact-numbers"
+    assert EXTRACT_VERSION == "source-v9-coverage"
     assert "IDENTITY AND COVERAGE AUDIT" in EXTRACT_PROMPT
     assert "FACT PRESERVATION AND MODULE AUDIT" in PROMPT
     assert "production/harvest months or seasons, including year-round production" in PROMPT
@@ -1691,6 +1817,15 @@ def test_AC_SRC_2_5_refine_input_cap_is_deterministic_and_bounded():
         "candidatesSkipped": 1,
         "emptyReason": "REFINE_INPUT_LIMIT",
     }
+
+
+def test_AC_SRC_2_5_refine_cap_fits_a_long_multi_page_source():
+    """DEV-264: a 76-candidate source (25k JSON chars) reaches stage 2 whole."""
+    source = (candidates() * 10)[:76]
+    selected, diagnostics = refinement.limit_candidates(source)
+    assert selected == source
+    assert diagnostics["candidatesSkipped"] == 0
+    assert refinement.MAX_REFINE_CANDIDATES == 80 and refinement.MAX_REFINE_CHARS == 32000
 
 
 @pytest.mark.parametrize(

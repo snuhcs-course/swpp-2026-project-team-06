@@ -1,4 +1,7 @@
-"""연락처·계좌번호 가림(M-16, M-18). 날짜(2026-11-10)처럼 짧은 숫자 묶음은 가리지 않는다."""
+"""연락처·계좌번호 가림(M-16, M-18). 날짜(2026-11-10)처럼 짧은 숫자 묶음은 가리지 않는다.
+
+비밀번호 칸 가림(DEV-363): 오류 응답·감사 요약에 비밀번호 입력이 남지 않게 한다.
+"""
 
 import re
 
@@ -31,3 +34,21 @@ def strip(text: str, placeholder: str = "[연락처]") -> str:
     for value in find_contacts(text):
         text = text.replace(value, placeholder)
     return text
+
+
+# 비밀번호처럼 응답·기록에 절대 남기면 안 되는 입력 칸(요청 검증 오류의 칸 이름 = 카멜)
+SECRET_FIELDS = frozenset({"password", "currentPassword", "newPassword"})
+SECRET_FIELD_MESSAGE = "비밀번호를 확인해 주세요"
+
+
+def is_secret_field(name: str) -> bool:
+    """`password`, `body.newPassword`처럼 마지막 조각이 비밀 칸이면 True."""
+    return name.split(".")[-1] in SECRET_FIELDS
+
+
+def redact_secret_fields(fields: dict[str, str]) -> dict[str, str]:
+    """검증 오류 {칸: 메시지}에서 비밀 칸의 메시지를 고정 문구로 바꾼다.
+
+    입력값이 메시지에 섞여 나가지 않게 한다.
+    """
+    return {k: SECRET_FIELD_MESSAGE if is_secret_field(k) else v for k, v in fields.items()}

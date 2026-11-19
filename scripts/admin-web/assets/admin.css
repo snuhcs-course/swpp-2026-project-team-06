@@ -88,3 +88,17 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background:
 .login .card { width: 100%; max-width: 380px; padding: 28px 24px; }
 .login form { display: grid; gap: 12px; margin-top: 20px; }
 .login label { font-weight: 600; font-size: 14px; }
+/* 상품 변경 기록(DEV-361, 공급 물량 카드) */
+.change-log { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
+.change-log > li { margin-top: 6px; }
+.change-log ul { margin: 2px 0 0; padding-left: 16px; }
+/* 한 번만 보이는 값(임시 비밀번호, DEV-363): 눈에 띄는 칸, 값은 본문 14 고정폭 */
+.secret-box { margin-top: 10px; display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 12px; background: #FFF3E8; }
+.secret-box .hint { margin: 0; }
+.secret-box code.secret { font-size: 14px; font-weight: 700; background: var(--bg); padding: 4px 10px; user-select: all; }
+/* 입력 칸 묶음과 칸별 오류(아이디 계정 만들기, DEV-363): 버튼은 늘 눌리고, 제출 때 틀린 칸만 빨갛게 */
+.fields { display: grid; gap: 12px; margin: 12px 0; max-width: 420px; }
+.field { display: grid; gap: 4px; }
+.field label { font-weight: 600; }
+.field .error, .field .hint { margin: 0; font-size: 13px; }
+input[aria-invalid="true"] { border-color: var(--error); }

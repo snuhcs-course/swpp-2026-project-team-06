@@ -10,6 +10,7 @@ export {
   onAuthChange,
   onOnboardingRequired,
   onConsentRequired,
+  onAccountGate,
   request,
   newIdempotencyKey,
   resetDemoData,
@@ -26,6 +27,7 @@ export type { NativeFile, UploadFile } from "./upload";
 export { appendFile, isNativeFile } from "./upload";
 export { SUPPORT_ID } from "./types";
 export * from "./orderConsents";
+export * from "./passwordRules";
 
 import { request } from "./client";
 

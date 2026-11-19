@@ -3,6 +3,8 @@ import type { User } from "@farmclub/api";
 
 /** 로그인 입구. 로그인된 사용자는 농가 상태와 상관없이 여기 머물지 않고 상태별 첫 화면으로 간다 */
 const LOGIN_ENTRY = ["/login", "/auth/kakao"];
+/** 비밀번호 변경(DEV-363). 아이디 계정이 로그인한 상태면 농가 상태와 상관없이 열린다 */
+const PASSWORD = "/password";
 
 /** 약관·처리방침(DEV-113)과 원산지 표시제도 안내(DEV-121, 가입 신청 입점 정책에서도 연다)는
  * 로그인·동의·승인 상태와 상관없이 열린다. 관문이 보내지 않는다 */
@@ -15,6 +17,14 @@ export function homeFor(user: User | null): {
 } {
   // 비로그인: 로그인과 카카오 복귀(/auth/kakao)만 열린다
   if (!user) return { allowed: (p) => LOGIN_ENTRY.includes(p), home: "/login" };
+  // 운영자 임시 비밀번호로 들어왔으면 비밀번호부터 바꾼다(DEV-363, AC-01-31). 동의·승인 상태보다 먼저 본다.
+  // 바꾼 뒤에는 아래 동의(/consent) → 가입 신청(/apply) 순서(운영자가 만든 계정의 첫 로그인)
+  if (user.mustChangePassword) return { allowed: (p) => p === PASSWORD, home: PASSWORD };
+  const g = stateHome(user);
+  return { allowed: (p) => g.allowed(p) || (p === PASSWORD && !!user.username), home: g.home };
+}
+
+function stateHome(user: User): { allowed: (p: string) => boolean; home: string } {
   // 지금 버전 약관·개인정보 동의가 없으면 동의 화면만(DEV-113, AC-01-18). 승인 상태보다 먼저 본다
   if (user.consentRequired) return { allowed: (p) => p === "/consent", home: "/consent" };
   switch (user.farmStatus) {

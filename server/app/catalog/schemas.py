@@ -1,9 +1,10 @@
 """catalog 모듈 Pydantic 입출력 스키마 (screens.md 7.2 catalog)."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import AfterValidator, Field, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.accounts.schemas import AccountKind
 from app.core.detail import DetailContent, MediaUri
@@ -100,6 +101,32 @@ class AdminCapacityRequest(CapacityRequestView):
     producer_id: str
     account_kind: AccountKind
     withdrawn: bool
+    # 신청부터 결정까지(심사 중이면 지금까지) 생산자가 '상품에 반영'한 횟수(DEV-361, 승인 대기
+    # 상품은 다시 승인받지 않는다)
+    changes_since_request: int = 0
+
+
+class ProductChange(CamelModel):
+    """바뀐 칸 하나(DEV-361). before·after는 사람이 읽는 요약 문구, 없으면 None."""
+
+    field: str
+    label: str
+    before: str | None = None
+    after: str | None = None
+
+
+class ProductChangeEventView(CamelModel):
+    """운영자에게만 보이는 상품 변경 기록 한 줄(DEV-361)."""
+
+    event_id: str
+    product_id: str
+    product_status: ProductStatus
+    actor_user_id: str | None
+    changes: list[ProductChange]
+    page_changed: bool
+    delivery_window_proposed: bool
+    reserved_count: int
+    created_at: datetime
 
 
 class ProductCard(SalesState):
@@ -204,6 +231,23 @@ class MyProductCard(SalesState):
     current_stage_label: str | None
     updated_at: datetime
     options: list[MyProductCardOption]
+    # DEV-361 PR C: 구매자에게 보이는 상품(판매 중·승인 대기)에 '상품에 반영'하지 않은
+    # 비공개 수정이 있다(상품 초안, 예전 편집기 수정본, 반영한 것과 내용이 다른 composer 초안)
+    has_unapplied_changes: bool = False
+
+
+# DEV-361 PM 11/18: a product has at most 10 photos, cover included (1 + 9).
+MAX_PRODUCT_PHOTOS = 10
+PHOTO_LIMIT_MESSAGE = f"사진은 대표사진 포함 {MAX_PRODUCT_PHOTOS}장까지예요."
+
+
+def _photo_count(photos: list[str]) -> list[str]:
+    if len(photos) > MAX_PRODUCT_PHOTOS:
+        raise PydanticCustomError("too_many_photos", PHOTO_LIMIT_MESSAGE)
+    return photos
+
+
+ProductPhotos = Annotated[list[MediaUri], AfterValidator(_photo_count)]
 
 
 class ProductOptionInput(CamelModel):
@@ -228,7 +272,7 @@ class ProductPatch(CamelModel):
     shipping_fee_type: ShippingFeeType | None = None
     shipping_fee: int | None = Field(default=None, ge=0)
     remote_area_fee: int | None = Field(default=None, ge=0)
-    photos: list[MediaUri] | None = None
+    photos: ProductPhotos | None = None
     info: ProductInfo | None = None
     detail_content: DetailContent | None = None
 

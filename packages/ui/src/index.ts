@@ -137,3 +137,12 @@ export { inBackground } from "./foreground";
 export { pickPhoto, type PickedPhoto } from "./pickPhoto";
 
 export { sourceModuleIcon } from "./ModuleStory";
+// 아이디·비밀번호 화면 조각(DEV-363)
+export {
+  ErrorScroll,
+  ForgotPasswordNote,
+  PasswordChangeForm,
+  PasswordLoginForm,
+  loginErrorText,
+  useFieldErrors,
+} from "./AuthForms";

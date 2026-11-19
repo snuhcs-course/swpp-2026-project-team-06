@@ -9,19 +9,43 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.catalog import service as catalog
+from app.catalog.schemas import MAX_PRODUCT_PHOTOS
 from app.core.db import get_db
 from app.core.errors import conflict, invalid, not_found
 from app.core.images import sniff
 from app.source_analysis import service as s
 from app.source_analysis.caching import not_modified, tag_for
-from app.source_analysis.models import ProductWorkspace, PublicPhoto
+from app.source_analysis.models import Draft, ProductWorkspace, PublicPhoto
 from app.source_analysis.photos import page_variant
 from app.source_analysis.storage import Storage
+
+
+def photo_cap_message(over: int) -> str:
+    """The composer shows the same words (NewProductComposer `photoCapMessage`)."""
+    count = f"{over}장" if over > 1 else "한 장"
+    return (
+        f"새 대표사진이 맨 앞에 들어가요. 사진은 {MAX_PRODUCT_PHOTOS}장까지라 {count}을 빼 주세요."
+    )
+
 
 public_router = APIRouter()
 
 
-def apply_draft(db, batch, draft, body):
+def cover_applied(db, workspace, snap, representative):
+    """The uploaded cover (not a referenced photo) is the one the workspace's last applied page
+    draft already copied, at the same revision."""
+    if representative.product_photo or not workspace.page_draft_id:
+        return False
+    last = db.get(Draft, workspace.page_draft_id)
+    if last is None or last.snapshot.get("representativeAssetId") != representative.id:
+        return False
+    versions = last.snapshot.get("sourceVersions", {})
+    return versions.get(representative.id) == snap["sourceVersions"].get(representative.id)
+
+
+def apply_draft(db, batch, draft, body, apply_cover=False):
+    """Apply a batch draft to the product page. `apply_cover` (DEV-361 apply-all): the draft's
+    representative becomes the cover of a buyer-visible product too (the composer edits it now)."""
     s.version(draft.version, body.draft_version)
     snap = draft.snapshot
     s.version(batch.review_version, snap["reviewVersion"])
@@ -45,15 +69,13 @@ def apply_draft(db, batch, draft, body):
     copied, store = {}, Storage()
     from app.source_analysis.representative import selected
 
-    # DEV-346 (11/17 PM): in the composer a buyer-visible product's cover is edited only in SCR-25,
-    # so applying its page (the product workspace's own batch) leaves product.photos as they are.
-    # Before sale, and from other source workspaces, the draft's cover becomes the cover as before.
-    keeps_cover = (
-        product.status not in ("DRAFT", "REJECTED")
-        and workspace is not None
-        and batch.id == workspace.batch_id
-    )
-    if keeps_cover and workspace.page_source:
+    # DEV-346 (11/17 PM): applying a buyer-visible product's own page alone (the product
+    # workspace's batch, this endpoint) leaves product.photos as they are. DEV-361 apply-all
+    # (`apply_cover`) makes the draft's cover the cover, as before sale and from other workspaces.
+    own_batch = workspace is not None and batch.id == workspace.batch_id
+    own_page = product.status not in ("DRAFT", "REJECTED") and own_batch
+    keeps_cover = own_page and not apply_cover
+    if own_page and workspace.page_source:
         from app.source_analysis.workspace import page_source, story_kind
 
         # The page was applied elsewhere (legacy editor, another screen, admin) since this draft
@@ -64,6 +86,11 @@ def apply_draft(db, batch, draft, body):
         representative = selected(db, batch.id, target, required=True)
         if snap.get("representativeAssetId") != representative.id:
             raise conflict("PHOTO_CHANGED", "대표사진을 확인한 뒤 초안을 다시 저장해 주세요.")
+        # DEV-361: an uploaded cover the last applied page already copied is not copied again
+        # (no duplicate photo, and a cover changed elsewhere since stays). Before sale too (5th
+        # scan): every composer has a workspace whose page_draft_id is the page it last applied, so
+        # '다음' again keeps one cover and the composer's photo count (no new cover) stays right.
+        keeps_cover = own_batch and cover_applied(db, workspace, snap, representative)
 
     def copy_photo(sid):
         source = s.asset(db, batch.id, sid)
@@ -93,6 +120,15 @@ def apply_draft(db, batch, draft, body):
             copied[sid] = photo.id
         return {"uri": f"/api/source-media/{copied[sid]}", "alt": "생산자가 제공한 상품사진"}
 
+    if not keeps_cover:
+        # DEV-361 PM 11/18: the new cover goes first; never past 10 photos. Checked before any photo
+        # is copied, so a rejection leaves no stored file behind. Reject (no trimming) so the
+        # producer chooses which photo to drop; the composer counts the same way first.
+        known = representative.product_photo["uri"] if representative.product_photo else None
+        after = len([p for p in product.photos if p != known]) + 1
+        if after > MAX_PRODUCT_PHOTOS:
+            message = photo_cap_message(after - MAX_PRODUCT_PHOTOS)
+            raise invalid({"photos": message}, message)
     cover = None if keeps_cover else copy_photo(representative.id)
     modules = []
     for module in snap["previewModules"]:

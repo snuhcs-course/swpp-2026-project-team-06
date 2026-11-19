@@ -188,7 +188,6 @@ export default function Home() {
   const photo = product
     ? mine.data?.find((p) => p.productId === product.productId)?.photo
     : null;
-  const harvest = todo?.harvestTargets?.filter((t) => t.closed);
   // DEV-121: 원산지 표시제도 안내(원산지표시법 제6조 ⑥, 시행규칙 제4조의2 1호 = 초기 화면 상시 게시 + 확인 안내).
   // 지금 버전을 안 읽었으면 할 일 맨 위, 읽었으면 현황 맨 아래 상시 줄
   const noticeUnread = !!user && !user.originNoticeReadAt;
@@ -221,18 +220,14 @@ export default function Home() {
         onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
       />,
     );
-  if (todo?.toHarvest && harvest?.length)
-    // DEV-231: 예약 기간이 끝난 기간의 예약 완료 주문 → 그 기간 카드
+  if (todo?.toHarvest)
+    // DEV-361: 모든 예약 완료 주문 수(예약 탭 '수확 시작 · n건'과 같음, PM 11/18) → 예약 탭에서 한 번에 수확 시작
     rows.push(
       <TodoRow
         key="harvest"
         label="수확을 시작할 예약"
         count={todo.toHarvest}
-        onPress={() =>
-          router.push(
-            `/products/${harvest[0].productId}/stages?stage=${harvest[0].stageId}`,
-          )
-        }
+        onPress={() => router.push("/ship?status=RESERVED")}
       />,
     );
   if (todo?.refundsToSettle)

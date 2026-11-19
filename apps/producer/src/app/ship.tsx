@@ -1,6 +1,7 @@
 // SCR-29 주문·출하 처리 (FEAT-17, FEAT-09 AC-09-8 입금 확인·AC-09-9 미승인, AC-17-7 환불 송금·AC-17-8 미승인, R-07·15·19·28, DEV-68) — design: p-scr-29, DEV-68 보드
 // 입금 승인은 확인 시트 후 처리하고 환불 완료는 줄에서 처리한다. 미승인은 줄 안에 사유(필수) 칸이 펼쳐진다.
 // 받는 사람 실명·전체 주소는 이 화면에서만 보인다(배송 목적, R-15). 입금 대기 줄에는 배송지가 없다. 여러 건 출하는 주문마다 ship API를 반복 호출한다.
+// 예약 탭은 고른 예약 완료 주문을 한 번에 수확 시작(= 출하 준비)한다(DEV-361, AC-17-11). 기본은 전체 선택.
 import {
   ApiError,
   CARRIERS,
@@ -11,7 +12,6 @@ import {
   newIdempotencyKey,
   serverNow,
   type Carrier,
-  type HarvestTarget,
   type OrderStatus,
   type ProducerOrder,
 } from "@farmclub/api";
@@ -21,7 +21,6 @@ import {
   HeaderBar,
   Icon,
   Input,
-  ListRow,
   Notice,
   Radio,
   Screen,
@@ -44,6 +43,7 @@ import { LoadError, ORDER_STATUS, errMsg } from "../lib/views";
 import { depositCheckMessage, depositorName, orderItemParts, orderWho } from "../lib/orderWho";
 import { goBackOr } from "../lib/nav";
 import { setChatDraft } from "../lib/chatDraft";
+import { HarvestSheet } from "../lib/HarvestStart";
 import { track, type FormErrorCode } from "@farmclub/analytics";
 
 /** 출하 처리 화면의 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312) */
@@ -120,15 +120,12 @@ export default function Ship() {
   const [reason, setReason] = useState("");
   const [cancelOrder, setCancelOrder] = useState(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
-  // DEV-231: 예약 탭 맨 위 '수확 시작하기' 줄(누르면 그 예약 기간 카드로)
-  const [targets, setTargets] = useState<HarvestTarget[]>([]);
+  // DEV-361: 예약 탭 고르기. 기본은 전체 선택이라 뺀 주문만 기억한다(새로 승인된 예약은 골라진 채로 보인다)
+  const [unpicked, setUnpicked] = useState<string[]>([]);
+  const [harvestFor, setHarvestFor] = useState<ProducerOrder[] | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
-    void orders
-      .dashboard()
-      .then((d) => setTargets(d.todo.harvestTargets ?? []))
-      .catch(() => setTargets([]));
     try {
       const all = await allPages((cursor) =>
         orders.producerOrders({ limit: 50, cursor }),
@@ -144,6 +141,9 @@ export default function Ship() {
       });
       setPicked((old) =>
         old.filter((id) => preparing.some((o) => o.orderId === id)),
+      );
+      setUnpicked((old) =>
+        old.filter((id) => all.some((o) => o.orderId === id && o.status === "RESERVED")),
       );
     } catch (e) {
       setError(e);
@@ -185,6 +185,7 @@ export default function Ship() {
               ? data.refunded
               : data.shipped;
   const chosen = data.preparing.filter((o) => picked.includes(o.orderId));
+  const toHarvest = data.reserved.filter((o) => !unpicked.includes(o.orderId));
   const has = (id: string) => !!(invoices[id]?.carrier || invoices[id]?.no);
   const withInvoice = chosen.filter((o) => has(o.orderId)).length;
 
@@ -515,21 +516,32 @@ export default function Ship() {
     { value: "SHIPPED", label: "출하", count: data.shipped.length },
     { value: "REFUNDED", label: "환불", count: data.refunded.length },
   ];
-  // 탭 안내는 한 줄(DEV-294). 출하 준비는 전체 선택 줄이 대신한다
+  // 탭 안내는 한 줄(DEV-294). 출하 준비·예약(DEV-361)은 전체 선택 줄이 대신한다
   const helper =
     tab === "AWAITING_DEPOSIT"
       ? "입금자명·금액 확인 후 승인 · 24시간 안에 입금이 없으면 자동 취소"
       : tab === "REFUNDED"
         ? "입금했던 계좌로 직접 보낸 뒤 승인"
-        : tab === "RESERVED"
-          ? "예약 기간에서 수확을 시작하면 출하 준비로 옮겨져요"
-          : tab === "SHIPPED"
-            ? "배송 완료는 farmclub이 확인해서 바꿔요"
-            : null;
-  const allPicked =
-    data.preparing.length > 0 && chosen.length === data.preparing.length;
+        : tab === "SHIPPED"
+          ? "배송 완료는 farmclub이 확인해서 바꿔요"
+          : null;
+  // 고르기 탭: 출하 준비(출하 처리)와 예약(수확 시작, DEV-361)
+  const pickTab = tab === "PREPARING" || tab === "RESERVED";
+  const pickedCount = tab === "RESERVED" ? toHarvest.length : chosen.length;
+  const allPicked = list.length > 0 && pickedCount === list.length;
+  const isPicked = (id: string) =>
+    tab === "RESERVED" ? !unpicked.includes(id) : picked.includes(id);
   const togglePick = (id: string) =>
-    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+    tab === "RESERVED"
+      ? setUnpicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
+      : setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  const toggleAll = () =>
+    tab === "RESERVED"
+      ? setUnpicked(allPicked ? data.reserved.map((o) => o.orderId) : [])
+      : setPicked(allPicked ? [] : data.preparing.map((o) => o.orderId));
+  const hasBar =
+    (tab === "PREPARING" && data.preparing.length > 0) ||
+    (tab === "RESERVED" && data.reserved.length > 0);
 
   return (
     <Screen>
@@ -585,7 +597,7 @@ export default function Ship() {
           })}
         </ScrollView>
       </View>
-      <Scroll bottom={tab === "PREPARING" && data.preparing.length ? 120 : 60}>
+      <Scroll bottom={hasBar ? 120 : 60}>
         {error ? <LoadError error={error} onRetry={load} /> : null}
         {notice ? (
           <Notice
@@ -602,27 +614,8 @@ export default function Ship() {
             {helper}
           </T>
         ) : null}
-        {tab === "RESERVED" && targets.length ? (
-          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 4 }}>
-            {targets.map((t, i) => (
-              <ListRow
-                key={t.stageId}
-                label={`${t.productName} ${t.stageName} · ${t.count}건 수확 시작하기`}
-                sub={
-                  t.closed
-                    ? "예약 기간이 끝났어요"
-                    : `예약 기간 ${Number(t.endsAt.slice(5, 7))}월 ${Number(t.endsAt.slice(8, 10))}일까지`
-                }
-                onPress={() =>
-                  router.push(`/products/${t.productId}/stages?stage=${t.stageId}`)
-                }
-                last={i === targets.length - 1}
-              />
-            ))}
-          </View>
-        ) : null}
         <View style={{ paddingHorizontal: tokens.space.gutter }}>
-          {tab === "PREPARING" && list.length ? (
+          {pickTab && list.length ? (
             <View
               style={{
                 flexDirection: "row",
@@ -636,9 +629,7 @@ export default function Ship() {
                 aria-checked={allPicked}
                 accessibilityLabel="전체 선택"
                 disabled={busy}
-                onPress={() =>
-                  setPicked(allPicked ? [] : data.preparing.map((o) => o.orderId))
-                }
+                onPress={toggleAll}
                 style={(st) =>
                   [
                     {
@@ -655,7 +646,7 @@ export default function Ship() {
                 <T>전체 선택</T>
               </Pressable>
               <T variant="caption" muted>
-                {list.length}건 중 {chosen.length}건
+                {list.length}건 중 {pickedCount}건
               </T>
             </View>
           ) : null}
@@ -671,7 +662,7 @@ export default function Ship() {
             </T>
           ) : null}
           {list.map((o, i) => {
-            const sel = picked.includes(o.orderId);
+            const sel = isPicked(o.orderId);
             const inv =
               o.status === "PREPARING"
                 ? invoices[o.orderId]
@@ -680,7 +671,7 @@ export default function Ship() {
             const awaiting = o.status === "AWAITING_DEPOSIT";
             const refunded = o.status === "REFUNDED";
             const canceled = o.status === "CANCELED";
-            const checkable = tab === "PREPARING";
+            const checkable = pickTab;
             const item = orderItemParts(o);
             // 출하 준비 줄의 송장은 그 탭의 고르기·출하 바와 묶여 있어, 전체 탭에서는 그 탭으로 옮긴 뒤 연다(DEV-291)
             const editInvoice = () => {
@@ -916,6 +907,38 @@ export default function Ship() {
           </View>
         </BottomBar>
       ) : null}
+
+      {/* 예약 탭: 고른 예약 완료 주문 수확 시작(DEV-361). 출하 준비 바와 같은 자리 */}
+      {tab === "RESERVED" && data.reserved.length ? (
+        <BottomBar>
+          <Button
+            label={`수확 시작 · ${toHarvest.length}건`}
+            size="producer"
+            disabled={!toHarvest.length || busy || !!error}
+            onPress={() => setHarvestFor(toHarvest)}
+          />
+        </BottomBar>
+      ) : null}
+
+      <HarvestSheet
+        picked={harvestFor}
+        onClose={(sent) => {
+          setHarvestFor(null);
+          // 보낸 뒤 연결 오류로 닫으면 서버가 이미 옮겼을 수 있어 다시 읽는다
+          if (sent) void load();
+        }}
+        onDone={(changed) => {
+          setHarvestFor(null);
+          setNotice(null);
+          toast(`${changed}건을 출하 준비로 옮겼어요`);
+          void load();
+        }}
+        onStale={() => {
+          setHarvestFor(null);
+          setNotice("이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.");
+          void load();
+        }}
+      />
 
       {/* 택배사·송장 번호(선택) — design: s-29-invoice */}
       <Sheet visible={!!invoiceFor} onClose={() => { if (!busy) setInvoiceFor(null); }}>

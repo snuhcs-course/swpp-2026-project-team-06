@@ -1,6 +1,10 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 
+from app.accounts import passwords
 from app.accounts.router import admin_router as accounts_admin_router
 from app.accounts.router import router as accounts_router
 from app.admin.activity import router as admin_activity_router
@@ -10,6 +14,7 @@ from app.admin.farm_status import producers_router as admin_producer_status_rout
 from app.admin.farm_status import router as admin_farm_status_router
 from app.admin.farms import router as admin_farms_router
 from app.admin.home import router as admin_home_router
+from app.admin.id_accounts import router as admin_id_accounts_router
 from app.admin.router import router as admin_exceptions_router
 from app.admin.support import router as admin_support_router
 from app.admin.user_detail import router as admin_user_detail_router
@@ -49,7 +54,14 @@ def install_cors(target: FastAPI, settings: Settings) -> None:
     )
 
 
-app = FastAPI(title="Farmclub API")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # 아이디 로그인 더미 해시를 미리 만든다(DEV-363). 첫 요청이 해시 비용을 더 내지 않게
+    await run_in_threadpool(passwords.warm_up)
+    yield
+
+
+app = FastAPI(title="Farmclub API", lifespan=lifespan)
 app.add_middleware(SourceRequestMiddleware)
 # 앱이 기한·날짜를 서버 시각으로 판단하게 모든 응답에 붙인다(DEV-229)
 app.add_middleware(ServerTimeMiddleware)
@@ -99,5 +111,7 @@ for admin_router in (
     admin_producer_status_router,
     admin_activity_router,
     admin_home_router,
+    # DEV-363: 운영자가 만드는 아이디 계정(공개 가입 없음)
+    admin_id_accounts_router,
 ):
     app.include_router(admin_router)

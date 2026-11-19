@@ -1097,7 +1097,7 @@ def test_AC_SRC_3_DEV_193_sentence_period_and_decimal_remain_distinct(space):
 
 def test_AC_SRC_3_DEV_193_wrapped_decimal_preserves_one_number_bidirectionally():
     broken, intact = "면적 3.\n5kg", "면적 3.5kg"
-    assert final_score.MEASUREMENT_VERSION == "dev193-number-evidence-v1"
+    assert final_score.MEASUREMENT_VERSION == "dev264-number-evidence-v2"
     for output, safe in [(broken, intact), (intact, broken)]:
         assert sensitive_tokens(output)["number"] == {"3.5kg"}
         assert final_score.unsupported_tokens(
@@ -1367,3 +1367,12 @@ def test_AC_SRC_6_DEV_194_v2_local_gold_rejects_envelope_identity_mismatch(
         )
     assert str(tmp_path) not in str(exc.value)
     assert "h2-invented" not in str(exc.value)
+
+
+def test_AC_SRC_3_number_tokens_ignore_trailing_punctuation():
+    """DEV-264: "Since 1966," must not count as an unsupported number when the source says 1966."""
+    tokens = final_score.sensitive_tokens
+    assert tokens("Since 1966, 서귀포")["number"] == {"1966"}
+    assert tokens("since 1966 서귀포")["number"] == {"1966"}
+    assert tokens("3,000원과 1,234,567개")["number"] == tokens("3000원과 1234567개")["number"]
+    assert tokens("3.5kg, 13~14브릭스.")["number"] == {"3.5kg", "13brix~14brix"}

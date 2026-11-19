@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  isPreSale,
   productGroups,
   productStatus,
 } from "../apps/producer/src/lib/productGroups.ts";
@@ -48,4 +49,16 @@ test("AC-04-7: every group has exactly one label in filter order", () => {
     productGroups.map((g) => g.label),
     ["판매 중", "심사 중", "작성 중", "판매 중지", "판매 종료"],
   );
+});
+
+test("AC-04-1 DEV-361: only draft or rejected products with no approved supply are pre-sale (first request on /sell)", () => {
+  const p = (status, approvedSupplyGrams = 0) => ({ status, approvedSupplyGrams });
+  assert.equal(isPreSale(p("DRAFT")), true);
+  assert.equal(isPreSale(p("REJECTED")), true);
+  // 첫 신청 심사 중은 물량·판매 설정에서 상태를 본다
+  assert.equal(isPreSale(p("PENDING_APPROVAL")), false);
+  assert.equal(isPreSale(p("PUBLISHED", 2_400_000)), false);
+  assert.equal(isPreSale(p("CLOSED")), false);
+  // 승인 물량이 있으면 상태와 상관없이 판매 전이 아니다
+  assert.equal(isPreSale(p("REJECTED", 1_000_000)), false);
 });

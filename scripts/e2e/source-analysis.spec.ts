@@ -4,10 +4,19 @@ import path from "node:path";
 import {
   apiUrl,
   producerUrl,
-  consumerUrl,
   loginProducer,
   monitor,
 } from "./helpers";
+
+// DEV-361 PR C: the 2-tab workspace screen is gone; this flow now runs in the composer (`/products/new` → AI sheet →
+// inline editor → '임시 저장' → '다음: 판매·가격' applies the page). Parts that only the 2-tab screen had:
+// - the product picker / '자료 작업 시작' start screen: no composer equivalent (a batch now belongs to one product).
+// - the tab-switch '저장하지 않은 내용을 닫을까요?' sheet: the composer saves on leave instead (covered by
+//   "AC-SRC-11: Back saves name and variety without photo and acknowledges only successful storage" in producer-hardening).
+// - the section show/hide switches ('상품 소개 표시', '보관 방법 표시'): the composer removes and re-adds a module
+//   ('보관 방법 제외' / '보관 방법 추가') instead, exercised below; it shows a section switch only for an already hidden section.
+// - applying to the selling p-house and comparing the consumer page with the preview: covered by
+//   "DEV-171 DEV-361 AC-SRC-1/2/5/6/7/9/11 text: extracted draft to consumer" in producer-format-flow (a new product here is not public yet).
 
 const sourceEnabled = process.env.SOURCE_ANALYSIS_ENABLED === "true";
 function work(partial = false) {
@@ -32,7 +41,7 @@ function work(partial = false) {
   );
 }
 for (const width of [360, 390, 430]) {
-  test(`AC-SRC-1/2/7/8 ${width}px: upload, review, resume and apply`, async ({
+  test(`AC-SRC-1/2/7/8 DEV-361 ${width}px: upload, review, resume and apply`, async ({
     page,
   }) => {
     test.skip(
@@ -43,16 +52,16 @@ for (const width of [360, 390, 430]) {
     await page.setViewportSize({ width, height: 850 });
     const clean = monitor(page);
     await loginProducer(page, "강영수");
-    await page.goto(`${producerUrl}/products/source-analysis`);
-    await page
-      .getByRole("checkbox")
-      .filter({ hasText: "하우스" })
-      .first()
-      .click();
-    await page
-      .getByRole("button", { name: "자료 작업 시작", exact: true })
-      .click();
+    await page.goto(`${producerUrl}/products/new`);
+    await expect(page).toHaveURL(/composer=1/);
+    const openSheet = () =>
+      page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
+    const closeSheet = () =>
+      page.getByRole("button", { name: "AI 시트 닫기", exact: true }).first().click();
+    await openSheet();
     await expect(page.getByText("분석 자료", { exact: true })).toBeVisible();
+    await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
+    await page.getByLabel("과일 품종명", { exact: true }).blur();
     await page
       .getByRole("button", { name: "텍스트 추가", exact: true })
       .click();
@@ -118,21 +127,25 @@ for (const width of [360, 390, 430]) {
       "tangerine-box.jpg",
     );
     await page
-      .getByRole("button", { name: "자료 준비·분석 시작", exact: true })
+      .getByRole("button", { name: "AI로 채우기", exact: true })
       .click();
+    // While analysing the editor is replaced by the live status and the page cannot move on.
+    await expect(page.getByTestId("source-analysis-status")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "상세페이지 편집", exact: true }),
+      page.getByRole("button", { name: "다음: 판매·가격", exact: true }),
     ).toBeDisabled();
     work(width === 360);
+    await expect(page.getByTestId("source-analysis-status")).toHaveCount(0, {
+      timeout: 15000,
+    });
     if (width === 360) {
+      await openSheet();
       await expect(page.getByText(
-        "일부 내용을 반영하지 못했어요. 원문을 확인해 주세요.",
+        "일부 내용을 채우지 못했어요. 다시 시도해 주세요.",
       )).toBeVisible();
       await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeVisible();
+      await closeSheet();
     }
-    await page
-      .getByRole("button", { name: "상세페이지 편집", exact: true })
-      .click();
     await expect(
       page
         .getByTestId("source-module-packagePhoto")
@@ -158,106 +171,60 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByRole("button", { name: "근거 검토", exact: true }),
     ).toHaveCount(0);
+    // The composer shows a section switch only for a hidden section.
     await expect(
       page.getByRole("switch", { name: "상품 소개 표시", exact: true }),
-    ).toBeChecked();
+    ).toHaveCount(0);
     await expect(
       page.getByLabel("상품 소개 보충 내용", { exact: true }),
     ).toHaveValue("제주산 감귤입니다.");
-    await page
-      .getByLabel("상품 소개 보충 내용", { exact: true })
-      .fill("제주산 감귤입니다. 수정 중");
-    await page.getByRole("button", { name: "자료", exact: true }).click();
-    await expect(
-      page.getByText("저장하지 않은 내용을 닫을까요?"),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "계속 편집", exact: true }).click();
-    await expect(
-      page.getByText("저장하지 않은 내용을 닫을까요?", { exact: true }),
-    ).toHaveCount(0);
-    await page
-      .getByLabel("상품 소개 보충 내용", { exact: true })
-      .fill("제주산 감귤입니다.");
     await expect(
       page.getByRole("button", {
         name: /^(한눈에 보기|보관 방법) (접기|펼치기)$/,
       }),
     ).toHaveCount(0);
-    if (width === 360) {
-      const visibility = page.getByRole("switch", {
-        name: "상품 소개 표시",
-        exact: true,
-      });
-      await visibility.focus();
-      await visibility.press("Space");
-      await expect(visibility).not.toBeChecked();
-      await expect(
-        page.getByLabel("상품 소개 보충 내용", { exact: true }),
-      ).toHaveCount(0);
-      await visibility.press("Enter");
-      await expect(visibility).toBeChecked();
-    }
-    await page
-      .getByRole("switch", { name: "보관 방법 표시", exact: true })
-      .uncheck();
-    await expect(
-      page
-        .getByTestId("source-section-storage")
-        .getByRole("heading", { name: "보관 방법" }),
-    ).toHaveCSS("opacity", "0.35");
-    await page
-      .getByRole("button", { name: "비공개 저장", exact: true })
-      .click();
-    await expect(
-      page.getByLabel("보관 방법 내용", { exact: true }),
-    ).toHaveCount(0);
+    // Removing a module keeps its text: it is saved, survives reload and comes back when re-added.
+    const storage = page.getByLabel("보관 방법 내용", { exact: true });
+    await expect(storage).toHaveValue("서늘한 곳에 보관해 주세요.");
+    await storage.focus();
+    await page.getByRole("button", { name: "보관 방법 제외", exact: true }).click();
+    await expect(storage).toHaveCount(0);
+    const save = page.getByRole("button", { name: "임시 저장", exact: true });
+    const saved = page.getByText(
+      "비공개로 저장했어요. 상품에는 아직 적용되지 않았어요.",
+      { exact: true },
+    );
+    await save.click();
+    await expect(saved).toBeVisible();
     await page.reload();
-    await page
-      .getByRole("button", { name: "상세페이지 편집", exact: true })
-      .click();
-    await expect(
-      page.getByRole("switch", { name: "보관 방법 표시", exact: true }),
-    ).not.toBeChecked();
-    await page
-      .getByRole("switch", { name: "보관 방법 표시", exact: true })
-      .check();
-    await expect(
-      page.getByLabel("보관 방법 내용", { exact: true }),
-    ).toHaveValue("서늘한 곳에 보관해 주세요.");
-    await page
-      .getByRole("button", { name: "비공개 저장", exact: true })
-      .click();
-    await expect(
-      page.getByText(
-        "비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.",
-      ),
-    ).toBeVisible();
+    await expect(page.getByTestId("product-detail-page")).toBeVisible();
+    await expect(storage).toHaveCount(0);
+    await page.getByRole("button", { name: "보관 방법 추가", exact: true }).click();
+    await expect(storage).toHaveValue("서늘한 곳에 보관해 주세요.");
+    await save.click();
+    await expect(saved).toBeVisible();
     await page.reload();
-    await page
-      .getByRole("button", { name: "상세페이지 편집", exact: true })
-      .click();
-    await expect(
-      page.getByRole("switch", { name: "보관 방법 표시", exact: true }),
-    ).toBeChecked();
+    await expect(storage).toHaveValue("서늘한 곳에 보관해 주세요.");
     if (width === 360) {
-      await page.getByRole("button", { name: "자료", exact: true }).click();
+      await openSheet();
       // DEV-287: retry is available without a cost-confirmation step.
       await expect(page.getByRole("checkbox", { name: /비용이 다시/ })).toHaveCount(0);
       await page.getByRole("button", { name: "재시도", exact: true }).click();
       work();
-      await expect(page.getByText("분석이 완료됐어요")).toBeVisible();
-      await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+      await expect(page.getByText("AI가 다 채웠어요. 위에서 확인하고 고쳐 주세요.")).toBeVisible({ timeout: 15000 });
+      await closeSheet();
       await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue("제주산 감귤입니다.");
-      await expect(page.getByRole("switch", { name: "보관 방법 표시", exact: true })).toBeChecked();
-      // Retrying changes the source version; confirm the preserved editor before publishing.
-      await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
-      await expect(page.getByText("비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.")).toBeVisible();
+      await expect(storage).toHaveValue("서늘한 곳에 보관해 주세요.");
+      // Retrying changes the source version; confirm the preserved editor before applying.
+      await save.click();
+      await expect(saved).toBeVisible();
     }
     await page
-      .getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ })
-      .first()
+      .getByRole("button", { name: "구매자 화면 보기", exact: true })
       .click();
-    await expect(page.getByText("제주산 감귤입니다.").last()).toBeVisible();
+    // The page preview only (the AI sheet's hidden source tile quotes the same text)
+    const preview = page.getByTestId("buyer-preview");
+    await expect(preview.getByText("제주산 감귤입니다.", { exact: true })).toBeVisible();
     await expect(
       page
         .getByTestId("source-module-packagePhoto")
@@ -265,35 +232,35 @@ for (const width of [360, 390, 430]) {
         .getByTestId("source-photo-frame")
         .locator("img"),
     ).toBeVisible();
-    const previewText = await page
-      .getByTestId("source-detail")
-      .last()
-      .innerText();
     await expect(
       page.getByTestId("source-heading-icon-storage").last(),
     ).toBeVisible();
-    await page.getByRole("button", { name: /^(편집으로 돌아가기|편집하기)$/ }).click();
-    await expect(page.getByRole("button", { name: "공개 전 검토", exact: true })).toBeVisible();
-    await page
-      .getByRole("button", { name: "상품 상세에 적용 검토", exact: true })
-      .first()
-      .click();
+    await page.getByRole("button", { name: "편집하기", exact: true }).click();
+    // A pre-sale product applies its page with '다음' (no confirmation, buyers do not see it yet, DEV-361 C-4).
     const applied = page.waitForResponse(response =>
       response.request().method() === "POST" && /\/drafts\/[^/]+\/apply$/.test(new URL(response.url()).pathname));
     await page
-      .getByRole("button", { name: "확인 · 상품 상세 적용", exact: true })
+      .getByRole("button", { name: "다음: 판매·가격", exact: true })
       .click();
     const appliedResponse = await applied;
     expect(appliedResponse.ok(), await appliedResponse.text()).toBeTruthy();
-    await expect(page.getByText("상품 상세에 적용했어요.")).toBeVisible();
+    await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
+    const productId = page.url().match(/products\/([^/?]+)\/sell/)![1];
+    const token = await page.evaluate(
+      () => Object.entries(localStorage).find(([k]) => /token/i.test(k))?.[1],
+    );
     const product = await (
-      await page.request.get(`${apiUrl}/api/products/p-house`)
+      await page.request.get(`${apiUrl}/api/products/mine/${productId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
     ).json();
     expect(
       product.moduleDetail.modules.find(
         (m: { id: string }) => m.id === "storage",
       ).texts[0].value,
     ).toBe("서늘한 곳에 보관해 주세요.");
+    // Applied is not public: a new product is visible to buyers only after approval.
+    expect((await page.request.get(`${apiUrl}/api/products/${productId}`)).status()).toBe(404);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -303,13 +270,6 @@ for (const width of [360, 390, 430]) {
       path: `.artifacts/source-${width}.png`,
       fullPage: true,
     });
-    await page.goto(`${consumerUrl}/products/p-house`);
-    await expect(page.getByTestId("source-detail")).toHaveText(previewText, {
-      useInnerText: true,
-    });
-    await expect(
-      page.getByTestId("source-heading-icon-storage").last(),
-    ).toBeVisible();
     clean();
   });
 }

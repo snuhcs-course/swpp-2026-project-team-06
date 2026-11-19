@@ -16,6 +16,7 @@ from app.core.db import get_db
 from app.core.errors import ApiError, conflict, invalid, not_found
 from app.core.security import ApprovedProducer
 from app.source_analysis import editor as e
+from app.source_analysis import product_draft as pd
 from app.source_analysis import service as s
 from app.source_analysis import workspace as w
 from app.source_analysis.caching import PREVIEW_CACHE, PREVIEW_REVALIDATE, not_modified, tag_for
@@ -89,6 +90,14 @@ def workspace_photo(
     return Response(data, media_type=media_type(data), headers=headers)
 
 
+def applied_page(db, product_id, actor_id, run):
+    """DEV-361: a page applied alone to a buyer-visible product is change history too."""
+    before = pd.page_state(db, product_id)
+    result = run()
+    pd.record_page_apply(db, product_id, actor_id, before)
+    return result
+
+
 @router.post("/product-workspaces")
 def open_product_workspace(body: w.OpenWorkspace, who: ApprovedProducer, db: DB, key: Key = None):
     return commit(
@@ -129,7 +138,51 @@ def apply_product_page(pid: str, body: Version, who: ApprovedProducer, db: DB, k
             "page-apply:" + pid,
             key,
             body.model_dump(),
-            lambda: w.apply(db, who[1], pid, body),
+            lambda: applied_page(db, pid, who[0].id, lambda: w.apply(db, who[1], pid, body)),
+        ),
+    )
+
+
+@router.get("/product-workspaces/{pid}/product-draft")
+def product_draft(pid: str, who: ApprovedProducer, db: DB):
+    """DEV-361: the private product draft of a buyer-visible product and its grouped changes."""
+    return pd.get(db, who[1], pid)
+
+
+@router.put("/product-workspaces/{pid}/product-draft")
+def save_product_draft(
+    pid: str, body: pd.ProductDraftSave, who: ApprovedProducer, db: DB, key: Key = None
+):
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            "product-draft:" + pid,
+            key,
+            body.model_dump(mode="json"),
+            lambda: pd.save(db, who[1], pid, body),
+        ),
+    )
+
+
+@router.delete("/product-workspaces/{pid}/product-draft")
+def discard_product_draft(pid: str, who: ApprovedProducer, db: DB, version: int = Query(ge=1)):
+    return commit(db, pd.discard(db, who[1], pid, version))
+
+
+@router.post("/product-workspaces/{pid}/apply-all")
+def apply_all(pid: str, body: pd.ApplyAll, who: ApprovedProducer, db: DB, key: Key = None):
+    """DEV-361 '상품에 반영': the product draft and the composer page draft in one transaction."""
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            "apply-all:" + pid,
+            key,
+            body.model_dump(mode="json"),
+            lambda: pd.apply_all(db, who[1], who[0].id, pid, body),
         ),
     )
 
@@ -609,6 +662,11 @@ def apply(bid: str, did: str, body: ApplyDraft, who: ApprovedProducer, db: DB, k
             f"{bid}/{did}/apply",
             key,
             body.model_dump(),
-            lambda: apply_draft(db, s.batch(db, who[1].id, bid), draft_for(db, bid, did), body),
+            lambda: applied_page(
+                db,
+                body.product_id,
+                who[0].id,
+                lambda: apply_draft(db, s.batch(db, who[1].id, bid), draft_for(db, bid, did), body),
+            ),
         ),
     )

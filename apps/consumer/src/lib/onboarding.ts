@@ -60,3 +60,4 @@ export function realName(name: string | null | undefined): string {
 export function safeNext(next: string | undefined): string {
   return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
 }
+

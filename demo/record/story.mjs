@@ -338,12 +338,12 @@ const segments = {
   // 10. 생산자: 출하
   async p5() {
     await loginProducer("강영호|신규 생산자");
-    // I3(DEV-231): 예약 기간 카드의 '수확 시작'으로 예약 완료 주문을 출하 준비로 옮긴다
-    await cap("수확 시작", "수확할 때 예약 기간에서 '수확 시작'을 누르면\n그 기간의 예약 주문이 출하 준비로 옮겨져요.", "FEAT-17 · DEV-231");
-    await go(`${producerUrl}/products/${state.productId}/stages`);
+    // DEV-361: 주문 현황 '예약' 탭에서 고른 예약 완료 주문(기본 전체)을 한 번에 출하 준비로 옮긴다(I3 영상은 DEV-231 기간 카드)
+    await cap("수확 시작", "수확할 때 주문 현황 '예약' 탭에서 '수확 시작'을 누르면\n고른 예약 주문이 출하 준비로 옮겨져요.", "FEAT-17 · DEV-361");
+    await go(`${producerUrl}/ship?status=RESERVED`);
     await wait(1200);
-    await tap(btn(/^수확 시작 · 출하 준비 \d+건$/).first(), { after: 1200 });
-    await tap(btn(/^수확 시작 · \d+건$/).last(), { after: 2200 });
+    await tap(btn(/^수확 시작 · \d+건$/).first(), { after: 1200 });
+    await tap(page.getByRole("dialog").getByRole("button", { name: /^수확 시작 · \d+건$/ }), { after: 2200 });
     await cap("출하 처리", "택배를 보낸 뒤 그 주문을 골라 택배사·송장 번호를\n넣고 출하로 바꿔요.", "FEAT-17 · SCR-29");
     await go(`${producerUrl}/ship?status=PREPARING`);
     await wait(1200);

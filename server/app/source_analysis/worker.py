@@ -19,6 +19,8 @@ from app.ai.source_ocr import (
     OCR_MAX_TOKENS,
     OCR_MODEL,
     OCR_PROMPT,
+    OCR_RETRY_CODES,
+    OCR_RETRY_MAX_TOKENS,
     Transcription,
     crops,
     transcribe,
@@ -586,7 +588,7 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
                 yield number, exc
             yield number, None  # End of page, including empty and failed pages.
 
-    def invoke(number, index, encoded):
+    def invoke(number, index, encoded, retry=False):
         if stop.is_set() or failed[number].is_set():
             return skipped
 
@@ -595,7 +597,7 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
             if stop.is_set() or failed[number].is_set():
                 return skipped  # Definitely unsent: settle any reservation at zero cost.
             try:
-                return transcribe(encoded)
+                return transcribe(encoded, retry=True) if retry else transcribe(encoded)
             except ExtractionError as exc:
                 if exc.code in OCR_HARD_ERRORS:
                     stop.set()  # Fence scheduling before a potentially slow settlement.
@@ -603,17 +605,21 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
 
         try:
             return call(
-                f"ocr-{pages[number]['number']}-{index}",
+                f"ocr-{pages[number]['number']}-{index}" + ("-retry" if retry else ""),
                 OCR_MODEL,
                 {"prompt": OCR_PROMPT},
                 [],
                 [encoded],
                 send,
-                OCR_MAX_TOKENS,
+                OCR_RETRY_MAX_TOKENS if retry else OCR_MAX_TOKENS,
             )
         except (ExtractionError, PreparationError) as exc:
             if isinstance(exc, ExtractionError) and exc.code in OCR_HARD_ERRORS:
                 stop.set()
+            # DEV-264: a crop that ran out of output room is read once more with double room.
+            # Uncertain/timeout requests are not retried (the first may have been charged).
+            if not retry and isinstance(exc, ExtractionError) and exc.code in OCR_RETRY_CODES:
+                return invoke(number, index, encoded, retry=True)
             # Soft failures are consumed in source order, even if a later crop fails first.
             return exc
         except BaseException:
@@ -951,8 +957,11 @@ def process(item_id, token):
             }
             allowed = set(item.target_ids)
             selected_targets = [t for t in run.targets if t["id"] in allowed]
-            # Names may contain personal data; only approved source contents are needed.
-            selected_targets = [{"id": t["id"]} for t in selected_targets]
+            # DEV-264: the producer-typed product name tells products apart in mixed sources.
+            # Contact data is masked like every other model input (M-18); basicInfo stays out.
+            selected_targets = [
+                {"id": t["id"], "name": scrub(t.get("name") or "")} for t in selected_targets
+            ]
             mode, model = run.mode, run.model
             if mode != "mock" and not use_vision_ocr:
                 from app.source_analysis.budget import reserve
