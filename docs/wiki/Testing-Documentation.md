@@ -1,6 +1,6 @@
 # Testing Documentation
 
-**Team 6 — Farmclub | Iteration 2 record with Iteration 3 supplements | Revised 6 November 2026**
+**Team 6 — Farmclub | Iterations 2–4 testing record | Revised 19 November 2026**
 
 ## Overview
 
@@ -12,6 +12,8 @@ This report uses `SWPP_Internal_Testing_1_Final.xlsx` as the sole authority for 
 
 
 **Iteration 3 chat follow-up (6 November):** the [consumer chat evaluation and defect-regression supplement](#iteration-3--consumer-chat-evaluation-and-defect-regression-minsun-6-november) records the original **2 PASS / 2 FAIL / 1 BLOCKED** five-row evaluation, the separate first-paid-order reproduction, the nine-task fix plan, every retained implementation test attempt, and the final 7-API/57-browser regression plus later CI correction. These dated functional results do not alter the 77-case workbook or the older coverage measurements. Human review, genuine native backgrounding and deployment limits remain explicit.
+
+The [I4 hardening and UAT record](#iteration-4--hardening-and-user-acceptance-testing) contains the current functional checks, usability follow-up and participant outcomes.
 
 ## Contents
 
@@ -27,6 +29,7 @@ This report uses `SWPP_Internal_Testing_1_Final.xlsx` as the sole authority for 
 10. [Iteration 3 — Consumer journeys, AI and heuristic inspection (Hyun)](#iteration-3--consumer-journeys-ai-answers-and-heuristic-inspection-hyun-6-november)
 11. [Iteration 3 — Consumer chat evaluation and defect regression (Minsun)](#iteration-3--consumer-chat-evaluation-and-defect-regression-minsun-6-november)
 12. [Iteration 3 — Peer heuristic evaluation and closeout](#iteration-3--peer-heuristic-evaluation-and-closeout-6-november)
+13. [Iteration 4 — Hardening and user acceptance testing](#iteration-4--hardening-and-user-acceptance-testing)
 
 ## 1. Test Responsibility and Schedule
 
@@ -2483,3 +2486,45 @@ Five completed evaluator sheets use Nielsen's ten heuristics plus one additional
 - No repeat peer inspection or human severity-calibration meeting was conducted during consolidation. Live issue/merge states establish documentary progress; they do not prove the deployed build, frequency/persistence or post-fix usability. DEV-156's remaining human calibration/triage decision stays visible.
 - Formative consumer/producer observation (DEV-157) is deferred to I4 Backlog. No recruited 5–8-person study, interview, A/B result, task-success rate or measured time saving is claimed. The six frozen UAT stories in Section 5 are the I4 plan, not execution results.
 - The [closeout record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/iteration-3-closeout.md) links the requirement/design changes, daily development logs reconstructed from 22 October onward, demo checks and final submission/schedule snapshot. Human review, Wiki publication, second-person package review and an eTL receipt require their own evidence.
+
+## Iteration 4 — Hardening and user acceptance testing
+
+The product evidence below covers the changes merged through [the 19 November product snapshot](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/77b2be3326ebed5fd728c93669c202eec4a1cd1b). Automated runs, the farmer pilot, classroom UAT and offline AI evaluations use separate samples and environments.
+
+### Functional and integration testing
+
+| Area | Method and recorded result | Evidence |
+| --- | --- | --- |
+| Operator-issued login | PR CI recorded 2,070 server tests passed and one skipped. A local browser run on the final candidate passed all five ID-login scenarios, covering the first password change and consent flow. | [DEV-363 / #675](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/675) |
+| Release login | Read-only browser checks exercised both release web clients with Kakao available, disabled and failing. All six combinations retained the ID form, showed no seed chooser and made no seed-list request under the fixture. | [DEV-367 / #680](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/680) |
+| Delivery privacy and shipping | 26 API privacy cases and 434 Mock cases passed. Two targeted local browser checks verified delivery masking and the existing tracking entry, dispatch and retry paths. | [DEV-254 / #676](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/676) |
+| Producer-initiated chat | The local group run recorded 31 passes and two failures in restoration waits. Both passed individually without a code change, and the recorded CI run passed all 315 integration cases. | [DEV-362 / #664](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/664) |
+| Unified editor and field feedback | Browser coverage exercises saving and reopening a private draft and applying changes. Tests for the final chip feedback passed 12 cases on the local stack. A 390 px browser check verified the gray label and outline limited to the inserted field. | [DEV-361 / #673](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/673) · [DEV-372 / #687](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/687) |
+
+### I3 heuristic follow-up and farmer pilot
+
+| Issue and original evidence | I4 change | Verification or open work |
+| --- | --- | --- |
+| Orders awaiting payment were hard to recognize (I3 B-H6, severity 3). | Earlier order identification was extended with a short bank-transfer reference and order-specific contact entry. | Classroom UAT still exposed the difficulty of matching a transfer under another name. Retest both matching and nonmatching references. Broader order prioritization and sorting remain separate. [#648](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/648) |
+| News and private chat looked or behaved too similarly (I3 B-H4, shared severity 3). | Private-room and news UI were revised and empty producer-opened chats are hidden from buyers until a message is sent. | Targeted chat coverage is recorded in the linked PR; peer re-evaluation of broader room semantics and moderation remains open. [#552](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/552) · [#664](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/664) |
+| Producer editing and repeated sales lacked clear transitions (I3 C-H1, D-H5 and D-H6, severity 1 each). | The unified editor separates private save and public apply, supports reopening a draft and groups sales terms. | Browser regression evidence covers save, resume and apply. Broader wording and shipment context remain follow-up work. [#673](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/673) |
+| Generic navigation, feedback and recovery reports lacked specific routes (I3 E-H3, E-H5 and E-H9, severity 2 each). | Targeted order and chat recovery improvements addressed reproducible paths. | Retain the generic reports without claiming closure because their original scenarios were unspecified. [I3 peer record](#iteration-3--peer-heuristic-evaluation-and-closeout-6-november) · [#649](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/649) |
+| The 15 November farmer pilot identified unclear save feedback, slow screens, difficulty finding the consumer view and disappearing sold-out products. | Save/apply toasts, display-sized media and reduced hidden polling, a producer link to the consumer page, and persistent sold-out cards were added. | The linked PRs record implementation and regression checks. A repeat farmer acceptance session was not part of this evidence. [Pilot notes](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/wiki/meetings/2026-11-15-progress-for-ta-meeting-and-uat.md) · [#607](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/607) · [#609](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/609) · [#684](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/684) · [#608](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/608) |
+
+### Classroom UAT and follow-up
+
+On 16 November two participants attempted six consumer and six producer scenarios each. The Team 6 submission UAT workbook records acceptance against observable criteria in its first and second participant tabs. Consumer scenarios covered finding and reserving a product, handling changes during checkout and checking the order. Producer scenarios covered identifying payments, acting on exceptions and preparing orders for shipping. The classroom result was **22 of 24 accepted (91.7%)**, with **11 of 12** for each role and mean satisfaction **4.5/5** across the two participants.
+
+| Criterion | Recorded outcome | Follow-up |
+| --- | --- | --- |
+| 1.3 — Updated price before purchase | One participant did not see the new price until refreshing and did not observe the expected checkout response. The other accepted. | Returning to Home and product details now refreshes prices. Repeat a price change during live checkout and check the stale-price rejection. [#649](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/649) |
+| 2.3 — Deposit under a different name | One participant matched the transfer by process of elimination. The other accepted. | The short code and order-based message support follow-up. Repeat with a matching reference and an unexpected depositor name. [#648](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/648) |
+
+The schedule cancels only the separate recruitment-based consumer and producer sessions. Classroom outcomes and the farmer pilot stay in the record. The aggregate above excludes the TA exercise, whose published assessment is pending, and covers simulated transfers and shipments.
+
+### AI evaluation
+
+| Capability | Comparison | Interpretation |
+| --- | --- | --- |
+| Chat answer and handoff | In the 29-case wording set with three trials per case, answerable accuracy went from 45/60 to 59/60, and mandatory handoff from 24/27 to 27/27. The separate 180-trial regression remained 180/180. | Counts include repeated trials from the same cases. Rule, model and fault paths are recorded separately. [Chat capability and regression results](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77b2be33/docs/evaluation/i4-ai/chat-capability/results-2026-11-15.md) |
+| Source-to-draft fact preservation | On 24 public development sources, strict recall rose from 195/324 (60.2%) to a mean of 67.7% across two after runs. The separate 12-source holdout v2 run yielded 75/134 strict facts, three forbidden items and two unsupported items. | The 95% strict fact and zero-safety-error thresholds were not met. The holdout has one completed after measurement and calls for continued producer review of draft facts. [Draft results and holdout v2](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77b2be33/docs/evaluation/i4-ai/draft-results-2026-11-18.md) |

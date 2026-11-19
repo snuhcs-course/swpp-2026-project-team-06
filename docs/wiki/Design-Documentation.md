@@ -1,14 +1,15 @@
 # Design Documentation
 
-Team 6 | Farmclub | Iteration 3 | 6 November 2026
+Team 6 | Farmclub | Iteration 4 | 19 November 2026
 
-This document describes the main snapshot [`28feb94ac47b259b6a6299e9fd742b75e756a33d`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/28feb94ac47b259b6a6299e9fd742b75e756a33d) used for I3 closeout. Its audience is the development team: a developer should be able to locate each responsibility, follow its data flow, and reproduce the local system. This revision retains Team 6’s architecture, dated decisions and figures, and synchronizes the I3 implementation deltas. Documentation changes do not change product behavior. Test plans, measurements and environment-specific results remain in [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation).
+This document describes the implemented architecture and cites the [I4 product snapshot at `77b2be33`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/77b2be3326ebed5fd728c93669c202eec4a1cd1b). It retains the architecture figures and records from earlier iterations. Section 2.9 describes the I4 changes to runtime boundaries, editing, and order data. Test evidence is in the [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation).
 
 ## Table of Contents
 
 - [Document Revision History](#document-revision-history)
 - [1. System Architecture](#1-system-architecture)
 - [2. Design Details](#2-design-details)
+- [2.9 Iteration 4 design changes](#29-iteration-4-design-changes)
 - [3. Design Patterns](#3-design-patterns)
 - [4. Implementation Status](#4-implementation-status)
 - [5. Running Locally and Source Map](#5-running-locally-and-source-map)
@@ -32,6 +33,7 @@ This document describes the main snapshot [`28feb94ac47b259b6a6299e9fd742b75e756
 | 3.0 | 2026-11-06 | Minsun Kim; existing Team 6 and owner contributions retained | DEV-158: schema 0026, paid-order conversation association, session/anchor lifecycle, AI save-time race checks, two-stage source pipeline and reproducible I3 demo boundary |
 | 3.1 | 2026-11-09 | Team 6 | DEV-293: shared UI tokens and headers follow the DEV-292 audit baseline; consumer home, product detail, checkout, orders, me and login simplified (per-option boxes left, hidden tab bar on purchase screens) |
 | 3.2 | 2026-11-12 | Team 6 | DEV-312: the producer app sends PostHog events for product registration, AI draft requests and results, sale start requests, deposit decisions, invoices, shipments, chat replies and error notices (IDs, enum codes, flags and durations only); pilot metrics for the two-farm pilot are defined in the tracking plan |
+| 4.0 | 2026-11-19 | Team 6 | I4 account, order and editor design with testing-driven decisions |
 
 
 ## 1. System Architecture
@@ -259,6 +261,17 @@ Figure 5. Authorization precedes metadata reuse. Read advancement occurs only un
 | Geometry, snapshot whitelist, bounded store and rendering | [chatViewState.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/packages/ui/src/chatViewState.ts), [ChatThread.tsx](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/packages/ui/src/ChatThread.tsx) |
 | Executed regression evidence and limits | [order chat](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/evaluation/dev-242-order-chat-regression.md), [reading restoration](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/evaluation/dev-243-scroll-restoration.md), [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/wiki/Testing-Documentation.md) |
 
+### 2.9 Iteration 4 design changes
+
+| Boundary | Implemented design and reason | Source |
+| --- | --- | --- |
+| Identity | The account service issues an operator-created credential and a restricted first-login session. Password changes invalidate previous sessions, followed by the existing consent gates. Migration `0036_password_login` adds the password-login schema. Removing the release evaluator UI leaves local development and UAT on their own setup paths. | [#675](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/675) · [#680](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/680) |
+| Order and bank transfer | The short payment reference is allocated per farm for orders awaiting deposits. The producer still confirms the transfer against the bank record. A prefilled chat message starts a follow-up without sending automatically. Stable reservation-period identity and refresh on return reduce stale checkout data. | [#648](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/648) · [#649](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/649) · [#664](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/664) |
+| Delivery data | Producer order responses redact recipient details once delivery is complete, including later refund states. Write paths continue to store canonical data. An invoice retry keeps its idempotent tracking result while applying the current privacy view. | [#676](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/676) |
+| Editor persistence | The producer composer keeps saved drafts private, restores them when reopened and applies product and sales changes together after review. Pre-sale products use the selling request screen after editing. Save feedback and field-level scroll and highlighting help producers see what changed. | [#607](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/607) · [#666](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/666) · [#667](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/667) · [#673](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/673) · [#687](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/687) |
+| AI drafts and chat | The source pipeline drafts editable content for producer review. Chat rules route supported questions to answers and hand off other requests under the defined policy. Development capability checks and regression checks have separate evidence, and the draft holdout result supports retaining human review before apply. | [#637](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/637) · [#661](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/661) · [#672](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/672) |
+
+
 ## 3. Design Patterns
 
 The course requires the full pattern discussion in Iteration 5. The implementation through I3 provides these traceable candidates; this section records intent without claiming a completed I5 submission.
@@ -275,9 +288,9 @@ The I5 expansion should select at least two patterns and provide the required cl
 
 ## 4. Implementation Status
 
-| Capability through the I3 reference | Current implementation boundary |
+| Capability in the I4 reference | Current implementation boundary |
 | --- | --- |
-| Kakao onboarding | Consumer profile/consents/address and producer application/state routing implemented; test login remains explicitly local/flagged |
+| Account entry and onboarding | Kakao and operator-issued ID/password entry feed shared consent, consumer profile and producer application gates. Local seed sign-in is available in development and Mock. |
 | Direct bank transfer | Instructions, deposit report/confirmation, deadline exceptions, issue reasons and farm refund-settlement records; no automatic bank reconciliation or custody |
 | Source workspace | API/worker and editor integrated; private save, explicit apply, original-photo placement and compatible legacy renderer; manual verification of omissions/numeric OCR remains necessary |
 | Operator tools | Browser session/proxy plus producer/capacity/farm/user/inbox operations and a read-only AI cost view by feature (server AI calls are recorded on call; CI reports spec-check tokens with a dedicated token); shared admin identity and limited attachment presentation |
@@ -287,7 +300,7 @@ The I5 expansion should select at least two patterns and provide the required cl
 | Remaining scope | Automatic deposit matching, courier integration, notifications, automatic eight-day completion/scheduled refunds, individual operator attribution, Sentry/Langfuse and server PostHog events are not wired |
 | Fulfillment | `RESERVED` → `PREPARING` happens only when the producer starts harvest on the selected orders in the Reserved tab (DEV-361; all selected by default); there is no per-order status button or automatic transition |
 
-Implementation availability is distinct from operational acceptance. PR #482 was merged as `86e5410`; the retained local evidence for its two scoped fixes is 57 browser cases and seven real-API scenarios. Later Testing Documentation records the subsequent merge/CI chronology, while dated regression reports keep their original pre-merge gate descriptions. No physical-device result, authenticated production mutation, human approval or complete user acceptance is inferred here. DEV-244’s ordering-oracle decision, DEV-256 Figma synchronization and DEV-257 notification replacement race remain separate follow-ups. Refer to Testing Documentation for exact versions, denominators and readiness.
+For the I3 regression history, PR #482 was merged as `86e5410`; the retained local evidence for its two scoped fixes is 57 browser cases and seven real-API scenarios. Later Testing Documentation records the subsequent merge/CI chronology, while dated regression reports keep their original pre-merge gate descriptions. No physical-device result, authenticated production mutation, human approval or complete user acceptance is inferred here. DEV-244’s ordering-oracle decision, DEV-256 Figma synchronization and DEV-257 notification replacement race remain separate follow-ups. Refer to Testing Documentation for exact versions, denominators and readiness.
 
 ## 5. Running Locally and Source Map
 
