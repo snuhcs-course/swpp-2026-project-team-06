@@ -14,6 +14,8 @@ import {
 import { Children, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { AccessibilityInfo, Image, Platform, Pressable, TextInput, View, type ScrollView, type TextStyle } from "react-native";
 import { SectionSwitch } from "./SectionSwitch";
+const PHOTO_MODULES = new Set(["sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"]);
+
 export type CanvasModule = {
   id: string;
   enabled: boolean;
@@ -73,6 +75,8 @@ export function PageCanvas({
   const [heights, setHeights] = useState<Record<string, number>>({});
   const [recentlyAdded, setRecentlyAdded] = useState<string | null>(null);
   const addedNode = useRef<View>(null);
+  const photoTarget = recentlyAdded && PHOTO_MODULES.has(recentlyAdded) ? recentlyAdded : null;
+  const textTarget = photoTarget ? null : recentlyAdded;
   useEffect(() => {
     if (!recentlyAdded) return;
     if (preview) {
@@ -206,7 +210,11 @@ export function PageCanvas({
       index: number,
       style: TextStyle,
     ) => emptyHint && m.texts[index].fieldKey === "name" && !m.texts[index].value.trim() ? null : (
-      <View style={{ gap: 5 }}>
+      <View
+        ref={textTarget === m.id && m.texts[index].fieldKey !== "name" ? addedNode : undefined}
+        collapsable={textTarget !== m.id}
+        style={{ gap: 5 }}
+      >
         <TextInput
           accessibilityLabel={`${m.texts[index].fieldKey === "name" ? "상품 이름" : title(m.id)} 내용`}
           multiline
@@ -270,6 +278,10 @@ export function PageCanvas({
                   paddingVertical: 10,
                 }
               : {}),
+            ...(textTarget === m.id && m.texts[index].fieldKey !== "name" && {
+              borderWidth: 2,
+              borderColor: tokens.color.accent,
+            }),
           }}
           onFocus={() => {
             setFocusedField(`${m.id}:${index}`);
@@ -344,6 +356,7 @@ export function PageCanvas({
         ))}
         {!emptyHint || selected === m.id ? (
           <Pressable
+            ref={photoTarget === m.id ? addedNode : undefined}
             accessibilityRole="button"
             accessibilityLabel={`${title(m.id)} 사진 추가`}
             disabled={busy || uploading}
@@ -358,6 +371,9 @@ export function PageCanvas({
               justifyContent: "center",
               gap: 6,
               marginVertical: 8,
+              ...(photoTarget === m.id && {
+                borderWidth: 2, borderColor: tokens.color.accent, borderStyle: "solid",
+              }),
             }}
           >
             <Icon
@@ -502,25 +518,12 @@ export function PageCanvas({
       </View>
     ),
     wrap: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => {
-      const isActive = active(m.id);
-      const added = recentlyAdded === m.id;
+      const isActive = active(m.id) || (selected === m.id && !blocked.includes(m.id));
       return (
         <FieldFeedback field={m.id}><View
           testID={`canvas-section-${m.id}`}
           style={{ gap: selected === m.id ? 8 : 0 }}
         >
-          {added ? (
-            <View
-              ref={addedNode}
-              collapsable={false}
-              accessibilityLiveRegion="polite"
-              style={{ paddingLeft: tokens.space.sm }}
-            >
-              <T variant="caption" weight="semibold" color={tokens.color.accent}>
-                {title(m.id)} 항목을 추가했어요
-              </T>
-            </View>
-          ) : null}
           {displayModules.find(module => module.id === m.id)?.enabled &&
             (!emptyHint || selected === m.id) &&
             removeButton(`${title(m.id)} 제외`, () => {
@@ -564,15 +567,6 @@ export function PageCanvas({
               ) : null}
               {details?.(m.id)}
             </View>
-          ) : null}
-          {added ? (
-            <View
-              pointerEvents="none"
-              style={{
-                position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
-                borderWidth: 2, borderColor: tokens.color.accent, borderRadius: tokens.radius.md,
-              }}
-            />
           ) : null}
         </View></FieldFeedback>
       );

@@ -177,6 +177,14 @@ function Illustration({ id, inset = 16 }: { id: string; inset?: number }) {
   );
 }
 
+function ModuleSubheading({ children }: { children: string }) {
+  return (
+    <T accessibilityRole="header" weight="semibold" style={{ fontSize: 18, lineHeight: 26, color: "#555" }}>
+      {children}
+    </T>
+  );
+}
+
 function ModuleBody({
   module,
   mediaUrl,
@@ -203,20 +211,7 @@ function ModuleBody({
     : null;
   const body = (
     <View testID={`source-module-${module.id}`} style={{ gap: 14 }}>
-      {subheading ? (
-        <T
-          accessibilityRole="header"
-          weight="semibold"
-          style={{
-            fontSize: 18,
-            lineHeight: 26,
-            color: "#555",
-
-          }}
-        >
-          {subheading}
-        </T>
-      ) : null}
+      {subheading ? <ModuleSubheading>{subheading}</ModuleSubheading> : null}
       {module.texts
         .filter((text) => editing || text.value.trim())
         .map((text, i) =>
@@ -281,9 +276,20 @@ export function ModuleStory({
   const heroBody = hero && showHero ? <>
     {editing ? editing.photos(hero, hero.photos.map((photo, i) => <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />)) : hero.photos.map((photo, i) => <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />)}
     <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 24, gap: 16 }}>
-      {hero.texts.map((text, i) => text.value.trim() || editing ? <View key={`${text.fieldKey}-${i}`}>
-        {editing ? editing.text(hero, i, heroTextStyle(text.fieldKey)) : <T center accessibilityRole={text.fieldKey === "name" ? "header" : "text"} style={heroTextStyle(text.fieldKey)}>{text.value}</T>}
-      </View> : null)}
+      {hero.texts.map((text, i) => {
+        if (!editing && !text.value.trim()) return null;
+        const showLabel = !!editing && text.fieldKey === "hero";
+        return (
+          <View key={text.fieldKey} style={showLabel ? { gap: 8 } : undefined}>
+            {showLabel ? <ModuleSubheading>상품 소개</ModuleSubheading> : null}
+            {editing ? editing.text(hero, i, heroTextStyle(text.fieldKey)) : (
+              <T center accessibilityRole={text.fieldKey === "name" ? "header" : "text"} style={heroTextStyle(text.fieldKey)}>
+                {text.value}
+              </T>
+            )}
+          </View>
+        );
+      })}
       {hero.illustrationId && illustrations[hero.illustrationId] ? <Illustration id={hero.illustrationId} inset={tokens.space.gutter} /> : null}
     </View>
   </> : null;
