@@ -1030,8 +1030,9 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
     item = catalog.load_product(db, order.product_id)
     option = next((row for row in item.options if row.id == order.option_id), None)
     awaiting = order.status == "AWAITING_DEPOSIT"
-    # 결제(입금 확인) 전 주문은 배송지를 보여 주지 않는다(R-15 최소 노출)
-    hide = order.paid_at is None
+    # 배송 완료 뒤 환불돼 상태가 바뀌어도 배송 정보는 다시 노출하지 않는다(R-15).
+    delivered = order.delivered_at is not None or order.status in ("DELIVERED", "COMPLETED")
+    hide = delivered or order.paid_at is None
     return ProducerOrder(
         order_id=order.id,
         order_no=order.order_no,
@@ -1053,13 +1054,28 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         refund_settled_at=_refund_settled_at(db, order),
         deposit_issue=order.deposit_issue if awaiting else None,
         refund_issue=_refund_issue(db, order),
-        # 입금 전에는 배송지를 보여 주지 않는다(R-15 최소 노출)
-        recipient_name=order.recipient_name,
+        # 입금 대조용 이름은 유지하되 배송 완료 뒤에는 이름도 가린다.
+        recipient_name="○○○" if delivered else order.recipient_name,
         recipient_phone="" if hide else order.recipient_phone,
         postal_code="" if hide else order.postal_code,
         address="" if hide else order.address,
         address_detail="" if hide else order.address_detail,
     )
+
+
+def producer_tracking_response(db: Session, farm_id: str, order_id: str, response: dict) -> dict:
+    """캐시된 송장·버전은 유지하되 배송 정보에는 현재 R-15 가림을 적용한다."""
+    order = db.get(Order, order_id)
+    if order is None or not order_belongs_to_farm(db, order, farm_id):
+        raise not_found("주문을 찾을 수 없어요.")
+    shipping = producer_order_view(db, order).model_dump(
+        by_alias=True,
+        include={
+            "recipient_name", "recipient_phone", "postal_code", "address", "address_detail",
+            "delivery_note",
+        },
+    )
+    return response | shipping
 
 
 def producer_orders(
