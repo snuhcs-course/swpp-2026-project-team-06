@@ -168,7 +168,7 @@ export default function OnboardingProfile() {
           <T variant="title" accessibilityRole="header">
             {signup
               ? "약관에 동의하고\n가입해요"
-              : reconsent && firstConsent
+              : firstConsent
                 ? "약관에 동의하고\n시작해요"
                 : reconsent
                   ? "약관이\n바뀌었어요"
@@ -177,7 +177,7 @@ export default function OnboardingProfile() {
           <T variant="body" muted>
             {signup
               ? "이용약관과 개인정보 처리방침에 동의하면 계정이 만들어져요. 동의하지 않으면 아무것도 저장하지 않아요."
-              : reconsent && firstConsent
+              : firstConsent
                 ? "이용약관과 개인정보 처리방침에 동의하면 farmclub을 쓸 수 있어요."
                 : reconsent
                 ? "바뀐 이용약관과 개인정보 처리방침에 동의해야 주문·팔로우·채팅을 계속할 수 있어요."
@@ -299,7 +299,7 @@ export default function OnboardingProfile() {
       </Scroll>
       <BottomBar>
         <Button
-          label={signup ? "동의하고 가입하기" : reconsent && firstConsent ? "동의하고 시작하기" : reconsent ? "동의하고 계속하기" : "시작하기"}
+          label={signup ? "동의하고 가입하기" : firstConsent ? "동의하고 시작하기" : reconsent ? "동의하고 계속하기" : "시작하기"}
           disabled={(showProfile && !valid) || (showConsents && !requiredAgreed)}
           loading={busy}
           onPress={() => void submit()}

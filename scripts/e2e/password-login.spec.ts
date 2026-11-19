@@ -171,3 +171,54 @@ test("AC_01_22 DEV-198 evaluator mode keeps the test accounts beside the passwor
   await page.getByRole("button", { name: /로그인$/ }).click();
   await expect(page).not.toHaveURL(/\/login/);
 });
+
+test("AC_01_23 consumer without phone: consent wording, profile fields, and saved onboarding", async ({ page, request }, testInfo) => {
+  test.skip(!adminToken, "FARMCLUB_ADMIN_TOKEN 필요(scripts/run-integration.mjs)");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const created = await createAccount(request, "consumer", "pwnophone", { phone: "" });
+
+  await page.goto(`${consumerUrl}/login`);
+  await fillLogin(page, created.username, created.temporaryPassword);
+  await expect(page).toHaveURL(/\/password/);
+  await changePassword(page, created.temporaryPassword, NEW_PASSWORD);
+  await expect(page).toHaveURL(/\/onboarding/);
+
+  const nickname = page.getByRole("textbox", { name: "닉네임", exact: true });
+  const phone = page.getByRole("textbox", { name: "휴대폰 번호", exact: true });
+  await expect(nickname).toBeVisible();
+  await expect(phone).toBeVisible();
+  // Capture before wording assertions so a failing regression retains its original UI.
+  const screenshotPath = testInfo.outputPath("first-consent-no-phone.png");
+  await page.screenshot({ path: screenshotPath, fullPage: false });
+  await testInfo.attach("first-consent-no-phone", {
+    path: screenshotPath,
+    contentType: "image/png",
+  });
+
+  await expect(page.getByText(/약관에 동의하고\s*시작해요/)).toBeVisible();
+  const start = page.getByRole("button", { name: "동의하고 시작하기", exact: true });
+  await expect(start).toBeVisible();
+  await nickname.fill("첫가입귤친구");
+  const enteredPhone = "010-4567-8910";
+  await phone.fill(enteredPhone);
+  await page.getByRole("checkbox", { name: "모두 동의해요" }).click();
+  await start.click();
+  await expect(page).not.toHaveURL(/\/onboarding|\/password|\/login/);
+  await page.goto(`${consumerUrl}/orders`);
+  await expect(page).toHaveURL(/\/orders(?:[/?#]|$)/);
+
+  // Read persistence through the API without depending on browser token storage details.
+  const loggedIn = await request.post(`${apiUrl}/api/auth/login`, {
+    data: { app: "consumer", username: created.username, password: NEW_PASSWORD },
+  });
+  expect(loggedIn.ok(), await loggedIn.text()).toBeTruthy();
+  const { accessToken } = await loggedIn.json();
+  expect(accessToken).toBeTruthy();
+  const me = await request.get(`${apiUrl}/api/auth/me`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  expect(me.ok(), await me.text()).toBeTruthy();
+  const profile = await me.json();
+  expect(profile.phone.replace(/\D/g, "")).toBe(enteredPhone.replace(/\D/g, ""));
+  expect(profile.consentRequired).toBe(false);
+});
