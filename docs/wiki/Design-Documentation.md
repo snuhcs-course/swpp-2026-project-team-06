@@ -300,7 +300,7 @@ The I5 expansion should select at least two patterns and provide the required cl
 | Remaining scope | Automatic deposit matching, courier integration, notifications, automatic eight-day completion/scheduled refunds, individual operator attribution, Sentry/Langfuse and server PostHog events are not wired |
 | Fulfillment | `RESERVED` → `PREPARING` happens only when the producer starts harvest on the selected orders in the Reserved tab (DEV-361; all selected by default); there is no per-order status button or automatic transition |
 
-For the I3 regression history, PR #482 was merged as `86e5410`; the retained local evidence for its two scoped fixes is 57 browser cases and seven real-API scenarios. Later Testing Documentation records the subsequent merge/CI chronology, while dated regression reports keep their original pre-merge gate descriptions. No physical-device result, authenticated production mutation, human approval or complete user acceptance is inferred here. DEV-244’s ordering-oracle decision, DEV-256 Figma synchronization and DEV-257 notification replacement race remain separate follow-ups. Refer to Testing Documentation for exact versions, denominators and readiness.
+The [I4 testing record](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation#iteration-4--hardening-and-user-acceptance-testing) records the functional checks, pilot observations and participant outcomes for this implementation.
 
 ## 5. Running Locally and Source Map
 
