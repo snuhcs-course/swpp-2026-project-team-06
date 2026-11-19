@@ -1,8 +1,8 @@
 // DEV-287: render app/PWA assets from the approved artwork without redrawing the logo.
 // DEV-358: DEV-311 브랜드 통합안 — 아이콘은 승인 심볼(logo-icon.png) 높이 86%, 바탕 크림 #FFF4E8(소비자)·올리브 #56652A(생산자).
 //   소비자 기본 공유 카드(og.jpg 1200×630)도 여기서 그린다(크림 바탕 + 승인 조합형 + 계단 표식, 보드 `dev-311-brand-integrated.html` #og-int).
-//   통합안 보드가 정하지 않은 자산(Android 적응형 아이콘, PWA maskable, 스플래시, 생산자 공유 카드)은 DEV-287 방식 그대로 둔다
-//   (apps/consumer/tasks/DEV-358.md "판단 필요").
+//   Android 적응형 아이콘(전경·바탕·단색)과 PWA maskable은 PM 11/18 결정으로 같은 심볼을 안전 영역 비율(SAFE_K)로, 바탕은 앱별 색.
+//   스플래시와 생산자 공유 카드는 DEV-287 방식 그대로 둔다(apps/consumer/tasks/DEV-358.md).
 // Run after `npx playwright install chromium`: node scripts/generate-brand-icons.mjs
 // 공유 카드 글꼴은 앱과 같은 Pretendard 가변 웹폰트(CDN)라 네트워크가 필요하다.
 import { readFile, writeFile } from "node:fs/promises";
@@ -11,10 +11,14 @@ const root = new URL("../", import.meta.url);
 const png = async (file) => `data:image/png;base64,${(await readFile(new URL(file, root))).toString("base64")}`;
 const original = await png("packages/ui/assets/brand/logo-paper-glow-clean.png");
 const symbol = await png("packages/ui/assets/brand/logo-icon.png");
-// DEV-287 방식: 두 줄 조합형을 폭 64%로, 흰 바탕(투명·바탕만 옵션은 Android 적응형 층).
+// DEV-287 방식: 두 줄 조합형을 폭 64%로, 흰 바탕(지금은 스플래시만).
 const legacy = { src: original, fit: "width", k: 0.64, bg: "#ffffff" };
 // DEV-311 통합안 결정 1·5: 심볼 높이 86%, 크림 바탕 · 생산자 올리브.
 const BRAND_BG = { consumer: "#FFF4E8", producer: "#56652A" };
+// PM 11/18: Android 적응형 층·PWA maskable은 심볼 높이 59%. 기준은 Android 안전 영역(108dp 중 지름 66dp 원 = 중심에서 한 변의 30.56%).
+// logo-icon.png 알파(≥2) 끝은 중심에서 원본 한 변의 50.98%라 62%면 31.6%로 넘고, 59%면 30.08%로 들어간다(PWA 안전 원 40%도 안).
+// 알파 1(0.4%) 먼지 145픽셀만 더 멀리(56.0%) 있다. 검사는 scripts/test-brand-meta.mjs.
+const SAFE_K = 0.59;
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
@@ -29,14 +33,15 @@ try {
   await writeFile(new URL("packages/ui/assets/brand/logo-grayscale.png", root), Buffer.from(grayscale, "base64"));
   for (const app of ["consumer", "producer"]) {
     const brand = { src: symbol, fit: "height", k: 0.86, bg: BRAND_BG[app] };
+    // 마스크를 씌우는 아이콘(Android 적응형, PWA maskable): 같은 심볼·같은 바탕, 비율만 안전 영역에 맞춘다.
+    const safe = { ...brand, k: SAFE_K };
     const targets = [
       ["assets/icon.png", 1024, brand], ["assets/favicon.png", 48, brand], ["assets/splash-icon.png", 512, legacy],
-      ["assets/android-icon-foreground.png", 1024, legacy, false, true],
-      ["assets/android-icon-background.png", 1024, legacy, false, false, true],
-      ["assets/android-icon-monochrome.png", 1024, legacy, true, true],
+      ["assets/android-icon-foreground.png", 1024, safe, false, true],
+      ["assets/android-icon-background.png", 1024, safe, false, false, true],
+      ["assets/android-icon-monochrome.png", 1024, safe, true, true],
       ["public/icons/icon-192.png", 192, brand], ["public/icons/icon-512.png", 512, brand],
-      // maskable은 안전 원(지름 80%) 안에 들어야 해서 통합안 86%를 그대로 쓰지 않는다(판단 필요, 지금 그림 유지).
-      ["public/icons/icon-maskable-512.png", 512, legacy],
+      ["public/icons/icon-maskable-512.png", 512, safe],
       ["public/icons/apple-touch-icon.png", 180, brand],
       ...[16, 32, 48].map(size => [`public/icons/favicon-${size}.png`, size, brand]),
     ];
