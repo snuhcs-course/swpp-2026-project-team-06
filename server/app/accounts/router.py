@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query, Response
@@ -37,6 +38,7 @@ from app.core.db import get_db
 from app.core.security import Admin, Consumer, CurrentUser, Producer
 
 router = APIRouter(prefix="/auth", tags=["accounts"])
+logger = logging.getLogger(__name__)
 admin_router = APIRouter(prefix="/admin/producers", tags=["admin"])
 
 Db = Annotated[Session, Depends(get_db)]
@@ -88,7 +90,10 @@ def password_login(db: Db, response: Response, body: PasswordLoginInput):
     result = service.password_login(db, body)
     db.commit()
     db.close()
-    service.finish_login(result.user.role, body.username)
+    try:
+        service.finish_login(result.user.role, body.username)
+    except Exception:  # noqa: BLE001 - 시도 수 지우기 실패로 성공한 로그인을 버리지 않는다
+        logger.warning("login succeeded but the attempt counter was not reset")
     response.headers["Cache-Control"] = NO_STORE
     return result
 
@@ -99,7 +104,10 @@ def change_password(db: Db, user: CurrentUser, response: Response, body: Passwor
     result = service.change_password(db, user, body)
     db.commit()
     db.close()
-    service.unlock_login(result.user.role, result.user.username)
+    try:
+        service.unlock_login(result.user.role, result.user.username)
+    except Exception:  # noqa: BLE001 - 잠금 풀기 실패로 이미 바뀐 비밀번호 응답을 잃지 않는다
+        logger.warning("password changed but the attempt counter was not reset")
     response.headers["Cache-Control"] = NO_STORE
     return result
 

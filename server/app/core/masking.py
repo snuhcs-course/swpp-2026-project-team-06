@@ -36,18 +36,8 @@ def strip(text: str, placeholder: str = "[연락처]") -> str:
     return text
 
 
-# 비밀번호처럼 응답·기록에 절대 남기면 안 되는 입력 칸(카멜·스네이크 모두)
-SECRET_FIELDS = frozenset(
-    {
-        "password",
-        "currentPassword",
-        "current_password",
-        "newPassword",
-        "new_password",
-        "temporaryPassword",
-        "temporary_password",
-    }
-)
+# 비밀번호처럼 응답·기록에 절대 남기면 안 되는 입력 칸(요청 검증 오류의 칸 이름 = 카멜)
+SECRET_FIELDS = frozenset({"password", "currentPassword", "newPassword"})
 SECRET_FIELD_MESSAGE = "비밀번호를 확인해 주세요"
 
 
@@ -62,4 +52,3 @@ def redact_secret_fields(fields: dict[str, str]) -> dict[str, str]:
     입력값이 메시지에 섞여 나가지 않게 한다.
     """
     return {k: SECRET_FIELD_MESSAGE if is_secret_field(k) else v for k, v in fields.items()}
-

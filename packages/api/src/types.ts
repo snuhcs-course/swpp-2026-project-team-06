@@ -59,8 +59,9 @@ export type ForbiddenReason =
   | "TEST_ACCOUNT"
   // 아이디·비밀번호 계정(DEV-363): 임시 비밀번호로 들어와 바꾸기 전
   | "PASSWORD_CHANGE_REQUIRED"
-  | "NOT_PASSWORD_ACCOUNT"
-  | "INVALID_CREDENTIALS";
+  | "NOT_PASSWORD_ACCOUNT";
+/** 401 사유(DEV-363): 아이디·비밀번호 로그인 실패(틀린 아이디·비밀번호를 구분하지 않음) */
+export type UnauthenticatedReason = "INVALID_CREDENTIALS";
 
 /** 409 STAGE_CHANGED의 이전(주문서가 본 값·주문 스냅샷)·지금 값(AC-08-8, contracts-1.2 1장) */
 export type StageSnapshot = {
@@ -78,7 +79,7 @@ export type ErrorBody = {
   message: string;
   details: {
     fields?: Record<string, string>;
-    reason?: ConflictReason | ForbiddenReason;
+    reason?: ConflictReason | ForbiddenReason | UnauthenticatedReason;
     /** STAGE_CHANGED·SOLD_OUT: 고른 옵션 */
     optionId?: string | null;
     previous?: StageSnapshot;

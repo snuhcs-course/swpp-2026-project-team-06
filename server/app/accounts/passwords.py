@@ -1,6 +1,8 @@
 """아이디·비밀번호 규칙과 argon2id 해시(DEV-363). 평문은 이 모듈 밖으로 저장·기록하지 않는다.
 
-- 해시: argon2-cffi `PasswordHasher` 기본값(argon2id, RFC 9106 저메모리 권장). 검증은 argon2 안의
+- 해시: argon2id, OWASP 권장 최소값(m=19MiB, t=2, p=1). 동시 해시는 4개까지(세마포어)라
+  로그인이 몰려도 메모리가 약 80MiB를 넘지 않는다(기본값 64MiB × 스레드 40이면 서버가 죽을 수 있다).
+  검증은 argon2 안의
   상수 시간 비교. 없는 아이디도 `dummy_verify`로 같은 비용을 써서 응답 시간으로 존재를 알 수 없다.
 - 정책: 8~128자, 공백만 안 됨, 아이디와 같으면 안 됨, 흔한 비밀번호 안 됨
   (NIST SP 800-63B, 조합 규칙 없음).
@@ -8,6 +10,7 @@
 
 import re
 import secrets
+import threading
 from functools import lru_cache
 
 from argon2 import PasswordHasher
@@ -110,9 +113,23 @@ COMMON_PASSWORDS = frozenset(
 )
 
 
+# OWASP Password Storage Cheat Sheet의 argon2id 최소 권장값. 바꾸면 `check_needs_rehash`가
+# 로그인 때 옛 해시를 새 값으로 다시 해시한다(실제 검증과 더미 검증이 같은 값을 쓴다)
+ARGON2_MEMORY_COST = 19456  # KiB = 19 MiB
+ARGON2_TIME_COST = 2
+ARGON2_PARALLELISM = 1
+# 한꺼번에 도는 해시·검증 수. 넘으면 차례를 기다린다(진짜 아이디·없는 아이디 모두 같은 줄)
+HASH_CONCURRENCY = 4
+_slots = threading.BoundedSemaphore(HASH_CONCURRENCY)
+
+
 @lru_cache
 def _hasher() -> PasswordHasher:
-    return PasswordHasher()
+    return PasswordHasher(
+        time_cost=ARGON2_TIME_COST,
+        memory_cost=ARGON2_MEMORY_COST,
+        parallelism=ARGON2_PARALLELISM,
+    )
 
 
 def normalize_username(raw: str) -> str:
@@ -155,7 +172,9 @@ def _checked(password: str) -> str:
 
 
 def hash_password(password: str) -> str:
-    return _hasher().hash(_checked(password))
+    value = _checked(password)
+    with _slots:
+        return _hasher().hash(value)
 
 
 def verify_password(password_hash: str, password: str) -> bool:
@@ -164,7 +183,8 @@ def verify_password(password_hash: str, password: str) -> bool:
         dummy_verify(password[:PASSWORD_MAX])
         return False
     try:
-        return _hasher().verify(password_hash, password)
+        with _slots:
+            return _hasher().verify(password_hash, password)
     except (VerifyMismatchError, VerificationError, InvalidHashError):
         return False
 
@@ -178,14 +198,17 @@ def needs_rehash(password_hash: str) -> bool:
 
 @lru_cache
 def _dummy_hash() -> str:
-    # 프로세스마다 한 번. 값은 의미 없고 비용만 같게 한다
-    return _hasher().hash(secrets.token_urlsafe(16))
+    # 프로세스마다 한 번. 값은 의미 없고 비용(같은 매개변수)만 같게 한다
+    return hash_password(secrets.token_urlsafe(16))
 
 
 def dummy_verify(password: str) -> None:
     """없는 아이디·비밀번호 없는 계정에서도 같은 비용으로 검증해 시간 차이를 없앤다."""
+    dummy = _dummy_hash()
     try:
-        _hasher().verify(_dummy_hash(), _checked(password[:PASSWORD_MAX]))
+        value = _checked(password[:PASSWORD_MAX])
+        with _slots:
+            _hasher().verify(dummy, value)
     except (VerifyMismatchError, VerificationError, InvalidHashError, ValueError):
         pass
 

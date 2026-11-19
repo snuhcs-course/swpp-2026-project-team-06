@@ -457,7 +457,7 @@ def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> KakaoLog
         user.phone = kakao_phone
     db.flush()
     return KakaoLoginResult(
-        access_token=issue_token(user.id, user.role, user.token_version or 0),
+        access_token=issue_token(user.id, user.role, user.token_version),
         user=user_view(db, user),
     )
 
@@ -532,7 +532,7 @@ def _login_key(role: str, username: str) -> str:
 
 def _login_result(db: Session, user: User) -> LoginResult:
     return LoginResult(
-        access_token=issue_token(user.id, user.role, user.token_version or 0),
+        access_token=issue_token(user.id, user.role, user.token_version),
         user=user_view(db, user),
     )
 
@@ -604,7 +604,7 @@ def password_login(db: Session, data: PasswordLoginInput) -> LoginResult:
     key = _login_key(role, username)
     # 검증 전에 아이디 시도를 먼저 센다(행 잠금 안에서). 동시에 여러 번 보내도 10번을 넘겨
     # 맞혀 볼 수 없고, 이미 잠겼으면 여기서 429. 성공하면 커밋 뒤 라우터가 지운다
-    throttle.hit(throttle.LOGIN_USER, key)
+    throttle.hit(key)
     user = None
     if passwords.USERNAME_RE.fullmatch(username):
         user = _password_user(db, username, role)
@@ -627,7 +627,7 @@ def password_login(db: Session, data: PasswordLoginInput) -> LoginResult:
 
 def finish_login(role: str, username: str) -> None:
     """로그인이 커밋된 뒤 그 아이디의 시도 수를 지운다."""
-    throttle.reset(throttle.LOGIN_USER, _login_key(role, passwords.normalize_username(username)))
+    throttle.reset(_login_key(role, passwords.normalize_username(username)))
 
 
 def change_password(db: Session, user: User, data: PasswordChangeInput) -> LoginResult:
@@ -639,14 +639,15 @@ def change_password(db: Session, user: User, data: PasswordChangeInput) -> Login
         raise forbidden(
             "아이디로 가입한 계정만 비밀번호를 바꿀 수 있어요.", reason="NOT_PASSWORD_ACCOUNT"
         )
-    key = _login_key(user.role, user.username)
-    # 로그인처럼 시도를 먼저 센다(지금 비밀번호 추측도 아이디 잠금에 든다). 잠겼으면 429
-    db.rollback()
-    throttle.hit(throttle.LOGIN_USER, key)
-    if error := passwords.password_error(data.new_password, user.username):
+    username = user.username
+    # 새 비밀번호 규칙은 시도를 세기 전에 본다(지금 비밀번호를 맞혀 보는 시도가 아니므로)
+    if error := passwords.password_error(data.new_password, username):
         raise invalid({"newPassword": error})
     if data.new_password == data.current_password:
         raise invalid({"newPassword": "지금과 다른 비밀번호를 써 주세요"})
+    # 로그인처럼 시도를 먼저 센다(지금 비밀번호 추측도 아이디 잠금에 든다). 잠겼으면 429
+    db.rollback()
+    throttle.hit(_login_key(user.role, username))
     # 행을 잠그고 최신 값으로 다시 읽은 뒤 검증한다(동시 변경·임시 비밀번호 발급과 덮어쓰지 않게)
     locked = db.scalar(
         select(User)
@@ -661,7 +662,7 @@ def change_password(db: Session, user: User, data: PasswordChangeInput) -> Login
         raise invalid({"currentPassword": "지금 비밀번호가 맞지 않아요"})
     locked.password_hash = passwords.hash_password(data.new_password)
     locked.must_change_password = False
-    locked.token_version = (locked.token_version or 0) + 1
+    locked.token_version += 1
     db.flush()
     return _login_result(db, locked)
 
@@ -679,7 +680,7 @@ def issue_temporary_password(db: Session, user: User) -> str:
     value = passwords.temporary_password()
     user.password_hash = passwords.hash_password(value)
     user.must_change_password = True
-    user.token_version = (user.token_version or 0) + 1
+    user.token_version += 1
     db.flush()
     return value
 
@@ -687,7 +688,7 @@ def issue_temporary_password(db: Session, user: User) -> str:
 def unlock_login(role: str, username: str | None) -> None:
     """임시 비밀번호 발급·비밀번호 변경 뒤 그 아이디의 로그인 잠금을 푼다(커밋 뒤에 부른다)."""
     if username:
-        throttle.reset(throttle.LOGIN_USER, _login_key(role, username))
+        throttle.reset(_login_key(role, username))
 
 
 def _application_view(user: User, farm) -> ProducerApplication:

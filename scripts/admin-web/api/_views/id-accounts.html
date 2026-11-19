@@ -152,7 +152,6 @@ $("#created").onclick = (e) => { const b = e.target.closest("button[data-act]");
 // ---- 목록 ----
 function badges(a) {
   const out = [];
-  if (a.withdrawn) out.push(`<span class="badge s-WITHDRAWN">탈퇴</span>`);
   if (a.accountKind === "test") out.push(`<span class="badge s-PENDING">테스트</span>`);
   if (a.mustChangePassword) out.push(`<span class="badge s-PENDING">임시 비밀번호 사용 중</span>`);
   if (!a.consented) out.push(`<span class="badge s-PENDING">약관 동의 전</span>`);
@@ -178,7 +177,7 @@ function card(a) {
       <dt>만든 시각</dt><dd>${when(a.createdAt)}</dd>
       <dt>ID</dt><dd><code>${esc(a.userId)}</code> · <a href="/users/${encodeURIComponent(a.userId)}">${producer ? "상세(상품·주문)" : "주문·입금 내역"}</a></dd>
     </dl>
-    ${a.withdrawn ? "" : `<div class="row"><button class="danger" data-act="temp-password">임시 비밀번호</button></div>`}
+    <div class="row"><button class="danger" data-act="temp-password">임시 비밀번호</button></div>
     <div class="slot"></div>
   </article>`;
 }

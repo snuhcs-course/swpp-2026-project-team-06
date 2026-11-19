@@ -114,7 +114,7 @@ def _user_from_token(db: Session, token: str):
         version = int(payload.get("ver", 0))
     except (TypeError, ValueError):
         raise unauthenticated() from None
-    if version != (user.token_version or 0):
+    if version != user.token_version:
         raise unauthenticated("비밀번호가 바뀌어 로그인이 풀렸어요. 다시 로그인해 주세요.")
     return user
 
@@ -148,9 +148,9 @@ def account_gate(db: Session, user) -> str | None:
     (앱이 SCR-06을 연다)·생산자 CONSENT_REQUIRED(앱이 /consent를 연다).
     카카오·테스트 계정은 해당하지 않는다(기존 관문 그대로).
     """
-    if getattr(user, "must_change_password", False):
+    if user.must_change_password:
         return "PASSWORD_CHANGE_REQUIRED"
-    if getattr(user, "username", None):
+    if user.username:
         from app.accounts import service as accounts
 
         if accounts.consent_required(db, user):

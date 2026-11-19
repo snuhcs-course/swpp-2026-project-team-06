@@ -108,9 +108,10 @@ class NoticeRead(Base):
 
 
 class AuthThrottle(Base):
-    """로그인·가입 시도 카운터(DEV-363). 워커가 여럿이어도 같게 DB에 둔다.
+    """아이디별 로그인 시도 카운터(DEV-363). 워커가 여럿이어도 같게 DB에 둔다.
 
-    키는 `종류:HMAC(원문)`이라 IP·아이디 원문이 남지 않는다. 하루 지난 행은 쓸 때 지운다.
+    키는 `login-user:HMAC(역할:아이디)`라 아이디 원문이 남지 않는다.
+    하루 지난 행은 시도할 때마다 지운다.
     """
 
     __tablename__ = "auth_throttles"

@@ -20,8 +20,10 @@ from sqlalchemy.orm import Session
 from app.accounts import service as accounts
 from app.accounts.models import User
 from app.accounts.schemas import App, IdAccountCreated, IdAccountInput, IdAccountView
+from app.admin.models import ManagerEvent
 from app.admin.service import run_manager_action
 from app.core.db import get_db
+from app.core.errors import not_found
 from app.core.security import Admin
 from app.farms.models import Farm
 
@@ -82,29 +84,40 @@ def list_id_accounts(
 def create_id_account(
     db: Db, admin: Admin, body: IdAccountInput, response: Response, key: IdempotencyKey = None
 ):
-    """아이디 계정 만들기(AC-01-22). 응답의 `temporaryPassword`는 한 번만 보인다(`no-store`)."""
+    """아이디 계정 만들기(AC-01-22). 응답의 `temporaryPassword`는 한 번만 보인다(`no-store`).
+
+    감사(`manager_events.original_body`)·멱등 기록에는 앱 종류만 남긴다(아이디·닉네임·휴대폰 없음).
+    감사 행의 대상은 만든 사용자 ID다. 멱등 기록의 응답은 `{userId, issueId}`뿐이다.
+    """
     issued: dict[str, str] = {}
 
-    def run(_: str) -> IdAccountCreated:
+    def run(event_id: str) -> dict[str, str]:
         user, value = accounts.create_id_account(db, body)
         issue_id = secrets.token_hex(8)
         issued[issue_id] = value
-        # 결과(멱등 기록·감사 요약에 남음)에는 비밀번호를 넣지 않는다
-        return IdAccountCreated(**_view(db, user, None).model_dump(), issue_id=issue_id)
+        event = db.get(ManagerEvent, event_id)
+        if event is not None:
+            event.target_id = user.id
+        return {"userId": user.id, "issueId": issue_id}
 
-    raw = body.model_dump(by_alias=True)
     result = run_manager_action(
         db,
         actor_id=admin.id,
         action="id_account.create",
         target_type="user",
-        target_id=f"{body.app}:{accounts.passwords.normalize_username(body.username)}"[:160],
+        target_id="new-id-account",
         scope="id-account-create",
         key=key,
-        body=raw,
+        body={"app": body.app},
         run=run,
     )
+    user = db.get(User, result["userId"])
+    if user is None:
+        raise not_found("계정을 찾을 수 없어요.")
+    farm = db.scalar(select(Farm).where(Farm.producer_id == user.id))
     response.headers["Cache-Control"] = "no-store"
-    created = IdAccountCreated.model_validate(result)
-    created.temporary_password = issued.get(created.issue_id)
-    return created
+    return IdAccountCreated(
+        **_view(db, user, farm).model_dump(),
+        issue_id=result["issueId"],
+        temporary_password=issued.get(result["issueId"]),
+    )

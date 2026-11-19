@@ -58,7 +58,7 @@ def conflict(reason: str, message: str, **details: Any) -> ApiError:
 
 
 def too_many_requests(message: str, retry_after: int) -> ApiError:
-    """429 RATE_LIMITED + Retry-After(초). 로그인 잠금·가입 제한(DEV-363)."""
+    """429 RATE_LIMITED + Retry-After(초). 아이디별 로그인 잠금(DEV-363)."""
     return ApiError(
         429,
         "RATE_LIMITED",

@@ -4,8 +4,8 @@
 생성), 사용자는 첫 로그인에서 비밀번호를 바꾸고 필수 약관에 동의해야 쓴다.
 
 보안 요구: argon2id 해시만 저장, 더미 검증, 재해시, 평문 비노출(400 본문·실패 응답·DB·감사·
-멱등 기록), DB 카운터 잠금(아이디·IP, 429 Retry-After), 토큰 버전 무효화, 임시 비밀번호 강제 변경,
-탈퇴 시 아이디·해시 삭제.
+멱등 기록), DB 카운터 아이디별 잠금(429 Retry-After, IP별 제한 없음), 토큰 버전 무효화,
+임시 비밀번호 강제 변경, 탈퇴 시 아이디·해시 삭제.
 """
 
 import json
@@ -209,6 +209,31 @@ def test_AC_01_22_replayed_create_returns_no_password_and_stores_none(client, ad
     assert records and not any(temp in r for r in records + events)
 
 
+def test_AC_01_22_audit_keeps_no_username_or_phone_even_after_withdrawal(client, admin_headers):
+    """감사·멱등 기록에는 앱 종류와 만든 사용자 ID만 남는다(아이디·닉네임·휴대폰 없음)."""
+    created, headers = _ready(client, admin_headers)
+    assert client.post("/api/auth/me/withdraw", headers=headers).status_code == 204
+
+    with get_sessionmaker()() as session:
+        event = session.scalar(
+            select(ManagerEvent).where(ManagerEvent.event_type == "id_account.create")
+        )
+        assert event.target_id == created["userId"]
+        assert event.original_body == {"app": "consumer"}
+        dumps = [
+            json.dumps(
+                [e.target_id, e.original_body, e.request_summary, e.result], ensure_ascii=False
+            )
+            for e in session.scalars(select(ManagerEvent))
+        ] + [
+            json.dumps(r.response, ensure_ascii=False)
+            for r in session.scalars(select(IdempotencyRecord))
+        ]
+    for line in dumps:
+        for secret in ("mandarin7", "010-3456-7890", "01034567890", "7890", "귤친구"):
+            assert secret not in line, (secret, line)
+
+
 def test_AC_01_22_admin_lists_id_accounts(client, admin_headers):
     _created(client, admin_headers, "mandarin7")
     _created(client, admin_headers, "farmer01", app="producer")
@@ -385,7 +410,75 @@ def test_AC_01_26_outdated_hash_parameters_are_rehashed_on_login(client, admin_h
     assert _login(client).status_code == 200
 
 
-# ---------------- AC-01-27 로그인 잠금(아이디·IP, 429 Retry-After) ----------------
+def test_AC_01_26_argon2_parameters_are_owasp_and_bounded(client, admin_headers):
+    """argon2id m=19MiB·t=2·p=1(OWASP), 더미 검증도 같은 매개변수, 동시 해시는 4개까지."""
+    from argon2 import extract_parameters
+
+    created, _ = _ready(client, admin_headers)
+    params = extract_parameters(_row(created["userId"]).password_hash)
+    assert (params.memory_cost, params.time_cost, params.parallelism) == (19456, 2, 1)
+    assert params.type.name == "ID"
+    dummy = extract_parameters(passwords._dummy_hash())
+    assert (dummy.memory_cost, dummy.time_cost, dummy.parallelism) == (19456, 2, 1)
+    assert passwords.HASH_CONCURRENCY == 4
+    assert passwords._slots._initial_value == 4
+
+
+def test_AC_01_26_hash_with_old_default_parameters_upgrades_on_login(client, admin_headers):
+    """예전 기본값(m=64MiB·t=3·p=4)으로 만든 해시는 다음 로그인 때 OWASP 값으로 다시 해시한다."""
+    from argon2 import PasswordHasher, extract_parameters
+
+    created, _ = _ready(client, admin_headers)
+    old = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=4).hash(PASSWORD)
+    assert passwords.needs_rehash(old) is True
+    with get_sessionmaker()() as session, session.begin():
+        session.get(User, created["userId"]).password_hash = old
+
+    assert _login(client).status_code == 200
+    params = extract_parameters(_row(created["userId"]).password_hash)
+    assert (params.memory_cost, params.time_cost, params.parallelism) == (19456, 2, 1)
+
+
+def test_AC_01_26_concurrent_hashing_is_bounded(monkeypatch):
+    """동시 해시·검증이 4개를 넘지 않는다(로그인이 몰려도 메모리를 묶어 둔다)."""
+    import threading
+    import time
+
+    active = 0
+    peak = 0
+    lock = threading.Lock()
+    real = passwords._hasher().verify
+
+    def slow_verify(h, p):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        time.sleep(0.05)
+        with lock:
+            active -= 1
+        return real(h, p)
+
+    class Wrapped:
+        def __getattr__(self, name):
+            return getattr(passwords.PasswordHasher, name)
+
+        verify = staticmethod(slow_verify)
+
+    hashed = passwords.hash_password(PASSWORD)
+    monkeypatch.setattr(passwords, "_hasher", lambda: Wrapped())
+    threads = [
+        threading.Thread(target=passwords.verify_password, args=(hashed, PASSWORD))
+        for _ in range(12)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert 1 <= peak <= 4
+
+
+# ---------------- AC-01-27 아이디별 로그인 잠금(429 Retry-After, IP별 제한 없음) ----------------
 
 
 def test_AC_01_27_ten_failures_lock_the_username_for_15_minutes(client, admin_headers, monkeypatch):
@@ -427,12 +520,33 @@ def test_AC_01_27_no_per_ip_limit_and_spoofed_forwarded_for_has_no_effect(client
         spoofed = {"X-Forwarded-For": f"203.0.113.{i}", "X-Real-IP": f"198.51.100.{i}"}
         assert _login(client, password="wrong-password-1", headers=spoofed).status_code == 401
     assert _login(client, headers={"X-Forwarded-For": "192.0.2.99"}).status_code == 429
-    # 한 클라이언트가 다른 아이디들로 55번 틀려도(예전 IP 상한 50) IP로 막히지 않는다
+    # 한 클라이언트가 다른 아이디들로 55번 틀려도 IP로 막히지 않는다(IP별 제한 없음)
     for i in range(55):
         assert _login(client, username=f"nobody{i:03d}").status_code == 401
     with get_sessionmaker()() as session:
         kinds = {k.split(":")[0] for k in session.scalars(select(AuthThrottle.key))}
     assert kinds == {"login-user"}
+
+
+def test_AC_01_27_day_old_attempts_are_pruned_on_every_attempt(client, admin_headers):
+    """처리방침 ‘최대 1일’: 새 행을 만들지 않는 시도(같은 아이디)에서도 하루 지난 기록을 지운다."""
+    from datetime import datetime
+
+    _ready(client, admin_headers)
+    _login(client, username="oldattempt1")  # 지워질 기록
+    _login(client, password="wrong-password-1")  # 계속 쓰는 아이디의 행
+    old = datetime.now(throttle.UTC) - timedelta(days=1, minutes=1)
+    with get_sessionmaker()() as session, session.begin():
+        rows = list(session.scalars(select(AuthThrottle)))
+        assert len(rows) == 2
+        for row in rows:
+            if row.key == throttle._key("CONSUMER:oldattempt1"):
+                row.updated_at = old
+    # 이미 있는 아이디로 다시 시도(새 행 없음)해도 오래된 행이 지워진다
+    _login(client, password="wrong-password-1")
+    with get_sessionmaker()() as session:
+        keys = set(session.scalars(select(AuthThrottle.key)))
+    assert keys == {throttle._key("CONSUMER:mandarin7")}
 
 
 def test_AC_01_27_counters_store_no_raw_username(client):
