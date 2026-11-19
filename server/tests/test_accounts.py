@@ -42,6 +42,9 @@ def test_AC_01_1_login_returns_token_and_user(client):
         "needsOnboarding": False,
         "consentRequired": False,
         "originNoticeReadAt": None,
+        # DEV-363: 아이디 계정 칸(테스트 계정은 비어 있음)
+        "username": None,
+        "mustChangePassword": False,
     }
 
 

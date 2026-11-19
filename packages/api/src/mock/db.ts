@@ -48,17 +48,26 @@ export type UserRec = {
   deleted?: boolean;
   /** 법정 안내를 읽은 기록(DEV-121). 버전마다 처음 시각 */
   noticeReads?: NoticeRead[];
+  /** 아이디·비밀번호 계정(DEV-363). 비밀번호는 Mock에서도 원문 대신 mockPasswordHash 값만 둔다 */
+  username?: string | null;
+  passwordHash?: string | null;
+  mustChangePassword?: boolean;
 };
+
+/** 테스트 계정이 아닌 실제 가입 계정(카카오·아이디). 온보딩·동의·탈퇴 대상 */
+export function isMember(u: UserRec): boolean {
+  return !!u.kakao || !!u.username;
+}
 /** 원산지 표시제도 안내 버전(서버 accounts.schemas.ORIGIN_NOTICE_VERSION, ui legalContent와 같은 값, DEV-121) */
 export const ORIGIN_NOTICE_VERSION = "2026-10-22";
 const REQUIRED_CONSENTS = ["TERMS", "PRIVACY", "AGE14"] as const;
 const REQUIRED_PRODUCER_CONSENTS = ["TERMS", "PRIVACY"] as const;
 /** 지금 시행 중인 약관·처리방침 버전(서버 accounts.schemas.CONSENT_VERSION과 같은 값, DEV-113) */
-export const CONSENT_VERSION = "2026-10-29";
+export const CONSENT_VERSION = "2026-11-20";
 
 /** 지금 버전의 필수 동의가 빠졌는가(서버 consent_required와 같은 규칙). 테스트 계정은 항상 false */
 export function consentRequired(u: UserRec): boolean {
-  if (!u.kakao || (u.role !== "CONSUMER" && u.role !== "PRODUCER")) return false;
+  if (!isMember(u) || (u.role !== "CONSUMER" && u.role !== "PRODUCER")) return false;
   const required =
     u.role === "CONSUMER" ? REQUIRED_CONSENTS : REQUIRED_PRODUCER_CONSENTS;
   const agreed = new Set(
@@ -71,7 +80,7 @@ export function consentRequired(u: UserRec): boolean {
 
 /** 첫 가입 온보딩이 남았는가(서버 needs_onboarding과 같은 규칙). 이름은 조건이 아니다(DEV-142). 테스트 계정은 항상 false */
 export function needsOnboarding(u: UserRec): boolean {
-  if (u.role !== "CONSUMER" || !u.kakao) return false;
+  if (u.role !== "CONSUMER" || !isMember(u)) return false;
   if (!u.nickname?.trim() || !u.phone?.trim()) return true;
   return consentRequired(u);
 }
@@ -224,6 +233,8 @@ export type DB = {
   seq: number;
   users: Record<string, UserRec>;
   tokens: Record<string, string>;
+  /** 아이디 로그인 실패 수와 잠금(DEV-363, 서버 auth_throttles를 단순하게) */
+  loginFailures?: Record<string, { count: number; lockedUntil: number | null }>;
   farms: Record<string, FarmRec>;
   follows: { userId: string; farmId: string }[];
   products: Record<string, ProductRec>;

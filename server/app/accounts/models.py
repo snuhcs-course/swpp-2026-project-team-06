@@ -2,7 +2,16 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, false
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    false,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -12,7 +21,11 @@ class User(Base):
     """계정 하나는 역할 하나(CONSUMER·PRODUCER·ADMIN, ADR 0010)."""
 
     __tablename__ = "users"
-    __table_args__ = (UniqueConstraint("kakao_id", "role"),)
+    __table_args__ = (
+        UniqueConstraint("kakao_id", "role"),
+        # 아이디는 소문자로만 저장해 이 제약이 곧 대소문자 무시 유일이다(DEV-363). 앱(역할)마다 따로
+        UniqueConstraint("username", "role", name="uq_users_username_role"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     kakao_id: Mapped[str | None] = mapped_column(String(64))
@@ -30,6 +43,18 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     # 회원 탈퇴 시각(DEV-94). 탈퇴하면 개인정보를 지우고 행만 남긴다. 토큰은 받지 않는다
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # 아이디·비밀번호 로그인(DEV-363). 공개 가입은 없고 운영자가 관리자 웹에서만 만든다(PM 11/18).
+    # 카카오 계정과 따로이고 합치지 않는다. 비밀번호는 argon2id 해시만 저장한다.
+    # 탈퇴하면 둘 다 지운다
+    username: Mapped[str | None] = mapped_column(String(20))
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    # 운영자가 임시 비밀번호를 준 뒤 true. 바꾸기 전에는 내 정보·비밀번호 변경만 된다
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    # JWT `ver`와 같아야 한다. 비밀번호 변경·임시 비밀번호 발급 때 올려
+    # 그 사용자의 토큰을 모두 끊는다
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
 
 
 class UserConsent(Base):
@@ -80,3 +105,19 @@ class NoticeRead(Base):
     kind: Mapped[str] = mapped_column(String(32))
     version: Mapped[str] = mapped_column(String(32))
     read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AuthThrottle(Base):
+    """아이디별 로그인 시도 카운터(DEV-363). 워커가 여럿이어도 같게 DB에 둔다.
+
+    키는 `login-user:HMAC(역할:아이디)`라 아이디 원문이 남지 않는다.
+    하루 지난 행은 시도할 때마다 지운다.
+    """
+
+    __tablename__ = "auth_throttles"
+
+    key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+    window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

@@ -111,6 +111,18 @@ export function onOnboardingRequired(fn: () => void) {
   };
 }
 
+const accountGateListeners = new Set<() => void>();
+/**
+ * 임시 비밀번호로 들어온 아이디 계정이 403 PASSWORD_CHANGE_REQUIRED를 받았을 때 알림(DEV-363).
+ * 토큰은 지우지 않는다. 앱은 내 정보를 다시 읽고 비밀번호 변경 화면으로 보낸다
+ */
+export function onAccountGate(fn: () => void) {
+  accountGateListeners.add(fn);
+  return () => {
+    accountGateListeners.delete(fn);
+  };
+}
+
 const consentListeners = new Set<() => void>();
 /**
  * 생산자가 지금 버전 약관·개인정보에 동의하지 않아 403 CONSENT_REQUIRED를 받았을 때 알림(DEV-113).
@@ -141,6 +153,8 @@ function handleAuthResponse(
     onboardingListeners.forEach(l => l());
   else if (status === 403 && reason === "CONSENT_REQUIRED")
     consentListeners.forEach(l => l());
+  else if (status === 403 && reason === "PASSWORD_CHANGE_REQUIRED")
+    accountGateListeners.forEach(l => l());
 }
 
 /* ---------------- request ---------------- */

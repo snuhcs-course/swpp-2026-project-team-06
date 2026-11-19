@@ -28,7 +28,7 @@ REQUIRED_PRODUCER_CONSENTS: tuple[ConsentKind, ...] = ("TERMS", "PRIVACY")
 # 지금 시행 중인 약관·처리방침 문구 버전(시행일). 바꾸면 모든 회원이 다시 동의해야 쓸 수 있다
 # (DEV-113, policy.md 5장). 앱(packages/ui legalContent LEGAL_VERSION)·Mock(packages/api
 # mock/db.ts)과 같은 값이어야 한다(scripts/test-legal.mjs가 확인)
-CONSENT_VERSION = "2026-10-29"
+CONSENT_VERSION = "2026-11-20"
 # 농가에게 알리는 법정 안내(DEV-121). 원산지 표시제도 안내
 # (원산지표시법 제6조 ⑥, 시행규칙 제4조의2 1호). 안내 본문(packages/ui legalContent
 # ORIGIN_NOTICE_VERSION)·Mock(packages/api mock/db.ts)과 같은 값이어야 한다.
@@ -54,6 +54,10 @@ class UserView(CamelModel):
     consent_required: bool = False
     # 원산지 표시제도 안내 지금 버전을 읽은 시각(DEV-121). 생산자만 채우고, 안 읽었으면 None
     origin_notice_read_at: datetime | None = None
+    # 아이디·비밀번호 계정(DEV-363). 카카오·테스트 계정은 username이 없다
+    username: str | None = None
+    # 운영자가 준 임시 비밀번호로 들어왔다. 앱은 비밀번호 변경 화면만 연다
+    must_change_password: bool = False
 
 
 class MeUpdateInput(CamelModel):
@@ -120,6 +124,23 @@ class KakaoLoginResult(CamelModel):
 class KakaoSignupInput(CamelModel):
     signup_token: str = Field(min_length=1, max_length=4096)
     consents: list[ConsentInput] = Field(min_length=1, max_length=8)
+
+
+# ---- 아이디·비밀번호 (DEV-363) ----
+# 길이 상한은 아주 큰 본문만 막는다. 8~128자 정책은 서비스가 문구와 함께 본다(검증 오류에는 입력값이
+# 나가지 않고, 비밀번호 칸 메시지는 고정 문구로 바뀐다 — core/errors.py)
+SECRET_MAX = 1024
+
+
+class PasswordLoginInput(CamelModel):
+    app: App
+    username: str = Field(max_length=64)
+    password: str = Field(max_length=SECRET_MAX)
+
+
+class PasswordChangeInput(CamelModel):
+    current_password: str = Field(max_length=SECRET_MAX)
+    new_password: str = Field(max_length=SECRET_MAX)
 
 
 class KakaoConfig(CamelModel):
@@ -220,3 +241,51 @@ class Address(CamelModel):
     address_detail: str
     label: str | None
     is_default: bool
+
+
+class IdAccountInput(CamelModel):
+    """운영자가 만드는 아이디 계정(PM 11/18: 공개 가입 없음). 비밀번호는 서버가 임시로 만든다."""
+
+    app: App
+    username: str = Field(max_length=64)
+    # 소비자: 농가에 보이는 닉네임(필수). 생산자: 가입 신청 전 계정 이름(선택, 비면 ‘농가 사용자’)
+    nickname: str | None = Field(default=None, max_length=50)
+    # 소비자 휴대폰(선택). 비면 첫 로그인 온보딩(SCR-06)에서 받는다
+    phone: str | None = Field(default=None, max_length=32)
+
+
+class IdAccountView(CamelModel):
+    """운영자 아이디 계정 목록 한 줄. 전화는 끝 4자리만."""
+
+    user_id: str
+    role: str
+    username: str
+    nickname: str | None
+    name: str
+    phone_last4: str | None
+    must_change_password: bool
+    consented: bool
+    farm_status: str | None
+    created_at: datetime
+    withdrawn: bool
+    account_kind: AccountKind
+
+
+class IdAccountCreated(IdAccountView):
+    """만든 직후 응답. `temporary_password`는 이 응답에 한 번만 있다.
+
+    같은 멱등 키로 다시 보내면 비어 있다.
+    `issue_id`는 이번 발급을 가리키는 값이고 비밀번호가 아니다.
+    """
+
+    issue_id: str
+    temporary_password: str | None = None
+
+
+class TemporaryPasswordView(CamelModel):
+    """운영자에게 한 번만 보이는 임시 비밀번호. 서버는 해시만 저장하고 감사에도 남기지 않는다."""
+
+    user_id: str
+    username: str
+    temporary_password: str
+    must_change_password: bool = True
