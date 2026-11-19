@@ -15,14 +15,11 @@ import {
 } from "@farmclub/ui";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Linking, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { pickMedia } from "../../../lib/pick";
 import { useSession } from "../../../lib/session";
-import { LoadError, PhotoShade, copyText, errMsg } from "../../../lib/views";
-
-const CONSUMER_URL =
-  process.env.EXPO_PUBLIC_CONSUMER_URL ?? "https://farmclub.kr";
+import { LoadError, PhotoShade, copyText, errMsg, openConsumerFarm } from "../../../lib/views";
 
 function Row({
   label,
@@ -267,9 +264,7 @@ export default function Farm() {
               <Button
                 label="소비자 앱에서 내 농가 보기"
                 variant="outline"
-                onPress={() =>
-                  void Linking.openURL(`${CONSUMER_URL}/farms/${data.farmId}`)
-                }
+                onPress={() => void openConsumerFarm(data.farmId)}
               />
             </View>
           </>

@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { apiUrl, loginProducer, monitor, producerUrl } from "./helpers";
+import { apiUrl, consumerUrl, loginProducer, monitor, producerUrl } from "./helpers";
 
 // DEV-331 (PM 11/15): 현황 머리 아래 고정 막대 '소비자에게 우리 농가 공유하기'(Figma v6 시안 D).
 // 막대를 누르면 내 농가 공유 링크를 복사한다. 닫기는 없고, 스크롤해도 머리와 함께 보인다(DEV-326 카드를 바꿈).
@@ -68,4 +68,40 @@ test("DEV-331 producer home pins a share bar that copies the farm link, has no c
   expect(Math.abs((await bar.boundingBox())!.y - pinnedY)).toBeLessThan(1);
   await expect(bar).toBeVisible();
   assertClean();
+});
+
+test("DEV-370 AC-02-3 AC-01-30 producer settings opens the public farm and keeps the username out of password screens", async ({ page }) => {
+  const username = "farmerfixture";
+  await page.route(`${apiUrl}/api/auth/me`, async (route) => {
+    const response = await route.fetch();
+    if (!response.ok()) return route.fulfill({ response });
+    await route.fulfill({ response, json: { ...(await response.json()), username } });
+  });
+  const seen: { farm?: { farmId: string; name: string } } = {};
+  await page.route(`${apiUrl}/api/farms/me`, async (route) => {
+    const response = await route.fetch();
+    if (response.ok()) seen.farm = await response.json();
+    await route.fulfill({ response });
+  });
+  await loginProducer(page, "강영수");
+  await page.getByRole("tab", { name: "설정", exact: true }).click();
+  await expect.poll(() => seen.farm?.farmId).toBeTruthy();
+  const { farmId, name } = seen.farm!;
+
+  const previewLink = page.getByRole("button", { name: "소비자 앱에서 내 농가 보기", exact: true });
+  const logout = page.getByRole("button", { name: "로그아웃", exact: true });
+  await expect(previewLink).toBeVisible();
+  await expect(logout).toBeVisible();
+  expect((await previewLink.boundingBox())!.y).toBeLessThan((await logout.boundingBox())!.y);
+
+  const [consumerPage] = await Promise.all([page.context().waitForEvent("page"), previewLink.click()]);
+  await expect(consumerPage).toHaveURL(`${consumerUrl}/farms/${farmId}`);
+  await expect(consumerPage.getByText(name, { exact: true }).first()).toBeVisible();
+  await consumerPage.close();
+
+  await expect(page.getByText(username, { exact: false })).toHaveCount(0);
+  await page.getByRole("button", { name: "비밀번호 변경", exact: true }).click();
+  await expect(page).toHaveURL(`${producerUrl}/password`);
+  await expect(page.getByTestId("current-password")).toBeVisible();
+  await expect(page.getByText(username, { exact: false })).toHaveCount(0);
 });
