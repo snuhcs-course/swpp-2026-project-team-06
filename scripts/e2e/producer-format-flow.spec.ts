@@ -60,7 +60,9 @@ with get_sessionmaker()() as db, db.begin():
  aids = [asset.id for asset in assets]
  pages = list(db.scalars(select(Page).where(Page.asset_id.in_(aids))))
  photos = list(db.scalars(select(PublicPhoto).where(PublicPhoto.product_id == pid)))
- storage_keys = {asset.storage_key for asset in assets}
+ # Product photo references have no private file (storage_key='').
+ # Earlier composer specs can leave these references in the shared seed product.
+ storage_keys = {asset.storage_key for asset in assets if not asset.product_photo}
  storage_keys.update(key for page in pages
   for key in (page.image_key, page.sanitized_key) if key)
  storage_keys.update(photo.storage_key for photo in photos)
