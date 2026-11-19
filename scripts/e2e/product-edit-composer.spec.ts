@@ -215,6 +215,8 @@ test("DEV-361 PM 11/18: leaving with unapplied changes asks first, and the produ
     await page.goto(`${producerUrl}/products?filter=selling`);
     await page.getByRole("button", { name: /^하우스 감귤 5kg \/ 10kg.* 상품 수정$/ }).click();
     await expect(page).toHaveURL(/composer=1/);
+    // The URL changes before the product draft loads and installs its leave guard.
+    await expect(page.getByRole("button", { name: /^상품에 반영(?: \(\d+\))?$/ })).toBeEnabled();
   };
   const leaveSheet = page.getByTestId("leave-confirm");
   try {
@@ -244,6 +246,7 @@ test("DEV-361 PM 11/18: leaving with unapplied changes asks first, and the produ
     // 3) saved but not applied, nothing new: '나중에 반영하기' just leaves
     await open();
     await page.getByRole("button", { name: "뒤로", exact: true }).first().click();
+    await expect(leaveSheet).toBeVisible();
     await expect(leaveSheet.getByRole("button", { name: "임시 저장하고 나가기" })).toHaveCount(0);
     await leaveSheet.getByRole("button", { name: "나중에 반영하기", exact: true }).click();
     await expect(page).toHaveURL(/\/products/);
