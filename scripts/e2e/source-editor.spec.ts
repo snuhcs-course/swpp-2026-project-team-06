@@ -226,16 +226,32 @@ test("AC-SRC-11 DEV-361: photos without descriptions remain available for manual
   await expect(page.getByTestId("hero-photo")).toBeVisible();
   await dismissExclusions(page);
   // The composer canvas shows a section's photo controls once it is picked from '내용 추가'
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByRole("button", { name: "상품 소개 추가", exact: true }).click();
-  await page
-    .getByRole("button", { name: "상품 소개 사진 추가", exact: true })
-    .click();
+  const introduction = page.getByTestId("canvas-section-hero");
+  const text = introduction.getByRole("textbox", { name: "상품 소개 내용", exact: true });
+  const addPhoto = introduction.getByRole("button", { name: "상품 소개 사진 추가", exact: true });
+  await expect(introduction.getByRole("heading", { name: "상품 소개", exact: true })).toHaveCSS("color", "rgb(85, 85, 85)");
+  await expect(text).toBeInViewport();
+  await expect(text).toHaveCSS("border-top-width", "2px");
+  await expect(addPhoto).toHaveCSS("border-top-width", "1px");
+  await expect(introduction).toHaveCSS("border-top-width", "0px");
+  await addPhoto.click();
   await page
     .getByRole("button", { name: "상품사진 1 추가", exact: true })
     .click();
   await expect(
     page.getByTestId("source-photo-frame").getByRole("img"),
   ).toBeVisible();
+  await expect(text).toHaveCSS("border-top-width", "1px");
+
+  await page.getByRole("button", { name: "크기 참고 추가", exact: true }).click();
+  const size = page.getByTestId("canvas-section-sizePhoto");
+  const sizePhoto = size.getByRole("button", { name: "크기 참고 사진 추가", exact: true });
+  await expect(sizePhoto).toBeInViewport();
+  await expect(sizePhoto).toHaveCSS("border-top-width", "2px");
+  await expect(size.getByRole("textbox", { name: "크기 참고 내용", exact: true })).toHaveCSS("border-top-width", "1px");
 });
 
 test("AC-SRC-11 DEV-361: inline photo description survives failure and flushes before analysis", async ({

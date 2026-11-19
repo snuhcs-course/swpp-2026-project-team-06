@@ -137,6 +137,8 @@ DEV-84 자료 분석이 꺼진 환경의 복구 경로(운영은 DEV-90에서 �
 
 ### 상품 수정 = composer 한 화면 (DEV-361 PR C, 구현 결정)
 화면 서술·문구는 `docs/spec/screens.md` ‘상품 수정’ 절, 결정 C-1~C-19는 `tasks/DEV-361.md` PR C 절.
+
+- ‘내용 추가’ 칩의 스크롤과 강조는 `PageCanvas`가 실제 입력 칸의 ref를 기준으로 처리한다. 선택과 임시 강조는 편집기 로컬 상태다(DEV-372, AC-SRC-11).
 - `NewProductComposer`는 두 방식이다. batch composer(`/products/source-analysis?batchId&composer=1`)와 상품만 여는 composer(`productId` prop, `detail.tsx`가 Mock·자료 분석 꺼짐·`composer: false`·예전 서버 400·사용자가 고른 ‘상품만 열기’에서 렌더). 상품만 여는 composer는 batch가 없어 AI 버튼·사진·자료 시트를 숨기고, 상세는 `ModuleStory`/`DetailStory`로 읽기 전용 + ‘상세 고치기’ → `/products/:id/story`, 대표사진은 `pickMedia`로 상품 `photos` 맨 앞(잘라 내지 않음. 대표사진 포함 10장을 넘으면 사진 줄 안내와 ‘상품에 반영’·‘다음’ 강조로 생산자가 뺄 사진을 고른다, 서버도 400). 사진 상한 셈(`photoOver`)은 서버 `apply_draft`와 같다: batch는 처음 연 뒤 새로 고른 대표사진이 지금 사진에 없을 때만 한 장 더(이미 반영한 올린 대표사진은 판매 전·판매 중 모두 서버가 다시 넣지 않음, `cover_applied`), 넘는 장수만큼 ‘N장을 빼 주세요’.
 - 판매 전 판단은 `lib/productGroups.ts` `isPreSale` 하나(composer 자체 판정 삭제). 구매자에게 보이는 상품은 composer 안 `isLive`(판매 중·승인 대기), 그 밖(CLOSED)은 읽기 전용.
 - 구매자에게 보이는 상품의 상품 칸·판매 조건은 서버 상품 초안(PR B)에 둔다. `draftMode`: `draft`(초안 API 있음, Mock 포함) / `direct`(`productDraft` 조회가 404이거나 400 `fields.productId` — 초안 API가 없는 서버). `direct`는 ‘임시 저장’을 숨기고 ‘상품에 반영’이 `catalog.update`(바뀐 칸만) → `catalog.putStages`(기간이 바뀐 경우)를 차례로 부른다. 서버는 바꾸지 않았다.
