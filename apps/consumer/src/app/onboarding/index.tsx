@@ -2,8 +2,10 @@
 // 이름·배송지는 가입 때 받지 않고 첫 주문서에서 받는다(당근식, DEV-142).
 // 프로필을 이미 채운 회원이 약관·처리방침 버전이 바뀌어 오면(AC-01-17, DEV-113) 동의만 다시 받는다.
 // 카카오 새 사용자는 계정이 없고 가입 토큰만 있다(DEV-132). 이때는 가입 동의만 보이고, 동의하면 계정이 생겨 같은 화면에서 프로필을 받는다.
+// 운영자가 만든 아이디 계정(DEV-363)은 비밀번호를 바꾼 뒤 여기서 같은 필수 동의를 한다(처음이면 ‘약관에 동의하고 시작해요’). 동의 전에는 닫으면 로그아웃한다.
 // 카카오로 처음 로그인한 소비자만 온다. 카카오에서 온 값(이메일, 심사 뒤 전화번호)은 미리 채우고 빠진 것만 입력한다.
 import { ApiError, auth } from "@farmclub/api";
+import { useAsync } from "@farmclub/ui";
 import {
   BottomBar,
   Button,
@@ -35,7 +37,14 @@ export default function OnboardingProfile() {
   const params = useLocalSearchParams<{ next?: string }>();
   const next = safeNext(params.next);
   const router = useRouter();
-  const { user, ready, refresh, clearResume, hasResume } = useSession();
+  const { user, ready, refresh, clearResume, hasResume, logout } = useSession();
+  // 운영자가 만든 아이디 계정이 아직 한 번도 동의하지 않았으면 ‘약관이 바뀌었어요’가 아니라 첫 동의 문구(DEV-363)
+  const idAccount = !!user?.username;
+  const myConsents = useAsync(
+    () => (idAccount && user?.consentRequired ? auth.consents() : Promise.resolve(null)),
+    [idAccount, user?.consentRequired],
+  );
+  const firstConsent = idAccount && myConsents.data?.length === 0;
   const [nickname, setNickname] = useState("");
   const [phone, setPhone] = useState("");
   const [agreed, setAgreed] = useState<Record<string, boolean>>({});
@@ -92,6 +101,8 @@ export default function OnboardingProfile() {
     // 닫기: 계정은 남고, 다음 로그인·관문에서 다시 이 화면으로 온다. 하려던 행동은 실행하지 않는다
     // 가입 전(계정 없음)이면 가입 대기를 지워 아무것도 남기지 않는다(DEV-132)
     if (signup) auth.clearPendingSignup();
+    // 운영자가 만든 아이디 계정은 동의 전에는 쓸 수 없다(관문이 이 화면으로 다시 보낸다). 닫으면 로그아웃
+    if (idAccount && user?.consentRequired) return logout();
     const back = hasResume && router.canGoBack();
     clearResume();
     if (back) router.back();
@@ -157,14 +168,18 @@ export default function OnboardingProfile() {
           <T variant="title" accessibilityRole="header">
             {signup
               ? "약관에 동의하고\n가입해요"
-              : reconsent
-                ? "약관이\n바뀌었어요"
-                : "farmclub에서 쓸\n정보예요"}
+              : reconsent && firstConsent
+                ? "약관에 동의하고\n시작해요"
+                : reconsent
+                  ? "약관이\n바뀌었어요"
+                  : "farmclub에서 쓸\n정보예요"}
           </T>
           <T variant="body" muted>
             {signup
               ? "이용약관과 개인정보 처리방침에 동의하면 계정이 만들어져요. 동의하지 않으면 아무것도 저장하지 않아요."
-              : reconsent
+              : reconsent && firstConsent
+                ? "이용약관과 개인정보 처리방침에 동의하면 farmclub을 쓸 수 있어요."
+                : reconsent
                 ? "바뀐 이용약관과 개인정보 처리방침에 동의해야 주문·팔로우·채팅을 계속할 수 있어요."
                 : "농가와 이야기하고 주문할 때 필요한 것만 받아요."}
           </T>
@@ -284,7 +299,7 @@ export default function OnboardingProfile() {
       </Scroll>
       <BottomBar>
         <Button
-          label={signup ? "동의하고 가입하기" : reconsent ? "동의하고 계속하기" : "시작하기"}
+          label={signup ? "동의하고 가입하기" : reconsent && firstConsent ? "동의하고 시작하기" : reconsent ? "동의하고 계속하기" : "시작하기"}
           disabled={(showProfile && !valid) || (showConsents && !requiredAgreed)}
           loading={busy}
           onPress={() => void submit()}

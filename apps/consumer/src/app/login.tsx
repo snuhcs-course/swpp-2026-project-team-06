@@ -1,4 +1,4 @@
-// SCR-05 로그인 — 테스트 계정 선택(ADR 0009) — design: scr-05
+// SCR-05 로그인 — 카카오(ADR 0003)·아이디·비밀번호(DEV-363, 운영자가 만든 계정)·테스트 계정 선택(ADR 0009) — design: scr-05
 import { auth, evaluatorBuild, isMock, type TestAccount } from "@farmclub/api";
 import {
   BrandLogo,
@@ -7,6 +7,7 @@ import {
   LegalFooter,
   HeaderBar,
   Notice,
+  PasswordLoginForm,
   Radio,
   Screen,
   Scroll,
@@ -23,7 +24,7 @@ import { Pressable, View, useWindowDimensions } from "react-native";
 
 import { beginKakaoLogin, kakaoRedirectUri } from "../lib/kakao";
 import { openKakaoAuth } from "../lib/kakaoAuth";
-import { useSession } from "../lib/session";
+import { accountGatePath, useSession } from "../lib/session";
 import { isStatus } from "../lib/views";
 
 // 소비자 앱은 소비자 계정만(ADR 0010). 서버가 ?app=consumer로 거르지만 화면에서도 한 번 더 거른다.
@@ -137,6 +138,18 @@ export default function Login() {
 
   const target = next && next.startsWith("/") ? next : "/";
 
+  // 아이디·비밀번호 로그인(DEV-363). 임시 비밀번호면 비밀번호 변경, 약관 동의 전이면 온보딩(SCR-06)으로.
+  // 실패는 폼이 보인다(틀리면 한 문구, 잠기면 남은 분)
+  async function passwordLogin(username: string, password: string) {
+    setFailed(null);
+    const res = await auth.passwordLogin(username, password);
+    await refresh();
+    // 관문(임시 비밀번호·동의 전)은 세션이 옮긴다(여기서도 옮기면 같은 화면이 두 번 쌓인다)
+    if (accountGatePath(res.user)) return;
+    if (resume && router.canGoBack()) router.back();
+    else router.replace(target as never);
+  }
+
   // 카카오로 시작하기(FEAT-01 I2). 돌아갈 화면·행동을 저장하고 카카오 인가 화면으로 나간다. 복귀는 /auth/kakao
   async function kakaoLogin() {
     const cfg = kakao.data;
@@ -241,6 +254,22 @@ export default function Login() {
             ) : null}
           </View>
         ) : null}
+        {/* 아이디·비밀번호 로그인(DEV-363). 계정은 운영자가 만들어 공개 가입 버튼은 없다(PM 11/18). 평가용 테스트 계정 목록은 그대로 아래에 */}
+        <View
+          testID="password-login-section"
+          style={{ paddingHorizontal: tokens.space.gutter, paddingTop: tokens.space.lg, gap: 16 }}
+        >
+          {kakaoOn ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: tokens.color.border }} />
+              <T variant="caption" muted>
+                또는 아이디로 로그인
+              </T>
+              <View style={{ flex: 1, height: 1, backgroundColor: tokens.color.border }} />
+            </View>
+          ) : null}
+          <PasswordLoginForm onLogin={passwordLogin} disabled={busy} />
+        </View>
         {!showTest ? null : error ? (
           isStatus(error, 404) ? (
             <EmptyState

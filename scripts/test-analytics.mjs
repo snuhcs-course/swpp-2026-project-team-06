@@ -32,6 +32,8 @@ test("N-05: only screens that are mostly personal data are masked whole", () => 
     "/onboarding",
     "/onboarding/address",
     "/auth/kakao",
+    // DEV-363 비밀번호 변경
+    "/password",
   ])
     assert.equal(isPrivatePath("consumer", path), true, path);
   for (const path of [
@@ -42,6 +44,7 @@ test("N-05: only screens that are mostly personal data are masked whole", () => 
     "/apply",
     "/farm/account",
     "/auth/kakao",
+    "/password",
   ])
     assert.equal(isPrivatePath("producer", path), true, path);
   // DEV-104: 내 정보·주문·주문서·입금 안내는 개인정보 글자만 가린다(화면 전체 X)

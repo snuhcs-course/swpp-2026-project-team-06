@@ -10,6 +10,7 @@ from app.admin.farm_status import producers_router as admin_producer_status_rout
 from app.admin.farm_status import router as admin_farm_status_router
 from app.admin.farms import router as admin_farms_router
 from app.admin.home import router as admin_home_router
+from app.admin.id_accounts import router as admin_id_accounts_router
 from app.admin.router import router as admin_exceptions_router
 from app.admin.support import router as admin_support_router
 from app.admin.user_detail import router as admin_user_detail_router
@@ -99,5 +100,7 @@ for admin_router in (
     admin_producer_status_router,
     admin_activity_router,
     admin_home_router,
+    # DEV-363: 운영자가 만드는 아이디 계정(공개 가입 없음)
+    admin_id_accounts_router,
 ):
     app.include_router(admin_router)

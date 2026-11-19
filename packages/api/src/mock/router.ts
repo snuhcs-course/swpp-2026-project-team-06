@@ -164,6 +164,34 @@ function match(method: string, path: string) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// 아이디 계정 관문(DEV-363, 서버 security._check_gate와 같은 허용 목록)
+type GateReason = "PASSWORD_CHANGE_REQUIRED" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED";
+const PASSWORD_OPEN = ["GET /api/auth/me", "POST /api/auth/me/password"];
+const CONSENT_OPEN = [
+  ...PASSWORD_OPEN,
+  "GET /api/auth/me/consents",
+  "POST /api/auth/me/consents",
+  "PATCH /api/auth/me",
+  "POST /api/auth/me/withdraw",
+];
+const GATE_OPEN: Record<GateReason, string[]> = {
+  PASSWORD_CHANGE_REQUIRED: PASSWORD_OPEN,
+  ONBOARDING_REQUIRED: CONSENT_OPEN,
+  CONSENT_REQUIRED: CONSENT_OPEN,
+};
+const GATE_MESSAGE: Record<GateReason, string> = {
+  PASSWORD_CHANGE_REQUIRED: "비밀번호를 바꾸면 쓸 수 있어요.",
+  ONBOARDING_REQUIRED: "가입을 마치면 쓸 수 있어요.",
+  CONSENT_REQUIRED: "약관에 동의하면 쓸 수 있어요.",
+};
+function accountGate(u: UserRec): GateReason | null {
+  if (u.mustChangePassword) return "PASSWORD_CHANGE_REQUIRED";
+  // 운영자가 만든 아이디 계정은 필수 약관에 동의해야 쓴다
+  if (u.username && consentRequired(u))
+    return u.role === "CONSUMER" ? "ONBOARDING_REQUIRED" : "CONSENT_REQUIRED";
+  return null;
+}
+
 export async function dispatch(req: {
   method: string;
   path: string;
@@ -203,13 +231,21 @@ export async function dispatch(req: {
       return user as UserRec;
     },
   };
+  // 아이디 계정 관문(DEV-363, 서버 security._check_gate). 공개 API는 비로그인처럼 보고, 로그인 API는 403
+  const gate = user ? accountGate(user) : null;
+  if (gate && !GATE_OPEN[gate].includes(`${req.method} ${pathname}`)) {
+    ctx.user = null;
+    ctx.me = () =>
+      fail(403, "FORBIDDEN", GATE_MESSAGE[gate], { reason: gate });
+  }
   try {
     if (token && !user) fail(401, "UNAUTHENTICATED", "다시 로그인해 주세요.");
+    if (gate && ctx.user === null && m.app !== "any") ctx.me();
     // 다른 앱 계정의 토큰이면 403 WRONG_APP (ADR 0010, screens.md 7.1)
     if (
-      user &&
+      ctx.user &&
       m.app !== "any" &&
-      (m.app === "consumer") !== (user.role === "CONSUMER")
+      (m.app === "consumer") !== (ctx.user.role === "CONSUMER")
     ) {
       fail(403, "FORBIDDEN", "이 앱의 계정이 아니에요. 다시 로그인해 주세요.", {
         reason: "WRONG_APP",
@@ -217,12 +253,12 @@ export async function dispatch(req: {
     }
     if (m.app !== "any") ctx.me();
     const editsMessage = req.method === "PATCH" && /^\/api\/messaging\/(messages\/[^/]+|rooms\/[^/]+\/messages\/[^/]+)$/.test(pathname);
-    if (user && (m.gated || editsMessage) && needsOnboarding(user))
+    if (ctx.user && (m.gated || editsMessage) && needsOnboarding(ctx.user))
       fail(403, "FORBIDDEN", "가입을 마치면 쓸 수 있어요.", {
         reason: "ONBOARDING_REQUIRED",
       });
     // 생산자는 지금 버전 약관·개인정보에 동의해야 생산자 API를 쓴다(서버 require_consented_producer, DEV-113)
-    if (user && (m.app === "producer" || (editsMessage && user.role === "PRODUCER")) && consentRequired(user))
+    if (ctx.user && (m.app === "producer" || (editsMessage && ctx.user.role === "PRODUCER")) && consentRequired(ctx.user))
       fail(403, "FORBIDDEN", "약관에 동의하면 쓸 수 있어요.", {
         reason: "CONSENT_REQUIRED",
       });
@@ -231,7 +267,7 @@ export async function dispatch(req: {
       !pathname.startsWith("/api/auth/") &&
       // farmclub 운영팀 대화방은 정지·반려 농가도 쓴다(DEV-209). 상태 검사는 그 라우트가 한다
       !pathname.startsWith("/api/messaging/producer/support/") &&
-      (!user?.farmId || d.farms[user.farmId]?.status !== "APPROVED")
+      (!ctx.user?.farmId || d.farms[ctx.user.farmId]?.status !== "APPROVED")
     )
       fail(403, "FORBIDDEN", "승인된 농가만 사용할 수 있어요.");
     const body = await m.handler(ctx);

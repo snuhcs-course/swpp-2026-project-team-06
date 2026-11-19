@@ -17,6 +17,7 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "PAYLOAD_TOO_LARGE"
+  | "RATE_LIMITED"
   | "INTERNAL_ERROR";
 
 export type ConflictReason =
@@ -51,7 +52,15 @@ export type ConflictReason =
  * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).
  * 첫 가입 온보딩 전에 주문·팔로우·채팅을 부르면 ONBOARDING_REQUIRED(FEAT-01 I2)
  */
-export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED" | "TEST_ACCOUNT";
+export type ForbiddenReason =
+  | "WRONG_APP"
+  | "ONBOARDING_REQUIRED"
+  | "CONSENT_REQUIRED"
+  | "TEST_ACCOUNT"
+  // 아이디·비밀번호 계정(DEV-363): 임시 비밀번호로 들어와 바꾸기 전
+  | "PASSWORD_CHANGE_REQUIRED"
+  | "NOT_PASSWORD_ACCOUNT"
+  | "INVALID_CREDENTIALS";
 
 /** 409 STAGE_CHANGED의 이전(주문서가 본 값·주문 스냅샷)·지금 값(AC-08-8, contracts-1.2 1장) */
 export type StageSnapshot = {
@@ -115,6 +124,10 @@ export type User = {
   consentRequired?: boolean;
   /** 원산지 표시제도 안내 지금 버전을 읽은 시각(DEV-121). 생산자만, 안 읽었으면 null */
   originNoticeReadAt?: ISODate | null;
+  /** 운영자가 만든 아이디·비밀번호 계정의 아이디(DEV-363). 카카오·테스트 계정은 null */
+  username?: string | null;
+  /** 운영자가 준 임시 비밀번호로 들어왔다. 비밀번호를 바꾸기 전에는 다른 화면을 열지 않는다 */
+  mustChangePassword?: boolean;
 };
 
 /** 농가에게 알리는 법정 안내(DEV-121). ORIGIN = 원산지 표시제도(원산지표시법 제6조 ⑥) */

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Response
 from sqlalchemy.orm import Session
 
 from app.accounts import service
@@ -22,6 +22,8 @@ from app.accounts.schemas import (
     MeUpdateInput,
     NoticeReadInput,
     NoticeReadView,
+    PasswordChangeInput,
+    PasswordLoginInput,
     ProducerApplication,
     ProducerApplicationInput,
     ProducerDecision,
@@ -72,6 +74,33 @@ def kakao_signup(db: Db, body: KakaoSignupInput):
     """가입 토큰과 필수 약관 동의로 카카오 계정을 만들고 로그인한다(DEV-132, AC-01-19)."""
     result = service.kakao_signup(db, body)
     db.commit()
+    return result
+
+
+# ---- 아이디·비밀번호 (DEV-363) ----
+# 토큰·비밀번호가 담긴 응답은 저장(캐시)하지 않게 한다
+NO_STORE = "no-store"
+
+
+@router.post("/login", response_model=LoginResult)
+def password_login(db: Db, response: Response, body: PasswordLoginInput):
+    """아이디·비밀번호 로그인(AC-01-25~27). 실패는 한 문구 401, 잠기면 429 Retry-After."""
+    result = service.password_login(db, body)
+    db.commit()
+    db.close()
+    service.finish_login(result.user.role, body.username)
+    response.headers["Cache-Control"] = NO_STORE
+    return result
+
+
+@router.post("/me/password", response_model=LoginResult)
+def change_password(db: Db, user: CurrentUser, response: Response, body: PasswordChangeInput):
+    """비밀번호 변경(AC-01-30). 그 사용자의 다른 토큰은 모두 끊기고 새 토큰을 준다."""
+    result = service.change_password(db, user, body)
+    db.commit()
+    db.close()
+    service.unlock_login(result.user.role, result.user.username)
+    response.headers["Cache-Control"] = NO_STORE
     return result
 
 

@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from app.core.clock import now
@@ -23,12 +23,17 @@ class Role(StrEnum):
     ADMIN = "ADMIN"
 
 
-def issue_token(user_id: str, role: str) -> str:
+def issue_token(user_id: str, role: str, version: int = 0) -> str:
+    """로그인 토큰. `ver`는 User.token_version과 같아야 쓸 수 있다.
+
+    비밀번호를 바꾸면 버전이 올라 그 전 토큰이 끊긴다(DEV-363).
+    """
     settings = get_settings()
     issued = now()
     payload = {
         "sub": user_id,
         "role": role,
+        "ver": version,
         "iat": int(issued.timestamp()),
         "exp": int((issued + timedelta(minutes=settings.jwt_ttl_minutes)).timestamp()),
     }
@@ -103,30 +108,100 @@ def _user_from_token(db: Session, token: str):
     # 탈퇴한 회원(DEV-94)의 토큰은 받지 않는다
     if user is None or user.deleted_at is not None:
         raise unauthenticated()
+    # 비밀번호를 바꾸거나 임시 비밀번호를 받으면 버전이 올라 그 전 토큰은 끊긴다(DEV-363).
+    # `ver`가 없는 옛 토큰은 0으로 본다
+    try:
+        version = int(payload.get("ver", 0))
+    except (TypeError, ValueError):
+        raise unauthenticated() from None
+    if version != (user.token_version or 0):
+        raise unauthenticated("비밀번호가 바뀌어 로그인이 풀렸어요. 다시 로그인해 주세요.")
     return user
 
 
+# 계정 관문(DEV-363). 걸린 동안 열리는 (메서드, 경로)만 둔다. 나머지 로그인 API는 403
+# 1) 운영자 임시 비밀번호로 들어왔으면 비밀번호부터 바꾼다
+_PASSWORD_CHANGE_OPEN = {
+    ("GET", "/api/auth/me"),
+    ("POST", "/api/auth/me/password"),
+}
+# 2) 운영자가 만든 아이디 계정은 필수 약관에 동의해야 쓴다
+#    (카카오 가입은 동의해야 계정이 생기는 것과 같은 규칙).
+#    동의·온보딩 화면이 쓰는 API와 탈퇴만 열린다
+_CONSENT_OPEN = _PASSWORD_CHANGE_OPEN | {
+    ("GET", "/api/auth/me/consents"),
+    ("POST", "/api/auth/me/consents"),
+    ("PATCH", "/api/auth/me"),
+    ("POST", "/api/auth/me/withdraw"),
+}
+_GATE_MESSAGES = {
+    "PASSWORD_CHANGE_REQUIRED": "비밀번호를 바꾸면 쓸 수 있어요.",
+    "ONBOARDING_REQUIRED": "가입을 마치면 쓸 수 있어요.",
+    "CONSENT_REQUIRED": "약관에 동의하면 쓸 수 있어요.",
+}
+
+
+def account_gate(db: Session, user) -> str | None:
+    """아이디 계정 관문 사유. 없으면 None.
+
+    PASSWORD_CHANGE_REQUIRED(임시 비밀번호) → 동의 전이면 소비자 ONBOARDING_REQUIRED
+    (앱이 SCR-06을 연다)·생산자 CONSENT_REQUIRED(앱이 /consent를 연다).
+    카카오·테스트 계정은 해당하지 않는다(기존 관문 그대로).
+    """
+    if getattr(user, "must_change_password", False):
+        return "PASSWORD_CHANGE_REQUIRED"
+    if getattr(user, "username", None):
+        from app.accounts import service as accounts
+
+        if accounts.consent_required(db, user):
+            return "ONBOARDING_REQUIRED" if user.role == "CONSUMER" else "CONSENT_REQUIRED"
+    return None
+
+
+def _check_gate(request: Request, db: Session, user) -> None:
+    reason = account_gate(db, user)
+    if reason is None:
+        return
+    password_only = reason == "PASSWORD_CHANGE_REQUIRED"
+    open_routes = _PASSWORD_CHANGE_OPEN if password_only else _CONSENT_OPEN
+    if (request.method, request.url.path.rstrip("/")) in open_routes:
+        return
+    raise forbidden(_GATE_MESSAGES[reason], reason=reason)
+
+
 def get_current_user(
+    request: Request,
     db: Annotated[Session, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
 ):
-    """Authorization 헤더의 JWT를 검증하고 User를 돌려준다. 없으면 401."""
+    """Authorization 헤더의 JWT를 검증하고 User를 돌려준다. 없으면 401.
+
+    임시 비밀번호를 받은 계정과 약관 동의 전 아이디 계정은 정해진 API만 연다(DEV-363).
+    """
     token = _bearer(authorization)
     if token is None:
         raise unauthenticated()
-    return _user_from_token(db, token)
+    user = _user_from_token(db, token)
+    _check_gate(request, db, user)
+    return user
 
 
 def get_optional_user(
     db: Annotated[Session, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
 ):
-    """공개 API용. 토큰이 없거나 만료·잘못됐으면 None(둘러보기는 로그인 없이 된다)."""
+    """공개 API용. 토큰이 없거나 만료·잘못됐으면 None(둘러보기는 로그인 없이 된다).
+
+    계정 관문에 걸린 계정(DEV-363)도 비로그인으로 본다.
+    """
     try:
         token = _bearer(authorization)
-        return _user_from_token(db, token) if token else None
+        user = _user_from_token(db, token) if token else None
     except ApiError:
         return None
+    if user is not None and account_gate(db, user) is not None:
+        return None
+    return user
 
 
 def require_roles(*roles: Role) -> Callable[..., object]:

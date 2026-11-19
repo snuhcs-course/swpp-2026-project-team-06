@@ -89,6 +89,14 @@ export default function Settings() {
           </View>
         </Section>
         <Section title="계정">
+          {/* 아이디·비밀번호 계정만(DEV-363) */}
+          {user?.username ? (
+            <ListRow
+              label="비밀번호 변경"
+              sub={`아이디 ${user.username}`}
+              onPress={() => router.push("/password")}
+            />
+          ) : null}
           <ListRow label="로그아웃" onPress={() => auth.logout()} last={!!user?.isTestAccount} />
           {/* 회원 탈퇴(DEV-94). 테스트 계정은 서버가 막으므로 보이지 않는다 */}
           {user?.isTestAccount ? null : (

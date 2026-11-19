@@ -134,7 +134,7 @@ test("DEV-150: privacy policy names the consumer farmclub support room and bumps
   const html = pages.pageHtml(content.privacyPolicy);
   assert.match(html, /생산자·소비자의 farmclub 문의 대화방\(운영팀 상담\)/);
   assert.match(html, /2026년 10월 29일 변경: 소비자도 앱 안에서 farmclub 운영팀에 문의할 수 있도록/);
-  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+  assert.equal(content.LEGAL_VERSION, "2026-11-20"); // DEV-363이 올림(PM 11/18)
 });
 
 test("DEV-121: terms Art. 14 says the company gives the origin labeling notice, without bumping the consent version", () => {
@@ -143,7 +143,7 @@ test("DEV-121: terms Art. 14 says the company gives the origin labeling notice, 
   // 시행 7일 전 고지(약관 제4조), 변경 기록에 재동의하지 않는 이유
   assert.equal(content.termsOfService.effective, "2026년 11월 13일");
   assert.match(html, /2026년 11월 13일 변경: 제14조에 회사가 판매자에게 원산지 표시제도를 안내한다는 문장을 더했습니다[^<]*다시 동의를 받지 않습니다/);
-  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+  assert.equal(content.LEGAL_VERSION, "2026-11-20"); // DEV-363이 올림(PM 11/18)
 });
 
 test("DEV-122: PostHog transfer lists every item of Article 28-8(2) and the basis is no longer legitimate interest", () => {
@@ -176,9 +176,9 @@ test("DEV-122: PostHog transfer lists every item of Article 28-8(2) and the basi
   assert.ok(html.includes("쿠키·저장소를 막아도 PostHog 전송은 이어질 수 있으니"));
   // 변경 기록과 시행일(시행 7일 전 고지, 제14조)
   assert.ok(html.includes("2026년 11월 13일 변경: PostHog(미국)로의 국외 이전"));
-  // DEV-314의 우편번호 찾기 고지는 시행일을 늦추지 않고 그 변경분만 11-19부터 시행한다
-  assert.equal(content.privacyPolicy.effective, "2026년 11월 13일");
-  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+  // DEV-314의 우편번호 찾기 고지는 시행일을 늦추지 않고 그 변경분만 11-19부터 시행했다. 문서 시행일은 DEV-363 개정(11-20)
+  assert.equal(content.privacyPolicy.effective, "2026년 11월 20일");
+  assert.equal(content.LEGAL_VERSION, "2026-11-20"); // DEV-363이 올림(PM 11/18)
 });
 
 test("DEV-314: privacy policy tells that the postcode search keyword goes to Kakao, without a version bump", () => {
@@ -188,9 +188,9 @@ test("DEV-314: privacy policy tells that the postcode search keyword goes to Kak
   assert.match(html, /직접 입력할 수도 있습니다\(2026년 11월 19일부터 시행\)/);
   // 고지 문구만 바뀌어 동의 버전은 그대로. 문서 시행일(11-13, DEV-122 개정)은 늦추지 않고 이 변경분만 고지 7일 뒤 시행
   assert.match(html, /2026년 11월 19일 변경: 배송지 입력의 ‘우편번호 찾기’[^<]*다시 동의를 받지 않습니다/);
-  assert.ok(html.includes("이 처리방침은 2026년 11월 13일부터 시행합니다. 다만 2026년 11월 19일 변경분(제2조 ‘우편번호 찾기’ 안내)은 2026년 11월 19일부터 시행합니다."));
-  assert.equal(content.privacyPolicy.effective, "2026년 11월 13일");
-  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+  assert.ok(html.includes("2026년 11월 19일 변경분(제2조 ‘우편번호 찾기’ 안내)은 2026년 11월 19일부터"));
+  assert.equal(content.privacyPolicy.effective, "2026년 11월 20일"); // DEV-363 개정
+  assert.equal(content.LEGAL_VERSION, "2026-11-20"); // DEV-363이 올림(PM 11/18)
 });
 
 test("DEV-342: the 11/17 depositor-name wording takes effect on the deploy date, without a version bump", () => {
@@ -198,10 +198,25 @@ test("DEV-342: the 11/17 depositor-name wording takes effect on the deploy date,
   const terms = pages.pageHtml(content.termsOfService);
   assert.match(privacy, /입금자명\(농가 화면에 보이는 이름\(닉네임 등\) 앞 3글자와 숫자로 만든 짧은 입금 코드\)/);
   assert.match(privacy, /2026년 11월 17일 변경: [^<]*다시 동의를 받지 않습니다/);
-  assert.ok(privacy.includes("2026년 11월 17일 변경분(제2조 입금자명)은 2026년 11월 17일부터 시행합니다."));
+  assert.ok(privacy.includes("2026년 11월 17일 변경분(제2조 입금자명)은 2026년 11월 17일부터 시행했습니다."));
   assert.match(terms, /입금자명은 입금 안내에 나오는 짧은 입금 코드/);
   assert.doesNotMatch(terms, /입금자명은 주문 번호로 적습니다/);
   assert.match(terms, /2026년 11월 17일 변경: 제7조[^<]*다시 동의를 받지 않습니다/);
   assert.ok(terms.includes("다만 2026년 11월 17일 변경분(제7조 입금자명)은 2026년 11월 17일부터 시행합니다."));
-  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+  assert.equal(content.LEGAL_VERSION, "2026-11-20"); // DEV-363이 올림(PM 11/18)
+});
+
+test("DEV-363: privacy policy lists operator-made ID accounts and bumps the version so members re-consent (PM 11/18)", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const html = pages.pageHtml(content.privacyPolicy);
+  assert.match(html, /아이디 계정\(회사가 만든 심사·테스트용 계정\)/);
+  assert.match(html, /아이디, 비밀번호\(복원할 수 없는 방식으로 암호화해 저장\)/);
+  assert.match(html, /아이디 계정의 아이디·암호화한 비밀번호<\/td><td>회원 탈퇴 시까지/);
+  assert.match(html, /아이디 계정의 비밀번호는 복원할 수 없는 방식\(argon2id\)으로 암호화해 저장/);
+  assert.doesNotMatch(html, /비밀번호는 받지 않습니다\(카카오 로그인\)/);
+  assert.match(html, /2026년 11월 20일 변경: 회사가 앱 마켓 심사·서비스 테스트를 위해 만드는 아이디 계정[^<]*기존 회원은 다음 이용 때 다시 동의를 받습니다/);
+  assert.equal(content.privacyPolicy.effective, "2026년 11월 20일");
+  assert.equal(content.LEGAL_VERSION, "2026-11-20");
+  const server = (await readFile("server/app/accounts/schemas.py", "utf8")).match(/^CONSENT_VERSION = "([^"]+)"/m)?.[1];
+  assert.equal(server, "2026-11-20");
 });
