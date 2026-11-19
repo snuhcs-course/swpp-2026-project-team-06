@@ -45,6 +45,7 @@
 - 공용 컴포넌트·토큰은 `@farmclub/ui`(packages/ui), 서버 호출은 `@farmclub/api`(packages/api)만 쓴다.
 - 서버 주소는 `EXPO_PUBLIC_API_URL`(packages/api spec).
 - 환경설정 → 농가 프로필에서 복사하는 링크는 서버의 `/s/farms/<id>`다(ADR 0006). 소비자 앱 주소를 직접 복사하지 않는다.
+- 설정과 농가 프로필의 소비자 화면 버튼은 같은 링크 도우미로 `EXPO_PUBLIC_CONSUMER_URL`의 `/farms/<id>`를 연다(DEV-370, AC-02-3).
 - I1 로그인은 생산자 테스트 계정 선택(`GET /api/auth/test-accounts?app=producer`, `POST /api/auth/test-login`의 `app: producer`, ADR 0009·0010). 시드 생산자는 승인·확인 중·반려·정지·농가 없음 5명(tech-design 시드 데이터). 소비자 계정은 이 앱에 로그인하지 않고, 403 `WRONG_APP`이면 토큰을 지우고 로그인으로. 가입 신청(SCR-20)이 생산자 계정 만들기를 겸한다. 카카오 리다이렉트 `/auth/kakao`는 I2.
 - 출하 처리(SCR-29)는 주문을 여러 건 골라 ‘n건 선택 · 출하 처리’(DEV-294) → 주문마다 `POST /api/orders/{orderId}/ship`(`carrier`, `trackingNumber`)을 반복한다(새 일괄 API 없음). 생산자는 배송 완료로 바꾸지 못한다(R-19). 자연어 입력은 I2.
 - 화면 모양·크기·문구는 Figma v6/UI 1.6이 기준이다(목록 줄 최소 56). DEV-294부터 현황·배송 현황과 생산자 문구는 Figma 검토본 `TEN0IqovZJenoRqSIma3wL`(기준표, 1:62, 1:74, 11:133)을 따르고, 크기는 숫자 대신 `tokens.*`를 써서 토큰 개편(DEV-293)을 따라간다.
