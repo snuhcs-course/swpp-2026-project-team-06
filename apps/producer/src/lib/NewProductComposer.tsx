@@ -1252,7 +1252,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     );
     // 상품명이 상세 맨 위 제목과 다르면 같이 맞춘다(구매자 화면에 이름이 둘로 보이지 않게).
     // 구매자에게 보이는 상품은 맞추지 않는다(DEV-346): 옮겨 온 페이지의 제목을 손대지 않고 반영해도 그대로 두고,
-    // 다시 저장해 금액·효능 검사로 막히지 않게. 상품명은 SCR-25에서 고친다.
+    // 다시 저장해 금액·효능 검사로 막히지 않게. 상품명은 상품 칸으로 반영된다(C-21).
     const name =
       preSale && form && !DEFAULT_NAMES.includes(form.name.trim()) ? form.name.trim() : "";
     const nameDiffers =
