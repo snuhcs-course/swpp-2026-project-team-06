@@ -1,12 +1,12 @@
 # Requirements and Specifications
 
-Team 6 | Farmclub | Iteration 3 | 6 November 2026
+Team 6 | Farmclub | Iteration 4 | 19 November 2026
 
 ### I4 local editor follow-up — 8 November 2026 (DEV-287)
 
 The producer composer keeps editable fields visually distinct after filling. The origin directly below the product name is editable and shares its value with the product-information row. The buyer-preview toggle remains usable while the AI material sheet is open and preserves unsaved fields. AI analysis accepts text or document material without a representative product photo; a photo is still required before public application. Header page/pencil controls toggle preview without saving, including incomplete sales settings; missing values remain explicitly missing. The composer-only AI control opens a sheet that starts closed and preserves its contents. Submission still validates and saves before requesting approval. The author reviewed the PR diff; release follows required CI and merge-queue checks.
 
-Implementation reference: [`28feb94ac47b259b6a6299e9fd742b75e756a33d`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/28feb94ac47b259b6a6299e9fd742b75e756a33d), the main snapshot used for this I3 closeout. This revision preserves existing feature/criterion identifiers, the original team material and dated owner notes. It reconciles the current source contracts without changing frozen evaluation criteria. Required behavior, local verification, recorded demonstrations, deployment observations and human acceptance remain separate.
+Implementation reference for I4: [`77b2be33`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/77b2be3326ebed5fd728c93669c202eec4a1cd1b). Earlier sections and dated records preserve the requirements in effect at the time. Section 8 summarizes the current release scope. The [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation) records what was verified in each environment.
 
 ## Table of Contents
 
@@ -36,6 +36,7 @@ Implementation reference: [`28feb94ac47b259b6a6299e9fd742b75e756a33d`](https://g
 | 2.2 | 2026-11-05 | Team 6 | DEV-224: bottom tabs always open their first screen, Back has a parent screen when there is no previous one, 1:1 chats return to the screen that opened them, not-found farm screen |
 | 3.0 | 2026-11-06 | Minsun Kim; existing Team 6 and owner contributions retained | DEV-158: I3 scope and status, paid-order entry and private reading-position criteria, current room permissions, source-workflow limits, and separate reproducible demo/evaluation references |
 | 3.1 | 2026-11-10 | Team 6 | DEV-300: producer dashboard, product cards and sales settings show each weight option's current box price and reserved+shipped boxes (farmer feedback and 11/10 producer interview: per-option price and boxes first, total kg secondary); the product list API returns these option rows, and sales limits remain in kg |
+| 4.0 | 2026-11-19 | Team 6 | I4 scope reconciled for login, orders, fulfillment, producer editing and known acceptance boundaries |
 
 ## 1. Project Abstract
 
@@ -1111,13 +1112,13 @@ Reading a room never follows the farm automatically.
 
 ## 8. Implementation Status and References
 
-| Area | Implemented through the I3 reference | Remaining boundary |
+| Area | Implemented in the I4 reference | Remaining boundary |
 | --- | --- | --- |
-| Accounts and communication | Kakao onboarding/state return, wrong-answer reports, farmclub support/help tour; order-aware private entry, sequence ordering and same-session reading restoration | Live account behavior needs environment-specific validation; external notifications are not implemented |
-| Commerce | Farm account registration, deposit instructions/report/confirmation, expiry exceptions, refund settlement and retry protection | No automatic bank matching, payment custody or integrated escrow; RESERVED → PREPARING only through per-period Start harvest |
-| Producer pages | Private source worker/editor, direct module editing, photos, explicit apply and manual/legacy fallback | Numeric OCR, omissions/conflicts and actual farmer acceptance require review; deployment does not establish general AI accuracy |
-| Operator | Producer/capacity tools, controlled farm visibility, privacy-limited user lookup and support inbox | Shared admin identity; no full multi-operator case management or inbox image rendering |
-| Deployment/media | Vercel clients/admin, Railway API/worker, R2 media/private sources, approved-farm Open Graph sharing, optional PostHog client instrumentation | Sentry/Langfuse and server analytics events are not wired; performance/uptime targets are not yet established |
+| Accounts and preview | Kakao and operator-issued ID/password login. Temporary passwords must be changed before consent and app entry. Release apps retire evaluator entry and seed choices. Producer Settings links to the public farm page for the current environment. | UAT uses a separate environment with private issued accounts. Local seed login is for development and Mock. No public password-account registration. [#675](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/675) · [#680](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/680) · [#684](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/684) |
+| Orders and payment | Transfer to the farm with a short depositor code. Producers can ask about an unpaid order using a prefilled message. Buyers see the new thread after a message is sent. Price freshness and recovery checks cover affected checkout and order views. | Producers reconcile the bank transfer manually. A transfer made under a different name still needs follow-up. [#648](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/648) · [#649](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/649) · [#664](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/664) |
+| Fulfillment and privacy | Producers start harvest for selected reserved orders, then record tracking and dispatch. After delivery or receipt confirmation, producer responses mask recipient identifiers; the same protection applies to orders refunded after delivery. Pre-delivery shipping fields stay available. | Courier integration and automatic completion remain out of current scope. [#665](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/665) · [#676](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/676) |
+| Producer editing | Save, resume and apply changes in one editor. Adding a content item shows and briefly outlines the new field. AI output is editable before public application. | Producers review generated suggestions against the source before applying them. [#673](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/673) · [#687](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/687) |
+| Platform and operations | Consumer and producer web clients, shared Android application code, operator API and web tools, Railway API and worker, and R2 media. | I4 evidence is scoped to the recorded web, API and offline runs. Device-specific acceptance and performance targets require their own results. |
 
 The [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation) retains the I2 77-case internal workbook, other owners' evaluations, the original I3 consumer-chat baseline and separately dated fix/CI evidence. Later commits do not rewrite earlier deployed failures or blockers. PR [#482](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/482) was squash-merged as `86e5410` on 6 November; its required local regression evidence is 57 browser cases and seven real-API scenarios. Those results concern the two scoped fixes, not every app requirement, a human approval record or a native-device pass. The dated implementation reports below retain their pre-merge gate descriptions; the later Testing Documentation merge/CI chronology supplies the subsequent state.
 
@@ -1127,7 +1128,7 @@ The [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-t
 | Reading position lost on farm A → B → A (DEV-243) | Metadata-only session store, measured anchor restoration and race guards implemented in DEV-250–253; local closure is recorded in the reading-position report below |
 | Original ordering-oracle discrepancy (DEV-244) | Separate decision; preserve insertion sequence and KST grouping without changing the frozen evaluation expectation to manufacture a pass |
 | Visual synchronization and producer notification replacement race | Follow-ups DEV-256 and DEV-257; the two chat fixes do not claim to resolve them |
-| AI source quality and independent acceptance | Development improvements, historical holdout failures and the current v2 lock are distinct evidence; review omissions, qualifiers and numeric OCR before applying output. A lock or refinement-only score is not full-pipeline acceptance |
+| AI source quality and independent acceptance | See the I4 Testing Documentation for current results and the capability and regression evaluation plan. Review omissions, qualifiers and numeric OCR before applying output. |
 | Native and production mutation scenarios | Shared implementation and browser tests do not establish physical-device background/keyboard behavior or an authenticated production mutation result |
 
 **I3 demonstration.** The [iteration-3-demo README](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/iteration-3-demo/README.md) provides the runnable snapshot, environment, I3 progress and four [demo-i3 recordings](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/demo-i3), also presented at [demo.farmclub.kr](https://demo.farmclub.kr/). The recorded product snapshot is `efa684b4`, before the later PR #482 chat fixes. The overall recording includes harvest and shipment; the role recordings and story are complementary views of the same controlled scenario. Local deposit-report/confirmation and transfer labels are simulations: no money moves, no bank reconciliation or courier delivery is demonstrated. The I2 branch and recordings remain historical artifacts.
