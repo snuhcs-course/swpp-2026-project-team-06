@@ -6,10 +6,10 @@ Farmclub connects consumers and small Jeju citrus farms through advance reservat
 
 ## Demo videos
 
-- [Consumer walkthrough · 1:33](docs/demo-i4/consumer.mp4). Login and reserve, confirm the displayed amount and short depositor name, ask the farm a routine question and inspect the handoff.
-- [Producer walkthrough · 1:59](docs/demo-i4/producer.mp4). Fill a product draft, observe revised photo-loading behavior and reopen a saved draft to continue editing.
+- [Consumer walkthrough · 0:31](docs/demo-i4/consumer.mp4). Continue the same reservation after signing in, copy the short depositor reference, report a simulated transfer and follow a policy answer and farm handoff in chat.
+- [Producer walkthrough · 0:30](docs/demo-i4/producer.mp4). Match and confirm the same simulated deposit, fill a draft from source text, add a content field and reopen a saved edit.
 
-The videos compare I3 with earlier I4 local recordings. The live branch also includes operator-created ID accounts and first-login password changes, the producer's consumer-page preview link, and the latest editor-field navigation and highlighting. Use the branch to see those later changes.
+Both recordings use the application source pinned on this branch. They use local synthetic accounts, simulated transfers and a fixture-backed source-analysis provider. The branch also includes operator-created ID accounts, the first-login password-change flow and the producer's consumer-page preview link.
 
 ## Run locally
 
