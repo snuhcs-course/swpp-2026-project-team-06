@@ -433,6 +433,49 @@ def test_AC_12_18_unfollowed_buyer_sees_and_answers_producer_chat_from_order(cli
     assert _orders(client, buyer) == []
 
 
+def test_AC_12_18_empty_producer_opened_chat_is_not_listed_until_a_message(client, login):
+    """DEV-362: '채팅하기'만 누르고 보내지 않으면 팔로우하지 않은 구매자 목록에 빈 대화가 없다."""
+    buyer = _buyer(client)
+    order = _awaiting(client, buyer)
+    producer = login("u-kang")
+    started = client.post(
+        "/api/messaging/producer/chats",
+        headers=producer | key(),
+        json={"orderId": order["orderId"]},
+    )
+    assert started.status_code == 200, started.text
+    assert _thread("f-kang", "u-buyer-choi") is not None
+    listed = client.get("/api/messaging/chats", headers=buyer).json()["items"]
+    assert all(c.get("farmId") != "f-kang" for c in listed)
+    # 생산자 쪽 목록은 그대로다
+    mine = client.get("/api/messaging/producer/chats", headers=producer).json()["items"]
+    assert any(c.get("consumerId") == "u-buyer-choi" for c in mine)
+    sent = client.post(
+        "/api/messaging/producer/chats/u-buyer-choi/messages",
+        headers=producer | key(),
+        json={"text": "입금 시각을 알려주세요."},
+    )
+    assert sent.status_code == 200, sent.text
+    listed = client.get("/api/messaging/chats", headers=buyer).json()["items"]
+    row = next(c for c in listed if c.get("farmId") == "f-kang")
+    assert row["lastMessage"] == "입금 시각을 알려주세요."
+
+
+def test_AC_12_18_follower_still_sees_an_empty_producer_opened_chat(client, login):
+    """팔로워의 목록 규칙은 그대로다(빈 대화도 팔로우한 농가면 보인다)."""
+    buyer = _buyer(client)
+    assert client.put("/api/farms/f-kang/follow", headers=buyer).status_code == 200
+    order = _awaiting(client, buyer)
+    started = client.post(
+        "/api/messaging/producer/chats",
+        headers=login("u-kang") | key(),
+        json={"orderId": order["orderId"]},
+    )
+    assert started.status_code == 200, started.text
+    listed = client.get("/api/messaging/chats", headers=buyer).json()["items"]
+    assert any(c.get("farmId") == "f-kang" for c in listed)
+
+
 def test_AC_12_18_access_follows_the_order_not_the_stored_link(client, login):
     buyer = _buyer(client)
     order = _awaiting(client, buyer)
