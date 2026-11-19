@@ -9,20 +9,21 @@ test.use({ viewport: { width: 390, height: 844 } });
 
 const toastText = "판매를 시작하려면 판매·가격을 먼저 채워 주세요";
 
-test("AC-04-1 DEV-361: pre-sale cards open 판매·가격 and approved cards keep 판매 설정", async ({ page }) => {
+test("AC-04-1 DEV-361: pre-sale cards open 판매·가격 and approved cards keep 물량·판매 설정", async ({ page }) => {
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products?filter=draft`);
   await expect(page.getByText("한라봉 5kg").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "판매 설정", exact: true })).toHaveCount(0);
-  // 판매페이지 수정·기간·가격은 이 PR에서 그대로(PR C에서 정리)
+  await expect(page.getByRole("button", { name: "물량·판매 설정", exact: true })).toHaveCount(0);
+  // PR C: '판매페이지 수정'·'기간·가격'은 '상품 수정' 하나로 합쳤다
   const card = page
     .locator("div")
     .filter({ hasText: "한라봉 5kg" })
     .filter({ has: page.getByRole("button", { name: "판매·가격", exact: true }) })
     .last();
-  await expect(card.getByRole("button", { name: "판매페이지 수정" })).toBeVisible();
-  await expect(card.getByRole("button", { name: "기간·가격" })).toBeVisible();
+  await expect(card.getByRole("button", { name: "상품 수정", exact: true })).toBeVisible();
+  await expect(card.getByRole("button", { name: "판매페이지 수정" })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: "기간·가격" })).toHaveCount(0);
   await card.getByRole("button", { name: "판매·가격", exact: true }).click();
   await expect(page).toHaveURL(/\/products\/p-hallabong\/sell$/);
   await expect(page.getByRole("button", { name: "판매 시작 요청" })).toBeVisible();
@@ -30,9 +31,10 @@ test("AC-04-1 DEV-361: pre-sale cards open 판매·가격 and approved cards kee
   await page.goto(`${producerUrl}/products?filter=selling`);
   await expect(page.getByText("하우스 감귤 5kg / 10kg").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "판매·가격", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "판매 설정", exact: true }).first().click();
+  await page.getByRole("button", { name: "물량·판매 설정", exact: true }).first().click();
   await expect(page).toHaveURL(/\/products\/[\w-]+\/sales$/);
-  await expect(page.getByText("물량·판매 설정").first()).toBeVisible();
+  // 목록 카드 버튼도 같은 글자라(스택 아래 숨김) 화면 제목을 본다
+  await expect(page.getByText("물량·판매 설정").last()).toBeVisible();
   assertClean();
 });
 
@@ -68,7 +70,7 @@ test("AC-04-1 DEV-361: approved and pending products keep 물량·판매 설정 
   assertClean();
 });
 
-test("AC-04-1 DEV-361: 판매·가격 points to 상품 편집 for required product info it has no field for", async ({ page }) => {
+test("AC-04-1 DEV-361: 판매·가격 points to the 판매페이지 step for required product info it has no field for", async ({ page }) => {
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
   // 이 화면에 칸이 없는 상품 정보(품종·원산지)가 비어 있는 작성 중 상품
@@ -83,9 +85,11 @@ test("AC-04-1 DEV-361: 판매·가격 points to 상품 편집 for required produ
   await page.goto(`${producerUrl}/products/p-hallabong/sell`);
   // 받는 시기·가격은 이 화면 칸이라 안내에 넣지 않는다
   await expect(page.getByText("판매 시작 전에 채워 주세요: 품종, 원산지", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "상품 편집에서 채우기" }).click();
-  await expect(page).toHaveURL(/\/products\/p-hallabong\/edit\?from=sell$/);
-  // 상품 편집도 같은 주소를 읽는다. 테스트가 끝나며 페이지가 닫힐 때 진행 중인 가로채기 오류는 무시한다
+  await expect(page.getByText("이 칸은 판매페이지(①)에서 채워요.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "판매페이지에서 채우기" }).click();
+  // 판매·가격을 바로 열었으면(composer에서 오지 않음) 상품 수정(composer)을 연다(PR C)
+  await expect(page).toHaveURL(/\/products\/(p-hallabong\/detail|source-analysis\?)/);
+  // composer도 같은 주소를 읽는다. 테스트가 끝나며 페이지가 닫힐 때 진행 중인 가로채기 오류는 무시한다
   await page.unrouteAll({ behavior: "ignoreErrors" });
   assertClean();
 });
@@ -130,52 +134,51 @@ async function sellReadyDraft(request: APIRequestContext) {
   return { draft, read, send };
 }
 
-/** 판매·가격 → 상품 편집에서 상품명·품종·도서산간 운임을 저장하고 돌아온다 */
-async function fillInProductEdit(page: Page, id: string, remoteAreaFee: string) {
-  await page.getByRole("button", { name: "상품 편집에서 채우기" }).click();
-  await expect(page).toHaveURL(new RegExp(`/products/${id}/edit`));
-  // 판매·가격 화면이 아래에 남아 있어(스택) 보이는 칸만 고른다
-  const shown = <T extends ReturnType<Page["getByLabel"]>>(l: T) => l.filter({ visible: true });
-  await shown(page.getByLabel("상품명", { exact: true })).fill("테스트 귤");
-  await shown(page.getByLabel("품종", { exact: true })).fill("조생");
-  await shown(page.getByLabel("도서산간 추가 운임", { exact: true })).fill(remoteAreaFee);
-  await shown(page.getByRole("button", { name: "저장", exact: true })).click();
-  await expect(page.getByText("저장했어요", { exact: true })).toBeVisible();
-  // 판매·가격에서 왔으면 '다음: 판매·가격'은 새로 쌓지 않고 돌아간다
-  await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
+/** 판매·가격 → 판매페이지(composer)에서 상품명·품종을 채우고 뒤로 돌아온다(나갈 때 임시 저장 = 판매 전 상품은 상품에 바로) */
+async function fillInComposer(page: Page, id: string) {
+  await page.getByRole("button", { name: "판매페이지에서 채우기" }).click();
+  await expect(page).toHaveURL(/composer=1/);
+  const basic = page.getByTestId("product-basic-info");
+  await basic.getByLabel("상품명", { exact: true }).fill("테스트 귤");
+  await basic.getByLabel("품종명", { exact: true }).fill("조생");
+  await basic.getByLabel("품종명", { exact: true }).blur();
+  await page.getByRole("button", { name: "뒤로", exact: true }).last().click();
+  await expect(page.getByText("임시 저장됐어요", { exact: true })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/products/${id}/sell$`));
 }
 
-test("AC-04-1 DEV-361: 판매·가격 → 상품 편집 → back refills untouched fields and never overwrites edits made there", async ({
+test("AC-04-1 DEV-361: 판매·가격 → 판매페이지 → back refreshes the notice and never overwrites changes made elsewhere", async ({
   page,
   request,
 }) => {
-  // 고친 입력으로 저장하면 서버가 버전 충돌로 막는다(409, 콘솔 오류로 남음)
+  // 다른 곳에서 바뀐 칸을 고친 입력으로 저장하면 서버가 버전 충돌로 막는다(409, 콘솔 오류로 남음)
   const assertClean = monitor(page, [/409/]);
   await loginProducer(page, "강영수");
 
-  // 1) 판매·가격에서 아무것도 안 고쳤으면 상품 편집에서 바꾼 값으로 다시 채운다
+  // 1) 판매페이지에서 상품 정보를 채우고 돌아오면 빈 칸 안내가 사라지고 저장이 막히지 않는다
   const first = await sellReadyDraft(request);
   const id1 = first.draft.productId;
   await page.goto(`${producerUrl}/products/${id1}/sell`);
   await expect(page.getByText("판매 시작 전에 채워 주세요: 상품명, 품종", { exact: true })).toBeVisible();
-  await fillInProductEdit(page, id1, "4000");
-  await expect(page.getByLabel("도서산간 추가 운임", { exact: true })).toHaveValue("4,000");
+  await page.getByLabel("한 주문 최대", { exact: true }).fill("2");
+  await fillInComposer(page, id1);
   await expect(page.getByText(/판매 시작 전에 채워 주세요/)).toHaveCount(0);
+  // 판매·가격에서 고친 입력은 남는다(composer는 판매 조건 칸을 바꾸지 않음)
+  await expect(page.getByLabel("한 주문 최대", { exact: true })).toHaveValue("2");
   await page.getByLabel("판매할 총 물량", { exact: true }).fill("50");
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByText("저장했어요", { exact: true })).toBeVisible();
-  expect((await first.read(id1)).remoteAreaFee).toBe(4000);
+  expect((await first.read(id1)) as Draft & { name: string }).toMatchObject({ name: "테스트 귤" });
 
-  // 2) 판매·가격에서 먼저 고쳤으면 입력은 그대로 두고, 저장해도 상품 편집의 변경을 덮어쓰지 않는다
+  // 2) 판매·가격에서 먼저 고친 뒤 다른 곳(다른 기기)에서 판매 조건이 바뀌면 입력은 그대로 두고, 저장은 덮어쓰지 않는다
   const second = await sellReadyDraft(request);
   const id2 = second.draft.productId;
   await page.goto(`${producerUrl}/products/${id2}/sell`);
   await page.getByLabel("한 주문 최대", { exact: true }).fill("2");
   await page.getByLabel("판매할 총 물량", { exact: true }).fill("50");
-  await fillInProductEdit(page, id2, "5000");
+  await second.send("patch", `/api/products/${id2}`, { version: (await second.read(id2)).version, remoteAreaFee: 5000 });
+  await fillInComposer(page, id2);
   await expect(page.getByLabel("한 주문 최대", { exact: true })).toHaveValue("2");
-  await expect(page.getByText(/판매 시작 전에 채워 주세요/)).toHaveCount(0);
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByRole("alert").getByText("최신 상품을 다시 불러와 주세요.")).toBeVisible();
   expect((await second.read(id2)).remoteAreaFee).toBe(5000);
@@ -237,30 +240,31 @@ test("AC-04-1 DEV-361: 판매·가격 blocks the first sale request with the mis
   assertClean();
 });
 
-test("AC-04-1 DEV-361: 상품 편집 → 판매·가격 save → back refreshes 상품 편집 so its next save is not a version conflict", async ({ page, request }) => {
+test("AC-04-1 DEV-361: 판매페이지 → 판매·가격 save → back refreshes the composer so its next save is not a version conflict", async ({ page, request }) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires explicitly enabled local source API");
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
   const { draft, read, send } = await sellReadyDraft(request);
   const id = draft.productId;
-  await send("patch", `/api/products/${id}`, { version: draft.version, name: "왕복 테스트 귤", variety: "조생" });
-  // 아래에 쌓인 화면과 칸 이름이 같아 보이는 것만 고른다
-  const shown = <T extends ReturnType<Page["getByLabel"]>>(l: T) => l.filter({ visible: true });
-  await page.goto(`${producerUrl}/products/${id}/edit`);
+  // '다음: 판매·가격'은 대표사진이 있어야 넘어간다
+  await send("patch", `/api/products/${id}`, { version: draft.version, name: "왕복 테스트 귤", variety: "조생", photos: ["/photos/tangerine-box.jpg"] });
+  await page.goto(`${producerUrl}/products/${id}/detail`);
+  await expect(page).toHaveURL(/composer=1/);
   await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/products/${id}/sell$`));
+  await expect(page).toHaveURL(new RegExp(`/products/${id}/sell\\?from=composer$`));
+  // 아래에 쌓인 composer와 칸 이름이 겹치지 않게 보이는 것만 고른다
+  const shown = <T extends ReturnType<Page["getByLabel"]>>(l: T) => l.filter({ visible: true });
   await shown(page.getByLabel("도서산간 추가 운임", { exact: true })).fill("6000");
   await shown(page.getByLabel("판매할 총 물량", { exact: true })).fill("50");
   await shown(page.getByRole("button", { name: "저장", exact: true })).click();
   await expect(page.getByText("저장했어요", { exact: true })).toBeVisible();
-  // 다음 '저장했어요'가 상품 편집 저장의 것이도록 이 토스트가 사라질 때까지 기다린다
   await expect(page.getByText("저장했어요", { exact: true })).toHaveCount(0);
   await shown(page.getByRole("button", { name: "뒤로", exact: true })).click();
-  await expect(page).toHaveURL(new RegExp(`/products/${id}/edit$`));
-  // 판매·가격에서 저장한 값으로 다시 채워져 있다
-  await expect(shown(page.getByLabel("도서산간 추가 운임", { exact: true }))).toHaveValue("6,000");
-  await shown(page.getByLabel("상품명", { exact: true })).fill("다시 고친 귤");
-  await shown(page.getByRole("button", { name: "저장", exact: true })).click();
-  await expect(page.getByText("저장했어요", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/composer=1/);
+  const basic = page.getByTestId("product-basic-info");
+  await basic.getByLabel("상품명", { exact: true }).fill("다시 고친 귤");
+  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+  await expect(page.getByText(/저장했어요/).first()).toBeVisible();
   await expect(page.getByText("최신 상품을 다시 불러와 주세요.")).toHaveCount(0);
   await expect
     .poll(async () => {
@@ -271,20 +275,24 @@ test("AC-04-1 DEV-361: 상품 편집 → 판매·가격 save → back refreshes 
   assertClean();
 });
 
-test("AC-04-1 DEV-361: 상품 편집 keeps unsaved input after visiting another screen and coming back", async ({ page, request }) => {
+test("AC-04-1 DEV-361: the composer keeps unsaved input after visiting another screen and coming back", async ({ page, request }) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires explicitly enabled local source API");
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
   const { draft, send } = await sellReadyDraft(request);
   const id = draft.productId;
   await send("patch", `/api/products/${id}`, { version: draft.version, name: "원래 이름 귤", variety: "조생" });
   const shown = <T extends ReturnType<Page["getByLabel"]>>(l: T) => l.filter({ visible: true });
+  // 예전 상품 편집 주소는 composer로 간다(PR C)
   await page.goto(`${producerUrl}/products/${id}/edit`);
+  await expect(page).toHaveURL(/composer=1/);
   await expect(shown(page.getByLabel("상품명", { exact: true }))).toHaveValue("원래 이름 귤");
   await shown(page.getByLabel("상품명", { exact: true })).fill("고치는 중인 이름");
+  await page.getByText("상품정보", { exact: true }).click();
   await page.getByRole("link", { name: "원산지 표시 방법 보기" }).click();
   await expect(page).toHaveURL(/\/origin-notice/);
   await shown(page.getByRole("button", { name: "뒤로", exact: true })).click();
-  await expect(page).toHaveURL(new RegExp(`/products/${id}/edit$`));
+  await expect(page).toHaveURL(/composer=1/);
   // 돌아와 상품을 다시 읽어도 고치던 입력은 남는다
   await page.waitForLoadState("networkidle");
   await expect(shown(page.getByLabel("상품명", { exact: true }))).toHaveValue("고치는 중인 이름");

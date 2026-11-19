@@ -6,7 +6,7 @@ only), PERIOD_LOCKED. Pending-approval changes need no re-approval; admins see a
 
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.catalog.models import CapacityRequest, Product, ProductChangeEvent
 from app.core.db import get_sessionmaker
@@ -807,3 +807,95 @@ def test_AC_SRC_9_DEV_361_uploaded_cover_is_copied_once_and_never_replaces_a_lat
     kept = apply_all(client, login, "p-house", row["version"], page=page_draft(client, login, row))
     assert kept.status_code == 200, kept.text
     assert mine(client, login)["photos"] == flipped
+
+
+# DEV-361 PM 11/18: at most 10 photos, cover included (1 + 9), checked by the server too.
+TEN = [f"/photos/cap-{i}.jpg" for i in range(10)]
+
+
+def set_photos(pid, photos):
+    with get_sessionmaker()() as db:
+        db.get(Product, pid).photos = list(photos)
+        db.commit()
+
+
+def test_DEV_361_product_patch_and_draft_take_at_most_ten_photos(client, login):
+    from app.catalog.schemas import PHOTO_LIMIT_MESSAGE
+
+    version = mine(client, login)["version"]
+    eleven = client.patch(
+        "/api/products/p-house",
+        headers=h(login),
+        json={"version": version, "photos": [*TEN, "/photos/cap-10.jpg"]},
+    )
+    assert eleven.status_code == 400, eleven.text
+    assert eleven.json()["details"]["fields"]["photos"] == PHOTO_LIMIT_MESSAGE
+    assert mine(client, login)["photos"] != TEN
+    ten = client.patch(
+        "/api/products/p-house", headers=h(login), json={"version": version, "photos": TEN}
+    )
+    assert ten.status_code == 200, ten.text
+    assert mine(client, login)["photos"] == TEN
+
+    row = workspace(client, login)
+    drafted = put_draft(client, login, "p-house", row["version"], {"photos": [*TEN, TEN[0]]})
+    assert drafted.status_code == 400, drafted.text
+    assert drafted.json()["details"]["fields"]["fields.photos"] == PHOTO_LIMIT_MESSAGE
+    assert (
+        put_draft(client, login, "p-house", row["version"], {"photos": TEN[:9]}).status_code == 200
+    )
+
+
+def test_DEV_361_a_new_cover_never_pushes_the_product_past_ten_photos(client, login):
+    from app.source_analysis.models import PublicPhoto
+    from app.source_analysis.publish import photo_cap_message
+
+    set_modules()
+    set_photos("p-house", TEN)
+    row = workspace(client, login)
+    uploaded_cover(client, login, row)
+
+    def stored():
+        """Public photo rows and stored files (a copied cover writes a file before the row)."""
+        from app.source_analysis.storage import Storage
+
+        with get_sessionmaker()() as db:
+            rows = db.scalar(select(func.count()).select_from(PublicPhoto))
+        return rows, sum(1 for f in Storage().root.rglob("*") if f.is_file())
+
+    copies = stored()
+    full = apply_all(client, login, "p-house", row["version"], page=page_draft(client, login, row))
+    assert full.status_code == 400, full.text
+    assert full.json()["details"]["fields"]["photos"] == photo_cap_message(1)
+    assert mine(client, login)["photos"] == TEN  # nothing applied, no photo dropped
+    assert stored() == copies  # rejected before the cover was copied (no orphan file)
+    assert photo_cap_message(3).endswith("3장을 빼 주세요.")
+
+    # With nine photos the new cover goes first and the product ends with ten.
+    view = put_draft(client, login, "p-house", row["version"], {"photos": TEN[:9]}).json()
+    applied = apply_all(
+        client, login, "p-house", view["version"], page=page_draft(client, login, row)
+    )
+    assert applied.status_code == 200, applied.text
+    photos = mine(client, login)["photos"]
+    assert (
+        len(photos) == 10 and photos[1:] == TEN[:9] and photos[0].startswith("/api/source-media/")
+    )
+
+
+def test_AC_SRC_9_DEV_361_pre_sale_reapply_keeps_one_uploaded_cover(client, login):
+    """5th scan: before sale too, an uploaded cover the last applied page already copied is not
+    copied and prepended again ('다음' twice must not duplicate it or grow the photo count)."""
+    set_modules(pid="p-hallabong")
+    row = workspace(client, login, "p-hallabong")
+    before = mine(client, login, "p-hallabong")["photos"]
+    uploaded_cover(client, login, row)
+    first = apply_latest(client, login, row, "p-hallabong")
+    assert first.status_code == 200, first.text
+    photos = mine(client, login, "p-hallabong")["photos"]
+    assert photos[1:] == before and photos[0].startswith("/api/source-media/")
+    row = workspace(client, login, "p-hallabong")
+    save_page(row, ["hero", "taste"])
+    again = apply_latest(client, login, row, "p-hallabong")
+    assert again.status_code == 200, again.text
+    assert mine(client, login, "p-hallabong")["photos"] == photos

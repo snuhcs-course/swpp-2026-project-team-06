@@ -21,11 +21,11 @@ from app.catalog.schemas import (
     DateRange,
     ProductInfo,
     ProductPatch,
+    ProductPhotos,
     ShippingFeeType,
     StageInput,
 )
 from app.core.clock import now
-from app.core.detail import MediaUri
 from app.core.errors import conflict, invalid, not_found
 from app.source_analysis import service as s
 from app.source_analysis import workspace as w
@@ -103,7 +103,7 @@ class ProductDraftFields(Input):
     shipping_fee_type: ShippingFeeType | None = None
     shipping_fee: int | None = Field(default=None, ge=0)
     remote_area_fee: int | None = Field(default=None, ge=0)
-    photos: list[MediaUri] | None = None
+    photos: ProductPhotos | None = None
     info: DraftInfo | None = None
 
     @model_validator(mode="after")

@@ -129,7 +129,7 @@ test("DEV-226 SCR-23: every untitled draft card shows when it was last saved", a
   const clean = monitor(page);
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products?filter=draft`);
-  const untitled = page.getByRole("button", { name: "이름 없는 초안 편집", exact: true });
+  const untitled = page.getByRole("button", { name: "이름 없는 초안 상품 수정", exact: true });
   await expect(untitled.first()).toBeVisible();
   expect(await untitled.count()).toBeGreaterThanOrEqual(2);
   for (let i = 0; i < 2; i += 1) {

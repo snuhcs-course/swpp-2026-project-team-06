@@ -77,7 +77,7 @@ function Editor({ productId }: { productId?: string }) {
       if (router.canGoBack()) router.back();
       else if (productId)
         router.replace({
-          pathname: "/products/[id]/edit",
+          pathname: "/products/[id]/detail",
           params: { id: productId },
         });
       else router.replace("/farm");
@@ -274,8 +274,12 @@ function Editor({ productId }: { productId?: string }) {
               작업에서 내용을 수정한 뒤 다시 적용해 주세요.
             </T>
             <Button
-              label="자료 작업에서 상세 편집"
-              onPress={() => router.push("/products/source-analysis")}
+              label="판매페이지 화면에서 상세 편집"
+              onPress={() =>
+                productId
+                  ? router.replace({ pathname: "/products/[id]/detail", params: { id: productId } })
+                  : router.replace("/farm")
+              }
             />
           </View>
         </Scroll>

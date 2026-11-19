@@ -464,6 +464,11 @@ export type MyProductCard = SalesState & {
   updatedAt: ISODate;
   /** 상품 옵션 순서(DEV-300) */
   options: MyProductCardOption[];
+  /**
+   * DEV-361 PR C: 구매자에게 보이는 상품(판매 중·승인 대기)에 '상품에 반영'하지 않은 비공개 수정이 있다
+   * (상품 초안·반영한 것과 다른 판매페이지 초안). 예전 서버는 이 칸이 없을 수 있다
+   */
+  hasUnappliedChanges?: boolean;
 };
 
 export type MyProduct = Omit<
