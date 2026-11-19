@@ -7,6 +7,7 @@ import type {
   HarvestProduct,
   HarvestTarget,
   OrderInput,
+  ProducerOrder,
 } from "../types";
 
 const CARRIERS: Carrier[] = ["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"];
@@ -564,7 +565,7 @@ register({
     const raw = ctx.body.trackingNumber;
     if (raw != null && (typeof raw !== "string" || raw.length > 50))
       invalid({ trackingNumber: "송장 번호는 50자까지예요" });
-    return idempotent(ctx, `tracking:${ctx.params.orderId}`, () => {
+    const result = idempotent(ctx, `tracking:${ctx.params.orderId}`, () => {
       const o = farmOrder(ctx);
       const version = o.trackingVersion ?? 1;
       if (o.status !== "SHIPPED") conflict("INVALID_TRANSITION", "출하된 주문만 송장을 수정할 수 있어요.");
@@ -576,7 +577,17 @@ register({
         o.trackingVersion = version + 1;
       }
       return producerOrder(ctx.db, o);
-    });
+    }) as ProducerOrder;
+    const current = producerOrder(ctx.db, farmOrder(ctx));
+    return {
+      ...result,
+      recipientName: current.recipientName,
+      recipientPhone: current.recipientPhone,
+      postalCode: current.postalCode,
+      address: current.address,
+      addressDetail: current.addressDetail,
+      deliveryNote: current.deliveryNote,
+    };
   },
 
   "GET /api/orders/:orderId": (ctx) => {
