@@ -2506,21 +2506,38 @@ The product evidence below covers the changes merged through [the 19 November pr
 | Issue and original evidence | I4 change | Verification or open work |
 | --- | --- | --- |
 | Orders awaiting payment were hard to recognize (I3 B-H6, severity 3). | Earlier order identification was extended with a short bank-transfer reference and order-specific contact entry. | Classroom UAT still exposed the difficulty of matching a transfer under another name. Retest both matching and nonmatching references. Broader order prioritization and sorting remain separate. [#648](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/648) |
-| News and private chat looked or behaved too similarly (I3 B-H4, shared severity 3). | Private-room and news UI were revised and empty producer-opened chats are hidden from buyers until a message is sent. | Targeted chat coverage is recorded in the linked PR; peer re-evaluation of broader room semantics and moderation remains open. [#552](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/552) · [#664](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/664) |
+| News and private chat looked or behaved too similarly (I3 B-H4, shared severity 3). | Private-room and news UI were revised and empty producer-opened chats are hidden from buyers until a message is sent. | Targeted chat coverage is recorded in the linked PR; broader room semantics and moderation still need decisions on room visibility and moderation rules before reevaluation. [#552](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/552) · [#664](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/664) |
 | Producer editing and repeated sales lacked clear transitions (I3 C-H1, D-H5 and D-H6, severity 1 each). | The unified editor separates private save and public apply, supports reopening a draft and groups sales terms. | Browser regression evidence covers save, resume and apply. Broader wording and shipment context remain follow-up work. [#673](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/673) |
 | Generic navigation, feedback and recovery reports lacked specific routes (I3 E-H3, E-H5 and E-H9, severity 2 each). | Targeted order and chat recovery improvements addressed reproducible paths. | Retain the generic reports without claiming closure because their original scenarios were unspecified. [I3 peer record](#iteration-3--peer-heuristic-evaluation-and-closeout-6-november) · [#649](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/649) |
 | The 15 November farmer pilot identified unclear save feedback, slow screens, difficulty finding the consumer view and disappearing sold-out products. | Save/apply toasts, display-sized media and reduced hidden polling, a producer link to the consumer page, and persistent sold-out cards were added. | The linked PRs record implementation and regression checks. A repeat farmer acceptance session was not part of this evidence. [Pilot notes](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/wiki/meetings/2026-11-15-progress-for-ta-meeting-and-uat.md) · [#607](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/607) · [#609](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/609) · [#684](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/684) · [#608](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/608) |
 
 ### Classroom UAT and follow-up
 
-On 16 November two participants attempted six consumer and six producer scenarios each. The Team 6 submission UAT workbook records acceptance against observable criteria in its first and second participant tabs. Consumer scenarios covered finding and reserving a product, handling changes during checkout and checking the order. Producer scenarios covered identifying payments, acting on exceptions and preparing orders for shipping. The classroom result was **22 of 24 accepted (91.7%)**, with **11 of 12** for each role and mean satisfaction **4.5/5** across the two participants.
+On 16 November two participants attempted the same six consumer and six producer scenarios with separate synthetic orders. The Team 6 UAT workbook records the user stories, given conditions, actions, expected results and participant comments in its first and second participant tabs. The classroom result was **22 of 24 accepted (91.7%)**, with **11 of 12** for each role and mean satisfaction **4.5/5** across the two participants.
+
+| UAT scenario | Acceptance criterion used in class | Accepted |
+| --- | --- | ---: |
+| 1.1 Per-order quantity cap | Increasing beyond three boxes keeps the quantity and total at three boxes. | 2/2 |
+| 1.2 Missing consent | The missing required consent is indicated and the app blocks order creation. | 2/2 |
+| 1.3 Price changes during checkout | Show old and new prices and the new total for reconfirmation while preserving checkout inputs. Create the order only after confirmation. | 1/2 |
+| 1.4 Valid reservation | Show the expected transfer amount, farm account, depositor reference and 24-hour deadline. Record the order as Awaiting deposit. | 2/2 |
+| 1.5 Recipient and delivery memo | Create one awaiting-deposit order and preserve the user-entered recipient and memo in the details, including emoji. | 2/2 |
+| 1.6 Stock drops during checkout | Explain the shortage, offer Change quantity, preserve inputs and block order creation. | 2/2 |
+| 2.1 Matching deposit | Confirm the deposit once, move the order to Reserved and show that status to the consumer. | 2/2 |
+| 2.2 Deposit amount mismatch | Keep the order Awaiting deposit, show the rejection reason to the consumer and allow them to report again. | 2/2 |
+| 2.3 Transfer under a different name | Keep the order Awaiting deposit and show the producer's custom reason in the consumer's order details. | 1/2 |
+| 2.4 Missing carrier | Ask for a carrier and block saving the tracking details or selecting the order for shipping. | 2/2 |
+| 2.5 Ship an order with tracking | Set the order to Shipped, show the selected carrier and pasted tracking number as entered, and remove pre-shipment cancellation. | 2/2 |
+| 2.6 Correct tracking after shipping | Confirm the correction, show the new number to the consumer and retain Shipped status. | 2/2 |
+
+The classroom worksheet used the order number as the deposit reference. The short reference described in the I4 product documents was added after the classroom run. The table preserves the original acceptance decisions.
 
 | Criterion | Recorded outcome | Follow-up |
 | --- | --- | --- |
 | 1.3 — Updated price before purchase | One participant did not see the new price until refreshing and did not observe the expected checkout response. The other accepted. | Returning to Home and product details now refreshes prices. Repeat a price change during live checkout and check the stale-price rejection. [#649](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/649) |
 | 2.3 — Deposit under a different name | One participant matched the transfer by process of elimination. The other accepted. | The short code and order-based message support follow-up. Repeat with a matching reference and an unexpected depositor name. [#648](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/648) |
 
-The schedule cancels only the separate recruitment-based consumer and producer sessions. Classroom outcomes and the farmer pilot stay in the record. The aggregate above excludes the TA exercise, whose published assessment is pending, and covers simulated transfers and shipments.
+The schedule cancels only the separate recruitment-based consumer and producer sessions. Classroom outcomes and the farmer pilot stay in the record. The aggregate above excludes the TA exercise, for which the workbook snapshot contains no completed TA verdict, and covers simulated transfers and shipments.
 
 ### AI evaluation
 
