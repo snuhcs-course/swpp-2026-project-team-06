@@ -4,12 +4,14 @@ SNU Software Development Principles and Practice · Team 6
 
 Farmclub connects consumers and small Jeju citrus farms through advance reservations, farm updates and direct communication. This branch pins the application source at [`77b2be33`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/77b2be3326ebed5fd728c93669c202eec4a1cd1b).
 
-## Demo videos
+## One farm, two perspectives
 
-- [Consumer walkthrough · 0:31](docs/demo-i4/consumer.mp4). Continue the same reservation after signing in, copy the short depositor reference, report a simulated transfer and follow a policy answer and farm handoff in chat.
-- [Producer walkthrough · 0:30](docs/demo-i4/producer.mp4). Match and confirm the same simulated deposit, fill a draft from source text, add a content field and reopen a saved edit.
+In Farmclub, growers build a following by sharing the season as it happens. In this story, Minji discovers Kang’s citrus farm through its orchard updates. The grower shares the season with followers and replies to Minji personally. When Minji sends a box to her parents, she already knows the farm behind it.
 
-Both recordings use the application source pinned on this branch. They use local synthetic accounts, simulated transfers and a fixture-backed source-analysis provider. The branch also includes operator-created ID accounts, the first-login password-change flow and the producer's consumer-page preview link.
+- [Consumer story · 0:47](docs/demo-i4/consumer.mp4) follows Minji from discovery and the first harvest update through a private reply and reservation.
+- [Producer story · 1:01](docs/demo-i4/producer.mp4) follows the grower as they send that update, find Minji’s reply, answer her and confirm the simulated deposit. It ends with the grower preparing the next listing.
+
+Both clips use the application source pinned on this branch and include Korean narration and English scene captions. The transaction uses a simulated bank transfer and the editor uses a fixture-backed source-analysis provider.
 
 ## Run locally
 
@@ -61,12 +63,29 @@ cd apps/producer
 EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=http://localhost:8000 EXPO_PUBLIC_CONSUMER_URL=http://localhost:8081 EXPO_PUBLIC_PRODUCER_URL=http://localhost:8082 npx expo start --web --host localhost --port 8082
 ```
 
-Open the [consumer app](http://localhost:8081/login) and select **이서준**. Open the [producer app](http://localhost:8082/login) and select **강영수**. Development seed login is local to this demonstration. Operator-created password accounts are covered separately by the [ID login browser tests](scripts/e2e/password-login.spec.ts).
+## Walk through the story
 
-1. On the consumer app, choose a product from 강씨네 귤밭, reserve one box, compare the price and short depositor name, then report a simulated deposit.
-2. On the producer app, open the deposit queue and confirm the matching order. The consumer can check its updated status. Use the producer's reservation and shipping views to demonstrate harvest and tracking.
-3. Ask the farm a routine delivery question in consumer chat, then ask whether it can reduce the delivery fee. Inspect the handoff in the producer inbox.
-4. In the producer app, open **상품 → 새 상품 → 사진·자료 → 텍스트 추가**. Paste exactly the sample below and enter **궁천조생** as the fruit variety. Click **AI로 채우기** and review the private draft. Add a content chip to see the matching field scroll into view. Public application requires its normal validation and approval flow.
+Open the [consumer app](http://localhost:8081/login) as **김민지** and the [producer app](http://localhost:8082/login) as **강영수**. Both are local seed accounts. The seed may already have Minji following the farm. To replay the first follow, toggle **팔로잉** off and select **팔로우** again.
+
+### 1. Minji finds a farm to follow
+
+In the consumer app, open **홈 → 농가 소식 → 강씨네 귤밭** and select **팔로우**. The news room gives Minji a place to come back for this farm’s harvest updates.
+
+### 2. The grower shares the first harvest
+
+In the producer app, open **채팅 → 내 소식방**. In **모두에게 보낼 소식**, write “오늘은 하우스 감귤을 처음 따 봤어요. 올해 첫 수확 모습을 팬분들께 먼저 전해요 🍊” and select **전송 → 확인 · 보내기**. The confirmation shows who will receive the update.
+
+### 3. The two sides talk
+
+As Minji, reopen the farm’s news room and read the new post. In **농가에 답장**, write “첫 수확 소식 기다렸어요! 부모님께도 이 감귤을 보내고 싶어요.” The reply goes to the farm. As the producer, reopen **내 소식방**, select the reply count below the post and find Minji’s message. Tap **1:1 채팅** and send a personal reply. Return to the consumer’s chat to read it.
+
+### 4. Minji reserves a box
+
+As Minji, open **판매 품목** in the farm’s news room, pick **하우스 감귤**, and reserve one box. Use the short depositor reference shown in the instructions and report a simulated transfer. As the producer, open **주문 현황 → 입금 대기**, compare the reference and amount, and approve the matching order. Minji can then check the Reserved status. The producer’s reservation and shipping views also support harvest and tracking.
+
+### 5. The grower prepares the next listing
+
+In the producer app, open **상품 → 새 상품 → AI 초안**. Add a text source under **사진·자료 → 텍스트 추가**, fill **궁천조생** as the variety, and choose **AI로 채우기**. Review the populated draft, then add a chip such as **상품 구성** and follow the highlight to its field. To show how a grower comes back later, edit a selling product, select **임시 저장하고 나가기**, and reopen it to see the saved changes.
 
 ```text
 테스트 감귤
@@ -75,6 +94,8 @@ Open the [consumer app](http://localhost:8081/login) and select **이서준**. O
 ```
 
 ## Verification
+
+A fresh clone launched through the steps above passed four walkthrough checks covering reservation, deposit confirmation, the standalone draft worker, chat and shipment. The fan story also passed across both app roles on the local stack.
 
 The four specifications below passed all 16 cases on the local stack. Run them from the repository root after setup, with ports 8000, 8081 and 8082 free and the disposable database URL exported. The runner reseeds that database and starts its own API and apps.
 
