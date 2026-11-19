@@ -53,7 +53,10 @@ def _prune(session, at: datetime) -> None:
             AuthThrottle.updated_at < at - PRUNE_AFTER,
             or_(AuthThrottle.locked_until.is_(None), AuthThrottle.locked_until < at),
         )
+        .order_by(AuthThrottle.key)
         .limit(PRUNE_BATCH)
+        # 다른 요청이 잡고 있는 행은 건너뛴다(정리 때문에 로그인이 기다리지 않게)
+        .with_for_update(skip_locked=True)
     )
     session.execute(delete(AuthThrottle).where(AuthThrottle.key.in_(stale)))
 
@@ -67,7 +70,6 @@ def hit(raw: str) -> None:
     key = _key(raw)
     locked_seconds: int | None = None
     with get_sessionmaker()() as session, session.begin():
-        _prune(session, at)
         session.execute(
             pg_insert(AuthThrottle)
             .values(key=key, count=0, window_started_at=at, locked_until=None, updated_at=at)
@@ -86,6 +88,10 @@ def hit(raw: str) -> None:
             if row.count >= LIMIT:
                 row.locked_until = at + LOCK
                 row.count = 0
+        # 대상 카운터를 먼저 잠근 뒤 정리한다. 반대 순서는 서로의 대상 행을 정리한
+        # 두 요청이 상대 커밋을 기다리며 deadlock을 일으킬 수 있다.
+        session.flush()
+        _prune(session, at)
     if locked_seconds is not None:
         minutes = max(1, ceil(locked_seconds / 60))
         raise too_many_requests(MESSAGE.format(minutes=minutes), locked_seconds)

@@ -1,7 +1,7 @@
 """아이디·비밀번호 규칙과 argon2id 해시(DEV-363). 평문은 이 모듈 밖으로 저장·기록하지 않는다.
 
 - 해시: argon2id, OWASP 권장 최소값(m=19MiB, t=2, p=1). 동시 해시는 4개까지(세마포어)라
-  로그인이 몰려도 메모리가 약 80MiB를 넘지 않는다(기본값 64MiB × 스레드 40이면 서버가 죽을 수 있다).
+  로그인이 몰려도 해시 메모리가 약 80MiB를 넘지 않는다.
   검증은 argon2 안의
   상수 시간 비교. 없는 아이디도 `dummy_verify`로 같은 비용을 써서 응답 시간으로 존재를 알 수 없다.
 - 정책: 8~128자, 공백만 안 됨, 아이디와 같으면 안 됨, 흔한 비밀번호 안 됨
@@ -113,7 +113,7 @@ COMMON_PASSWORDS = frozenset(
 )
 
 
-# OWASP Password Storage Cheat Sheet의 argon2id 최소 권장값. 바꾸면 `check_needs_rehash`가
+# OWASP Password Storage Cheat Sheet의 argon2id 최소 권장값. 나중에 바꾸면 `check_needs_rehash`가
 # 로그인 때 옛 해시를 새 값으로 다시 해시한다(실제 검증과 더미 검증이 같은 값을 쓴다)
 ARGON2_MEMORY_COST = 19456  # KiB = 19 MiB
 ARGON2_TIME_COST = 2
@@ -200,6 +200,11 @@ def needs_rehash(password_hash: str) -> bool:
 def _dummy_hash() -> str:
     # 프로세스마다 한 번. 값은 의미 없고 비용(같은 매개변수)만 같게 한다
     return hash_password(secrets.token_urlsafe(16))
+
+
+def warm_up() -> None:
+    """앱이 뜰 때 더미 해시를 미리 만든다(첫 ‘없는 아이디’ 로그인만 느려지지 않게)."""
+    _dummy_hash()
 
 
 def dummy_verify(password: str) -> None:

@@ -210,7 +210,7 @@ def test_AC_01_22_replayed_create_returns_no_password_and_stores_none(client, ad
 
 
 def test_AC_01_22_audit_keeps_no_username_or_phone_even_after_withdrawal(client, admin_headers):
-    """감사·멱등 기록에는 앱 종류와 만든 사용자 ID만 남는다(아이디·닉네임·휴대폰 없음)."""
+    """감사·멱등 기록에는 앱·요청 HMAC·사용자 ID만 남는다(개인정보 원문 없음)."""
     created, headers = _ready(client, admin_headers)
     assert client.post("/api/auth/me/withdraw", headers=headers).status_code == 204
 
@@ -219,7 +219,9 @@ def test_AC_01_22_audit_keeps_no_username_or_phone_even_after_withdrawal(client,
             select(ManagerEvent).where(ManagerEvent.event_type == "id_account.create")
         )
         assert event.target_id == created["userId"]
-        assert event.original_body == {"app": "consumer"}
+        assert (
+            event.original_body["app"] == "consumer" and len(event.original_body["request"]) == 32
+        )
         dumps = [
             json.dumps(
                 [e.target_id, e.original_body, e.request_summary, e.result], ensure_ascii=False
@@ -232,6 +234,42 @@ def test_AC_01_22_audit_keeps_no_username_or_phone_even_after_withdrawal(client,
     for line in dumps:
         for secret in ("mandarin7", "010-3456-7890", "01034567890", "7890", "귤친구"):
             assert secret not in line, (secret, line)
+
+
+def test_AC_01_22_same_key_with_different_request_is_a_mismatch(client, admin_headers):
+    """같은 멱등 키에 다른 아이디·닉네임·휴대폰이 오면 첫 결과를 돌려주지 않고 409."""
+    assert _create(client, admin_headers, "mandarin7", key="k-1").status_code == 200
+    other = _create(client, admin_headers, "tangerine9", key="k-1")
+    assert other.status_code == 409
+    assert other.json()["details"]["reason"] == "IDEMPOTENCY_MISMATCH"
+    phone = _create(client, admin_headers, "mandarin7", key="k-1", phone="010-9999-0000")
+    assert phone.status_code == 409
+    assert phone.json()["details"]["reason"] == "IDEMPOTENCY_MISMATCH"
+    nickname = _create(client, admin_headers, "mandarin7", key="k-1", nickname="새귤친구")
+    assert nickname.status_code == 409
+    assert nickname.json()["details"]["reason"] == "IDEMPOTENCY_MISMATCH"
+    with get_sessionmaker()() as session:
+        event = session.scalar(
+            select(ManagerEvent).where(ManagerEvent.event_type == "id_account.create")
+        )
+    assert set(event.original_body) == {"app", "request"}
+    assert "mandarin7" not in json.dumps(event.original_body)
+
+
+def test_AC_01_22_normalized_equivalent_request_replays_without_password(client, admin_headers):
+    first = _create(client, admin_headers, "  Mandarin7 ", key="normalized-create")
+    assert first.status_code == 200, first.text
+    replay = _create(
+        client,
+        admin_headers,
+        "mandarin7",
+        key="normalized-create",
+        nickname=" 귤친구 ",
+        phone=" 010-3456-7890 ",
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["userId"] == first.json()["userId"]
+    assert replay.json()["temporaryPassword"] is None
 
 
 def test_AC_01_22_admin_lists_id_accounts(client, admin_headers):
@@ -390,9 +428,175 @@ def test_AC_01_26_unknown_username_still_runs_a_hash_verify(client, monkeypatch)
     assert len(calls) == 2
 
 
+def test_AC_01_26_rehash_does_not_restore_a_password_changed_meanwhile(
+    client, admin_headers, monkeypatch
+):
+    """로그인 검증 뒤 재해시하는 사이에 비밀번호가 바뀌면 덮어쓰지 않고, 그 로그인도 받지 않는다."""
+    from argon2 import PasswordHasher
+
+    created, _ = _ready(client, admin_headers)
+    weak = PasswordHasher(time_cost=1, memory_cost=8192, parallelism=1).hash(PASSWORD)
+    with get_sessionmaker()() as session, session.begin():
+        session.get(User, created["userId"]).password_hash = weak
+
+    real_hash = passwords.hash_password
+
+    def change_meanwhile(value):
+        # 재해시를 만드는 순간 다른 요청이 비밀번호를 바꿨다고 친다
+        with get_sessionmaker()() as session, session.begin():
+            session.get(User, created["userId"]).password_hash = real_hash(NEW_PASSWORD)
+        return real_hash(value)
+
+    monkeypatch.setattr(passwords, "hash_password", change_meanwhile)
+    assert _login(client).status_code == 401
+    monkeypatch.setattr(passwords, "hash_password", real_hash)
+    stored = _row(created["userId"]).password_hash
+    assert passwords.verify_password(stored, NEW_PASSWORD)  # 바뀐 비밀번호가 남는다
+    assert not passwords.verify_password(stored, PASSWORD)
+
+
+def test_AC_01_26_temporary_password_issued_during_rehash_survives(
+    client, admin_headers, monkeypatch
+):
+    from argon2 import PasswordHasher
+
+    created, old_headers = _ready(client, admin_headers)
+    weak = PasswordHasher(time_cost=1, memory_cost=8192, parallelism=1).hash(PASSWORD)
+    with get_sessionmaker()() as session, session.begin():
+        session.get(User, created["userId"]).password_hash = weak
+
+    real_hash = passwords.hash_password
+    issued = {}
+
+    def issue_during_rehash(value):
+        replacement_hash = real_hash(value)
+        if not issued:
+            issued["started"] = True
+            response = client.post(
+                f"/admin/users/{created['userId']}/temporary-password", headers=admin_headers
+            )
+            assert response.status_code == 200, response.text
+            issued["password"] = response.json()["temporaryPassword"]
+        return replacement_hash
+
+    monkeypatch.setattr(passwords, "hash_password", issue_during_rehash)
+    stale_login = _login(client)
+    monkeypatch.setattr(passwords, "hash_password", real_hash)
+
+    assert stale_login.status_code == 401, stale_login.text
+    assert "accessToken" not in stale_login.json()
+    assert client.get("/api/auth/me", headers=old_headers).status_code == 401
+    stored = _row(created["userId"]).password_hash
+    assert passwords.verify_password(stored, issued["password"])
+    assert not passwords.verify_password(stored, PASSWORD)
+    replacement_login = _login(client, password=issued["password"])
+    assert replacement_login.status_code == 200, replacement_login.text
+    assert replacement_login.json()["user"]["mustChangePassword"] is True
+
+
+def test_AC_01_26_login_releases_the_db_connection_before_hashing(
+    client, admin_headers, monkeypatch
+):
+    """argon2를 도는 동안 요청 세션이 DB 트랜잭션(연결)을 쥐고 있지 않다."""
+    from argon2 import PasswordHasher
+    from sqlalchemy import delete
+
+    from app.core import db as core_db
+    from app.main import app as fastapi_app
+
+    created, _ = _ready(client, admin_headers)
+    weak = PasswordHasher(time_cost=1, memory_cost=8192, parallelism=1).hash(PASSWORD)
+    with get_sessionmaker()() as session, session.begin():
+        session.get(User, created["userId"]).password_hash = weak
+    passwords.dummy_verify(PASSWORD)
+    seen = []
+    real_verify = passwords.verify_password
+    real_dummy = passwords.dummy_verify
+    real_hash = passwords.hash_password
+    sessions = []
+    real_get_db = core_db.get_db
+
+    def tracking_get_db():
+        for session in real_get_db():
+            sessions.append(session)
+            yield session
+
+    def check(fn, operation):
+        def wrapper(*args):
+            assert sessions
+            released = all(not s.in_transaction() for s in sessions)
+            seen.append((operation, released))
+            assert released
+            if operation in {"verify", "dummy"}:
+                # 별도 트랜잭션에서도 검증 전에 커밋된 시도 기록을 읽을 수 있어야 한다
+                with get_sessionmaker()() as observer:
+                    attempts = list(observer.scalars(select(AuthThrottle)))
+                assert len(attempts) == 1
+            return fn(*args)
+
+        return wrapper
+
+    def clear_attempts():
+        with get_sessionmaker()() as session, session.begin():
+            session.execute(delete(AuthThrottle))
+
+    fastapi_app.dependency_overrides[core_db.get_db] = tracking_get_db
+    monkeypatch.setattr(passwords, "verify_password", check(real_verify, "verify"))
+    monkeypatch.setattr(passwords, "dummy_verify", check(real_dummy, "dummy"))
+    monkeypatch.setattr(passwords, "hash_password", check(real_hash, "rehash"))
+    try:
+        clear_attempts()
+        assert _login(client).status_code == 200
+        clear_attempts()
+        assert _login(client, username="nobody99").status_code == 401
+    finally:
+        fastapi_app.dependency_overrides.pop(core_db.get_db, None)
+    assert seen == [("verify", True), ("rehash", True), ("dummy", True)]
+
+
 def test_AC_01_26_kakao_account_has_no_password_login(client):
     # 카카오 계정(아이디 없음)과 아이디 계정은 합치지 않는다. 카카오 계정은 아이디 로그인이 없다
     assert _login(client, username="u-minji").status_code == 401
+
+
+def test_AC_01_26_startup_prepares_dummy_hash_before_first_unknown_login():
+    import subprocess
+    import sys
+    import textwrap
+
+    script = textwrap.dedent("""\
+        from argon2 import PasswordHasher
+
+        hash_calls = []
+        real_hash = PasswordHasher.hash
+
+        def tracked_hash(self, *args, **kwargs):
+            hash_calls.append(1)
+            return real_hash(self, *args, **kwargs)
+
+        PasswordHasher.hash = tracked_hash
+
+        from fastapi.testclient import TestClient
+        from app.main import app
+
+        with TestClient(app) as client:
+            prepared = len(hash_calls)
+            assert prepared > 0, "No hash prepared before serving requests"
+            response = client.post(
+                "/api/auth/login",
+                json={
+                    "app": "consumer",
+                    "username": "coldstartmissing99",
+                    "password": "Gamgyul-Sweet-77",
+                },
+            )
+            assert response.status_code == 401, response.text
+            assert len(hash_calls) == prepared, "First unknown login generated another hash"
+    """)
+    result = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_AC_01_26_outdated_hash_parameters_are_rehashed_on_login(client, admin_headers):
@@ -424,21 +628,6 @@ def test_AC_01_26_argon2_parameters_are_owasp_and_bounded(client, admin_headers)
     assert passwords._slots._initial_value == 4
 
 
-def test_AC_01_26_hash_with_old_default_parameters_upgrades_on_login(client, admin_headers):
-    """예전 기본값(m=64MiB·t=3·p=4)으로 만든 해시는 다음 로그인 때 OWASP 값으로 다시 해시한다."""
-    from argon2 import PasswordHasher, extract_parameters
-
-    created, _ = _ready(client, admin_headers)
-    old = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=4).hash(PASSWORD)
-    assert passwords.needs_rehash(old) is True
-    with get_sessionmaker()() as session, session.begin():
-        session.get(User, created["userId"]).password_hash = old
-
-    assert _login(client).status_code == 200
-    params = extract_parameters(_row(created["userId"]).password_hash)
-    assert (params.memory_cost, params.time_cost, params.parallelism) == (19456, 2, 1)
-
-
 def test_AC_01_26_concurrent_hashing_is_bounded(monkeypatch):
     """동시 해시·검증이 4개를 넘지 않는다(로그인이 몰려도 메모리를 묶어 둔다)."""
     import threading
@@ -460,9 +649,6 @@ def test_AC_01_26_concurrent_hashing_is_bounded(monkeypatch):
         return real(h, p)
 
     class Wrapped:
-        def __getattr__(self, name):
-            return getattr(passwords.PasswordHasher, name)
-
         verify = staticmethod(slow_verify)
 
     hashed = passwords.hash_password(PASSWORD)
@@ -479,6 +665,66 @@ def test_AC_01_26_concurrent_hashing_is_bounded(monkeypatch):
 
 
 # ---------------- AC-01-27 아이디별 로그인 잠금(429 Retry-After, IP별 제한 없음) ----------------
+
+
+def test_AC_01_27_concurrent_attempts_prune_stale_batches_without_deadlock(client, monkeypatch):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    raws = sorted([f"CONSUMER:prunerace{i}" for i in range(4)], key=throttle._key)
+    target_b, target_a, *_ = raws
+    for raw in raws:
+        throttle.hit(raw)
+    stale = throttle._now() - timedelta(days=2)
+    keys = [throttle._key(raw) for raw in raws]
+    with get_sessionmaker()() as session, session.begin():
+        for row in session.scalars(select(AuthThrottle).where(AuthThrottle.key.in_(keys))):
+            row.updated_at = stale
+            row.window_started_at = stale
+
+    before_prune = threading.Barrier(2)
+    after_prune = threading.Barrier(2)
+    first_pruned = threading.Event()
+    worker_state = threading.local()
+    real_prune = throttle._prune
+
+    def overlapping_prune(session, at):
+        session.execute(text("SET LOCAL lock_timeout = '2s'"))
+        before_prune.wait(timeout=5)
+        if worker_state.raw == target_b:
+            assert first_pruned.wait(timeout=5)
+        real_prune(session, at)
+        if worker_state.raw == target_a:
+            first_pruned.set()
+        after_prune.wait(timeout=5)
+
+    def attempt(raw):
+        worker_state.raw = raw
+        throttle.hit(raw)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(throttle, "PRUNE_BATCH", 1)
+        patch.setattr(throttle, "_prune", overlapping_prune)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(attempt, target_a), executor.submit(attempt, target_b)]
+            for future in futures:
+                future.result(timeout=15)
+
+    with get_sessionmaker()() as session:
+        targets = list(
+            session.scalars(
+                select(AuthThrottle).where(
+                    AuthThrottle.key.in_([throttle._key(target_a), throttle._key(target_b)])
+                )
+            )
+        )
+        assert len(targets) == 2
+        assert all(row.updated_at > stale for row in targets)
+    for raw in (target_a, target_b):
+        username = raw.partition(":")[2]
+        for _ in range(9):
+            assert _login(client, username=username).status_code == 401
+        assert _login(client, username=username).status_code == 429
 
 
 def test_AC_01_27_ten_failures_lock_the_username_for_15_minutes(client, admin_headers, monkeypatch):

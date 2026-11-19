@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -605,24 +605,51 @@ def password_login(db: Session, data: PasswordLoginInput) -> LoginResult:
     # 검증 전에 아이디 시도를 먼저 센다(행 잠금 안에서). 동시에 여러 번 보내도 10번을 넘겨
     # 맞혀 볼 수 없고, 이미 잠겼으면 여기서 429. 성공하면 커밋 뒤 라우터가 지운다
     throttle.hit(key)
-    user = None
+    user_id: str | None = None
+    old_hash: str | None = None
     if passwords.USERNAME_RE.fullmatch(username):
-        user = _password_user(db, username, role)
-    if user is None or not user.password_hash:
+        row = db.execute(
+            select(User.id, User.password_hash).where(
+                User.username == username, User.role == role, User.deleted_at.is_(None)
+            )
+        ).first()
+        if row is not None:
+            user_id, old_hash = row
+    # argon2(세마포어 대기 포함)를 도는 동안 DB 연결을 쥐지 않는다
+    # (로그인이 몰려도 연결 풀을 묶지 않게)
+    db.rollback()
+    if user_id is None or not old_hash:
         passwords.dummy_verify(data.password)
         ok = False
     else:
-        ok = passwords.verify_password(user.password_hash, data.password)
+        ok = passwords.verify_password(old_hash, data.password)
     if not ok:
-        # 요청 세션의 연결을 바로 돌려준다
+        raise _invalid_login()
+    new_hash: str | None = None
+    if passwords.needs_rehash(old_hash):
+        candidate = passwords.hash_password(data.password)
+        # 그사이 비밀번호 변경·임시 비밀번호 발급이 있었으면 덮어쓰지 않는다
+        # (옛 비밀번호를 되살리지 않게)
+        changed = db.execute(
+            update(User)
+            .where(User.id == user_id, User.password_hash == old_hash)
+            .values(password_hash=candidate)
+        ).rowcount
+        if changed:
+            new_hash = candidate
+    user = db.get(User, user_id)
+    # 검증한 뒤 비밀번호가 바뀌었거나 탈퇴했으면 이 로그인은 받지 않는다
+    stale = user is None or user.deleted_at is not None
+    if stale or user.password_hash not in (old_hash, new_hash):
         db.rollback()
-        raise ApiError(
-            401, "UNAUTHENTICATED", INVALID_LOGIN_MESSAGE, {"reason": "INVALID_CREDENTIALS"}
-        )
-    if passwords.needs_rehash(user.password_hash):
-        user.password_hash = passwords.hash_password(data.password)
-        db.flush()
+        raise _invalid_login()
     return _login_result(db, user)
+
+
+def _invalid_login() -> ApiError:
+    return ApiError(
+        401, "UNAUTHENTICATED", INVALID_LOGIN_MESSAGE, {"reason": "INVALID_CREDENTIALS"}
+    )
 
 
 def finish_login(role: str, username: str) -> None:

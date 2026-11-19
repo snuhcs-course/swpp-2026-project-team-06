@@ -1,6 +1,10 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 
+from app.accounts import passwords
 from app.accounts.router import admin_router as accounts_admin_router
 from app.accounts.router import router as accounts_router
 from app.admin.activity import router as admin_activity_router
@@ -50,7 +54,14 @@ def install_cors(target: FastAPI, settings: Settings) -> None:
     )
 
 
-app = FastAPI(title="Farmclub API")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # 아이디 로그인 더미 해시를 미리 만든다(DEV-363). 첫 요청이 해시 비용을 더 내지 않게
+    await run_in_threadpool(passwords.warm_up)
+    yield
+
+
+app = FastAPI(title="Farmclub API", lifespan=lifespan)
 app.add_middleware(SourceRequestMiddleware)
 # 앱이 기한·날짜를 서버 시각으로 판단하게 모든 응답에 붙인다(DEV-229)
 app.add_middleware(ServerTimeMiddleware)

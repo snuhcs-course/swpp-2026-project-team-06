@@ -10,6 +10,9 @@
 비밀번호는 비어 있다 — 사용자 목록의 ‘임시 비밀번호’로 다시 발급한다.
 """
 
+import hashlib
+import hmac
+import json
 import secrets
 from typing import Annotated
 
@@ -22,6 +25,7 @@ from app.accounts.models import User
 from app.accounts.schemas import App, IdAccountCreated, IdAccountInput, IdAccountView
 from app.admin.models import ManagerEvent
 from app.admin.service import run_manager_action
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.errors import not_found
 from app.core.security import Admin
@@ -80,13 +84,33 @@ def list_id_accounts(
     return [_view(db, u, f) for u, f in rows]
 
 
+def _request_digest(body: IdAccountInput) -> str:
+    """같은 멱등 키에 다른 내용이 오면 409 `IDEMPOTENCY_MISMATCH`가 되도록 요청을 구분하는 값.
+
+    아이디·닉네임·휴대폰 원문 대신 되돌릴 수 없는 HMAC만 감사·멱등 기록에 남긴다.
+    """
+    canonical = json.dumps(
+        {
+            "app": body.app,
+            "username": accounts.passwords.normalize_username(body.username),
+            "nickname": (body.nickname or "").strip(),
+            "phone": (body.phone or "").strip(),
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    secret = get_settings().jwt_secret.encode()
+    return hmac.new(secret, canonical.encode(), hashlib.sha256).hexdigest()[:32]
+
+
 @router.post("", response_model=IdAccountCreated)
 def create_id_account(
     db: Db, admin: Admin, body: IdAccountInput, response: Response, key: IdempotencyKey = None
 ):
     """아이디 계정 만들기(AC-01-22). 응답의 `temporaryPassword`는 한 번만 보인다(`no-store`).
 
-    감사(`manager_events.original_body`)·멱등 기록에는 앱 종류만 남긴다(아이디·닉네임·휴대폰 없음).
+    감사(`manager_events.original_body`)·멱등 기록에는 앱 종류와 요청 구분 HMAC만 남긴다
+    (아이디·닉네임·휴대폰 원문 없음).
     감사 행의 대상은 만든 사용자 ID다. 멱등 기록의 응답은 `{userId, issueId}`뿐이다.
     """
     issued: dict[str, str] = {}
@@ -108,7 +132,7 @@ def create_id_account(
         target_id="new-id-account",
         scope="id-account-create",
         key=key,
-        body={"app": body.app},
+        body={"app": body.app, "request": _request_digest(body)},
         run=run,
     )
     user = db.get(User, result["userId"])
