@@ -1,5 +1,9 @@
 # apps/producer spec
 
+## DEV-367 평가 진입 폐기
+- FEAT-01 AC-01-34: release 실서버는 시드 계정을 요청·표시하지 않는다. 개발 빌드 또는 명시적 앱 Mock만 목록을 쓴다. 개발 실서버는 카카오 비활성·오류 시, 앱 Mock은 카카오와 함께 보인다.
+- 평가 query/storage/buildflag 로직을 제거한다. 저장된 표시를 읽거나 새로 저장하지 않는다. 카카오·아이디 인증과 기존 세션/복귀는 유지한다.
+
 > 구현하는 기능: FEAT-01, FEAT-02, FEAT-03, FEAT-04, FEAT-05, FEAT-12, FEAT-13, FEAT-14, FEAT-15, FEAT-17, FEAT-19 · 지키는 규칙: R-05, R-06, R-15, R-17, R-18, R-19, R-20, R-21, R-22, R-23, R-25, M-01, M-09, M-11, M-12, M-13, M-14, N-01, N-02, N-04, N-06
 > 동작·규칙·인수 조건 원본: docs/spec/functional/ (여기에 다시 쓰지 않는다)
 > 화면·경로·레이블 원본: docs/spec/ia.md 2장·4장·6장, 화면별 명세·API: docs/spec/screens.md 6장·7장, FEAT ↔ 폴더: docs/spec/tech-design/stack.md 4장

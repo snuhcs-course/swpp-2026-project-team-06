@@ -1,5 +1,8 @@
 # packages/api spec
 
+## DEV-367 평가 빌드 플래그 폐기
+- evaluatorBuild export와 EXPO_PUBLIC_EVALUATOR_LOGIN 해석을 제거한다. 시드 로그인 API 계약은 로컬 개발/Mock용으로 유지하며 앱의 AC-01-34 경계에서 목록 요청을 제한한다.
+
 ## DEV-254 생산자 배송 완료 가림
 - Mock 생산자 주문 응답도 서버와 같이 DELIVERED·COMPLETED 또는 `deliveredAt`이 있으면 수령인 `○○○`, 전화·우편번호·주소·상세주소 빈 문자열, 배송 메모 null로 만든다(R-15, AC-17-13). 입금 전 계약·소비자 응답·원본 저장은 유지한다.
 - 송장 수정은 멱등 결과의 비개인정보를 유지하고 현재 농가 소유 확인·배송 정보 가림을 마지막에 적용한다(AC-17-9 개인정보 예외).

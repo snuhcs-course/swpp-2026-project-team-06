@@ -131,7 +131,7 @@ MOCK_LOGIN_ENABLED=true uv run uvicorn app.main:app --reload
 
 - Health check: http://localhost:8000/health returns `{"status": "ok"}`
 - API docs (Swagger UI): http://localhost:8000/docs. This is the API reference for the apps.
-- Test login (I1): `MOCK_LOGIN_ENABLED=true` turns on `GET /api/auth/test-accounts` and `POST /api/auth/test-login`. It is off by default; in production turn it on only for UAT or evaluation windows (see UAT accounts under Server on Railway).
+- Test login (I1): `MOCK_LOGIN_ENABLED=true` turns on `GET /api/auth/test-accounts` and `POST /api/auth/test-login`. It is off by default; keep it off in production. UAT and reviewers use operator-created ID/password accounts (DEV-363/367); seed selection is for development or explicit app Mock mode only.
 - Demo date: set `FIXED_NOW=2026-10-07T10:00:00+09:00` so stages and D-days match the seed.
 - Operator token for the `/admin` API: `uv run python -m app.accounts.admin_token`, then paste it into **Authorize** in Swagger UI.
 - Outside `APP_ENV=local`, the server refuses to start without `JWT_SECRET`.
@@ -210,7 +210,7 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 | `CONSUMER_APP_URL` | `https://farmclub.kr` (CORS, share-link redirects, Kakao return address). No trailing slash. |
 | `PRODUCER_APP_URL` | `https://farm.farmclub.kr` |
 | `SHARE_BASE_URL` | `https://farmclub.kr`. Set it after the consumer app with the `/s/*` proxy is live (see Domains). Empty: share links use the server's own address. |
-| `MOCK_LOGIN_ENABLED` | `false` in production; `true` only during UAT or evaluation (see UAT accounts below) |
+| `MOCK_LOGIN_ENABLED` | `false` in production, including UAT/review; local seed development only uses `true` |
 | `ANTHROPIC_API_KEY` | Optional. Without it, AI answers come from registered rules and other questions go to the producer. |
 
 4. Deploy, then generate a public domain under the service's networking settings.
@@ -279,11 +279,28 @@ one `ManagerEvent` (`data.purge_except`, `via: cli`, with the expected farms) an
 R2 files; otherwise the source-analysis worker's cleanup removes unused files after 24 hours.
 Details: `server/app/admin/spec.md`.
 
-**UAT accounts and data (DEV-305).** UAT uses dedicated test accounts, not the demo seed.
+**Current UAT/review login (DEV-363/367):** use the operator web's ID-account page to
+create separate consumer/producer credentials, then use plain `/login`. A first login must
+change the temporary password and complete the app's consent/onboarding. A new producer still
+needs a farm application and approval; credentials alone do not provision fixture data. Share
+credentials privately. Keep `MOCK_LOGIN_ENABLED=false` (a human operator changes Railway variables and checks both
+`GET /api/auth/test-accounts?app=consumer` and `?app=producer` return 404). Hiding the chooser
+does not disable the server endpoint or revoke existing sessions. Previously installed native
+builds need a normal release/OTA update for the UI change. The old `?evaluator=1` links, stored
+evaluator mark and evaluator build flag no longer enable seed selection in release apps.
+Development builds retain seed selection when Kakao is disabled/unavailable; explicit app Mock
+mode retains it alongside Kakao. The old UAT seed rows below are retained fixture history.
+
+**Historical UAT fixture procedure (DEV-305; superseded by DEV-363/367).**
+The following records the earlier seeded session, including its data setup and cleanup.
+These steps are not prerequisites for current ID-account UAT; do not purge production data or
+insert legacy seed accounts just to issue reviewer credentials.
+
+**Earlier UAT accounts and data (DEV-305).** The earlier session used dedicated test accounts, not the demo seed.
 `python -m app.core.seed_uat` adds three consumers (`u-uat-c1..c3`, "UAT 소비자 N") and three
 producers (`u-uat-p1..p3`): two approved farms (`f-uat-1`, `f-uat-2`, inserted hidden) with products on sale
 (options, two price stages starting on the run date, approved supply) and one farm under review
-(`f-uat-3`). All are test accounts and appear in the test-login list, but nobody can log in while
+(`f-uat-3`). All are test accounts and appear in the test-login list, but their passwordless seed-login endpoint is disabled while
 `MOCK_LOGIN_ENABLED=false`. The two approved farms go in **hidden** as test farms (the DEV-93 state,
 with one `test_farm_retired` event each), so nobody sees them until UAT starts. People run these:
 
@@ -299,16 +316,11 @@ with one `test_farm_retired` event each), so nobody sees them until UAT starts. 
    `GET /api/farms` shows no "UAT 농가"; the admin page lists the six UAT accounts as test accounts
    (ops-tester accounts, if any, are listed there too) and the two farms in the hidden tab. A UAT
    producer who logs in now sees the suspension notice with the test-farm reason.
-2. **Start UAT:** reopen both farms with the admin page's "다시 공개" (hidden tab) or
-   `railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm f-uat-1 --restore --commit`
-   (same for `f-uat-2`); `GET /api/farms` now lists them. Then set `MOCK_LOGIN_ENABLED=true` on
-   `farmclub-api` (Railway redeploys). Testers use `https://farmclub-consumer.vercel.app/login?evaluator=1`
-   and `https://farmclub-producer.vercel.app/login?evaluator=1` and pick a "UAT …" account.
-3. **End UAT:** hide both farms again (admin page hide, or `retire_test_farm f-uat-1 --commit`, same
+2. **Earlier session end:** hide both farms again (admin page hide, or `retire_test_farm f-uat-1 --commit`, same
    for `f-uat-2`) and set `MOCK_LOGIN_ENABLED=false`; `GET /api/auth/test-accounts?app=consumer`
    returns 404 again. While the farms are public, real (Kakao) consumers can see and order them, and
    hiding is refused once a real consumer has ordered.
-4. **Clean up:** run the DEV-304
+3. **Earlier fixture cleanup:** run the DEV-304
    cleanup above again, keeping only the real producers (`python -m app.admin.purge_except --keep <real
    producer id> …`: dry run first, back up, then run the commit line the dry run prints). Do not pass
    UAT accounts to `--keep`. Until then
@@ -472,11 +484,10 @@ npx eas-cli@latest update --channel preview --environment preview --message "...
 `EXPO_PUBLIC_API_MOCK`, `EXPO_PUBLIC_CONSUMER_URL` and `EXPO_PUBLIC_PRODUCER_URL` were created in
 both projects' `preview` and `production` environments on 2026-10-23 (`eas env:list --environment
 preview`); an update published without them would point the app at `localhost`.
-For the 11/4 Heuristic Evaluation, `EXPO_PUBLIC_EVALUATOR_LOGIN=1` in the `preview` environment
-only makes the internal apps show the test-account list on the login screen (DEV-200; the web
-equivalent is `/login?evaluator=1`, DEV-198). Never set it in `production` or `eas.json`; delete
-it and publish a normal update after the evaluation. Deleted from both projects and a normal update published on
-2026-11-04.
+The temporary evaluator build flag used for the 11/4 heuristic evaluation was removed from
+both projects on 2026-11-04. DEV-367 retires its client behavior and the old evaluator query/storage
+entry. Internal/release reviewers now use operator-created ID/password accounts; do not enable a
+seed-login flag for a review build.
 
 Android: open the build link on the phone, allow installs from this source once, install. The
 same APKs are kept as GitHub Release assets (`apk-internal-<build date>`, with SHA-256; current:

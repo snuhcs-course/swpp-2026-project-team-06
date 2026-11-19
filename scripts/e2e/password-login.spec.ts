@@ -160,16 +160,21 @@ test("AC_01_23 AC_01_33 operator-created producer: forced change, consent, appli
   await expect(page).toHaveURL(/\/password/);
 });
 
-test("AC_01_22 DEV-198 evaluator mode keeps the test accounts beside the password form", async ({ page }) => {
+test("AC_01_22 AC-01-34 retired evaluator link keeps password and Kakao login without a seed chooser", async ({ page }) => {
   await page.route("**/api/auth/kakao/config", (route) =>
     route.fulfill({ json: { enabled: true, clientId: "test-client", redirectPath: "/auth/kakao" } }),
+  );
+  await page.route("**/api/auth/test-accounts*", (route) =>
+    route.fulfill({
+      json: [{ userId: "fixture-consumer", name: "이서준", role: "CONSUMER", farmName: null, farmStatus: null }],
+    }),
   );
   await page.goto(`${consumerUrl}/login?evaluator=1`);
   await expect(page.getByRole("button", { name: "카카오로 시작하기" })).toBeVisible();
   await expect(page.getByTestId("password-login-section")).toBeVisible();
-  await page.getByRole("radio").filter({ hasText: "이서준" }).click();
-  await page.getByRole("button", { name: /로그인$/ }).click();
-  await expect(page).not.toHaveURL(/\/login/);
+  await page.waitForLoadState("networkidle", { timeout: 10_000 });
+  await expect(page.getByRole("radio")).toHaveCount(0);
+  await expect(page.getByTestId("login-bottom-bar")).toHaveCount(0);
 });
 
 test("AC_01_23 consumer without phone: consent wording, profile fields, and saved onboarding", async ({ page, request }, testInfo) => {

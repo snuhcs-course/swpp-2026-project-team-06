@@ -1,5 +1,5 @@
-// SCR-05 로그인 — 카카오(ADR 0003)·아이디·비밀번호(DEV-363, 운영자가 만든 계정)·테스트 계정 선택(ADR 0009) — design: scr-05
-import { auth, evaluatorBuild, isMock, type TestAccount } from "@farmclub/api";
+// SCR-05 로그인 — 카카오(ADR 0003)·아이디·비밀번호(DEV-363, 운영자가 만든 계정)·개발/Mock 테스트 계정 선택(ADR 0009) — design: scr-05
+import { auth, isMock, type TestAccount } from "@farmclub/api";
 import {
   BrandLogo,
   Button,
@@ -31,42 +31,13 @@ import { isStatus } from "../lib/views";
 const consumerOnly = (list: TestAccount[] | null) =>
   list?.filter((a) => a.role === "CONSUMER") ?? null;
 
-// 평가용 주소(?evaluator=1, DEV-198)로 한 번 들어오면 이 브라우저(기기)에서 기억한다.
-// 로그아웃하거나 관문을 거쳐 맨 /login으로 와도, 홈 화면에 추가한 PWA가 start_url(/)로 새 창을 열어도
-// 테스트 계정 목록이 남는다(11/03 PWA 점검: sessionStorage만으로는 홈 아이콘에서 카카오 버튼만 보였다).
-// 표시는 테스트 계정 목록을 실제로 받은 뒤에만 남기고, 테스트 로그인이 꺼졌으면 지운다(DEV-283).
-const EVALUATOR_KEY = "farmclub:evaluator";
-function evaluatorMode(param?: string) {
-  // 앱 평가용 빌드(DEV-200)는 주소 없이도 목록을 보인다
-  if (evaluatorBuild) return true;
-  if (param === "1") return true;
-  try {
-    return (
-      globalThis.localStorage?.getItem(EVALUATOR_KEY) === "1" ||
-      globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1"
-    );
-  } catch {
-    return false;
-  }
-}
-function rememberEvaluator(on: boolean) {
-  try {
-    if (on) {
-      globalThis.localStorage?.setItem(EVALUATOR_KEY, "1");
-    } else {
-      globalThis.localStorage?.removeItem(EVALUATOR_KEY);
-      globalThis.sessionStorage?.removeItem(EVALUATOR_KEY);
-    }
-  } catch {
-    // 저장소를 못 쓰는 브라우저는 주소(?evaluator=1)로만 평가 모드가 된다
-  }
-}
+// 시드 계정은 개발 빌드·명시적 Mock에서만 쓴다(AC-01-34). release 실서버 앱은 목록도 요청하지 않는다.
+const testLoginAvailable = __DEV__ || isMock;
 
 export default function Login() {
-  const { next, reason, evaluator, from } = useLocalSearchParams<{
+  const { next, reason, from } = useLocalSearchParams<{
     next?: string;
     reason?: string;
-    evaluator?: string;
     from?: string;
   }>();
   const router = useRouter();
@@ -83,7 +54,10 @@ export default function Login() {
   useEffect(() => {
     if (!from) clearResume();
   }, [from, clearResume]);
-  const { data: all, error, reload } = useAsync(() => auth.testAccounts(), []);
+  const { data: all, error, reload } = useAsync(
+    () => testLoginAvailable ? auth.testAccounts() : Promise.resolve([]),
+    [],
+  );
   // 카카오 로그인 사용 여부(ADR 0003). 꺼져 있으면 버튼을 숨긴다
   const kakao = useAsync(() => auth.kakaoConfig(), []);
   const data = consumerOnly(all);
@@ -92,26 +66,9 @@ export default function Login() {
   // 고정 하단 바는 테스트 계정 목록이 있을 때만 둔다. 그 높이만큼 스크롤 아래를 비운다(DEV-283)
   const [barHeight, setBarHeight] = useState(170);
   const [failed, setFailed] = useState<string | null>(null);
-  // 카카오가 켜져 있으면 카카오 로그인만 둔다(사용자 결정 10/17). 꺼져 있으면(CI·Mock 플래그만) 테스트 계정 목록을 보여 준다.
-  // Mock 모드는 시드 데이터 시연에 계정이 필요해 카카오 버튼과 목록을 함께 둔다(생산자 SCR-19와 같음, DEV-136)
-  // 평가용 주소(?evaluator=1, DEV-198)는 카카오가 켜진 운영에서도 테스트 계정 목록을 함께 둔다
   const kakaoOn = !!kakao.data?.enabled;
-  const wantsEvaluator = evaluatorMode(evaluator);
-  const evaluatorOnly = kakaoOn && !isMock && wantsEvaluator;
-  // 평가 표시만으로 목록을 여는데 서버 테스트 로그인이 꺼졌거나(404) 소비자 계정이 없으면 낡은 표시다.
-  // 표시를 지우고 운영 화면(카카오만)을 보인다(DEV-283)
-  const staleEvaluator =
-    evaluatorOnly && (isStatus(error, 404) || data?.length === 0);
-  useEffect(() => {
-    if (!evaluatorOnly || evaluatorBuild) return;
-    if (staleEvaluator) rememberEvaluator(false);
-    else if (evaluator === "1" && data?.length) rememberEvaluator(true);
-  }, [evaluatorOnly, staleEvaluator, evaluator, data]);
-  const showTest = kakao.error
-    ? true
-    : kakao.data
-      ? !kakaoOn || isMock || (wantsEvaluator && !staleEvaluator)
-      : false;
+  const showTest = testLoginAvailable &&
+    (isMock || !!kakao.error || (!!kakao.data && !kakaoOn));
 
   useEffect(() => {
     if (data && !picked) setPicked(data[0]?.userId ?? null);
@@ -254,7 +211,7 @@ export default function Login() {
             ) : null}
           </View>
         ) : null}
-        {/* 아이디·비밀번호 로그인(DEV-363). 계정은 운영자가 만들어 공개 가입 버튼은 없다(PM 11/18). 평가용 테스트 계정 목록은 그대로 아래에 */}
+        {/* 아이디·비밀번호 로그인(DEV-363). 계정은 운영자가 만들어 공개 가입 버튼은 없다(PM 11/18). 개발/Mock 전용 시드 목록은 아래에 */}
         <View
           testID="password-login-section"
           style={{ paddingHorizontal: tokens.space.gutter, paddingTop: tokens.space.lg, gap: 16 }}
