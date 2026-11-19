@@ -234,20 +234,27 @@ test("DEV-186 DEV-361 AC-SRC-1/2/11: product exclusions open one modal with the 
   clean();
 });
 
-// DEV-361 PR C: the legacy page editor is gone. A server that does not open the page in the composer (no `composer` in the
-// workspace answer) now gets the product-only composer: its story is read-only (edited via '상세 고치기'), so no pre-sale
-// next-step hints appear on an existing product.
+// A legacy block story is read-only in the product-only composer and edited via '상세 고치기'.
+// Keep this fixture independent of earlier tests that publish section/module stories to p-house.
 test("DEV-186 DEV-361 AC-SRC-11: existing product canvas has no next-step story hints", async ({ page }) => {
   // The product-only composer asks for the product draft; a server without one answers 400/404 (direct apply, C-2).
   const clean = monitor(page, [/status of 40[04]/]);
   await loginProducer(page, "강영수");
-  const snapshot = { representativeUri: null, kind: "modules", hiddenSectionIds: [],
-    content: { blocks: [] }, modules: [{ id: "summary", enabled: true,
-      texts: [{ fieldKey: "summary", value: "기존 상품 설명" }], photos: [] }] };
+  // No composer flag keeps the legacy/direct-product entry under test.
+  const snapshot = { representativeUri: null, kind: "blocks", hiddenSectionIds: [],
+    content: { blocks: [] }, modules: [] };
   await page.route("**/api/source-analysis/product-workspaces", (route) => route.fulfill({
     json: { productId: "p-house", batchId: "detail-batch", targetId: "detail-target",
       version: 1, baseProductVersion: 1, hasUnpublishedChanges: false,
       snapshot, publishedSnapshot: snapshot },
+  }));
+  await page.route("**/api/products/mine/p-house", async (route) => {
+    const response = await route.fetch();
+    expect(response.ok()).toBeTruthy();
+    await route.fulfill({ response, json: { ...await response.json(), moduleDetail: null, detailContent: null } });
+  });
+  await page.route("**/api/source-analysis/product-workspaces/p-house/product-draft", (route) => route.fulfill({
+    status: 404, json: { code: "NOT_FOUND", message: "테스트: 상품 초안 API 없음", details: {} },
   }));
   await page.goto(`${producerUrl}/products/p-house/detail`);
   await expect(page.getByTestId("product-basic-info")).toBeVisible();
