@@ -666,7 +666,7 @@ def change_password(db: Session, user: User, data: PasswordChangeInput) -> Login
         raise forbidden(
             "아이디로 가입한 계정만 비밀번호를 바꿀 수 있어요.", reason="NOT_PASSWORD_ACCOUNT"
         )
-    username = user.username
+    user_id, role, username = user.id, user.role, user.username
     # 새 비밀번호 규칙은 시도를 세기 전에 본다(지금 비밀번호를 맞혀 보는 시도가 아니므로)
     if error := passwords.password_error(data.new_password, username):
         raise invalid({"newPassword": error})
@@ -674,11 +674,11 @@ def change_password(db: Session, user: User, data: PasswordChangeInput) -> Login
         raise invalid({"newPassword": "지금과 다른 비밀번호를 써 주세요"})
     # 로그인처럼 시도를 먼저 센다(지금 비밀번호 추측도 아이디 잠금에 든다). 잠겼으면 429
     db.rollback()
-    throttle.hit(_login_key(user.role, username))
+    throttle.hit(_login_key(role, username))
     # 행을 잠그고 최신 값으로 다시 읽은 뒤 검증한다(동시 변경·임시 비밀번호 발급과 덮어쓰지 않게)
     locked = db.scalar(
         select(User)
-        .where(User.id == user.id)
+        .where(User.id == user_id)
         .with_for_update()
         .execution_options(populate_existing=True)
     )

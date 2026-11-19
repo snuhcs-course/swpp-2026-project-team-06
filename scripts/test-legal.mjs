@@ -212,6 +212,8 @@ test("DEV-363: privacy policy lists operator-made ID accounts and bumps the vers
   assert.match(html, /아이디 계정\(회사가 만든 심사·테스트용 계정\)/);
   assert.match(html, /아이디, 비밀번호\(복원할 수 없는 방식으로 암호화해 저장\)/);
   assert.match(html, /아이디 계정의 아이디·암호화한 비밀번호<\/td><td>회원 탈퇴 시까지/);
+  assert.match(html, /마지막 시도 후 1일이 지난 기록은 이후 로그인 시도 때 순차적으로 삭제합니다/);
+  assert.match(html, /로그인 시도가 없으면 다음 정리 시점까지 보관합니다/);
   assert.match(html, /아이디 계정의 비밀번호는 복원할 수 없는 방식\(argon2id\)으로 암호화해 저장/);
   assert.doesNotMatch(html, /비밀번호는 받지 않습니다\(카카오 로그인\)/);
   assert.match(html, /2026년 11월 20일 변경: 회사가 앱 마켓 심사·서비스 테스트를 위해 만드는 아이디 계정[^<]*기존 회원은 다음 이용 때 다시 동의를 받습니다/);

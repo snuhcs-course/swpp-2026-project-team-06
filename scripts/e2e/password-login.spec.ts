@@ -15,6 +15,8 @@ async function createAccount(
   username: string,
   extra: Record<string, string> = {},
 ) {
+  // Serial-suite retries share the DB with the failed attempt.
+  username = `${username}${crypto.randomUUID().slice(0, 8)}`;
   const res = await request.post(`${apiUrl}/admin/id-accounts`, {
     headers: { Authorization: `Bearer ${adminToken}`, "Idempotency-Key": `e2e-create-${username}-${Date.now()}` },
     data: { app, username, ...(app === "consumer" ? { nickname: "귤친구", phone: "010-3456-7890" } : {}), ...extra },
@@ -22,7 +24,7 @@ async function createAccount(
   expect(res.ok(), await res.text()).toBeTruthy();
   const body = await res.json();
   expect(body.temporaryPassword).toBeTruthy();
-  return body as { userId: string; temporaryPassword: string };
+  return body as { userId: string; username: string; temporaryPassword: string };
 }
 
 /** API로 첫 로그인을 끝낸다(비밀번호 PASSWORD로 변경 + 소비자 필수 동의) */
@@ -78,9 +80,9 @@ test("AC_01_22 AC_01_23 AC_01_31 AC_01_30 operator-created consumer: forced chan
   const created = await createAccount(request, "consumer", "pwbuyer1");
 
   await page.goto(`${consumerUrl}/login`);
-  await fillLogin(page, "PwBuyer1", "wrong-pass-1");
+  await fillLogin(page, created.username.toUpperCase(), "wrong-pass-1");
   await expect(page.getByTestId("login-error")).toHaveText("아이디 또는 비밀번호가 맞지 않아요");
-  await fillLogin(page, "PwBuyer1", created.temporaryPassword);
+  await fillLogin(page, created.username.toUpperCase(), created.temporaryPassword);
   await expect(page).toHaveURL(/\/password/);
   await expect(page.getByText(/새 비밀번호를\s*정해 주세요/)).toBeVisible();
   await page.goto(`${consumerUrl}/orders`);
@@ -116,18 +118,18 @@ test("AC_01_22 AC_01_23 AC_01_31 AC_01_30 operator-created consumer: forced chan
 test("AC_01_26 AC_01_27 one message for wrong login, 429 lock after 10 failures", async ({ page, request }) => {
   test.skip(!adminToken, "FARMCLUB_ADMIN_TOKEN 필요");
   const created = await createAccount(request, "consumer", "pwlocked1", { nickname: "잠금시험" });
-  await finishFirstLogin(request, "pwlocked1", created.temporaryPassword);
+  await finishFirstLogin(request, created.username, created.temporaryPassword);
 
   await page.goto(`${consumerUrl}/login`);
   await fillLogin(page, "nobody999", PASSWORD);
   await expect(page.getByTestId("login-error")).toHaveText("아이디 또는 비밀번호가 맞지 않아요");
   for (let i = 0; i < 10; i++) {
     const res = await request.post(`${apiUrl}/api/auth/login`, {
-      data: { app: "consumer", username: "pwlocked1", password: "wrong-pass-1" },
+      data: { app: "consumer", username: created.username, password: "wrong-pass-1" },
     });
     expect(res.status()).toBe(401);
   }
-  await fillLogin(page, "pwlocked1", PASSWORD);
+  await fillLogin(page, created.username, PASSWORD);
   await expect(page.getByTestId("login-error")).toContainText("15분 뒤에 다시 시도해 주세요");
 });
 
@@ -136,7 +138,7 @@ test("AC_01_23 AC_01_33 operator-created producer: forced change, consent, appli
   const created = await createAccount(request, "producer", "pwfarmer1");
   await skipHelpGuide(page);
   await page.goto(`${producerUrl}/login`);
-  await fillLogin(page, "pwfarmer1", created.temporaryPassword);
+  await fillLogin(page, created.username, created.temporaryPassword);
   await expect(page).toHaveURL(/\/password/);
   await changePassword(page, created.temporaryPassword, NEW_PASSWORD);
   await expect(page).toHaveURL(/\/consent/);
@@ -145,7 +147,7 @@ test("AC_01_23 AC_01_33 operator-created producer: forced change, consent, appli
   await expect(page).toHaveURL(/\/apply/);
   // 신청하면 승인 대기(SCR-21)에서도 비밀번호를 바꿀 수 있다(PM 11/18)
   const login = await request.post(`${apiUrl}/api/auth/login`, {
-    data: { app: "producer", username: "pwfarmer1", password: NEW_PASSWORD },
+    data: { app: "producer", username: created.username, password: NEW_PASSWORD },
   });
   const token = (await login.json()).accessToken;
   const applied = await request.post(`${apiUrl}/api/auth/producer-application`, {
