@@ -15,8 +15,10 @@ Both clips use the application source pinned on this branch and include on-scree
 
 ## AI feature walkthroughs
 
-- [Consumer AI chat · 0:17](docs/demo-i4/consumer-ai-chat.mp4). A small-order question receives an answer from the farm's saved policy. A request for a shipping discount is forwarded to the grower.
-- [Producer AI draft · 0:17](docs/demo-i4/producer-ai-draft.mp4). The grower adds source notes, fills the listing draft and reviews the editable fields. This recording uses a fixture-backed provider.
+- [Consumer AI chat · 0:26](docs/demo-i4/consumer-ai-chat.mp4) starts in the producer app at **설정 → AI 응답 설정**. Turn on **자동 응답**, add the farm's small-order policy and FAQ, then select **설정 저장**. Use a 1:1 conversation with automatic replies enabled. The saved-policy reply and the shipping-discount handoff each appeared about 0.2 seconds after Send in the recording. Both paths use Farmclub's built-in rules.
+- [Producer AI draft · 0:20](docs/demo-i4/producer-ai-draft.mp4) shows the grower adding source notes and selecting **AI로 채우기**. The first populated field appeared 8.7 seconds after the click in a local run using Gemini 3 Flash Preview via OpenRouter.
+
+Both videos have on-screen captions. The timers measure elapsed time in the browser during these runs.
 
 ## Run locally
 
