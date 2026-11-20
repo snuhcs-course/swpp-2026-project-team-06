@@ -118,9 +118,9 @@ Effort: Agent approximately 2.5h of elapsed session time (approximately 1.5h imp
 
 [Original contribution](https://linear.app/sswp6/issue/DEV-271/i4-collect-individual-ai-collaboration-contributions-and-compile-the#comment-a1191702-2758-4e2f-b645-ec350f25a31e)
 
-**Status at compilation.** PR #661 is merged. PRs #663 and #668 are open and ready for review. The recommendation below for another sealed set is part of the original author account. The team’s later decision for I5 is to use capability and regression suites. [Team decision](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/672)
+**Status at compilation (updated by the author on November 20).** PRs #661 and #668 are merged. PR #663 is in review with all checks passing. The original draft recommended another sealed set. The team’s later decision for I5 is to use capability and regression suites, and the text below now follows it. [Team decision](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/672)
 
-Personal contribution · Updated November 18, 2026.
+Personal contribution · Updated November 18, 2026; PR status and results updated November 20.
 
 Period: November 7–19, 2026, Asia/Seoul — everything after I3 ended on November 6.
 
@@ -168,17 +168,19 @@ I set scope, chose which results to trust, made the product and privacy decision
   - Semantic recall 67.3% → 74.8%.
   - All 24 sources fully read, against 22 before.
   - The 95% and zero-forbidden pass lines are still not met.
-- **Holdout v2** ([#661](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/661), DEV-264, awaiting the PM's review): run once on the merged code, 12 unseen sources.
+- **Holdout v2** ([#661](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/661), DEV-264, merged): run once on the merged code, 12 unseen sources.
   - Facts 75/134 (56.0%), critical 25/33 (75.8%), semantic 95/134 (70.9%), forbidden 3, unsupported 2.
   - Critical facts held at the development level (75.8% vs 75.4%), but total facts were about 12 points lower, and safety was worse on unseen material.
-- **Draft-filling follow-ups** ([#663](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/663), DEV-355, draft, in progress):
-  - Because the holdout showed that the prompt's safety rules don't hold on new material, the safety rules moved into code checks: Korean-form ranges, farm product line-ups, other products' packages, and "건강한 … 먹거리" as a health claim.
+- **Draft-filling follow-ups** ([#663](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/663), DEV-355, in review):
+  - Because the holdout showed that the prompt's safety rules don't hold on new material, the main safety rules moved into code checks: Korean-form ranges, farm product line-ups, and "건강한 … 먹거리" as a health claim. A check for other products' packages was removed after the PM's review, because a fixed variety list could only guess which product a sentence was about. Product identity stays a known gap, handled only by the prompt.
+  - An offline replay of six saved development runs, with no model calls, showed that the first version of the checks also dropped good text. That was fixed before any paid run.
+  - Two paid confirmation runs on the product setup (Gemini in both stages, 47 development sources, about $1.15 in total) gave forbidden 0 and unsupported 0 in both. Without one source that failed for a provider reason, facts were unchanged (mean 217.5/316) and critical facts went from 106 to 108 of 139. These are the development sets the checks were designed on, so this does not show generalisation.
   - A stage-2 model trial on the development sets gave +8 facts on average but −2.5 critical facts. Forbidden was 1 in both runs and unsupported 0 in both. The checks and the model changed together, so this does not isolate either one.
   - A stage-1 prompt change (v10) was tried and reverted because total facts fell from 254.5 to 244.
-- **Working demo** ([#668](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/668), DEV-282, awaiting the PM's review): an automated, captioned 43-second recording on the local server. It shows the chat rule answers and the haggling handoff, and draft filling leaving out five unsafe phrases. It uses the mock analyser and makes no model calls. The video is in DEV-282's Resources.
+- **Working demo** ([#668](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/668), DEV-282, merged): an automated, captioned 43-second recording on the local server. It shows the chat rule answers and the haggling handoff, and draft filling leaving out five unsafe phrases. It uses the mock analyser and makes no model calls. The video is in DEV-282's Resources.
 - **Follow-ups:**
   - DEV-333: compare regex and cheap-model question classification for chat.
-  - DEV-355: finish the work above.
+  - DEV-355: the PM's review of #663.
 
 ### 2. How I Revised the Prompts and Scope
 
@@ -221,17 +223,18 @@ For the demo, I chose the format myself (an automated recording with the mock an
   All three were corrected in the records.
 - **It over-reported single-run peaks** (74.1% facts, 86.6% critical) as improvements. The honest final number, from two runs, is lower.
 - **The demo captions were wrong twice before sharing.** It first credited the DEV-355 code checks, which are not merged and not in the recorded code; it caught this when reviewing its own screenshots. Its first AI review of #668 then found another caption saying server validation removed the unsafe text, when in the mock recording the mock stage 2 does that with the same check functions. The caption was fixed and the video re-recorded.
-- **A test-environment problem found during DEV-355:** `conftest.py` clears `ANTHROPIC_API_KEY` with an empty value, but the settings ignore empty values, so the local key stayed active. Three endpoint tests may have called the live model. This is unresolved, and usage from those runs is unknown.
+- **A test-environment problem found during DEV-355:** `conftest.py` clears `ANTHROPIC_API_KEY` with an empty value, but the settings ignore empty values, so the local key stayed active. Three endpoint tests may have called the live model; usage from those runs is unknown. Fixed in #663: tests no longer read `server/.env`.
 - **Smaller slips:**
   - two commits went in with failing tests or lint and were fixed before the PR
   - an automatic formatter changed unrelated lines, which were reverted
   - a shell quoting bug and a missing `--yes` flag stopped two runs before any cost
   - it gave me an `--estimate-only` command without `--out`, which failed before any cost (#661)
   - a check run it started emptied `test-results/` and deleted the first demo recording; it was recorded again and a copy kept elsewhere
+  - its review-response commit on #663 left one of its own tests failing, and that commit never got a CI run; it found this when merging `main` on November 20, before the PM's review. The spec-check then found two stale doc sentences and a line-up rule that was still too broad. All were fixed
 - **Limits of the results:**
   - All improvements were tuned on development sets that I could see. The chat capability questions were written by our team, not real users.
   - The draft results are automatic scores; human review of the drafts is pending (PM).
-  - Holdout v2 is now used. Any new claim that the gains hold on unseen material needs a new sealed set.
+  - Holdout v2 is now used. No new sealed set is planned (team decision above), so the gains are not claimed to hold on unseen material.
 
 ### 5. Human Decisions and Review
 
@@ -245,19 +248,18 @@ For the demo, I chose the format myself (an automated recording with the mock an
   - a $6 budget for the paid evaluation runs
 - **Semantic judge on the holdout:** the PM approved it on four conditions. No-training providers only (enforced in code), only totals shared, strict recall stays the pass line, and one run.
 - **Holdout rules from the PM:** no AI agent may open the holdout folder. I ran it myself in my own terminal and gave the agent only totals. The first attempt stopped before any model call because of an old 11/05 incomplete-attempt marker; I decided to record the second attempt with `--force-rerun` and its reason.
-- **Merges:** #580, #591, #636 and #637 were merged on my instruction after I read the diffs. #591 and #637 are high-risk (`server/app/ai/**`), and my review is recorded in each PR. #661 and #668 are waiting for the PM's review; #663 is still a draft.
-- **Hours.** Human hours are my own estimates, as recorded in the PRs: #580 4h, #591 4h, #636 4h, #637 5h, #661 4h, #663 6h so far, #668 1h. Agent hours in the PRs are the agent's estimates ("약"). I did not measure tokens.
+- **Merges:** #580, #591, #636 and #637 were merged on my instruction after I read the diffs. #591 and #637 are high-risk (`server/app/ai/**`), and my review is recorded in each PR. #661 and #668 were approved and merged after the PM's review; #663 is waiting for the PM's review.
+- **Hours.** Human hours are my own estimates, as recorded in the PRs: #580 4h, #591 4h, #636 4h, #637 5h, #661 4h, #663 7h, #668 1h. Agent hours in the PRs are the agent's estimates ("약"). I did not measure tokens.
 
 ### 6. Lessons and Next Steps
 
 - **One run is not a result.** Two runs of identical code moved 35 facts each way. Comparisons need repeated runs, paired per-fact counts and a fixed denominator, or the numbers flatter us.
 - **A gate per change made it possible to throw work away.** The "keep source wording" change raised recall in its run, but it lowered critical facts. The v10 prompt helped PDFs in one run but lowered total facts. Because each step had its own gate, both were easy to revert.
-- **Unseen data tells a different story.** The prompt's safety rules held on the development sets but not on holdout v2, which is why they are moving into code.
+- **Unseen data tells a different story.** The prompt's safety rules held on the development sets but not on holdout v2, which is why the main ones moved into code checks (#663).
 - **Evaluation infrastructure needs checking like product code:** the scorer, the spend ledger, whether calls really reached the model, and the test environment's API key all needed it.
 - **Next:**
-  - get the PM's human review of the drafts, #661 and #668
-  - DEV-355: fix the test environment, then a confirmation pair on the product setup
-  - a new sealed set before any new generalisation claim
+  - get the PM's human review of the drafts and of #663
+  - from I5, measure with capability and regression suites (team decision above) instead of another sealed set
 
 ### Evidence and Session Review
 
