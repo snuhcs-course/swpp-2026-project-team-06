@@ -34,6 +34,7 @@ This document describes the implemented architecture and cites the [I4 product s
 | 3.1 | 2026-11-09 | Team 6 | DEV-293: shared UI tokens and headers follow the DEV-292 audit baseline; consumer home, product detail, checkout, orders, me and login simplified (per-option boxes left, hidden tab bar on purchase screens) |
 | 3.2 | 2026-11-12 | Team 6 | DEV-312: the producer app sends PostHog events for product registration, AI draft requests and results, sale start requests, deposit decisions, invoices, shipments, chat replies and error notices (IDs, enum codes, flags and durations only); pilot metrics for the two-farm pilot are defined in the tracking plan |
 | 4.0 | 2026-11-19 | Team 6 | I4 account, order and editor design with testing-driven decisions |
+| 4.1 | 2026-11-21 | Team 6 | DEV-377: installed app names match the store titles (`farmclub`, `farmclub 농가`); identifiers unchanged |
 
 
 ## 1. System Architecture
@@ -86,7 +87,7 @@ Exact package versions are locked in `package-lock.json` and `server/uv.lock`. `
 | REST polling | Current traffic and operational simplicity | Open chat screens poll about every two seconds; no real-time socket or push guarantee |
 | Direct farm bank transfer (DEV-68) | I2 scope uses the farm's existing account | Farmclub records instructions/confirmation; no bank reconciliation or payment custody |
 | Fixed public domains (ADR 0012) | Kakao returns, share previews and links require stable origins | Consumer `/s/*` forwards to API-generated Open Graph pages; approved farm links return to the consumer app |
-| Native store apps from the same Expo code (ADR 0013, DEV-33) | Both apps must reach the iOS and Android stores while the web keeps changing weekly; a TWA covers only Android and a WebView shell risks App Store 4.2 | EAS Build for native changes, EAS Update (`fingerprint` runtime policy, `preview`/`production` channels) for JS; web-only code lives in `*.native.ts` pairs or `Platform.OS` branches, tokens in SecureStore, and the Kakao web return page hands the code to the app scheme so the server contract is unchanged |
+| Native store apps from the same Expo code (ADR 0013, DEV-33) | Both apps must reach the iOS and Android stores while the web keeps changing weekly; a TWA covers only Android and a WebView shell risks App Store 4.2 | EAS Build for native changes, EAS Update (`fingerprint` runtime policy, `preview`/`production` channels) for JS; web-only code lives in `*.native.ts` pairs or `Platform.OS` branches, tokens in SecureStore, and the Kakao web return page hands the code to the app scheme so the server contract is unchanged. The installed names are `farmclub` and `farmclub 농가`, matching the store titles; the web title and PWA name come from `public/` and are not affected (DEV-377) |
 
 ADRs retain their original decisions and dates. Historical statements about I1-only operator APIs or a planned source model are superseded here by the implemented boundaries at this document’s reference commit.
 
