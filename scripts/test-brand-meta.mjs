@@ -251,3 +251,46 @@ test("DEV-358 소비자 manifest background_color는 크림 #FFF4E8(보드 토�
 test("DEV-358 생산자 manifest background_color는 올리브 #56652A(PM 11/18)", () => {
   assert.equal(JSON.parse(read("apps/producer/public/manifest.webmanifest")).background_color, "#56652A");
 });
+
+// DEV-377: 설치 이름(expo.name)은 스토어 제목과 같게. 스토어 등록·딥링크·EAS 연결에 쓰는 식별자는 그대로 둔다.
+// 웹 탭 제목·PWA 이름은 expo.name이 아니라 public/index.html·manifest.webmanifest가 정한다(export 전후 dist가 같았다).
+const INSTALLED = {
+  consumer: {
+    name: "farmclub",
+    slug: "farmclub-consumer",
+    id: "kr.farmclub.consumer",
+    projectId: "5144c1ff-a874-426d-bb44-0c22dae62561",
+    webTitle: "farmclub · 좋아하는 농가를 수확 전에 예약해요",
+    pwa: ["farmclub · 산지 직송 감귤 예약", "farmclub"],
+  },
+  producer: {
+    name: "farmclub 농가",
+    slug: "farmclub-producer",
+    id: "kr.farmclub.producer",
+    projectId: "2952afb5-1cdc-42fb-a89f-e5c2382f128c",
+    webTitle: "farmclub 농가 · 수확 전에 예약받는 산지 직송",
+    pwa: ["farmclub 농가", "farmclub 농가"],
+  },
+};
+
+for (const [app, v] of Object.entries(INSTALLED)) {
+  test(`DEV-377 ${app} 설치 이름 ‘${v.name}’, slug·패키지·번들 ID·스킴·EAS 프로젝트는 그대로`, () => {
+    const { expo } = JSON.parse(read(`apps/${app}/app.json`));
+    assert.equal(expo.name, v.name);
+    assert.equal(expo.slug, v.slug);
+    assert.equal(expo.scheme, v.slug);
+    assert.equal(expo.owner, "snu-omm");
+    assert.equal(expo.android.package, v.id);
+    assert.equal(expo.ios.bundleIdentifier, v.id);
+    assert.equal(expo.extra.eas.projectId, v.projectId);
+    assert.equal(expo.updates.url, `https://u.expo.dev/${v.projectId}`);
+  });
+
+  test(`DEV-377 ${app} 웹 탭 제목·PWA 이름은 expo.name과 따로 그대로`, () => {
+    const { title, meta } = head(read(`apps/${app}/public/index.html`));
+    assert.equal(title, v.webTitle);
+    assert.equal(meta["apple-mobile-web-app-title"], v.pwa[1]);
+    const manifest = JSON.parse(read(`apps/${app}/public/manifest.webmanifest`));
+    assert.deepEqual([manifest.name, manifest.short_name], v.pwa);
+  });
+}
