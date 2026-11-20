@@ -287,3 +287,76 @@ Times are Asia/Seoul as recorded in the session log. Typos are kept as typed.
 - **2026-11-17 03:00:52 · `7956eb70`** (typed when rejecting a plan): why was the name not sent in the first place? if we do send names, is it a big issue?
 - **2026-11-17 03:22:48 · `7956eb70`:** if I were to grind and try to fix it before the deadline for i4, what should be done? i want to raise it as much as possible and not bring half done benchmark to i5.
 - **2026-11-17 03:25:13 · `7956eb70`:** write a plan to implement all one-by-one. validate each one after implementation before starting the next one
+
+## Hyun Park
+
+Personal contribution · November 20, 2026 · DEV-279.
+
+I wrote this from the messages I typed in my Claude Code sessions and from the PR and Linear records. The full conversations are not published.
+
+Period: November 7–20, 2026, Asia/Seoul.
+
+### Work and evidence
+
+On November 11 I decided to take a free role this iteration and work on the rebrand and the first-reservation UI/UX. Before that, from November 7 to 10, I cleaned up after the I3 deadline and handled operations work.
+
+- November 7–9: country-of-origin notice and its placement under the product name, a demo-record test fix, the iteration-3-demo sync, the Kakao login button moved into the page body in both apps, and the PostHog retention period in the privacy policy matched to the actual setting. [#497](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/497) · [#499](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/499) · [#504](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/504) · [#533](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/533) · [#534](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/534) · [#554](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/554)
+- November 10: easel-canvas bumped to 0.1.1 (DEV-26). [#561](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/561)
+- November 17: a brand direction proposal (DEV-311) and an audit of the first-reservation flow with UX fixes (DEV-268). [#578](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/578) · [#579](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/579)
+- November 17: the fixes from that audit. A "지금 예약" label, a price stair by period and trust rows on product detail and home (DEV-348); first-reservation UX on login, checkout and deposit instructions (DEV-356); and requesting the Kakao phone-number consent item and prefilling the phone number (DEV-78). [#647](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/647) · [#651](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/651) · [#652](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/652)
+- November 19: the integrated brand applied to app icons, the default share card and page meta (DEV-358). [#662](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/662)
+- Operations work outside PRs. On November 7 I built the consumer and producer Android APKs with the EAS internal profile and uploaded them to the GitHub Release `apk-internal-2026-11-07`. On November 10 the Kakao business app review was rejected because the service was still in preparation. The agent prepared one screen of the user flow and a test product, I applied again, and it was approved on November 12. On November 15 I applied for review of the Kakao Account phone-number consent item, which #652 needed. I did the console logins and submitted the applications myself.
+
+Tools: Claude Code desktop. The main session ran Claude Fable 5.2 for planning, briefs and review, and handed code, document and design work to Opus 5.5 subagents. I have used this split in this repository since November 4. Design proposal boards were in an Easel canvas and issues in Linear. I only have View access to Figma v6, so I read it but did not edit it. Updating it is a follow-up, DEV-357.
+
+### Representative Prompts
+
+> 이번 이터레이션 내가 프리롤로 작업할예정인데,  어떤거 하는게 좋아보여? 리브랜딩? ui/ux 개선? sns운영? 광고? 등등?
+
+November 11. I asked this before picking my scope. From the answer I chose the rebrand and the first-reservation work.
+
+> 일단 리디자인/uiux 바로 진행하도 될거 같다. 진행후 충돌나면 해결하면되지.  작업 어떻게 진행되고 있었는지, 어떤순서로 진행되고, 그래서 예상결과는 무엇인지. 내가 원하는 수준이 되는 진행과정인지 판단해
+
+November 15. I decided not to wait on other open work and asked the main session to lay out the order and expected result, so I could judge the plan before any code.
+
+> 주문서 입금안내에서 기존 정보 입력빠지면안됨. 그리고 막대 그래프 너무 딱딱한데 더 나은거 없나
+
+November 16. Feedback on the design board. The draft had dropped existing fields, and the price stair looked too stiff.
+
+> 취소선 정가가 뭔제, 그리고  첨부한 이미지에서 10월 17일, 11월 1일에 가격이 안오르는데 왜 있는거야?
+
+November 17. I questioned two parts of the price stair from a screenshot before approving it.
+
+> 좋은데, 단계 디자인 더 눈에 들어오게. 이상하게 촌스럽게 말고. 뉴욕 에이전시 터치
+
+November 15. This is how I sent back an early price stair mark, one of the rounds described under Failures and corrections.
+
+### What helped
+
+- Screen changes went through a design board, my approval, implementation, and then before/after captures in the PR and Linear. I could see and fix a screen before any code was written.
+- The first-reservation audit (DEV-268) went through login, product detail, checkout and deposit instructions in one pass and summarized seven fixes. Those became the scope of #647 and #651.
+- In DEV-358 the agent redrew the icons and share card with a script (`scripts/generate-brand-icons.mjs`) and left a test (`scripts/test-brand-meta.mjs`, 11 cases) that compares declared sizes with the actual PNG sizes and checks the safe zone.
+- After merges, deployment was checked from the deploy logs and the production responses (curl, file hash comparison), not from the Actions label.
+
+### Failures and corrections
+
+- The integrated design draft removed some existing fields from checkout and deposit instructions. I caught it on the board. I set the rule that a combined proposal only adds to the current screen and never removes information, inputs or consent items, and it is recorded in `docs/design/tasks/DEV-268.md`.
+- The first versions of the price stair mark looked stiff and dated. I sent them back several times. The final version uses three pill-shaped bars.
+- In DEV-358, the first symbol size in the Android adaptive icon (62% of the canvas) went slightly past the safe zone when calculated: 31.6% against a 30.56% radius. It was reduced to 59%, and the test now checks this ratio.
+- After pulling main, the local typecheck failed. The cause was a stale, gitignored Expo route type cache; CI was fine. During this the agent once misreported a rerun result and corrected it after reading the log.
+- The agent is not allowed to touch the production database, production variables or the Kakao console login. It gave me the commands and how to check them, and I ran them.
+- On November 20, in the first draft of this contribution, the agent wrote that none of the PRs touched `server/**`, but #652 changed two documents under that path. The main session checked the file lists with `gh pr view` and corrected it.
+
+### Verification and human boundary
+
+I decided the direction: the scope of my free role, the integrated proposal, version 5 of the stair mark, and keeping the '팬' label and the struck-through list price. I approved the boards. For #652 I read the diff and then told the agent to merge, with this prompt:
+
+> 652 diff 읽었어 머지해
+
+I put PRs in the merge queue, applied for Kakao business review and did the production console work. The design PRs (#647, #651, #662) stayed out of the high-risk path `server/**`. #652 changed two documents under `server/**`, so I read its diff before the merge.
+
+Limits. The production screens for #647 and #651 were checked only through the bundle and responses; a person has not yet looked at them on a real screen. Updating Figma v6 is still open (DEV-357).
+
+The PR numbers and dates in this section were checked against GitHub records: 13 PRs from #497 to #662, including #561.
+
+Effort: #662 is recorded in the PR as Agent about 2.5h and Human about 0.5h, both estimates. Human time for the other PRs is not recorded. Tokens not recorded. No time-saved figure is inferred.
