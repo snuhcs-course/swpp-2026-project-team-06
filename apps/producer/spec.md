@@ -200,7 +200,7 @@ FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-edi
 
 ## DEV-33 EAS 네이티브 빌드 (ADR 0013)
 
-- 식별자 `kr.farmclub.producer`, 스킴 `farmclub-producer`, 복귀 주소 `https://farm.farmclub.kr/auth/kakao`(서버 값 그대로). 설정·흐름은 소비자 앱과 같다(`apps/consumer/spec.md` DEV-33 절). `lib/kakao.ts`(웹)는 state만 sessionStorage, `lib/kakao.native.ts`는 메모리. 복귀 화면은 농가 상태별 첫 화면으로 간다(DEV-108과 같음).
+- 식별자 `kr.farmclub.producer`, 스킴 `farmclub-producer`, 설치 이름(`expo.name`) `farmclub 농가`(DEV-377), 복귀 주소 `https://farm.farmclub.kr/auth/kakao`(서버 값 그대로). 설정·흐름은 소비자 앱과 같다(`apps/consumer/spec.md` DEV-33 절). `lib/kakao.ts`(웹)는 state만 sessionStorage, `lib/kakao.native.ts`는 메모리. 복귀 화면은 농가 상태별 첫 화면으로 간다(DEV-108과 같음).
 - 사진·영상: 웹 `lib/pick.ts`(`<input type="file">`, 600px 축소), 앱 `lib/pick.native.ts`(`expo-image-picker`, quality 0.8, `{uri,name,type}` 업로드). 원본 자료 첨부 `lib/sourceFiles.native.ts`는 사진만(PDF·텍스트는 웹 전용).
 - `beforeunload` 경고(상세 편집·상품 페이지·원본 작업실)는 웹에서만 건다. 복사는 `expo-clipboard`.
 

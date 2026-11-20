@@ -431,7 +431,10 @@ each browser and never call the server.
 Both apps are also built as native iOS and Android apps from the same code
 ([ADR 0013](docs/spec/tech-design/adr/0013-eas-native-builds.md)). Native builds run on EAS
 Build (cloud); JS changes ship with EAS Update and never need a store review. Identifiers are
-`kr.farmclub.consumer` and `kr.farmclub.producer`; `apps/<app>/eas.json` has four profiles:
+`kr.farmclub.consumer` and `kr.farmclub.producer`; the installed app names (`expo.name`) are
+`farmclub` and `farmclub 농가`, the same as the store titles (DEV-377). Changing `expo.name`
+changes the fingerprint runtime version, so existing builds stop receiving updates until a new
+build is installed. `apps/<app>/eas.json` has four profiles:
 `development` (dev client), `internal` (installable Android APK and iOS simulator build for team
 testing, channel `preview`), `preview` (channel `preview`, store-format build for TestFlight and
 Play internal testing) and `production` (channel `production`). Build numbers auto-increment;
