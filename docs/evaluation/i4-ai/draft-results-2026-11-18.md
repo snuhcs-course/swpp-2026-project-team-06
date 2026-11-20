@@ -133,18 +133,27 @@ The pass lines are not lowered. The I4 decision (limit exposure, manual fallback
 
 **Pass lines:** not met (facts ≥ 95%, forbidden 0, unsupported 0). Not lowered.
 
-## DEV-355 follow-up — initial f1 loss attribution
+## DEV-355 follow-up — loss attribution
 
-The previous agent reported that a development-only attribution script reproduced the f1 headline (220/324 facts, 96/134 critical; paired 49 FAIL→PASS and 24 PASS→FAIL) before producing this table. The script was not found with the available private development files, so the counts below remain handoff-reported until independently reproduced from the saved run artifacts.
+Every public-development fact that the draft missed falls into one of three buckets:
 
-| Format | (a) Stage 1 did not extract | (b) Extracted, not used | (c) Used in the wrong section |
-|---|---:|---:|---:|
-| pdf | 25 | 10 | 9 |
-| long_image | 4 | 11 | 11 |
-| text | 7 | 8 | 11 |
-| image | 1 | 2 | 5 |
+- (a) **Stage 1 did not extract it.** No single accepted stage-1 candidate contains all of the fact's `mustContain` tokens.
+- (b) **Extracted, not used.** At least one candidate contains the fact, but the draft does not.
+- (c) **Used in the wrong section.** The draft contains the fact, but in the wrong section.
 
-In the handoff table, PDFs have the most total misses (44), with 25 assigned to stage 1; text has 19 of 26 misses assigned after extraction. I independently counted misses from the saved accepted stage-1 candidates, final outputs, and the same `contains` scorer. Total misses and wrong-section counts match the handoff, but the first two buckets differ slightly: PDF 27/8/9, long_image 5/10/11, text 8/7/11, image 1/2/5 (a/b/c). This means the exact “never extracted” versus “extracted, not used” split still depends on an unresolved definition of extraction; rejected candidates exist in the artifacts but treating all of them as extracted overcounts. The robust signal is that PDFs have the largest total loss and lowest recall. This does not separate OCR from structured extraction and does not explain the text f1/f2 difference (51 vs 45).
+Matching uses the scorer's `contains` function on one candidate's value plus its evidence quotes. Rejected candidates are not counted, because they never reach stage 2.
+
+The handoff table instead joined all candidates into one string. That let tokens from different candidates combine: for example, "돌이 많아" in one candidate and "물 빠짐" in another counted as extracted. The handoff script was later found with the private development files and reproduces the handoff table exactly. After switching it to per-candidate matching, it gives the table below, which differs from the handoff table on exactly those four facts (2 PDF, 1 long_image, 1 text).
+
+| Format | f1 (a / b / c) | f2 (a / b / c) |
+|---|---:|---:|
+| pdf | 27 / 8 / 9 | 12 / 10 / 12 |
+| long_image | 5 / 10 / 11 | 6 / 13 / 8 |
+| text | 8 / 7 / 11 | 8 / 12 / 12 |
+| image | 1 / 2 / 5 | 1 / 5 / 6 |
+| **Total missed** | 104 of 324 | 105 of 324 |
+
+The two runs have nearly the same total, but the split moves. PDF stage-1 misses fall from 27 in f1 to 12 in f2, so the stage-1 share of PDF loss is not stable across runs and two runs cannot pin it down. Most misses happen after extraction ((b) + (c): 63 of 104 in f1, 78 of 105 in f2), and wrong-section placement is steady in text (11 and 12). The table does not separate OCR from structured extraction.
 
 At the time of these runs, DEV-355's deterministic safety code added Korean range, line-up and other-product package checks. The other-product check was removed later after the PM review (see "PM review response" below); it rejected nothing in these runs. The evaluation runner supports `--stage2-model` so stage 1 can stay fixed. Two 47-source follow-up runs completed with stage 1 `google/gemini-3-flash-preview` and stage 2 `openai/gpt-6.1-sol`:
 
