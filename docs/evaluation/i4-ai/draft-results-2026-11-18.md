@@ -146,7 +146,7 @@ The previous agent reported that a development-only attribution script reproduce
 
 In the handoff table, PDFs have the most total misses (44), with 25 assigned to stage 1; text has 19 of 26 misses assigned after extraction. I independently counted misses from the saved accepted stage-1 candidates, final outputs, and the same `contains` scorer. Total misses and wrong-section counts match the handoff, but the first two buckets differ slightly: PDF 27/8/9, long_image 5/10/11, text 8/7/11, image 1/2/5 (a/b/c). This means the exact “never extracted” versus “extracted, not used” split still depends on an unresolved definition of extraction; rejected candidates exist in the artifacts but treating all of them as extracted overcounts. The robust signal is that PDFs have the largest total loss and lowest recall. This does not separate OCR from structured extraction and does not explain the text f1/f2 difference (51 vs 45).
 
-DEV-355's deterministic safety code adds Korean range, line-up and other-product package checks. The evaluation runner supports `--stage2-model` so stage 1 can stay fixed. Two 47-source follow-up runs completed with stage 1 `google/gemini-3-flash-preview` and stage 2 `openai/gpt-6.1-sol`:
+At the time of these runs, DEV-355's deterministic safety code added Korean range, line-up and other-product package checks. The other-product check was removed later after the PM review (see "PM review response" below); it rejected nothing in these runs. The evaluation runner supports `--stage2-model` so stage 1 can stay fixed. Two 47-source follow-up runs completed with stage 1 `google/gemini-3-flash-preview` and stage 2 `openai/gpt-6.1-sol`:
 
 | | Run 1 | Run 2 | Mean |
 |---|---:|---:|---:|
