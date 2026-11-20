@@ -11,7 +11,7 @@ In Farmclub, growers build a following by sharing the season as it happens. In t
 - [Consumer story · 0:47](docs/demo-i4/consumer.mp4) follows Minji from discovery and the first harvest update through a private reply and reservation.
 - [Producer story · 1:01](docs/demo-i4/producer.mp4) follows the grower as they send that update, find Minji’s reply, answer her and confirm the simulated deposit. It ends with the grower preparing the next listing.
 
-Both clips use the application source pinned on this branch and include Korean narration and English scene captions. The transaction uses a simulated bank transfer and the editor uses a fixture-backed source-analysis provider.
+Both clips use the application source pinned on this branch and include on-screen English captions. The transaction uses a simulated bank transfer and the editor uses a fixture-backed source-analysis provider.
 
 ## Run locally
 
