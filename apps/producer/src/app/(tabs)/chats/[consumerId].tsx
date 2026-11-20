@@ -22,7 +22,13 @@ import { View } from "react-native";
 import { ORDER_STATUS, copyText, errMsg } from "../../../lib/views";
 import { useHideTabBar } from "../../../lib/session";
 import { goBackOr } from "../../../lib/nav";
-import { clearChatDraft, peekChatDraft } from "../../../lib/chatDraft";
+import {
+  clearChatDraft,
+  nextPrefill,
+  peekChatDraft,
+  prefillFor,
+  type ChatPrefill,
+} from "../../../lib/chatDraft";
 import { replyKind } from "../../../lib/producerEvents";
 import { track } from "@farmclub/analytics";
 export default function Chat() {
@@ -33,11 +39,13 @@ export default function Chat() {
     }>(),
     router = useRouter();
   // 입금 대기 주문 ‘채팅하기’(DEV-342)가 넘긴 확인 글. 입력칸에만 넣고 보내지 않는다.
-  // 처음 열 때(렌더 중 읽기)와, 이미 떠 있던 화면을 다시 볼 때(focus) 넣고 지운다
-  const [prefill, setPrefill] = useState(() => {
+  // 처음 열 때(렌더 중 읽기)와, 이미 떠 있던 화면을 다시 볼 때(focus) 넣고 지운다.
+  // 글은 손님(consumerId)과 함께 두고 지금 손님 것만 쓴다: 다른 손님 대화에 남지 않게(DEV-362)
+  const [stored, setStored] = useState<ChatPrefill | undefined>(() => {
     const text = peekChatDraft(consumerId);
-    return text ? { text, id: 0 } : undefined;
+    return text ? { text, id: 0, consumerId } : undefined;
   });
+  const prefill = prefillFor(stored, consumerId);
   // farmclub 문의 대화방(DEV-111): AI 응대 바 대신 문의 안내를 보인다
   const support = consumerId === SUPPORT_ID;
   const [page, setPage] = useState<ChatPage | null>(null),
@@ -47,7 +55,7 @@ export default function Chat() {
     useCallback(() => {
       setActive(true);
       const text = peekChatDraft(consumerId);
-      if (text) setPrefill((cur) => (cur?.text === text && cur.id === 0 ? cur : { text, id: Date.now() }));
+      setStored((cur) => nextPrefill(cur, consumerId, text));
       clearChatDraft(consumerId);
       return () => setActive(false);
     }, [consumerId]),

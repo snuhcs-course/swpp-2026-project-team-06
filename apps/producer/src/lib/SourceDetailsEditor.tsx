@@ -16,8 +16,8 @@ import {
   type SourceReview,
 } from "@farmclub/api";
 import { Button, SOURCE_MODULES, T, tokens } from "@farmclub/ui";
-import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { View, type ScrollView } from "react-native";
 
 const identity = (f: SourceField) => `${f.targetId}:${f.fieldKey}`;
 const filled = (f: SourceField) =>
@@ -106,6 +106,7 @@ export function SourceDetailsEditor({
   onSaved,
   onBusy,
   saveRef,
+  scrollRef,
   emptyHint = false,
   showStoryTextHints = false,
   displayName,
@@ -118,6 +119,7 @@ export function SourceDetailsEditor({
   locked?: boolean;
   emptyHint?: boolean;
   showStoryTextHints?: boolean;
+  scrollRef?: RefObject<ScrollView | null>;
   batch: SourceBatch;
   review: SourceReview;
   drafts: SourceDraft[];
@@ -416,6 +418,7 @@ export function SourceDetailsEditor({
         <PageCanvas
           key={target.id}
           preview={preview}
+          scrollRef={scrollRef}
           hiddenSectionIds={hidden[target.id] ?? []}
           onHiddenSectionsChange={(ids) => {
             setHidden((old) => ({ ...old, [target.id]: ids }));

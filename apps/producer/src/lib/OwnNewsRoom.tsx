@@ -43,7 +43,7 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
         key={farmId}
         products={products.data ?? farm.data?.products ?? []}
         summary={farm.data ? `팔로워 ${farm.data.followerCount}명` : undefined}
-        onProduct={(id) => router.push(`/products/${id}/edit`)}
+        onProduct={(id) => router.push(`/products/${id}/detail`)}
       />
       {farm.error ? (
         <>

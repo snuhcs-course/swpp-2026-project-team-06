@@ -157,6 +157,8 @@ RULES: dict[str, Rule] = {
     "users": lambda k: _in(_t("users").c.id, k.users),
     # 저장한 응답(JSON)에 지울 소비자 정보가 들어 있을 수 있다. 재시도 재생용이라 전부 지운다
     "idempotency_records": lambda k: false(),
+    # 로그인·가입 시도 카운터(DEV-363). 짧게 쓰는 값이라 모두 지운다
+    "auth_throttles": lambda k: false(),
     "notice_reads": lambda k: _in(_t("notice_reads").c.user_id, k.users),
     "shipping_addresses": lambda k: _in(_t("shipping_addresses").c.user_id, k.users),
     "user_consents": lambda k: _in(_t("user_consents").c.user_id, k.users),

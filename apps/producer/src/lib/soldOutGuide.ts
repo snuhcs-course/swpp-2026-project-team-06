@@ -8,14 +8,14 @@ export type SoldOutGuide = {
   body: string;
   /** 보조 글자(없으면 null) */
   hint: string | null;
-  /** ‘기간·가격에서 박스 늘리기’ 버튼을 보일지 */
+  /** ‘판매 조건에서 박스 늘리기’ 버튼(상품 수정의 판매 조건 시트, DEV-361)을 보일지 */
   toStages: boolean;
 };
 
 /**
  * DEV-345: 물량·판매 설정(`products/[id]/sales.tsx`) 맨 위 안내. 판매 중(PUBLISHED) 품절 상품의 다음 행동 안내. 전체 물량 품절은 판매 한도·승인 물량 중 무엇을 늘려야 하는지,
  * 이번 기간 품절은 박스 수를 늘리면 된다고 알린다. 그 밖의 상태는 안내하지 않는다(null).
- * 승인 전 상품은 한도가 0이라 서버가 TOTAL_SOLD_OUT을 주지만 이 화면은 ‘공급 물량 승인 요청’ 화면이라 안내하지 않는다.
+ * 승인 전 상품은 한도가 0이라 서버가 TOTAL_SOLD_OUT을 주지만 안내하지 않는다(심사 중은 상태만 보이고, 작성 중·반려는 판매·가격으로 옮긴다, DEV-361).
  */
 export function soldOutGuide(
   p: Pick<
@@ -48,8 +48,8 @@ export function soldOutGuide(
         title: "전체 물량 품절",
         body: `판매 한도 ${kg(p.salesLimitGrams)}를 모두 채웠어요. 승인 ${kg(p.approvedSupplyGrams)}까지 늘릴 수 있어요.`,
         hint: boxesOut
-          ? "이번 기간에 남은 박스도 없어요. 기간·가격에서 박스 수도 늘려 주세요."
-          : "한도를 늘린 뒤 박스가 모자라면 기간·가격에서 박스 수도 늘려 주세요.",
+          ? "이번 기간에 남은 박스도 없어요. 상품 수정의 판매 조건에서 박스 수도 늘려 주세요."
+          : "한도를 늘린 뒤 박스가 모자라면 상품 수정의 판매 조건에서 박스 수도 늘려 주세요.",
         toStages: boxesOut,
       };
     return {
@@ -64,7 +64,7 @@ export function soldOutGuide(
   if (p.availability === "PERIOD_SOLD_OUT" || p.availability === "TOTAL_SOLD_OUT")
     return {
       title: "이번 기간 품절",
-      body: "이번 기간에 남은 박스가 없어요. 기간·가격에서 박스 수를 늘리면 바로 다시 예약받아요.",
+      body: "이번 기간에 남은 박스가 없어요. 상품 수정의 판매 조건에서 박스 수를 늘려 '상품에 반영'하면 다시 예약받아요.",
       hint: null,
       toStages: true,
     };

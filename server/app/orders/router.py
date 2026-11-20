@@ -220,7 +220,7 @@ def update_tracking(
     key: IdempotencyKey = None,
 ):
     user, farm = producer
-    return run_idempotent(
+    result = run_idempotent(
         db,
         user.id,
         f"tracking:{order_id}",
@@ -228,6 +228,7 @@ def update_tracking(
         body,
         lambda: service.update_tracking(db, farm.id, user.id, order_id, body),
     )
+    return service.producer_tracking_response(db, farm.id, order_id, result)
 
 
 @router.get("/{order_id}", response_model=OrderView)

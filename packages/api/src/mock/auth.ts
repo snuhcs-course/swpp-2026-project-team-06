@@ -9,11 +9,13 @@ import type {
   TestAccount,
   User,
 } from "../types";
+import { normalizeUsername, passwordError } from "../passwordRules";
 import {
   CONSENT_VERSION,
   ORIGIN_NOTICE_VERSION,
   consentRequired,
   ensureConsumerSupport,
+  isMember,
   needsOnboarding,
   nextId,
   nowIso,
@@ -66,7 +68,7 @@ export function userView(d: DB, u: UserRec): User {
     userId: u.userId,
     name: u.name,
     role: u.role,
-    isTestAccount: !u.kakao,
+    isTestAccount: !isMember(u),
     farmId: f?.farmId ?? null,
     farmStatus: f?.status ?? "NONE",
     suspendReason: f?.suspendReason ?? null,
@@ -80,7 +82,40 @@ export function userView(d: DB, u: UserRec): User {
         ? (u.noticeReads?.find((r) => r.kind === "ORIGIN" && r.version === ORIGIN_NOTICE_VERSION)
             ?.readAt ?? null)
         : null,
+    username: u.username ?? null,
+    mustChangePassword: !!u.mustChangePassword,
   };
+}
+
+/* ---- 아이디·비밀번호 (DEV-363). 계정은 운영자가 관리자 웹에서 만든다(Mock에는 관리자 화면이 없어 테스트가 저장소에 넣는다) ---- */
+
+/** Mock에서도 원문을 저장하지 않는다(브라우저 저장소에 남으므로). 보안 해시가 아니라 원문을 숨기는 값이다 */
+export function mockPasswordHash(password: string): string {
+  let h = 0x811c9dc5;
+  for (const ch of `farmclub-mock:${password}`) {
+    h ^= ch.codePointAt(0)!;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `mock$${h.toString(16)}`;
+}
+const LOGIN_LOCK_FAILURES = 10;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const INVALID_LOGIN = "아이디 또는 비밀번호가 맞지 않아요";
+
+function passwordUser(d: DB, username: string, app: App): UserRec | undefined {
+  const role = app === "consumer" ? "CONSUMER" : "PRODUCER";
+  return Object.values(d.users).find((u) => u.username === username && u.role === role && !u.deleted);
+}
+
+function issue(d: DB, u: UserRec) {
+  const token = `mock-${u.userId}-${Math.random().toString(36).slice(2, 10)}`;
+  d.tokens[token] = u.userId;
+  return { accessToken: token, user: userView(d, u) };
+}
+
+/** 그 사용자의 Mock 토큰을 모두 끊는다(서버 token_version을 올리는 것과 같다) */
+function dropTokens(d: DB, userId: string) {
+  d.tokens = Object.fromEntries(Object.entries(d.tokens).filter(([, id]) => id !== userId));
 }
 
 function application(d: DB, u: UserRec): ProducerApplication {
@@ -202,6 +237,58 @@ register({
     return { accessToken: token, user: userView(db, u) };
   },
 
+  "POST /api/auth/login": ({ db, body }) => {
+    const app = appOf(body.app);
+    const username = normalizeUsername(String(body.username ?? ""));
+    const password = String(body.password ?? "");
+    const key = `${app}:${username}`;
+    const failures = (db.loginFailures ??= {});
+    const row = failures[key];
+    const now = Date.now();
+    if (row?.lockedUntil && row.lockedUntil > now) {
+      const retryAfter = Math.ceil((row.lockedUntil - now) / 1000);
+      fail(
+        429,
+        "RATE_LIMITED",
+        `로그인을 여러 번 실패해서 잠시 막았어요. ${Math.ceil(retryAfter / 60)}분 뒤에 다시 시도해 주세요.`,
+        { retryAfter },
+      );
+    }
+    const u = passwordUser(db, username, app);
+    if (!u || u.passwordHash !== mockPasswordHash(password)) {
+      const next = row && !row.lockedUntil ? row : { count: 0, lockedUntil: null as number | null };
+      next.count += 1;
+      if (next.count >= LOGIN_LOCK_FAILURES) {
+        next.count = 0;
+        next.lockedUntil = now + LOGIN_LOCK_MS;
+      }
+      failures[key] = next;
+      fail(401, "UNAUTHENTICATED", INVALID_LOGIN, { reason: "INVALID_CREDENTIALS" });
+    }
+    failures[key] = { count: 0, lockedUntil: null };
+    return issue(db, u);
+  },
+
+  "POST /api/auth/me/password": (ctx) => {
+    const u = ctx.me();
+    if (!u.username || !u.passwordHash)
+      fail(403, "FORBIDDEN", "아이디로 가입한 계정만 비밀번호를 바꿀 수 있어요.", {
+        reason: "NOT_PASSWORD_ACCOUNT",
+      });
+    const b = ctx.body as { currentPassword?: string; newPassword?: string };
+    const current = String(b.currentPassword ?? "");
+    const next = String(b.newPassword ?? "");
+    if (u.passwordHash !== mockPasswordHash(current))
+      invalid({ currentPassword: "지금 비밀번호가 맞지 않아요" });
+    const err = passwordError(next, u.username);
+    if (err) invalid({ newPassword: err });
+    if (next === current) invalid({ newPassword: "지금과 다른 비밀번호를 써 주세요" });
+    u.passwordHash = mockPasswordHash(next);
+    u.mustChangePassword = false;
+    dropTokens(ctx.db, u.userId);
+    return issue(ctx.db, u);
+  },
+
   "GET /api/auth/me": (ctx) => userView(ctx.db, ctx.me()),
 
   // 회원 탈퇴(DEV-94, 서버 accounts.withdraw와 같은 규칙). 테스트 계정은 막는다.
@@ -210,7 +297,7 @@ register({
   "POST /api/auth/me/withdraw": (ctx) => {
     const { db } = ctx;
     const u = ctx.me();
-    if (!u.kakao)
+    if (!isMember(u))
       fail(403, "FORBIDDEN", "테스트 계정은 탈퇴할 수 없어요.", { reason: "TEST_ACCOUNT" });
     const farm = u.role === "PRODUCER" && u.farmId ? db.farms[u.farmId] : null;
     const blocking = Object.values(db.orders)
@@ -275,6 +362,10 @@ register({
       phone: "",
       email: null,
       kakao: false,
+      // 아이디·비밀번호도 지운다(DEV-363, 아이디는 예약하지 않음)
+      username: null,
+      passwordHash: null,
+      mustChangePassword: false,
       deleted: true,
     };
     delete db.users[old];

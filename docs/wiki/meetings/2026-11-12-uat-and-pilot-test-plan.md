@@ -18,6 +18,8 @@
 - For the pilot test, the team will collect qualitative findings (observation notes, SUS and a short interview) and quantitative data from PostHog.
 - The Kakao Business approval has been granted, so the features that depend on it can now be built.
 
+- Jinwoo shared the UAT workbook and reported that he had submitted it.
+
 ### Decisions
 
 - Run real-user testing as a pilot test, not as UAT.

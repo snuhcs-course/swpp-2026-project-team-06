@@ -23,3 +23,22 @@ export function peekChatDraft(consumerId: string, now = Date.now()): string | un
 export function clearChatDraft(consumerId: string) {
   drafts.delete(consumerId);
 }
+
+/** 대화 화면이 들고 있는 미리 넣은 글. 어느 손님 것인지(consumerId)를 함께 둔다(DEV-362) */
+export type ChatPrefill = { text: string; id: number; consumerId: string };
+
+/** 지금 보는 손님의 글만 돌려준다. 같은 화면이 다른 손님으로 재사용돼도 앞 손님 글은 쓰지 않는다 */
+export function prefillFor(prefill: ChatPrefill | undefined, consumerId: string): ChatPrefill | undefined {
+  return prefill?.consumerId === consumerId ? prefill : undefined;
+}
+
+/** focus 때 다음 상태: 새 글이 있으면 그 손님 것으로 넣고, 없으면 다른 손님 글은 비운다 */
+export function nextPrefill(
+  cur: ChatPrefill | undefined,
+  consumerId: string,
+  text: string | undefined,
+  now = Date.now(),
+): ChatPrefill | undefined {
+  if (text) return cur?.text === text && cur.id === 0 && cur.consumerId === consumerId ? cur : { text, id: now, consumerId };
+  return prefillFor(cur, consumerId);
+}

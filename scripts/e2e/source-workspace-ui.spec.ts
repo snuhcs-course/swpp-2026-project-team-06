@@ -1,17 +1,20 @@
 import { test, expect } from "./fixtures";
 import { loginProducer, producerUrl, monitor } from "./helpers";
 
+// DEV-361 PR C: the 2-tab workspace screen is gone; `/products/source-analysis?batchId=` always opens the composer.
+// The first test now checks the same compact attachment tiles and live analysis states in the composer's AI sheet.
 for (const width of [360, 390, 430]) {
-  test(`AC-SRC-1/4 ${width}px: compact files and live analysis status`, async ({
+  test(`AC-SRC-1/4 DEV-361 ${width}px: compact files and live analysis status`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
     const clean = monitor(page);
     await loginProducer(page, "강영수");
+    // A seeded pre-sale product: the composer opens a batch tied to exactly one product (DEV-361 C-18).
     const target = {
       id: "target-ui",
-      name: "하우스감귤",
-      productId: "p-house",
+      name: "한라봉",
+      productId: "p-hallabong",
     };
     const batch = {
       id: "ui-preview",
@@ -102,6 +105,7 @@ for (const width of [360, 390, 430]) {
               candidates: [],
               conflicts: [],
               sourcePhotoRequests: [],
+              editorFields: [],
             },
           });
         if (path.endsWith("/drafts"))
@@ -112,6 +116,8 @@ for (const width of [360, 390, 430]) {
     await page.goto(
       `${producerUrl}/products/source-analysis?batchId=ui-preview`,
     );
+    // Sources live in the composer's AI sheet (DEV-184); it starts closed.
+    await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
     const card = page
       .getByTestId("product-photo-box")
       .getByTestId("attachment-tile")
@@ -133,10 +139,9 @@ for (const width of [360, 390, 430]) {
     expect(removeBounds!.x + removeBounds!.width).toBeLessThanOrEqual(
       bounds!.x + bounds!.width,
     );
-    const banner = page.getByTestId("source-analysis-status");
-    await expect(banner).toContainText("분석 중이에요");
+    // While analysing, the start button says so and cannot be pressed again.
     await expect(
-      page.getByRole("button", { name: "분석 중이에요", exact: true }),
+      page.getByRole("button", { name: "AI가 작성 중이에요", exact: true }),
     ).toBeDisabled();
     await expect(page.getByTestId("product-photo-box")).not.toContainText(
       "감귤 사진.jpg",
@@ -145,18 +150,35 @@ for (const width of [360, 390, 430]) {
       "판매 안내.pdf",
     );
     await expect(
-      page.getByRole("button", { name: "상세페이지 편집", exact: true }),
-    ).toBeDisabled();
-    await expect(
       page.getByRole("button", { name: /개인정보 가림/ }),
     ).toHaveCount(0);
-    status = "PRIVACY_REVIEW";
-    await expect(banner).toContainText("이전 분석을 다시 시작해 주세요");
-    status = "SUCCEEDED";
-    await expect(banner).toHaveCount(0);
+    // The live status sits where the detail page goes, and the page cannot move on meanwhile.
+    await page.getByRole("button", { name: "AI 시트 닫기", exact: true }).first().click();
+    const banner = page.getByTestId("source-analysis-status");
+    await expect(banner).toContainText(
+      "AI가 자료를 보고 상세페이지를 쓰고 있어요. 잠시만 기다려 주세요.",
+    );
     await expect(
-      page.getByRole("button", { name: "자료 준비·분석 시작", exact: true }),
+      page.getByRole("button", { name: "다음: 판매·가격", exact: true }),
+    ).toBeDisabled();
+    status = "PRIVACY_REVIEW";
+    // A run held for privacy review is not "writing": the banner goes and the sheet asks to cancel it first.
+    await expect(banner).toHaveCount(0);
+    await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
+    await expect(
+      page.getByText("이전 분석을 취소한 뒤 다시 시작해 주세요", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "이전 분석을 취소해 주세요", exact: true }),
+    ).toBeDisabled();
+    status = "SUCCEEDED";
+    await expect(
+      page.getByRole("button", { name: "AI로 다시 채우기", exact: true }),
     ).toBeEnabled();
+    await expect(
+      page.getByText("AI가 다 채웠어요. 위에서 확인하고 고쳐 주세요.", { exact: true }),
+    ).toBeVisible();
+    await expect(banner).toHaveCount(0);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -166,7 +188,7 @@ for (const width of [360, 390, 430]) {
   });
 }
 
-test("AC-SRC-1: New Product opens uploads linked to a new private product", async ({
+test("AC-SRC-1 DEV-361: New Product opens uploads linked to a new private product", async ({
   page,
 }) => {
   await loginProducer(page, "강영수");
@@ -200,6 +222,15 @@ test("AC-SRC-1: New Product opens uploads linked to a new private product", asyn
     .getByRole("button", { name: "AI 시트 닫기", exact: true })
     .last()
     .click();
+  await page
+    .getByRole("button", { name: "다음: 판매·가격", exact: true })
+    .click();
+  await expect(page).toHaveURL(/composer=1/);
+  // DEV-361 C-23: the empty product fields are checked first (name, then variety), the cover photo after them
+  await expect(page.getByTestId("invalid-field-name")).toBeVisible();
+  await page.getByLabel("상품명", { exact: true }).fill("사진 없는 새 감귤");
+  await page.getByLabel("품종명", { exact: true }).fill("온주밀감");
+  await page.getByLabel("품종명", { exact: true }).blur();
   await page
     .getByRole("button", { name: "다음: 판매·가격", exact: true })
     .click();

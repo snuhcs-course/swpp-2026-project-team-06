@@ -18,8 +18,10 @@ export const PRIVATE_PATHS: Record<AppName, readonly string[]> = {
     "/orders/*/inquiry",
     "/onboarding",
     "/auth",
+    // 비밀번호 변경(DEV-363). 입력칸은 원래 다 가리고, 아이디 글자도 가린다
+    "/password",
   ],
-  producer: ["/chats", "/ship", "/pending", "/apply", "/farm/account", "/auth"],
+  producer: ["/chats", "/ship", "/pending", "/apply", "/farm/account", "/auth", "/password"],
 };
 
 /** 화면 일부만 가릴 때 붙이는 속성. react-native-web은 className을 받지 않아 dataSet(data-*)을 쓴다 */

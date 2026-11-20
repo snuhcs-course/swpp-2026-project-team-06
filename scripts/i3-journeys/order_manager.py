@@ -425,7 +425,10 @@ def prodord_05(log: Log) -> dict:
     masked_fields = (
         {
             k: delivered.get(k)
-            for k in ("recipientName", "recipientPhone", "address", "addressDetail", "postalCode")
+            for k in (
+                "recipientName", "recipientPhone", "address", "addressDetail", "postalCode",
+                "deliveryNote",
+            )
         }
         if delivered
         else None
@@ -448,6 +451,10 @@ def prodord_05(log: Log) -> dict:
             and prow.get(hinted, {}).get("status") == "AWAITING_DEPOSIT",
             "delivered_contact_address_masked_in_order_list": bool(delivered)
             and not any(delivered.get(k) for k in ("recipientPhone", "address", "addressDetail")),
+            "delivered_recipient_postcode_note_masked": bool(delivered)
+            and delivered.get("recipientName") == "○○○"
+            and delivered.get("postalCode") == ""
+            and delivered.get("deliveryNote") is None,
             "delivered_masked_on_dashboard": all(
                 "○" in r["buyerName"] for r in dash["recentOrders"]
             ),

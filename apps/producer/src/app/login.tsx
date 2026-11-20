@@ -1,10 +1,11 @@
-// SCR-19 로그인(생산자 앱) — 카카오로 시작하기(I2, DEV-74) 또는 생산자 테스트 계정 선택(ADR 0009·0010) — design: p-scr-19
-import { auth, evaluatorBuild, isMock, type TestAccount } from "@farmclub/api";
+// SCR-19 로그인(생산자 앱) — 카카오로 시작하기(I2, DEV-74), 아이디·비밀번호(DEV-363, 운영자가 만든 계정) 또는 개발/Mock 생산자 테스트 계정 선택(ADR 0009·0010) — design: p-scr-19
+import { auth, isMock, type TestAccount } from "@farmclub/api";
 import {
   BrandLogo,
   Button,
   EmptyState,
   LegalFooter,
+  PasswordLoginForm,
   Radio,
   Screen,
   Scroll,
@@ -15,7 +16,7 @@ import {
   tokens,
   useAsync,
 } from "@farmclub/ui";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, View, useWindowDimensions } from "react-native";
 
@@ -44,78 +45,29 @@ const sub = (a: TestAccount) =>
     : "아직 농가 등록 안 함 · 가입 신청 시험용";
 const NEW_PRODUCER = "u-new";
 
-// 평가용 주소(?evaluator=1, DEV-198)로 한 번 들어오면 이 브라우저(기기)에서 기억한다.
-// 로그아웃하거나 관문을 거쳐 맨 /login으로 와도, 홈 화면에 추가한 PWA가 start_url(/)로 새 창을 열어도
-// 테스트 계정 목록이 남는다(11/03 PWA 점검: sessionStorage만으로는 홈 아이콘에서 카카오 버튼만 보였다).
-// 표시는 테스트 계정 목록을 실제로 받은 뒤에만 남기고, 테스트 로그인이 꺼졌으면 지운다(DEV-283).
-const EVALUATOR_KEY = "farmclub:evaluator";
-function evaluatorMode(param?: string) {
-  // 앱 평가용 빌드(DEV-200)는 주소 없이도 목록을 보인다
-  if (evaluatorBuild) return true;
-  if (param === "1") return true;
-  try {
-    return (
-      globalThis.localStorage?.getItem(EVALUATOR_KEY) === "1" ||
-      globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1"
-    );
-  } catch {
-    return false;
-  }
-}
-function rememberEvaluator(on: boolean) {
-  try {
-    if (on) {
-      globalThis.localStorage?.setItem(EVALUATOR_KEY, "1");
-    } else {
-      globalThis.localStorage?.removeItem(EVALUATOR_KEY);
-      globalThis.sessionStorage?.removeItem(EVALUATOR_KEY);
-    }
-  } catch {
-    // 저장소를 못 쓰는 브라우저는 주소(?evaluator=1)로만 평가 모드가 된다
-  }
-}
+// 시드 계정은 개발 빌드·명시적 Mock에서만 쓴다(AC-01-34). release 실서버 앱은 목록도 요청하지 않는다.
+const testLoginAvailable = __DEV__ || isMock;
 
 export default function Login() {
   const { width } = useWindowDimensions();
   // Reserve 140px for the two title lines, 40px gutters, and the 8px gap.
   const logoWidth = Math.min(172, Math.max(96, width - 188));
   const router = useRouter();
-  const { evaluator } = useLocalSearchParams<{ evaluator?: string }>();
   const { refresh } = useSession();
   const { data, error, reload } = useAsync(
-    () =>
-      auth
-        .testAccounts()
-        .then((l) =>
-          l
-            .filter((a) => a.role === "PRODUCER")
-            .sort(
-              (a, b) => (ORDER[a.farmStatus] ?? 9) - (ORDER[b.farmStatus] ?? 9),
-            ),
-        ),
+    () => testLoginAvailable
+      ? auth.testAccounts().then((l) =>
+          l.filter((a) => a.role === "PRODUCER").sort(
+            (a, b) => (ORDER[a.farmStatus] ?? 9) - (ORDER[b.farmStatus] ?? 9),
+          ),
+        )
+      : Promise.resolve([]),
     [],
   );
-  // 카카오 로그인 사용 여부(ADR 0003). 실서버에서 켜져 있으면 카카오만 둔다(DEV-74 결정).
-  // Mock은 상태별 시연 계정(승인·확인 중·반려·정지)이 필요해 테스트 목록을 함께 둔다
   const kakao = useAsync(() => auth.kakaoConfig(), []);
   const kakaoOn = !!kakao.data?.enabled;
-  // 평가용 주소(?evaluator=1, DEV-198)는 카카오가 켜진 운영에서도 테스트 계정 목록을 함께 둔다
-  const wantsEvaluator = evaluatorMode(evaluator);
-  const evaluatorOnly = kakaoOn && !isMock && wantsEvaluator;
-  // 평가 표시만으로 목록을 여는데 서버 테스트 로그인이 꺼졌거나(404) 생산자 계정이 없으면 낡은 표시다.
-  // 표시를 지우고 운영 화면(카카오만)을 보인다(DEV-283)
-  const staleEvaluator =
-    evaluatorOnly && (isStatus(error, 404) || data?.length === 0);
-  useEffect(() => {
-    if (!evaluatorOnly || evaluatorBuild) return;
-    if (staleEvaluator) rememberEvaluator(false);
-    else if (evaluator === "1" && data?.length) rememberEvaluator(true);
-  }, [evaluatorOnly, staleEvaluator, evaluator, data]);
-  const showTest = kakao.error
-    ? true
-    : kakao.data
-      ? !kakaoOn || isMock || (wantsEvaluator && !staleEvaluator)
-      : false;
+  const showTest = testLoginAvailable &&
+    (isMock || !!kakao.error || (!!kakao.data && !kakaoOn));
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // 고정 하단 바('○○으로 시작하기')는 테스트 계정 목록이 있을 때만 둔다. 그 높이만큼 스크롤 아래를 비운다
@@ -174,6 +126,13 @@ export default function Login() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // 아이디·비밀번호 로그인(DEV-363). 다시 읽으면 관문이 상태별 화면(임시 비밀번호면 변경 → 약관 동의 → 가입 신청)으로 보낸다
+  async function passwordLogin(username: string, password: string) {
+    setFailed(null);
+    await auth.passwordLogin(username, password);
+    await refresh();
   }
 
   const kakaoButton = (
@@ -239,6 +198,22 @@ export default function Login() {
             ) : null}
           </View>
         ) : null}
+        {/* 아이디·비밀번호 로그인(DEV-363). 계정은 운영자가 만들어 공개 가입 버튼은 없다(PM 11/18). 개발/Mock 전용 시드 목록은 아래에 */}
+        <View
+          testID="password-login-section"
+          style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 32, gap: 16 }}
+        >
+          {kakaoOn ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: tokens.color.border }} />
+              <T variant="caption" muted>
+                또는 아이디로 로그인
+              </T>
+              <View style={{ flex: 1, height: 1, backgroundColor: tokens.color.border }} />
+            </View>
+          ) : null}
+          <PasswordLoginForm size="producer" onLogin={passwordLogin} disabled={busy} />
+        </View>
         {!showTest ? null : error ? (
           isStatus(error, 404) ? (
             <EmptyState

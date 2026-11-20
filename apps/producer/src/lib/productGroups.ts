@@ -17,6 +17,16 @@ export function productGroup(
   if (product.salesPaused || product.availability === "PAUSED") return "paused";
   return product.availability === "ENDED" ? "ended" : "selling";
 }
+/**
+ * 판매 전 상품: 작성 중·반려이고 승인 물량이 없다(DEV-361). 첫 판매 요청은 판매·가격(`/products/:id/sell`)에서만 하므로
+ * 물량·판매 설정 대신 그 화면으로 보낸다. 심사 중(첫 신청 승인 대기)은 물량·판매 설정에서 상태를 본다.
+ */
+export function isPreSale(product: { status: string; approvedSupplyGrams: number }): boolean {
+  return (
+    product.approvedSupplyGrams === 0 &&
+    (product.status === "DRAFT" || product.status === "REJECTED")
+  );
+}
 export function productStatus(product: MyProductCard): string {
   if (product.status === "REJECTED") return "수정 필요";
   const group = productGroup(product);
