@@ -13,6 +13,11 @@ In Farmclub, growers build a following by sharing the season as it happens. In t
 
 Both clips use the application source pinned on this branch and include on-screen English captions. The transaction uses a simulated bank transfer and the editor uses a fixture-backed source-analysis provider.
 
+## AI feature walkthroughs
+
+- [Consumer AI chat · 0:17](docs/demo-i4/consumer-ai-chat.mp4). A small-order question receives an answer from the farm's saved policy. A request for a shipping discount is forwarded to the grower.
+- [Producer AI draft · 0:17](docs/demo-i4/producer-ai-draft.mp4). The grower adds source notes, fills the listing draft and reviews the editable fields. This recording uses a fixture-backed provider.
+
 ## Run locally
 
 Environment used for verification: macOS, Node.js 24, Python 3.12 managed by uv, Docker with PostgreSQL 16, Expo web and Chromium. The walkthrough uses a disposable local database and synthetic accounts. A fixture-backed product-draft run demonstrates the editor flow without any paid-model key. Bank transfers and shipping in this demo are simulated actions.
