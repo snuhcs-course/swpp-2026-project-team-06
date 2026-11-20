@@ -343,7 +343,7 @@ November 15. This is how I sent back an early price stair mark, one of the round
 - In DEV-358, the first symbol size in the Android adaptive icon (62% of the canvas) went slightly past the safe zone when calculated: 31.6% against a 30.56% radius. It was reduced to 59%, and the test now checks this ratio.
 - After pulling main, the local typecheck failed. The cause was a stale, gitignored Expo route type cache; CI was fine. During this the agent once misreported a rerun result and corrected it after reading the log.
 - The agent is not allowed to touch the production database, production variables or the Kakao console login. It gave me the commands and how to check them, and I ran them.
-- On November 20, in the first draft of this contribution, the agent wrote that none of the PRs touched `server/**`, but #652 changed two server files. The main session checked the file lists with `gh pr view` and corrected it.
+- On November 20, in the first draft of this contribution, the agent wrote that none of the PRs touched `server/**`, but #652 changed two documents under that path. The main session checked the file lists with `gh pr view` and corrected it.
 
 ### Verification and human boundary
 
@@ -351,7 +351,7 @@ I decided the direction: the scope of my free role, the integrated proposal, ver
 
 > 652 diff 읽었어 머지해
 
-I put PRs in the merge queue, applied for Kakao business review and did the production console work. The design PRs (#647, #651, #662) stayed out of the high-risk path `server/**`. #652 changed two server files, which is why I read its diff before the merge.
+I put PRs in the merge queue, applied for Kakao business review and did the production console work. The design PRs (#647, #651, #662) stayed out of the high-risk path `server/**`. #652 changed two documents under `server/**`, so I read its diff before the merge.
 
 Limits. The production screens for #647 and #651 were checked only through the bundle and responses; a person has not yet looked at them on a real screen. Updating Figma v6 is still open (DEV-357).
 
