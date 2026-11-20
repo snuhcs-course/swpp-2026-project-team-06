@@ -118,7 +118,7 @@ Effort: Agent approximately 2.5h of elapsed session time (approximately 1.5h imp
 
 [Original contribution](https://linear.app/sswp6/issue/DEV-271/i4-collect-individual-ai-collaboration-contributions-and-compile-the#comment-a1191702-2758-4e2f-b645-ec350f25a31e)
 
-**Status at compilation (updated by the author on November 20).** PRs #661 and #668 are merged. PR #663 is in review with all checks passing. The recommendation below for another sealed set is part of the original author account. The team’s later decision for I5 is to use capability and regression suites. [Team decision](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/672)
+**Status at compilation (updated by the author on November 20).** PRs #661 and #668 are merged. PR #663 is in review with all checks passing. The original draft recommended another sealed set. The team’s later decision for I5 is to use capability and regression suites, and the text below now follows it. [Team decision](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/672)
 
 Personal contribution · Updated November 18, 2026; PR status and results updated November 20.
 
@@ -248,7 +248,7 @@ For the demo, I chose the format myself (an automated recording with the mock an
   - a $6 budget for the paid evaluation runs
 - **Semantic judge on the holdout:** the PM approved it on four conditions. No-training providers only (enforced in code), only totals shared, strict recall stays the pass line, and one run.
 - **Holdout rules from the PM:** no AI agent may open the holdout folder. I ran it myself in my own terminal and gave the agent only totals. The first attempt stopped before any model call because of an old 11/05 incomplete-attempt marker; I decided to record the second attempt with `--force-rerun` and its reason.
-- **Merges:** #580, #591, #636 and #637 were merged on my instruction after I read the diffs. #591 and #637 are high-risk (`server/app/ai/**`), and my review is recorded in each PR. #661 and #668 were merged after the PM's review (#668 approved by the PM); #663 is waiting for the PM's review.
+- **Merges:** #580, #591, #636 and #637 were merged on my instruction after I read the diffs. #591 and #637 are high-risk (`server/app/ai/**`), and my review is recorded in each PR. #661 and #668 were approved and merged after the PM's review; #663 is waiting for the PM's review.
 - **Hours.** Human hours are my own estimates, as recorded in the PRs: #580 4h, #591 4h, #636 4h, #637 5h, #661 4h, #663 7h, #668 1h. Agent hours in the PRs are the agent's estimates ("약"). I did not measure tokens.
 
 ### 6. Lessons and Next Steps
