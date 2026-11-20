@@ -66,3 +66,7 @@ DEMO_PROFILE=demo/.raw/prod-profile npm run demo:record -- --target prod --yes p
 ## I4 소비자 담당 구간 (DEV-281)
 
 개인 소비자 복구 구간은 [인수·데모 준비 안내](../docs/evaluation/i4-consumer/README.md)를 따른다. 기존 로컬 통합 실행기로 scripts/e2e/consumer-i4-demo.spec.ts를 실행하면 실제 로컬 UI의 입금 재알림·열린 주문 갱신·문의 재시도 세 장면을 녹화하고 소스/환경/파일 해시 manifest를 만든다. 영상과 증거는 git에서 제외된 test-results에 남으며 기존 I3 공개 영상·사이트·Release를 바꾸지 않는다. 사람 참가자 관찰은 별도 빈 session-template.json에 기록한다.
+
+## I4 AI 담당 구간 (DEV-282)
+
+채팅 AI 응대(DEV-265)와 초안 채우기(DEV-264)를 로컬 실서버에서 자동 녹화한다: `FARMCLUB_AI_DEMO=1`로 `scripts/e2e/ai-i4-demo.spec.ts`를 실행한다(플래그가 없으면 건너뜀). 초안 채우기는 mock 분석기, 채팅은 모델 호출 없는 질문만 쓴다. 실행 방법·한계·개선 수치는 [docs/evaluation/i4-ai/demo-segment.md](../docs/evaluation/i4-ai/demo-segment.md). 영상은 git 밖 `test-results/`에 남고 I3 공개 영상·사이트·Release는 바꾸지 않는다.

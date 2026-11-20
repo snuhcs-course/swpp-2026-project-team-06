@@ -33,3 +33,6 @@
 
 ## DEV-281 소비자 복구 개인 데모
 기존 Playwright discovery와 run-integration.mjs에서 consumer-i4-demo.spec.ts를 실행한다. 제품 동작은 바꾸지 않는다. 로컬 합성 API로 준비한 입금·확인과 의도적 HTTP400을 자막으로 표시하고 세 복구 장면의 실제 단언·영상·스크린샷·소스/파일 해시 manifest를 남긴다. 인증은 첫 이동 전에 준비하며 trace를 끄고 토큰을 증거에 쓰지 않는다. 영상은 test-results에만 두며 실제 참가자 세션·공식 I4 형식·동결 oracle 결정은 별도로 유지한다. 안내는 docs/evaluation/i4-consumer/README.md.
+
+## DEV-282 AI 기능 개인 데모
+`scripts/e2e/ai-i4-demo.spec.ts`를 run-integration.mjs로 실행한다. `FARMCLUB_AI_DEMO=1`일 때만 돈다(공용 시드에 채팅 메시지·초안을 남기므로). 초안 채우기는 `SOURCE_ANALYSIS_PROVIDER=mock`이고 채팅은 규칙 단계·필수 전달 규칙으로 처리되는 질문만 써서 모델을 부르지 않는다. 개선 수치는 녹화가 아니라 평가 문서에서 인용한다. 안내는 docs/evaluation/i4-ai/demo-segment.md.
