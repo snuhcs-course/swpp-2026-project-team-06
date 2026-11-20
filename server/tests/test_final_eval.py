@@ -78,6 +78,29 @@ def test_AC_SRC_2_eval_target_carries_the_masked_product_name(monkeypatch):
     assert seen and all(t == [{"id": "eval-target", "name": "황금향 [가림]"}] for t in seen)
 
 
+def test_AC_SRC_2_eval_stage2_model_override_keeps_stage1_model():
+    calls = ev.Calls("mock", 3)
+    ev.evaluate_source(
+        row(), "mock", "stage1-model", calls, stage2_model="stage2-model"
+    )
+    assert [(call["stage"], call["model"]) for call in calls.entries] == [
+        ("extract", "stage1-model"),
+        ("refine", "stage2-model"),
+    ]
+
+
+def test_AC_SRC_2_estimate_uses_separate_stage_models(monkeypatch):
+    monkeypatch.setattr(
+        ev, "get_settings", lambda: SimpleNamespace(source_max_output_tokens=8000)
+    )
+    result = ev.estimate(
+        [row()], "openrouter", "google/gemini-3-flash-preview", "openai/gpt-6.1-sol"
+    )
+    assert result["estimatedUsd"] == 0.114
+    assert result["estimatedExtractionCalls"] == 1
+    assert result["estimatedRefinementCalls"] == 1
+
+
 def test_AC_SRC_2_product_names_come_only_from_gold_product(tmp_path):
     listed = tmp_path / "listed.json"
     ev.write_json(listed, [{"id": "a", "product": "황금향", "sentences": []}])

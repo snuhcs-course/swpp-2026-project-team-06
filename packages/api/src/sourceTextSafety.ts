@@ -4,7 +4,9 @@ const contains = (value: string, words: readonly string[]) => {
   const compact = value.replace(/\s+/g, "").toLowerCase();
   return words.some((word) => compact.includes(word.replace(/\s+/g, "").toLowerCase()));
 };
-export const hasHealthClaim = (value: string) => contains(value, lists.health);
+const healthPatterns = lists.healthPatterns.map((pattern) => new RegExp(pattern));
+export const hasHealthClaim = (value: string) =>
+  contains(value, lists.health) || healthPatterns.some((pattern) => pattern.test(value));
 export const hasPlatformText = (value: string) => contains(value, lists.platform);
 const money = new RegExp(lists.moneyPattern, "i");
 export const hasMoney = (value: string) => money.test(value);

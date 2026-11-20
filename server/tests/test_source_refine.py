@@ -276,8 +276,97 @@ def test_AC_SRC_3_health_phrase_follows_gold_and_neutral_growing_stays():
 
     assert has_health_claim("물댄동산농장의 귤은 건강함을 담아 키웠습니다.")
     assert not has_health_claim("건강하게 키운 감귤")
+    assert has_health_claim("건강한 제주 먹거리를 재배하고 있습니다.")
+    assert has_health_claim("건강한 먹거리예요.")
+    assert not has_health_claim("건강하게 자란 나무에서 딴 귤이에요.")
     assert not has_policy_text("제주 농장에서 택배로 직접 보내요.")
     assert not has_policy_text("교환 가능한 선물용 박스예요.")
+
+
+@pytest.mark.parametrize(
+    ("quote", "value", "code"),
+    [
+        ("수확 1월 2월 3월 4월", "1월에서 4월 사이에 수확해요", "UNSUPPORTED_RANGE"),
+        ("수확 1월 2월 3월 4월", "3월부터 4월까지 수확해요", "UNSUPPORTED_RANGE"),
+        ("수확 1월~4월", "1월~4월에 수확해요", None),
+        ("2004년부터 운영", "2004년부터 운영해요", None),
+    ],
+)
+def test_AC_SRC_3_korean_range_forms_need_a_range_in_the_quote(quote, value, code):
+    """DEV-355: holdout v2 showed 에서/사이 ranges slipping past the ~/- check."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = quote
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "productionProcess", "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target")[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ([code] if code else [])
+
+
+@pytest.mark.parametrize(
+    ("module", "value", "target_name", "code"),
+    [
+        ("productionProcess", "주 생산품목: 비트차, 비트칩(상시)", "비트차", "PRODUCT_LINEUP"),
+        ("productionProcess", "주 생산 품목인 레드향은 1-3월에 생산됩니다", "레드향", None),
+        ("productionProcess", "주 생산품목인 레드향은 달고, 새콤해요", "레드향", None),
+        ("farmStory", "주요 생산품목은 한라봉, 천혜향입니다", "레드향", "PRODUCT_LINEUP"),
+        ("farmStory", "한라봉, 황금향, 레드향, 천혜향 등을 키워요.", "황금향", "PRODUCT_LINEUP"),
+        ("composition", "고당도 레드향 3kg, 5kg", "고당도 황금향", None),
+        ("summary", "한라봉과 천혜향의 장점을 취한 품종이에요.", "황금향", None),
+        (
+            "summary",
+            "레드향은 한라봉과 천혜향의 장점만을 취한 품종입니다.",
+            "탐라오렌지 레드향 실속형",
+            None,
+        ),
+        ("summary", "레드향은 한라봉과 천혜향의 장점만을 취한 품종입니다.", "", "PRODUCT_LINEUP"),
+        ("composition", "비트칩 50g", "비트차", None),
+    ],
+)
+def test_AC_SRC_3_lineup_markers_are_deterministic_other_product_is_prompt_only(
+    module, value, target_name, code
+):
+    """DEV-355 review: clear lists are rejected; product identity stays prompt-only."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = value
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": module, "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target", target_name=target_name)[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ([code] if code else [])
+
+
+@pytest.mark.parametrize(
+    ("value", "code"),
+    [
+        # The model left the cited "건강한 … 먹거리" phrase out: the clean text is kept.
+        ("농산물우수품질관리(GAP) 인증을 받았습니다.", None),
+        ("저농약 재배를 원칙으로 하며 왁싱 처리를 하지 않습니다.", None),
+        # The phrase reached the page text itself: rejected.
+        ("저농약 재배로 건강한 제주 먹거리를 키웁니다.", "HEALTH_CLAIM"),
+    ],
+)
+def test_AC_SRC_3_cited_health_phrase_does_not_reject_clean_text(value, code):
+    """DEV-355 replay: the 먹거리 pattern rejected GAP and 저농약 sentences only because a cited
+    candidate contained it. The cited-candidate check keeps the health word list only."""
+    source = candidates()
+    source[0]["value"] = (
+        "농산물우수품질관리(GAP) 인증, 저농약 재배로 건강한 제주 먹거리를 키웁니다."
+    )
+    source[0]["evidence"][0]["quote"] = source[0]["value"]
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "productionProcess", "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target")[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ([code] if code else [])
+
+
+def test_AC_SRC_3_cited_health_word_still_rejects():
+    """The original word list still applies to cited candidates (paraphrase guard)."""
+    source = candidates()
+    source[0]["value"] = "면역력 증진에 좋은 감귤이에요."
+    source[0]["evidence"][0]["quote"] = source[0]["value"]
+    texts = [{"value": "몸에 좋은 감귤이에요.", "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "summary", "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target")[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ["HEALTH_CLAIM"]
 
 
 def fixture_extract(mode, model, chunk, targets, images):

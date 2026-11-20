@@ -35,14 +35,17 @@ def numbers(value):
 
 
 _RANGE = re.compile(
-    rf"(?P<a>\d+(?:[,.]\d+)*)\s*(?P<ua>{_UNIT})?\s*[~–-]\s*(?P<b>\d+(?:[,.]\d+)*)\s*(?P<ub>{_UNIT})?",
+    rf"(?P<a>\d+(?:[,.]\d+)*)\s*(?P<ua>{_UNIT})?\s*"
+    # DEV-355: Korean range forms too ("1월에서 4월 사이", "3월부터 5월까지").
+    rf"(?:[~–-]|(?:에서|부터)\s*(?=\d[^~–\n]*?(?:까지|사이)))"
+    rf"\s*(?P<b>\d+(?:[,.]\d+)*)\s*(?P<ub>{_UNIT})?",
     re.IGNORECASE,
 )
 
 
 def ranges(value):
-    """Range endpoints written as a~b / a-b, as (a, b). Units are checked by numbers().
-    Two separate values ("13.2Brix 13.5Brix") are not a range."""
+    """Range endpoints written as a~b, a-b, a에서 b 사이 or a부터 b까지, as (a, b).
+    Units are checked by numbers(). Two separate values ("13.2Brix 13.5Brix") are not a range."""
     return {
         (m["a"].replace(",", ""), m["b"].replace(",", "")) for m in _RANGE.finditer(value)
     }
@@ -53,7 +56,18 @@ def _contains(value, words):
     return any(re.sub(r"\s+", "", word).lower() in compact for word in words)
 
 
+_HEALTH_PATTERNS = [re.compile(p) for p in SAFETY_LISTS["healthPatterns"]]
+
+
 def has_health_claim(value):
+    # DEV-355: "건강한 (제주) 먹거리" is a health claim (gold); "건강하게 키운" stays neutral.
+    return has_health_words(value) or any(p.search(value) for p in _HEALTH_PATTERNS)
+
+
+def has_health_words(value):
+    """Health-claim word list only. Used on the candidates a page text cites: a cited
+    "건강한 … 먹거리" phrase that the text itself left out must not reject the clean text
+    (DEV-355 replay: GAP, 저농약 and EM-farming sentences were lost this way)."""
     return _contains(value, SAFETY_LISTS["health"])
 
 
@@ -89,3 +103,27 @@ def has_policy_text(value):
     return _contains(value, SAFETY_LISTS["policy"]) or any(
         pattern.search(value) for pattern in _POLICY_PATTERNS
     )
+
+
+# A marker is a line-up only when a list starts right after it ("주 생산품목: 비트차, 비트칩"),
+# not when it introduces one product ("주 생산 품목인 레드향은 달고, 새콤해요").
+_LINEUP_LIST = re.compile(
+    "(?:"
+    + "|".join(
+        r"\s*".join(map(re.escape, re.sub(r"\s+", "", m))) for m in SAFETY_LISTS["lineupMarkers"]
+    )
+    + r")\s*(?::|은|는|으로는|로는)?\s*[^\s,·/、]+\s*[,·/、]\s*[^\s,·/、]+",
+    re.IGNORECASE,
+)
+
+
+def has_product_lineup(value, target_name=""):
+    """Reject explicit farm item lists and clear multi-variety lists.
+
+    Product identity/package attribution is deliberately not inferred from cultivar names.
+    """
+    compact = re.sub(r"\s+", "", value)
+    if _LINEUP_LIST.search(value):
+        return True
+    own = re.sub(r"\s+", "", target_name or "")
+    return sum(1 for name in SAFETY_LISTS["cultivars"] if name in compact and name not in own) >= 3

@@ -21,10 +21,12 @@ from app.source_analysis.text_safety import (
     SAFETY_LISTS_HASH,
     has_exaggeration,
     has_health_claim,
+    has_health_words,
     has_money,
     has_period_text,
     has_platform_text,
     has_policy_text,
+    has_product_lineup,
     numbers,
     ranges,
 )
@@ -164,7 +166,7 @@ def enqueue(db, batch, run, items):
     db.flush()
 
 
-def validate(output, candidates, target_id, *, target_count=0):
+def validate(output, candidates, target_id, *, target_count=0, target_name=""):
     """Drop bad texts independently. Never rescue rejected text with raw candidates."""
     by_id = {
         c["id"]: c
@@ -186,12 +188,14 @@ def validate(output, candidates, target_id, *, target_count=0):
                 code = "INVALID_COMMON_MODULE"
             elif has_money(text.value):
                 code = "MONEY_AMOUNT"
-            elif has_health_claim(text.value) or any(has_health_claim(c["value"]) for c in cited):
+            elif has_health_claim(text.value) or any(has_health_words(c["value"]) for c in cited):
                 code = "HEALTH_CLAIM"
             elif has_exaggeration(text.value):
                 code = "EXAGGERATION"
             elif has_policy_text(text.value):
                 code = "POLICY_TEXT"
+            elif has_product_lineup(text.value, target_name):
+                code = "PRODUCT_LINEUP"
             elif scrub(text.value) != text.value:
                 code = "PRIVATE_VALUE"
             elif numbers(text.value) - numbers(
@@ -253,6 +257,7 @@ def validate(output, candidates, target_id, *, target_count=0):
         "EXAGGERATION": "unsupported",
         "UNSUPPORTED_RANGE": "unsupported",
         "POLICY_TEXT": "platform",
+        "PRODUCT_LINEUP": "other_product",
         "PRIVATE_VALUE": "pii",
     }
     for rejected_text in rejected:
@@ -387,7 +392,11 @@ def process(item_id, token):
             guard=check_inputs,
         )
     modules, diagnostics = validate(
-        response.refinement, candidates, target["id"], target_count=target_count
+        response.refinement,
+        candidates,
+        target["id"],
+        target_count=target_count,
+        target_name=target.get("name", ""),
     )
     diagnostics["excluded"].extend(
         {"candidateIds": [c["id"]], "reason": "unused"} for c in all_candidates[len(candidates) :]
@@ -434,7 +443,7 @@ def safe_refinement(item, candidates):
             if has_money(text["value"]):
                 reason = "price"
             elif has_health_claim(text["value"]) or any(
-                has_health_claim(by_id[cid].value) for cid in text["candidateIds"] if cid in by_id
+                has_health_words(by_id[cid].value) for cid in text["candidateIds"] if cid in by_id
             ):
                 reason = "health"
             if reason:

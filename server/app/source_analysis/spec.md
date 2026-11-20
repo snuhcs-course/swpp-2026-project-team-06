@@ -314,6 +314,17 @@ FEAT-03/04 · AC-SRC-6/9/11. 작업 기록은 `server/tasks/DEV-328.md`.
 | 2026-11-18 | OCR 조각이 출력 한도(`INCOMPLETE_OCR`)나 줄 한도(`INVALID_OCR`)에 걸리면 한 번만 두 배 한도(4,096토큰·300줄)로 다시 읽는다. 시간 초과·연결 오류(`REQUEST_UNCERTAIN`)는 이미 과금됐을 수 있어 재시도하지 않는다(11-02 "자동 재시도 없음"의 좁은 예외) | 같은 PDF 쪽이 세 번 연속 같은 한도로 실패 — 일시 오류가 아님 | AC-SRC-5 |
 | 2026-11-18 | 평가 전용: 채점기 `dev264-number-evidence-v2`(숫자 쉼표는 천 단위만), 의미 재현율 `semantic_recall` + `app/ai/fact_judge.py` `fact-judge-v1`(엄격 실패 사실만 판정, unknown은 놓침, holdout은 `--allow-holdout`). 평가는 지출 장부가 깨끗한 로컬 DB에서 돌린다(`farmclub_i3` 장부가 $5 한도에 차 있었음) | 측정 정확도·holdout 시도 보호 | AC-SRC-2 |
 
+## DEV-355 결정적 초안 안전 검사·평가 모델 분리 (2026-11-18)
+
+FEAT-03 · AC-SRC-2/3. 작업 기록은 `server/tasks/DEV-355.md`.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-18 | `text_safety`가 한국어 `에서/부터 … 사이/까지` 범위를 검출하고, 농가 품목 목록(목록 표지 바로 뒤의 항목 목록, 또는 자기 품종을 뺀 품종 이름 3개 이상)을 stage-2 검증에서 거절한다. 다른 상품의 정체성/포장 문구는 코드로 판정하지 않고 prompt 지침에만 둔다(알려진 빈틈, 아래 PM 리뷰 행). prompt는 그대로 둔다 | holdout v2에서 불안정한 금지·무근거 출력을 결정적 코드로 막기 | AC-SRC-3 |
+| 2026-11-18 | 품목 목록의 ‘품종 3개 이상’에서 대상 상품 이름의 품종은 세지 않는다. ‘건강한 … 먹거리’ 패턴은 페이지 문장에만 적용하고, 인용 후보 검사는 기존 건강 낱말 목록(`has_health_words`)만 쓴다 | 저장된 개발 run 6개 오프라인 재생: GAP·저농약·EM농법 문장과 품종 설명이 버려져 사실 6–11개를 잃었다. 고친 뒤 forbidden 0을 유지하며 대부분 회복 | AC-SRC-3 |
+| 2026-11-18 | PM 리뷰 뒤 품종 이름 기반 `OTHER_PRODUCT` validator 제거; clear list marker와 3+ other-variety `PRODUCT_LINEUP` check는 유지. broad `생산 품목` marker는 single-product false positive를 피해 제거 | replay에서 line-up check 제거가 confirmation g2에 forbidden 1건을 복원했다. product identity/package attribution은 prompt-only known gap으로 둔다 | AC-SRC-3 |
+| 2026-11-18 | `final_eval --stage2-model`은 stage 1의 `--model`을 유지하고 stage 2만 덮어쓴다. 추정 비용과 metadata는 두 모델을 분리해 기록한다 | 더 강한 stage-2 모델 비교가 stage-1 변화를 섞지 않도록 | AC-SRC-2 |
+
 ## DEV-341 생산자 사진 미리보기·업로드 가볍게 (2026-11-17)
 
 FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.

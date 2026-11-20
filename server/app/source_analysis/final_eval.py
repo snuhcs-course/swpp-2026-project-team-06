@@ -290,7 +290,7 @@ def product_names(references, gold_files):
     return names
 
 
-def estimate(rows, provider, model):
+def estimate(rows, provider, model, stage2_model=None):
     """Planning estimate, NOT a quote: 4k input/configured output per page and refine.
 
     Raster page count is approximated by conservative 720px tiles (PDF: physical pages).
@@ -320,11 +320,21 @@ def estimate(rows, provider, model):
     # Existing configured price caps, not fetched prices. Include vision OCR for OpenRouter.
     from app.core.config import SOURCE_OPENROUTER_PRICES
 
-    inp, out = SOURCE_OPENROUTER_PRICES[model] if provider == "openrouter" else (2, 10)
-    ocr_in, ocr_out = SOURCE_OPENROUTER_PRICES[OCR_MODEL]
-    planned = (pages + len(rows)) * (4000 * inp + get_settings().source_max_output_tokens * out) + (
-        tiles * (4000 * ocr_in + 2048 * ocr_out) if provider == "openrouter" else 0
+    stage2_model = stage2_model or model
+    stage1_in, stage1_out = (
+        SOURCE_OPENROUTER_PRICES[model] if provider == "openrouter" else (2, 10)
     )
+    stage2_in, stage2_out = (
+        SOURCE_OPENROUTER_PRICES[stage2_model]
+        if provider == "openrouter"
+        else (2, 10)
+    )
+    ocr_in, ocr_out = SOURCE_OPENROUTER_PRICES[OCR_MODEL]
+    planned = pages * (4000 * stage1_in + get_settings().source_max_output_tokens * stage1_out)
+    planned += len(rows) * (
+        4000 * stage2_in + get_settings().source_max_output_tokens * stage2_out
+    )
+    planned += tiles * (4000 * ocr_in + 2048 * ocr_out) if provider == "openrouter" else 0
     return {
         "sources": len(rows),
         "estimatedExtractionCalls": pages,
@@ -443,7 +453,8 @@ def evidence_text(local_text, chunk, diagnostics):
     return "\n;\n".join(dict.fromkeys(t for t in (local_text, transcript) if t))
 
 
-def evaluate_source(row, provider, model, calls, target_name=""):
+def evaluate_source(row, provider, model, calls, target_name="", *, stage2_model=None):
+    stage2_model = stage2_model or model
     started = time.perf_counter()
     first_entry = len(calls.entries)
     metric = {k: row[k] for k in ("id", "format", "inputSha256")}
@@ -570,14 +581,14 @@ def evaluate_source(row, provider, model, calls, target_name=""):
         if provider == "mock":
             response = calls(
                 "refine",
-                model,
+                stage2_model,
                 {},
                 [target],
                 [],
-                lambda: refine_ai.refine("mock", model, target, selected),
+                lambda: refine_ai.refine("mock", stage2_model, target, selected),
             )
         elif mode == "mock":
-            response = refine_ai.refine("mock", model, target, selected)
+            response = refine_ai.refine("mock", stage2_model, target, selected)
         else:
             safe = [
                 {
@@ -589,15 +600,19 @@ def evaluate_source(row, provider, model, calls, target_name=""):
             ]
             response = calls(
                 "refine",
-                model,
+                stage2_model,
                 {"prompt": refine_ai.PROMPT, "candidates": safe},
                 [target],
                 [],
-                lambda: refine_ai.refine(provider, model, target, safe),
+                lambda: refine_ai.refine(provider, stage2_model, target, safe),
             )
         stage2_usage = response.usage
         stored, diagnostics = refinement.validate(
-            response.refinement, selected, target["id"], target_count=1
+            response.refinement,
+            selected,
+            target["id"],
+            target_count=1,
+            target_name=target.get("name", ""),
         )
         diagnostics["excluded"].extend(
             {"candidateIds": [c["id"]], "reason": "unused"} for c in all_selected[len(selected) :]
@@ -958,6 +973,8 @@ def render(result):
                     "subset",
                     "provider",
                     "model",
+                    "stage1Model",
+                    "stage2Model",
                     "stage1PromptVersion",
                     "stage2PromptVersion",
                     "preprocessVersion",
@@ -1040,6 +1057,7 @@ def main(argv=None):
     parser.add_argument("--subset", choices=["all", "synthetic", "public"], default="all")
     parser.add_argument("--provider", choices=["mock", "openrouter", "openai"], default="mock")
     parser.add_argument("--model")
+    parser.add_argument("--stage2-model", help="Override only the page-text refinement model")
     parser.add_argument("--max-usd", type=float, default=3.0)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--dev-dir", type=Path, default=ROOT.parent / "source-dev-i3-private")
@@ -1105,14 +1123,28 @@ def main(argv=None):
         model = args.model or (
             "gpt-6.1-sol" if args.provider == "openai" else "google/gemini-3-flash-preview"
         )
-        if args.provider == "openai" and model != "gpt-6.1-sol":
-            raise ValueError("OpenAI model must match existing budget price caps")
+        stage2_model = args.stage2_model or model
+        if args.provider == "openai" and (model != "gpt-6.1-sol" or stage2_model != model):
+            raise ValueError("OpenAI models must match existing budget price caps")
+        if args.provider == "openrouter":
+            from app.core.config import SOURCE_OPENROUTER_PRICES
+
+            if (
+                model not in SOURCE_OPENROUTER_PRICES
+                or stage2_model not in SOURCE_OPENROUTER_PRICES
+            ):
+                raise ValueError("Model must match existing budget price caps")
         calls = Calls(args.provider, args.max_usd)
         rows = dataset(
             args.split, args.subset, dev_dir, holdout_dir, args.font, args.holdout_version
         )
         rows = frozen_inputs(rows, args.inputs_from)
-        planned = estimate(rows, args.provider if args.provider != "mock" else "openrouter", model)
+        planned = estimate(
+            rows,
+            args.provider if args.provider != "mock" else "openrouter",
+            model,
+            stage2_model,
+        )
         print(
             json.dumps(
                 {
@@ -1193,8 +1225,16 @@ def main(argv=None):
                         )
                     )
                 else:
+                    model_override = (
+                        {"stage2_model": stage2_model} if stage2_model != model else {}
+                    )
                     result = evaluate_source(
-                        row, args.provider, model, calls, names.get(row["id"], "")
+                        row,
+                        args.provider,
+                        model,
+                        calls,
+                        names.get(row["id"], ""),
+                        **model_override,
                     )
                     results.append(result)
                     if result[1].get("errorCode") in {"BUDGET_EXCEEDED", "PROVIDER_AUTH"}:
@@ -1211,6 +1251,8 @@ def main(argv=None):
                 "subset": args.subset,
                 "provider": args.provider,
                 "model": model,
+                "stage1Model": model,
+                "stage2Model": stage2_model,
                 "mockPolicy": "fixture-or-empty-v1" if args.provider == "mock" else None,
                 "stage1PromptVersion": extraction_ai.PROMPT_VERSION,
                 "stage1PromptSha256": final_score.sha256(extraction_ai.PROMPT.encode()),

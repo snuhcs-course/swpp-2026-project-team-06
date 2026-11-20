@@ -133,7 +133,72 @@ The pass lines are not lowered. The I4 decision (limit exposure, manual fallback
 
 **Pass lines:** not met (facts ≥ 95%, forbidden 0, unsupported 0). Not lowered.
 
+## DEV-355 follow-up — initial f1 loss attribution
+
+The previous agent reported that a development-only attribution script reproduced the f1 headline (220/324 facts, 96/134 critical; paired 49 FAIL→PASS and 24 PASS→FAIL) before producing this table. The script was not found with the available private development files, so the counts below remain handoff-reported until independently reproduced from the saved run artifacts.
+
+| Format | (a) Stage 1 did not extract | (b) Extracted, not used | (c) Used in the wrong section |
+|---|---:|---:|---:|
+| pdf | 25 | 10 | 9 |
+| long_image | 4 | 11 | 11 |
+| text | 7 | 8 | 11 |
+| image | 1 | 2 | 5 |
+
+In the handoff table, PDFs have the most total misses (44), with 25 assigned to stage 1; text has 19 of 26 misses assigned after extraction. I independently counted misses from the saved accepted stage-1 candidates, final outputs, and the same `contains` scorer. Total misses and wrong-section counts match the handoff, but the first two buckets differ slightly: PDF 27/8/9, long_image 5/10/11, text 8/7/11, image 1/2/5 (a/b/c). This means the exact “never extracted” versus “extracted, not used” split still depends on an unresolved definition of extraction; rejected candidates exist in the artifacts but treating all of them as extracted overcounts. The robust signal is that PDFs have the largest total loss and lowest recall. This does not separate OCR from structured extraction and does not explain the text f1/f2 difference (51 vs 45).
+
+At the time of these runs, DEV-355's deterministic safety code added Korean range, line-up and other-product package checks. The other-product check was removed later after the PM review (see "PM review response" below); it rejected nothing in these runs. The evaluation runner supports `--stage2-model` so stage 1 can stay fixed. Two 47-source follow-up runs completed with stage 1 `google/gemini-3-flash-preview` and stage 2 `openai/gpt-6.1-sol`:
+
+| | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Facts | 254/354 (71.8%) | 255/354 (72.0%) | 254.5/354 (71.9%) |
+| Critical facts | 114/154 (74.0%) | 117/154 (76.0%) | 115.5/154 (75.0%) |
+| Forbidden violations | 1 | 1 | 1 |
+| Unsupported tokens | 0 | 0 | 0 |
+| Misplaced facts | 27/354 | 36/354 | 31.5/354 |
+| Settled cost | $0.735116 | $0.741872 | $0.738494 |
+
+Run 1 statuses: 40 EVALUATED, 4 EMPTY, 1 FAILED, 2 PARTIAL across 338 calls. Run 2: 42 EVALUATED, 4 EMPTY, 1 PARTIAL across 339 calls. The forbidden count did not reach zero in either run. Text fact recall was 81/103 and 80/103; image 38/52 and 44/52; long_image 62/92 and 65/92; PDF 73/107 and 66/107. The results do not show a stable recall improvement across formats, and critical recall remains below the pass line. Since deterministic safety checks also changed from the earlier f1/f2 arms, this is an end-to-end follow-up, not a clean model-only causal comparison. No holdout data was used. The locked protocol is in [`criteria.md`](criteria.md).
+
+For context, the earlier Gemini stage-2 f1/f2 runs scored 247/354 and 246/354 facts after including the synthetic set (mean 246.5/354, 69.6%). Critical facts were 113/154 and 123/154 (mean 118/154, 76.6%). The GPT stage-2 follow-up mean is 8 facts higher (+2.3 percentage points) and 2.5 critical facts lower (-1.6 points). Forbidden violations were 0 and 1 in the earlier pair versus 1 and 1 in this pair; unsupported tokens were 0 and 1 versus 0 and 0. Because the safety validators changed between these arms and run-to-run variation is material, these deltas do not establish that the stage-2 model alone caused the differences. They do not support adopting GPT on critical recall or safety grounds.
+
+The format comparison shows where the aggregate fact gain came from (all figures are two-run means; original and follow-up denominators match):
+
+| Format | Gemini stage 2 facts | GPT stage 2 facts | Change | Gemini critical | GPT critical | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| text | 71/103 (68.9%) | 80.5/103 (78.2%) | +9.5 | 37.5/46 (81.5%) | 39/46 (84.8%) | +1.5 |
+| image | 42/52 (80.8%) | 41/52 (78.8%) | -1 | 31/35 (88.6%) | 30/35 (85.7%) | -1 |
+| long_image | 65.5/92 (71.2%) | 63.5/92 (69.0%) | -2 | 19.5/25 (78.0%) | 16.5/25 (66.0%) | -3 |
+| pdf | 68/107 (63.6%) | 69.5/107 (65.0%) | +1.5 | 30/48 (62.5%) | 30/48 (62.5%) | 0 |
+
+Text is the only substantial fact-recall gain. This supports keeping the GPT stage-2 option for further text-focused evaluation, while the aggregate and critical results do not justify a default model switch. The PDF stage remains the lowest-recall format and is the stronger next pipeline investigation; the page diagnostics above identify a concrete page-coverage/OCR audit, not yet a fix.
+
+The new runs' PDF diagnostics show 66 pages analyzed and 28 skipped in each run across eight PDFs. The parser intentionally caps PDFs at the first 20 pages (`PDF_PAGE_CAP=20`); this does not prove the missed facts were on skipped pages. PDF page failures were 3 in run 1 and 1 in run 2, with `OCR_PAGES_FAILED` on 2 and 1 PDF sources, respectively; no extraction chunks failed. The next PDF investigation should map misses against page availability and safe OCR text before changing the page cap or OCR behavior, since either change affects cost and coverage.
+
+An offline audit of the 24 public f1 PDFs (105 gold facts) found 76 facts represented in accepted stage-1 candidates. Of the 29 unmatched facts, 25 had their gold tokens in the saved safe text and 4 did not. That points most of these misses toward candidate extraction/selection after text preparation, while the four absent from safe text still need OCR/page diagnosis. In the PDF text layer, 96 facts appeared within pages 1–20, one appeared only after page 20, and eight were not found in the text layer. These are token-presence checks, not semantic judgments; scanned content may have no PDF text layer. The data supports prioritizing stage-1 candidate extraction for PDFs before raising the page cap.
+
+## DEV-355 — safety checks on the product setup (11/18)
+
+**Offline replay first (no model calls).** The saved stage-2 outputs of six development runs were re-validated with the DEV-355 checks and rescored with the same scorer. The first version reached forbidden 0 but dropped good text: 6–11 facts per run (f1 220 → 214, f2 219 → 208, GPT 254 → 248 and 255 → 250). Two causes, both fixed: the "건강한 … 먹거리" pattern was also applied to the candidates a text cites, so clean GAP, 저농약 and EM-farming sentences were rejected; and the three-variety line-up rule counted the product's own variety, so "레드향은 한라봉과 천혜향의 장점…" on a 레드향 page was rejected. After the fix the replay gives f1 220/96, f2 217/105, GPT 250/114 and 252/117 (facts/critical), with forbidden and unsupported 0 in all four.
+
+**Then two paid runs** of the fixed code with the product setup (Gemini 3 Flash in both stages), all 47 development sources, inputs frozen from the GPT runs (same OCR manifest), a fresh local database per run, $3 cap each. Settled cost $0.578750 and $0.573207. Artifacts `source-i4-dev355-fix-g1` and `-g2` (outside the repository). No holdout data used.
+
+| Gemini both stages | Old checks f1 | Old checks f2 | DEV-355 g1 | DEV-355 g2 |
+|---|---:|---:|---:|---:|
+| Facts (47 sources) | 247/354 | 246/354 | 221/354 | 243/354 |
+| Critical | 113/154 | 123/154 | 109/154 | 120/154 |
+| Forbidden violations | 0 | 1 | **0** | **0** |
+| Unsupported tokens | 0 | 1 | **0** | **0** |
+| Facts without h3-pdf-01 | 219/316 | 216/316 | 221/316 | 214/316 |
+| Critical without h3-pdf-01 | 101/139 | 111/139 | 109/139 | 107/139 |
+
+In g1, `h3-pdf-01` FAILED with `INVALID_MODEL_OUTPUT` (the model's output did not parse; 0 facts, against 29 in g2). That is a provider-side failure, not a safety-check rejection: the checks reject single texts and never fail a source. Without that source, both pairs have a mean of 217.5/316 facts; critical is 106 → 108 of 139; forbidden and unsupported are 0 in both new runs. With it, the means are 246.5 → 232 facts and 118 → 114.5 critical, entirely from the one failure. Two runs per arm, development sets the checks were designed on: this shows the checks remove the remaining forbidden/unsupported items without a recall cost, not that this generalises.
+
+**PM review response (11/18).** The closed-list `OTHER_PRODUCT` validator was removed: it guessed whether a cultivar belonged to the current product from names alone, while the unchanged stage-2 prompt already tells the model to exclude other products. The saved GPT f1/f2 and product-setup g1/g2 diagnostics contained zero `OTHER_PRODUCT` rejections, so removing that code did not restore a scored sentence in these four runs. We retained the narrow `PRODUCT_LINEUP` check: an offline replay without it restored one forbidden line-up sentence in confirmation g2 (facts 243 → 244, critical 120 → 121, forbidden 0 → 1). We also removed the broad `생산 품목` marker that rejected a single-product sentence; other lineup heuristics can still misclassify semantic edge cases. Product identity/package attribution remains a known validation gap and was not tested on holdout data.
+
 ## Not done / next
 - ~~Holdout v2~~: done, see above.
+- **PDF stage-1 prompt follow-up (DEV-355):** `source-v10-historical-scope` narrows `historical=true` to explicit past-sales facts and tells the model to keep harvest/production years and seasons in their ordinary fields. This targets the audited ambiguity where six rejected PDF candidates matched eight gold composition facts. Against the two GPT stage-2 / v9 stage-1 runs, the two clean v10 runs scored PDF factual recall 73/107 and 74/107 (mean 73.5/107, 68.7%) and critical recall 32/48 and 34/48 (mean 33/48, 68.8%). The baseline pair scored 73/107 and 66/107 (mean 69.5/107, 65.0%) and 32/48 and 28/48 (mean 30/48, 62.5%). That is +4 facts and +3 critical facts on these two-run means. Run 1 was unchanged; the gain is entirely in run 2, so this is a promising but preliminary signal with substantial run variance. Run 2 had eight rejected PDF candidates overall, but its artifacts do not retain reason-level counts; the reduction in `HISTORICAL_FIELD` rejections cannot be confirmed. The prompt change also coincided with lower long-image recall in v10 run 2; full-format means were 244/354 facts and 114.5/154 critical versus GPT baseline 254.5/354 and 115.5/154. Keep the prompt revision as a narrow experimental candidate and do not claim overall improvement or generalization. No holdout was used. Clean run artifacts: `source-i4-dev355-pdfstage-v10-f1-clean` and `source-i4-dev355-pdfstage-v10-f2-clean` (outside the repository).
 - **Human review** of the drafts (Jinwoo).
 - **Cost of this work:** about $5.5 of the $6 approved, development runs and judge included.
+
+- **Decision (Zahra, 11/18): the v10 stage-1 prompt is reverted, not adopted.** Total facts fell (254.5 → 244 of 354), long-image recall dropped, and the PDF gain (+4 facts, +3 critical) came from one of two runs only. The audit finding stays: six PDF candidates were rejected as historical sales but held eight composition facts. That is a candidate cause for a future, separately measured fix. Stage 1 stays `source-v9-coverage`.
