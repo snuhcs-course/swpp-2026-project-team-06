@@ -1,196 +1,93 @@
-// 예약 기간 카드의 '수확' 칸과 확인 시트(DEV-231, FEAT-17 AC-17-11).
-// 수확 시작 = 출하 준비 시작: 그 기간의 예약 완료 주문만 출하 준비로 옮긴다.
+// 수확 시작 확인 시트(DEV-231 → DEV-361, FEAT-17 AC-17-11).
+// 수확 시작 = 출하 준비 시작: 주문·출하 화면 예약 탭에서 고른 예약 완료 주문을 한 번에 출하 준비로 옮긴다.
+// 받는 시기는 상품마다 하나라 예약 기간(가격 기간)별로 나누지 않는다(PM 11/17).
 import {
   ApiError,
-  allPages,
   newIdempotencyKey,
   orders,
   serverNow,
-  type MyStage,
   type ProducerOrder,
 } from "@farmclub/api";
-import { Button, ListRow, Sheet, T, tokens, won } from "@farmclub/ui";
+import { Button, Sheet, T, tokens, won } from "@farmclub/ui";
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { orderWho } from "./orderWho";
-
-/** 'MM.DD' → '10.01—10.12' */
-const span = (s: Pick<MyStage, "startsAt" | "endsAt">) =>
-  `${s.startsAt.slice(5).replace("-", ".")}—${s.endsAt.slice(5).replace("-", ".")}`;
 
 /** 한국 날짜(서버 시각 기준, DEV-229) */
 export function seoulToday(): string {
   return new Date(serverNow() + 9 * 3600_000).toISOString().slice(0, 10);
 }
 
-/** 기간 카드 맨 아래 '수확' 칸. 보일 것이 없으면 null */
-export function HarvestRow({
-  stage,
-  dirty,
-  busy,
-  onStart,
-  onOpenPreparing,
-}: {
-  stage: MyStage;
-  dirty: boolean;
-  busy: boolean;
-  onStart: () => void;
-  onOpenPreparing: () => void;
-}) {
-  const reserved = stage.reservedOrderCount;
-  const awaiting = stage.awaitingOrderCount;
-  const started = stage.harvestStarted;
-  if (!reserved && !awaiting && !started) return null;
-  const counts = [
-    reserved ? `예약 완료 ${reserved}건` : "",
-    awaiting ? `입금 대기 ${awaiting}건` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  return (
-    <View
-      testID={`harvest-${stage.stageId}`}
-      style={{
-        gap: 10,
-        paddingTop: 14,
-        borderTopWidth: 1,
-        borderTopColor: tokens.color.text,
-      }}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          gap: 8,
-        }}
-      >
-        <T weight="semibold">수확</T>
-        {counts ? (
-          <T variant="sub" muted style={{ flexShrink: 1, textAlign: "right" }}>
-            {counts}
-          </T>
-        ) : null}
-      </View>
-      {reserved ? (
-        <>
-          <Button
-            label={
-              started
-                ? `남은 예약 ${reserved}건도 출하 준비로`
-                : `수확 시작 · 출하 준비 ${reserved}건`
-            }
-            variant="outline"
-            size="producer"
-            disabled={dirty || busy}
-            onPress={onStart}
-          />
-          {dirty ? (
-            <T variant="caption" muted>
-              저장한 뒤 수확을 시작할 수 있어요.
-            </T>
-          ) : awaiting ? (
-            <T variant="caption" muted>
-              입금 대기 주문은 승인한 뒤 따로 옮겨요.
-            </T>
-          ) : null}
-        </>
-      ) : started ? (
-        <ListRow
-          label={
-            stage.preparingOrderCount
-              ? `수확 시작함 · 출하 준비 ${stage.preparingOrderCount}건 보기`
-              : "수확 시작함 · 배송 현황 보기"
-          }
-          onPress={onOpenPreparing}
-          last
-        />
-      ) : (
-        <T variant="caption" muted>
-          입금을 승인하면 수확을 시작할 수 있어요.
-        </T>
-      )}
-    </View>
-  );
-}
+/** 서버가 한 번에 받는 주문 수(`HarvestOrdersInput.order_ids` max_length). 넘으면 나눠 보낸다 */
+const BATCH = 500;
 
-/** 확인 시트. 열 때 그 기간의 예약 완료 주문을 읽어 보여 준다 */
+/** 확인 시트. picked가 있으면 열린다. 서버가 실제로 옮긴 수를 onDone으로 알린다 */
 export function HarvestSheet({
-  productId,
-  productName,
-  stage,
+  picked,
   onClose,
   onDone,
   onStale,
 }: {
-  productId: string;
-  productName: string;
-  stage: MyStage | null;
-  onClose: () => void;
+  picked: ProducerOrder[] | null;
+  /** sent: 이 시트에서 한 번이라도 요청을 보냈는지(응답을 잃었어도 서버가 옮겼을 수 있어 목록을 다시 읽는다) */
+  onClose: (sent: boolean) => void;
   onDone: (changed: number) => void;
   onStale: () => void;
 }) {
-  const [list, setList] = useState<ProducerOrder[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 같은 시트에서 다시 누르면 같은 키(재시도가 두 번 옮기지 않게)
-  const key = useRef<string>("");
+  // 같은 시트에서 다시 누르면 같은 키(재시도가 두 번 옮기지 않게). 나눠 보내면 조각마다 키 하나. 시트를 새로 열면 새 키
+  const keys = useRef<string[]>([]);
+  const open = !!picked;
   useEffect(() => {
-    if (!stage) return;
-    key.current = newIdempotencyKey();
-    setList(null);
+    if (!open) return;
+    keys.current = [];
     setError(null);
-    let cancelled = false;
-    void allPages((cursor) =>
-      orders.producerOrders({ status: "RESERVED", productId, limit: 50, cursor }),
-    )
-      .then((all) => {
-        if (!cancelled) setList(all.filter((o) => o.stageId === stage.stageId));
-      })
-      .catch(() => {
-        // 주문 줄을 못 읽어도 시트는 카드의 건수로 진행한다(서버가 실제로 옮긴 수를 토스트로 알린다)
-        if (!cancelled) setList(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [stage?.stageId, productId]);
+  }, [open]);
 
-  const n = list?.length ?? stage?.reservedOrderCount ?? 0;
-  const open = !!stage && stage.endsAt >= seoulToday();
+  // 닫히는 동안(모달 애니메이션)에도 마지막 주문을 보여 '0건'으로 깜빡이지 않게 한다
+  const last = useRef<ProducerOrder[]>([]);
+  if (picked) last.current = picked;
+  const list = picked ?? last.current;
+  const n = list.length;
+  // 키는 요청을 보낼 때만 만든다. 하나라도 있으면 이 시트에서 보낸 적이 있다
+  const close = () => onClose(keys.current.length > 0);
   const start = async () => {
-    if (!stage || busy) return;
+    if (!open || !n || busy) return;
     setBusy(true);
     setError(null);
+    // 500건이 넘으면 나눠 보낸다. 다시 누르면 이미 보낸 조각은 같은 키라 서버가 첫 결과를 그대로 준다
+    let changed = 0;
     try {
-      const r = await orders.harvestStart(productId, stage.stageId, key.current);
-      onDone(r.changed);
+      for (let i = 0; i * BATCH < n; i += 1) {
+        keys.current[i] ??= newIdempotencyKey();
+        const r = await orders.harvestOrders(
+          list.slice(i * BATCH, (i + 1) * BATCH).map((o) => o.orderId),
+          keys.current[i],
+        );
+        changed += r.changed;
+      }
+      onDone(changed);
     } catch (e) {
-      if (e instanceof ApiError && (e.status === 404 || e.status === 409)) onStale();
-      else setError("수확을 시작하지 못했어요. 다시 눌러 주세요.");
+      if (e instanceof ApiError && (e.status === 404 || e.status === 409)) {
+        // 앞 조각을 이미 옮겼으면 그 수를 먼저 알린다
+        if (changed > 0) onDone(changed);
+        onStale();
+      } else setError("수확을 시작하지 못했어요. 다시 눌러 주세요.");
     } finally {
       setBusy(false);
     }
   };
-  const shown = (list ?? []).slice(0, 3);
-  const more = (list?.length ?? 0) - shown.length;
+  const shown = list.slice(0, 3);
+  const more = n - shown.length;
   return (
     <Sheet
-      visible={!!stage}
+      visible={open}
       onClose={() => {
-        if (!busy) onClose();
+        if (!busy) close();
       }}
     >
-      <View style={{ gap: 2 }}>
-        <T variant="heading">
-          {stage?.harvestStarted ? `남은 예약 ${n}건도 옮길까요?` : "수확을 시작할까요?"}
-        </T>
-        {stage ? (
-          <T variant="sub" muted>
-            {productName} · {stage.name}({span(stage)})
-          </T>
-        ) : null}
-      </View>
+      <T variant="heading">수확을 시작할까요?</T>
       <View>
         {shown.map((o, i) => (
           <View
@@ -231,13 +128,6 @@ export function HarvestSheet({
         ) : null}
       </View>
       <View style={{ gap: 8 }}>
-        {open && stage ? (
-          <T variant="sub">
-            이 기간은 {Number(stage.endsAt.slice(5, 7))}월{" "}
-            {Number(stage.endsAt.slice(8, 10))}일까지 예약을 받아요. 그 뒤 들어온
-            주문은 다시 눌러 옮겨요.
-          </T>
-        ) : null}
         <T variant="sub">
           예약 완료 {n}건이 출하 준비로 옮겨져요. 출하 준비 탭에서 송장을 넣고
           보내요.
@@ -262,7 +152,7 @@ export function HarvestSheet({
           size="producer"
           disabled={busy}
           style={{ flex: 1 }}
-          onPress={onClose}
+          onPress={close}
         />
         <Button
           label={`수확 시작 · ${n}건`}

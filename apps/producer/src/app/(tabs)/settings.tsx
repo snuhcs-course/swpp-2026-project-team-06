@@ -20,11 +20,12 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { HelpButton } from "../../lib/Tour";
 import { useSession } from "../../lib/session";
-import { LoadError } from "../../lib/views";
+import { LoadError, openConsumerFarm } from "../../lib/views";
 export default function Settings() {
   const router = useRouter(),
     { refresh, user } = useSession();
   const farm = useAsync(() => farms.mine(), []);
+  const farmId = farm.data?.farmId;
   const [withdrawing, setWithdrawing] = useState(false);
   const [reset, setReset] = useState(false),
     [busy, setBusy] = useState(false),
@@ -89,6 +90,19 @@ export default function Settings() {
           </View>
         </Section>
         <Section title="계정">
+          {/* 아이디·비밀번호 계정만(DEV-363) */}
+          {user?.username ? (
+            <ListRow
+              label="비밀번호 변경"
+              onPress={() => router.push("/password")}
+            />
+          ) : null}
+          {farmId ? (
+            <ListRow
+              label="소비자 앱에서 내 농가 보기"
+              onPress={() => void openConsumerFarm(farmId)}
+            />
+          ) : null}
           <ListRow label="로그아웃" onPress={() => auth.logout()} last={!!user?.isTestAccount} />
           {/* 회원 탈퇴(DEV-94). 테스트 계정은 서버가 막으므로 보이지 않는다 */}
           {user?.isTestAccount ? null : (

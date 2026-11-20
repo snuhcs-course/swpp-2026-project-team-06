@@ -6,12 +6,13 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.catalog.models import (
     CapacityRequest,
     Product,
+    ProductChangeEvent,
     ProductDraft,
     ProductOption,
     Stage,
@@ -29,6 +30,8 @@ from app.catalog.schemas import (
     MyProductCardOption,
     MyStageView,
     ProductCard,
+    ProductChange,
+    ProductChangeEventView,
     ProductDetail,
     ProductInfo,
     ProductOptionInput,
@@ -36,6 +39,7 @@ from app.catalog.schemas import (
     ProductPatch,
     SalesInput,
     SalesState,
+    StageInput,
     StageOptionValue,
     StagePreset,
     StagesInput,
@@ -462,7 +466,58 @@ def card_options(item: Loaded, cur: Stage | None) -> list[MyProductCardOption]:
     return rows
 
 
-def my_product_card(db: Session, item: Loaded) -> MyProductCard:
+def unapplied_changes(db: Session, products: list[Product]) -> set[str]:
+    """구매자에게 보이는 상품 중 반영 안 한 비공개 수정이 있는 상품 ID(DEV-361 PR C, 목록 카드).
+
+    상품 초안(`product_draft`), 예전 편집기 수정본(snapshot != published_snapshot),
+    마지막으로 반영·맞춘 판매페이지 초안(`page_draft_id`)과 내용이 다른 더 새 composer 초안.
+    상품 수와 상관없이 쿼리 세 번이다.
+    """
+    # source_analysis가 catalog를 import하므로 여기서 읽는다(순환 import 방지)
+    from app.source_analysis.models import Draft, ProductWorkspace
+    from app.source_analysis.workspace import draft_content
+
+    ids = [p.id for p in products if p.status in ("PUBLISHED", "PENDING_APPROVAL")]
+    if not ids:
+        return set()
+    rows = list(db.scalars(select(ProductWorkspace).where(ProductWorkspace.product_id.in_(ids))))
+    found = {
+        r.product_id for r in rows if r.product_draft or r.snapshot != r.published_snapshot
+    }
+    pages = [r for r in rows if r.product_id not in found and r.page_draft_id]
+    if not pages:
+        return found
+    ranked = (
+        select(
+            Draft.id,
+            func.row_number()
+            .over(
+                partition_by=(Draft.batch_id, Draft.target_id),
+                order_by=(Draft.created_at.desc(), Draft.id.desc()),
+            )
+            .label("rank"),
+        )
+        .where(Draft.batch_id.in_([r.batch_id for r in pages]))
+        .subquery()
+    )
+    latest_ids = select(ranked.c.id).where(ranked.c.rank == 1)
+    wanted = {r.page_draft_id for r in pages}
+    drafts = {
+        d.id: d
+        for d in db.scalars(select(Draft).where(Draft.id.in_(latest_ids) | Draft.id.in_(wanted)))
+    }
+    latest = {(d.batch_id, d.target_id): d for d in drafts.values() if d.id not in wanted}
+    for r in pages:
+        newest = latest.get((r.batch_id, r.target_id))
+        matched = drafts.get(r.page_draft_id)
+        if newest is None or matched is None:
+            continue
+        if draft_content(newest) != draft_content(matched):
+            found.add(r.product_id)
+    return found
+
+
+def my_product_card(db: Session, item: Loaded, unapplied: bool = False) -> MyProductCard:
     p = item.product
     cur = current_stage(item)
     return MyProductCard(
@@ -477,6 +532,7 @@ def my_product_card(db: Session, item: Loaded) -> MyProductCard:
         current_stage_label=f"{cur.starts_at} ~ {cur.ends_at}" if cur else None,
         updated_at=p.updated_at,
         options=card_options(item, cur),
+        has_unapplied_changes=unapplied,
     )
 
 
@@ -499,14 +555,21 @@ def my_product_cards(db: Session, farm_id: str, status: str | None = None) -> li
             product.id,
         )
     )
-    return [my_product_card(db, item) for item in load_products(db, products)]
+    unapplied = unapplied_changes(db, products)
+    return [
+        my_product_card(db, item, item.product.id in unapplied)
+        for item in load_products(db, products)
+    ]
 
 
 def load_my_product(db: Session, farm_id: str, product_id: str, lock: bool = False) -> Loaded:
     """자기 농가 상품만. 다른 농가 상품은 404(N-06)."""
     query = select(Product).where(Product.id == product_id)
     if lock:
-        query = query.with_for_update()
+        # An unlocked read earlier in the transaction must not leave a stale row (DEV-361).
+        # populate_existing overwrites unflushed changes and the session does not autoflush.
+        db.flush()
+        query = query.with_for_update().execution_options(populate_existing=True)
     product = db.scalar(query)
     if product is None or product.farm_id != farm_id:
         raise not_found("찾을 수 없는 상품이에요.")
@@ -614,9 +677,24 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
     p = item.product
     if p.status in ("PENDING_APPROVAL", "CLOSED"):
         raise conflict("INVALID_TRANSITION", "승인 대기·판매 종료 상품은 고칠 수 없어요.")
-    data = patch.model_dump(exclude_unset=True)
     if patch.version != p.version:
         raise conflict("STALE_VERSION", "최신 상품을 다시 불러와 주세요.")
+    apply_patch(db, item, patch)
+    if p.status == "REJECTED":
+        p.status = "DRAFT"
+    if p.status == "PUBLISHED":
+        check_listed(db, p)
+    p.version += 1
+    p.updated_at = now()
+    db.flush()
+    return my_product(db, load_products(db, [p])[0])
+
+
+def apply_patch(db: Session, item: Loaded, patch: ProductPatch) -> bool:
+    """상품 칸을 바꾼다(상태·버전 검사와 버전 올리기는 부르는 쪽). 받는 시기를 바꿔 R-21
+    새 기간을 제안했으면 True. PATCH와 '상품에 반영'(DEV-361)이 같이 쓴다."""
+    p = item.product
+    data = patch.model_dump(exclude_unset=True)
     data.pop("version", None)
     fields: dict[str, str] = {}
     window = patch.delivery_window
@@ -654,6 +732,7 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
         if p.measured_brix is not None:
             p.measured_brix_at = now()
             p.brix_record_count += 1
+    proposed = False
     if "delivery_window" in data:
         changed = (p.delivery_start, p.delivery_end) != (
             window.start if window else None,
@@ -665,28 +744,22 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
             from app.orders import service as orders
 
             orders.propose_delivery_window(db, p.id, window.start, window.end)
+            proposed = True
     if patch.info is not None:
         p.info = {**(p.info or {}), **patch.info.model_dump(by_alias=True, exclude_unset=True)}
     if patch.options is not None:
         _replace_options(db, item, patch.options)
+    return proposed
 
-    if p.status == "REJECTED":
-        p.status = "DRAFT"
-    if p.status == "PUBLISHED":
-        refreshed = load_products(db, [p])[0]
-        missing = missing_fields(refreshed)
-        if missing:
-            raise invalid({name: "필수 항목이에요" for name in missing})
-        if (
-            refreshed.stages
-            and p.delivery_start
-            and refreshed.stages[-1].ends_at >= p.delivery_start
-        ):
-            raise invalid({"deliveryWindow": "받는 시기는 마지막 예약 단계 뒤여야 해요"})
-    p.version += 1
-    p.updated_at = now()
-    db.flush()
-    return my_product(db, load_products(db, [p])[0])
+
+def check_listed(db: Session, p: Product) -> None:
+    """구매자에게 보이는 상품이 바뀐 뒤에도 필수 칸이 있고 받는 시기가 마지막 기간 뒤인지."""
+    refreshed = load_products(db, [p])[0]
+    missing = missing_fields(refreshed)
+    if missing:
+        raise invalid({name: "필수 항목이에요" for name in missing})
+    if refreshed.stages and p.delivery_start and refreshed.stages[-1].ends_at >= p.delivery_start:
+        raise invalid({"deliveryWindow": "받는 시기는 마지막 예약 단계 뒤여야 해요"})
 
 
 def create_detail_draft(
@@ -760,8 +833,22 @@ def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) ->
         raise conflict("INVALID_TRANSITION", "승인 대기·판매 종료 상품은 고칠 수 없어요.")
     if body.version != p.version:
         raise conflict("STALE_VERSION", "최신 상품을 다시 불러와 주세요.")
+    apply_stages(db, item, body.stages)
+    p.version += 1
+    p.updated_at = now()
+    db.flush()
+    db.expire_all()
+    return StagesResult(
+        version=p.version, stages=stage_views(load_products(db, [db.get(Product, p.id)])[0])
+    )
+
+
+def apply_stages(db: Session, item: Loaded, stages_input: list[StageInput]) -> None:
+    """기간·가격·물량을 바꾼다(R-18, PERIOD_LOCKED). 상태·버전 검사와 버전 올리기는 부르는 쪽.
+    PUT stages와 '상품에 반영'(DEV-361)이 같이 쓴다."""
+    p = item.product
     option_ids = {o.id for o in item.options}
-    stages = sorted(body.stages, key=lambda stage: stage.starts_at)
+    stages = sorted(stages_input, key=lambda stage: stage.starts_at)
     old = item.stages
     old_by_id = {stage.id: stage for stage in old}
     incoming = {}
@@ -861,13 +948,6 @@ def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) ->
         db.execute(delete(StagePrice).where(StagePrice.stage_id == row.id))
         db.execute(delete(StageAllocation).where(StageAllocation.stage_id == row.id))
         db.delete(row)
-    p.version += 1
-    p.updated_at = now()
-    db.flush()
-    db.expire_all()
-    return StagesResult(
-        version=p.version, stages=stage_views(load_products(db, [db.get(Product, p.id)])[0])
-    )
 
 
 def capacity_history(db: Session, product_id: str) -> list[CapacityRequestView]:
@@ -902,9 +982,23 @@ def list_capacity_requests(
     clause = kind_clause(kind)
     if clause is not None:
         query = query.where(clause)
+    rows = list(db.execute(query))
+    changed_at: dict[str, list] = defaultdict(list)
+    for pid, at in db.execute(
+        select(ProductChangeEvent.product_id, ProductChangeEvent.created_at).where(
+            ProductChangeEvent.product_id.in_(sorted({product.id for _, product, _, _ in rows}))
+        )
+    ):
+        changed_at[pid].append(at)
     return [
         AdminCapacityRequest(
             **capacity_view(request).model_dump(),
+            # 신청부터 결정(승인·반려·철회)까지, 심사 중이면 지금까지
+            changes_since_request=sum(
+                request.created_at <= at
+                and (request.decided_at is None or at <= request.decided_at)
+                for at in changed_at[product.id]
+            ),
             product_name=product.name,
             product_status=product.status,
             farm_id=farm.id,
@@ -915,7 +1009,59 @@ def list_capacity_requests(
             account_kind=account_kind(producer),
             withdrawn=producer.deleted_at is not None,
         )
-        for request, product, farm, producer in db.execute(query)
+        for request, product, farm, producer in rows
+    ]
+
+
+def record_change(
+    db: Session,
+    product: Product,
+    actor_user_id: str | None,
+    changes: list[dict],
+    page_changed: bool,
+    delivery_window_proposed: bool,
+    reserved_count: int,
+) -> ProductChangeEvent:
+    """'상품에 반영' 한 번을 운영자용 변경 기록으로 남긴다(DEV-361)."""
+    event = ProductChangeEvent(
+        id=new_id("pchg"),
+        product_id=product.id,
+        actor_user_id=actor_user_id,
+        product_status=product.status,
+        changes=[ProductChange.model_validate(c).model_dump(by_alias=True) for c in changes],
+        page_changed=page_changed,
+        delivery_window_proposed=delivery_window_proposed,
+        reserved_count=reserved_count,
+        created_at=now(),
+    )
+    db.add(event)
+    db.flush()
+    return event
+
+
+def product_changes(db: Session, product_id: str, limit: int) -> list[ProductChangeEventView]:
+    """상품 변경 기록, 최신순(운영자, DEV-361)."""
+    if db.get(Product, product_id) is None:
+        raise not_found("상품을 찾을 수 없어요.")
+    rows = db.scalars(
+        select(ProductChangeEvent)
+        .where(ProductChangeEvent.product_id == product_id)
+        .order_by(ProductChangeEvent.created_at.desc(), ProductChangeEvent.id.desc())
+        .limit(limit)
+    )
+    return [
+        ProductChangeEventView(
+            event_id=row.id,
+            product_id=row.product_id,
+            product_status=row.product_status,
+            actor_user_id=row.actor_user_id,
+            changes=row.changes,
+            page_changed=row.page_changed,
+            delivery_window_proposed=row.delivery_window_proposed,
+            reserved_count=row.reserved_count,
+            created_at=row.created_at,
+        )
+        for row in rows
     ]
 
 

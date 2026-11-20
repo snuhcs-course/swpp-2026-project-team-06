@@ -17,4 +17,6 @@
   - [[Prompt Log|AI-Collaboration-Report-–-Iteration-1-–-Prompt-Log]]
 - [[AI Collaboration Report – Iteration 2|AI-Collaboration-Report---Iteration-2]]
   - [[Prompt Log|AI-Collaboration-Report---Iteration-2---Prompt-Log]]
+- [[AI Collaboration Report – Iteration 4|AI-Collaboration-Report---Iteration-4]]
+  - [[Member evidence and selected inputs|AI-Collaboration-Report---Iteration-4---Evidence]]
 - [[Meeting Logs|Meeting-Logs]]

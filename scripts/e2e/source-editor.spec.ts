@@ -1,21 +1,70 @@
-import { test, expect } from "./fixtures";
+import { test, expect, type Page } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { apiUrl, producerUrl, loginProducer, apiLogin } from "./helpers";
 
-test("AC-SRC-11: failed atomic save preserves input and retries the same payload", async ({
+// DEV-361 PR C (C-18): the 2-tab source workspace is gone and `/products/source-analysis` is always the composer,
+// which opens only a batch tied to exactly one product. The first four tests used to open ad-hoc batches (no product,
+// or the selling p-house) in the 2-tab screen; they now run on a fresh draft product's own batch in the composer
+// (a selling product's composer keeps edits in a product draft, which an ad-hoc batch does not have).
+// Dropped with the 2-tab canvas: its "아직 배치되지 않은 사진이 있어요" and "내용을 비워놓은 부분은 구매자에게 표시되지 않아요"
+// hints and its always-visible section switch (the composer canvas hides these by design, PageCanvas emptyHint).
+
+/**
+ * A fresh draft product and its batch (what '새 상품' opens), set up through the API. Analysis needs the fruit
+ * variety (the composer asks for it in the AI sheet), so it is saved as basic information unless `variety` is "".
+ */
+async function newProductBatch(page: Page, headers: Record<string, string>, variety = "온주밀감") {
+  const opened = await page.request.post(`${apiUrl}/api/source-analysis/product-workspaces`, {
+    headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+    data: {},
+  });
+  expect(opened.ok(), await opened.text()).toBeTruthy();
+  const { batchId, productId } = await opened.json();
+  const batch = await (
+    await page.request.get(`${apiUrl}/api/source-analysis/batches/${batchId}`, { headers })
+  ).json();
+  expect(batch.targets).toHaveLength(1);
+  expect(batch.targets[0].productId).toBe(productId);
+  if (!variety) return batch;
+  const saved = await page.request.put(`${apiUrl}/api/source-analysis/batches/${batchId}/basic-info`, {
+    headers,
+    data: { version: batch.version, targets: [{ targetId: batch.targets[0].id, basicInfo: { variety, size: "", expectedBrix: null } }] },
+  });
+  expect(saved.ok(), await saved.text()).toBeTruthy();
+  return await (
+    await page.request.get(`${apiUrl}/api/source-analysis/batches/${batchId}`, { headers })
+  ).json();
+}
+
+const composerUrl = (batchId: string) =>
+  `${producerUrl}/products/source-analysis?batchId=${batchId}&composer=1`;
+
+/** The exclusion notice may follow an analysis; acknowledge it so it does not cover the editor. */
+async function dismissExclusions(page: Page) {
+  const confirm = page.getByTestId("excluded-modal").getByRole("button", { name: "확인", exact: true });
+  if (await confirm.count()) await confirm.click();
+}
+
+function work() {
+  execFileSync(
+    path.resolve("server/.venv/bin/python"),
+    [
+      "-c",
+      "from app.source_analysis.worker import run_once\nfor _ in range(100):\n if not run_once(): break",
+    ],
+    { cwd: path.resolve("server"), env: process.env, timeout: 120000 },
+  );
+}
+
+test("AC-SRC-11 DEV-361: failed atomic save preserves input and retries the same payload", async ({
   page,
 }) => {
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
   await loginProducer(page, "강영수");
   const token = await apiLogin(page.request, "u-kang", "producer");
   const headers = { Authorization: `Bearer ${token}` };
-  const batch = await (
-    await page.request.post(`${apiUrl}/api/source-analysis/batches`, {
-      headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
-      data: { targets: [{ name: "실패 복원 검증", productId: "p-house" }] },
-    })
-  ).json();
+  const batch = await newProductBatch(page, headers);
   await page.request.post(
     `${apiUrl}/api/source-analysis/batches/${batch.id}/sources`,
     {
@@ -59,21 +108,15 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
       { headers },
     )
   ).json();
-  await page.request.post(
+  const run = await page.request.post(
     `${apiUrl}/api/source-analysis/batches/${batch.id}/runs`,
     {
       headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
       data: { batchVersion: current.version },
     },
   );
-  execFileSync(
-    path.resolve("server/.venv/bin/python"),
-    [
-      "-c",
-      "from app.source_analysis.worker import run_once\nfor _ in range(100):\n if not run_once(): break",
-    ],
-    { cwd: path.resolve("server"), env: process.env, timeout: 120000 },
-  );
+  expect(run.ok(), await run.text()).toBeTruthy();
+  work();
   await page.route(`**/batches/${batch.id}/review`, async (route) => {
     const response = await route.fetch();
     const body = await response.json();
@@ -85,15 +128,11 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
     ).status = "conflict";
     await route.fulfill({ response, json: body });
   });
-  await page.goto(
-    `${producerUrl}/products/source-analysis?batchId=${batch.id}`,
-  );
-  await page
-    .getByRole("button", { name: "상세페이지 편집", exact: true })
-    .click();
-  await expect(
-    page.getByRole("switch", { name: "상품 소개 표시", exact: true }),
-  ).toBeChecked();
+  // The editor is inline in the composer (no '상세페이지 편집' tab)
+  await page.goto(composerUrl(batch.id));
+  await expect(page.getByText(/내용 확인 필요/)).toBeVisible();
+  await dismissExclusions(page);
+  // A conflicting hero is dimmed until the producer picks a wording
   await expect(page.getByTestId("canvas-content-hero")).toHaveCSS(
     "opacity",
     "0.45",
@@ -101,7 +140,6 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
   await expect(
     page.getByRole("button", { name: "+ 항목 추가", exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByText(/내용 확인 필요/)).toBeVisible();
   await expect(
     page.getByRole("button", { name: /사진 추가 제안/ }),
   ).toHaveCount(0);
@@ -121,31 +159,29 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
       });
     await route.continue();
   });
-  await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
+  // The composer's private save is '임시 저장' (the 2-tab '비공개 저장' is gone)
+  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
   await expect(
     page.getByText("저장 연결 실패 검증", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByLabel("상품 소개 보충 내용", { exact: true }),
   ).toHaveValue("직접 수정한 내용은 실패해도 남아요.");
-  await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
+  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
   await expect(
     page.getByText(
-      "비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.",
+      "비공개로 저장했어요. 상품에는 아직 적용되지 않았어요.",
     ),
   ).toBeVisible();
   expect(keys).toHaveLength(2);
   expect(keys[0]).toBe(keys[1]);
   await page.reload();
-  await page
-    .getByRole("button", { name: "상세페이지 편집", exact: true })
-    .click();
   await expect(
     page.getByLabel("상품 소개 보충 내용", { exact: true }),
   ).toHaveValue("직접 수정한 내용은 실패해도 남아요.");
 });
 
-test("AC-SRC-11: photos without descriptions remain available for manual placement", async ({
+test("AC-SRC-11 DEV-361: photos without descriptions remain available for manual placement", async ({
   page,
 }) => {
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
@@ -153,12 +189,7 @@ test("AC-SRC-11: photos without descriptions remain available for manual placeme
   await loginProducer(page, "강영수");
   const token = await apiLogin(page.request, "u-kang", "producer");
   const headers = { Authorization: `Bearer ${token}` };
-  const batch = await (
-    await page.request.post(`${apiUrl}/api/source-analysis/batches`, {
-      headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
-      data: { targets: [{ name: "사진 배치 확인", productId: "p-house" }] },
-    })
-  ).json();
+  const batch = await newProductBatch(page, headers);
   const photo = await page.request.post(
     `${apiUrl}/api/source-analysis/batches/${batch.id}/sources`,
     {
@@ -182,40 +213,48 @@ test("AC-SRC-11: photos without descriptions remain available for manual placeme
       { headers },
     )
   ).json();
-  await page.request.post(
+  const run = await page.request.post(
     `${apiUrl}/api/source-analysis/batches/${batch.id}/runs`,
     {
       headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
       data: { batchVersion: current.version },
     },
   );
-  execFileSync(
-    path.resolve("server/.venv/bin/python"),
-    [
-      "-c",
-      "from app.source_analysis.worker import run_once\nfor _ in range(100):\n if not run_once():break",
-    ],
-    { cwd: path.resolve("server"), env: process.env, timeout: 120000 },
-  );
-  await page.goto(
-    `${producerUrl}/products/source-analysis?batchId=${batch.id}`,
-  );
-  await page
-    .getByRole("button", { name: "상세페이지 편집", exact: true })
-    .click();
-  await expect(page.getByText(/아직 배치되지 않은 사진/)).toBeVisible();
-  await page
-    .getByRole("button", { name: "상품 소개 사진 추가", exact: true })
-    .click();
+  expect(run.ok(), await run.text()).toBeTruthy();
+  work();
+  await page.goto(composerUrl(batch.id));
+  await expect(page.getByTestId("hero-photo")).toBeVisible();
+  await dismissExclusions(page);
+  // The composer canvas shows a section's photo controls once it is picked from '내용 추가'
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByRole("button", { name: "상품 소개 추가", exact: true }).click();
+  const introduction = page.getByTestId("canvas-section-hero");
+  const text = introduction.getByRole("textbox", { name: "상품 소개 내용", exact: true });
+  const addPhoto = introduction.getByRole("button", { name: "상품 소개 사진 추가", exact: true });
+  await expect(introduction.getByRole("heading", { name: "상품 소개", exact: true })).toHaveCSS("color", "rgb(85, 85, 85)");
+  await expect(text).toBeInViewport();
+  await expect(text).toHaveCSS("border-top-width", "2px");
+  await expect(addPhoto).toHaveCSS("border-top-width", "1px");
+  await expect(introduction).toHaveCSS("border-top-width", "0px");
+  await addPhoto.click();
   await page
     .getByRole("button", { name: "상품사진 1 추가", exact: true })
     .click();
   await expect(
     page.getByTestId("source-photo-frame").getByRole("img"),
   ).toBeVisible();
+  await expect(text).toHaveCSS("border-top-width", "1px");
+
+  await page.getByRole("button", { name: "크기 참고 추가", exact: true }).click();
+  const size = page.getByTestId("canvas-section-sizePhoto");
+  const sizePhoto = size.getByRole("button", { name: "크기 참고 사진 추가", exact: true });
+  await expect(sizePhoto).toBeInViewport();
+  await expect(sizePhoto).toHaveCSS("border-top-width", "2px");
+  await expect(size.getByRole("textbox", { name: "크기 참고 내용", exact: true })).toHaveCSS("border-top-width", "1px");
 });
 
-test("AC-SRC-11: inline photo description survives failure and flushes before analysis", async ({
+test("AC-SRC-11 DEV-361: inline photo description survives failure and flushes before analysis", async ({
   page,
 }) => {
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
@@ -223,12 +262,7 @@ test("AC-SRC-11: inline photo description survives failure and flushes before an
   await loginProducer(page, "강영수");
   const token = await apiLogin(page.request, "u-kang", "producer");
   const headers = { Authorization: `Bearer ${token}` };
-  const batch = await (
-    await page.request.post(`${apiUrl}/api/source-analysis/batches`, {
-      headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
-      data: { targets: [{ name: "사진 설명 저장", productId: "p-house" }] },
-    })
-  ).json();
+  const batch = await newProductBatch(page, headers);
   const photo = await (
     await page.request.post(
       `${apiUrl}/api/source-analysis/batches/${batch.id}/sources`,
@@ -249,9 +283,9 @@ test("AC-SRC-11: inline photo description survives failure and flushes before an
       },
     )
   ).json();
-  await page.goto(
-    `${producerUrl}/products/source-analysis?batchId=${batch.id}`,
-  );
+  await page.goto(composerUrl(batch.id));
+  // Attachments live in the composer's AI sheet
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   let rejected = false;
   await page.route(`**/sources/${photo.id}/details`, async (route) => {
     if (route.request().method() === "PUT" && !rejected) {
@@ -289,13 +323,13 @@ test("AC-SRC-11: inline photo description survives failure and flushes before an
   await expect(
     page.getByText("설명을 저장하지 못했어요. 입력은 그대로 남아 있어요."),
   ).toHaveCount(0);
+  // The composer needs the variety before it starts (the 2-tab basic-info card had the same rule)
+  await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
   await description.fill("배송 박스 포장");
   await page
-    .getByRole("button", { name: "자료 준비·분석 시작", exact: true })
+    .getByRole("button", { name: "AI로 채우기", exact: true })
     .click();
-  await expect(
-    page.getByRole("button", { name: "분석 중이에요", exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByTestId("source-analysis-status")).toBeVisible();
   const latest = await (
     await page.request.get(
       `${apiUrl}/api/source-analysis/batches/${batch.id}`,
@@ -313,12 +347,15 @@ test("AC-SRC-11: inline photo description survives failure and flushes before an
   expect(runs.items[0].inputs[0].description).toBe(
     latest.sources[0].description,
   );
+  // Starting closes the sheet; reopen it to check the tile never shows the file name
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
+  await expect(page.getByTestId("product-photo-box")).toBeVisible();
   await expect(page.getByTestId("product-photo-box")).not.toContainText(
     "hidden-filename.jpg",
   );
 });
 
-test("AC-SRC-11: basic information saves, validates, survives failures and fills the editor", async ({
+test("AC-SRC-11 DEV-361: basic information saves, validates, survives failures and fills the editor", async ({
   page,
 }) => {
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
@@ -326,12 +363,7 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
   await loginProducer(page, "강영수");
   const token = await apiLogin(page.request, "u-kang", "producer");
   const headers = { Authorization: `Bearer ${token}` };
-  const batch = await (
-    await page.request.post(`${apiUrl}/api/source-analysis/batches`, {
-      headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
-      data: { targets: [{ name: "기본 정보 테스트" }] },
-    })
-  ).json();
+  const batch = await newProductBatch(page, headers, "");
   await page.request.post(
     `${apiUrl}/api/source-analysis/batches/${batch.id}/sources`,
     {
@@ -369,28 +401,29 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
       },
     },
   );
-  await page.goto(
-    `${producerUrl}/products/source-analysis?batchId=${batch.id}`,
-  );
-  const variety = page.getByLabel("과일 품종명", { exact: true });
-  const size = page.getByLabel("사이즈", { exact: true });
-  const brix = page.getByLabel("측정 당도 (°Bx)", { exact: true });
-  const start = page.getByRole("button", {
-    name: "자료 준비·분석 시작",
-    exact: true,
-  });
+  await page.goto(composerUrl(batch.id));
+  // The composer spreads the basic information over the page: 품종명 under the name, 사이즈 in the
+  // info table, 측정 당도 in the Brix slot (and 과일 품종명 again in the AI sheet).
+  const basic = page.getByTestId("product-basic-info");
+  const variety = basic.getByLabel("품종명", { exact: true });
+  const size = basic.getByLabel("사이즈", { exact: true });
+  const brix = basic.getByLabel("측정 당도 (°Bx)", { exact: true });
+  const openAi = () => page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
+  const start = page.getByRole("button", { name: "AI로 채우기", exact: true });
+  await openAi();
   await start.click();
-  await expect(page.getByTestId("source-basic-info")).toContainText(
-    "과일 품종명을 입력해 주세요.",
-  );
-  // The start button only points to the card; the message itself is not repeated.
+  // The required variety is reported once, beside the start button
+  await expect(page.getByRole("alert").getByText("과일 품종명을 입력해 주세요.", { exact: true })).toBeVisible();
   await expect(page.getByText("과일 품종명을 입력해 주세요.", { exact: true })).toHaveCount(1);
-  await expect(page.getByText("위 기본 정보에서 과일 품종명을 입력해 주세요.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "AI 시트 닫기", exact: true }).first().click();
   await variety.fill("온주밀감");
+  await variety.blur();
+  await page.getByText("상품정보", { exact: true }).click(); // size lives in the info table
   await size.fill("중과, 지름 6~7cm");
+  await size.blur();
   await brix.fill("101");
   await brix.blur();
-  await expect(page.getByTestId("source-basic-info")).toContainText("0~100");
+  await expect(page.getByRole("alert").getByText(/0~100/)).toBeVisible();
   let reject = true;
   await page.route(`**/batches/${batch.id}/basic-info`, async (route) => {
     if (reject)
@@ -402,9 +435,7 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
   });
   await brix.fill("12.5");
   await brix.blur();
-  await expect(page.getByTestId("source-basic-info")).toContainText(
-    "기본 정보 저장 실패 검증",
-  );
+  await expect(page.getByRole("alert").getByText(/기본 정보 저장 실패 검증/)).toBeVisible();
   await expect(brix).toHaveValue("12.5");
   reject = false;
   const saved = page.waitForResponse(
@@ -428,6 +459,7 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
     .toBe(12.5);
   await page.reload();
   await expect(variety).toHaveValue("온주밀감");
+  await page.getByText("상품정보", { exact: true }).click();
   await expect(size).toHaveValue("중과, 지름 6~7cm");
   await expect(brix).toHaveValue("12.5");
   await page.screenshot({ path: ".artifacts/basic-info-390.png" });
@@ -438,27 +470,15 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
       r.request().method() === "POST" &&
       r.status() === 202,
   );
+  await openAi();
   await start.click();
   await started;
   await expect(variety).not.toBeEditable();
   await expect(brix).not.toBeEditable();
-  execFileSync(
-    path.resolve("server/.venv/bin/python"),
-    [
-      "-c",
-      "from app.source_analysis.worker import run_once\nfor _ in range(100):\n if not run_once(): break",
-    ],
-    { cwd: path.resolve("server"), env: process.env, timeout: 120000 },
-  );
-  const edit = page.getByRole("button", {
-    name: "상세페이지 편집",
-    exact: true,
-  });
-  await expect(edit).toBeEnabled();
-  await edit.click();
-  await expect(
-    page.getByText(/내용을 비워놓은 부분은 구매자에게 표시되지 않아요\./),
-  ).toBeVisible();
+  work();
+  await expect(page.getByTestId("source-analysis-status")).toHaveCount(0, { timeout: 15000 });
+  await dismissExclusions(page);
+  // The analysis writes the basic information into the inline editor
   await expect(page.getByLabel("규격 내용", { exact: true })).toHaveValue(
     "품종: 온주밀감\n사이즈: 중과, 지름 6~7cm",
   );
@@ -585,7 +605,8 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
   // The same error is also rendered (hidden) inside the collapsed sheet; the visible copy is the page alert.
   await expect(page.getByRole("alert").getByText("대표사진을 한 장 올려 주세요.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "서버 상태 다시 확인", exact: true })).toHaveCount(0);
+  // A validation error offers no server refresh (the composer's refresh is '다시 확인'; the 2-tab one is gone, DEV-361)
+  await expect(page.getByRole("button", { name: "다시 확인", exact: true })).toHaveCount(0);
   await openSheet();
   await expect(page).toHaveURL(/\/products\/source-analysis/);
   await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();

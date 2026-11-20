@@ -5,24 +5,30 @@
 테스트로 센다. is_test_account(Mock 로그인 대상, 온보딩 생략)는 바꾸지 않는다.
 """
 
+import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.accounts import service as accounts
 from app.accounts.models import User
-from app.accounts.schemas import KindFilter
+from app.accounts.schemas import KindFilter, TemporaryPasswordView
 from app.accounts.service import account_kind, kind_clause
+from app.admin.models import ManagerEvent
 from app.admin.schemas import AdminUserPage, AdminUserView
 from app.admin.service import run_manager_action
+from app.core.clock import now
 from app.core.db import get_db
 from app.core.errors import conflict, not_found
+from app.core.ids import new_id
 from app.core.security import Admin
 from app.farms.models import Farm
 from app.orders.models import Order
 
 router = APIRouter(prefix="/admin/users", tags=["admin"])
+logger = logging.getLogger(__name__)
 Db = Annotated[Session, Depends(get_db)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 
@@ -38,7 +44,8 @@ def _view(user: User, farm: Farm | None, order_count: int) -> AdminUserView:
         name=user.name,
         nickname=user.nickname,
         role=user.role,
-        signup="KAKAO" if user.kakao_id else "SEED",
+        signup="PASSWORD" if user.username else "KAKAO" if user.kakao_id else "SEED",
+        username=user.username,
         is_test_account=user.is_test_account,
         ops_tester=user.ops_tester,
         account_kind=account_kind(user),
@@ -87,6 +94,7 @@ def list_users(
                 User.name.icontains(q, autoescape=True),
                 User.nickname.icontains(q, autoescape=True),
                 User.id.icontains(q, autoescape=True),
+                User.username.icontains(q, autoescape=True),
                 Farm.name.icontains(q, autoescape=True),
             )
         )
@@ -134,3 +142,46 @@ def mark_ops_tester(db: Db, admin: Admin, user_id: str, key: IdempotencyKey = No
 @router.post("/{user_id}/unmark-tester", response_model=AdminUserView)
 def unmark_ops_tester(db: Db, admin: Admin, user_id: str, key: IdempotencyKey = None):
     return _mark(db, admin.id, user_id, key, on=False)
+
+
+@router.post("/{user_id}/temporary-password", response_model=TemporaryPasswordView)
+def issue_temporary_password(db: Db, admin: Admin, user_id: str, response: Response):
+    """임시 비밀번호 발급(DEV-363, AC-01-31). 아이디 계정만, 평문은 이 응답에 한 번만 나간다.
+
+    멱등 기록(`idempotency_records.response`)에 평문이 남지 않게 `run_manager_action`을 쓰지 않고,
+    같은 꼴의 감사 행(`user.temporary_password`, 결과 `{status: ISSUED}`)만 직접 남긴다.
+    다시 누르면 새 임시 비밀번호가 나가고 앞의 것은 못 쓴다.
+    """
+    user = db.get(User, user_id, with_for_update=True)
+    if user is None:
+        raise not_found("사용자를 찾을 수 없어요.")
+    value = accounts.issue_temporary_password(db, user)
+    event_id = new_id("manager-event")
+    at = now()
+    db.add(
+        ManagerEvent(
+            id=event_id,
+            event_type="user.temporary_password",
+            actor_id=admin.id,
+            target_type="user",
+            target_id=user_id,
+            scope=f"temporary-password:{user_id}",
+            idempotency_key=f"issued:{event_id}",
+            original_body={},
+            request_summary={},
+            status="SUCCEEDED",
+            retryable=False,
+            attempts=1,
+            result={"status": "ISSUED"},
+            created_at=at,
+            updated_at=at,
+        )
+    )
+    db.commit()
+    view = TemporaryPasswordView(user_id=user.id, username=user.username, temporary_password=value)
+    try:
+        accounts.unlock_login(user.role, user.username)
+    except Exception:  # noqa: BLE001 - 잠금 해제 실패로 이미 바뀐 비밀번호를 잃지 않게
+        logger.warning("temporary password issued but login unlock failed for %s", user_id)
+    response.headers["Cache-Control"] = "no-store"
+    return view

@@ -174,6 +174,14 @@ export default function Me() {
                 onPress={() => router.push("/me/profile")}
               />
             ) : null}
+            {/* 아이디·비밀번호 계정만(DEV-363). 카카오·테스트 계정은 비밀번호가 없다 */}
+            {user.username ? (
+              <ListRow
+                label="비밀번호 변경"
+                sub={`아이디 ${user.username}`}
+                onPress={() => router.push("/password")}
+              />
+            ) : null}
             <ListRow
               label="배송지 관리"
               sub={addressSummary(addresses.data?.length ?? 0)}

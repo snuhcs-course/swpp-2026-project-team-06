@@ -1,5 +1,9 @@
 # apps/producer spec
 
+## DEV-367 평가 진입 폐기
+- FEAT-01 AC-01-34: release 실서버는 시드 계정을 요청·표시하지 않는다. 개발 빌드 또는 명시적 앱 Mock만 목록을 쓴다. 개발 실서버는 카카오 비활성·오류 시, 앱 Mock은 카카오와 함께 보인다.
+- 평가 query/storage/buildflag 로직을 제거한다. 저장된 표시를 읽거나 새로 저장하지 않는다. 카카오·아이디 인증과 기존 세션/복귀는 유지한다.
+
 > 구현하는 기능: FEAT-01, FEAT-02, FEAT-03, FEAT-04, FEAT-05, FEAT-12, FEAT-13, FEAT-14, FEAT-15, FEAT-17, FEAT-19 · 지키는 규칙: R-05, R-06, R-15, R-17, R-18, R-19, R-20, R-21, R-22, R-23, R-25, M-01, M-09, M-11, M-12, M-13, M-14, N-01, N-02, N-04, N-06
 > 동작·규칙·인수 조건 원본: docs/spec/functional/ (여기에 다시 쓰지 않는다)
 > 화면·경로·레이블 원본: docs/spec/ia.md 2장·4장·6장, 화면별 명세·API: docs/spec/screens.md 6장·7장, FEAT ↔ 폴더: docs/spec/tech-design/stack.md 4장
@@ -23,8 +27,10 @@
 | SCR-22a | 원산지 표시제도 안내 | `/origin-notice` | `src/app/origin-notice.tsx` (원산지 칸 도움말 `src/lib/OriginFieldHint.tsx`) | 원산지표시법 제6조 ⑥, DEV-121 |
 | SCR-23 | 상품 목록 | `/products` | `src/app/(tabs)/products/index.tsx` | FEAT-04 |
 | SCR-24 | AI 상품 초안 | `/products/new` | `src/app/(tabs)/products/new.tsx` | FEAT-03 |
-| SCR-25 | 상품 편집 | `/products/:id/edit` | `src/app/(tabs)/products/[id]/edit.tsx` | FEAT-04 |
-| SCR-26 | 예약 기간·가격 | `/products/:id/stages` | `src/app/(tabs)/products/[id]/stages.tsx` | FEAT-05 |
+| SCR-23 하위 | 상품 수정(composer) | `/products/:id/detail` | `src/app/(tabs)/products/[id]/detail.tsx` → `src/lib/NewProductComposer.tsx` | FEAT-04, 05 |
+| 상품 수정 하위 | 상품 상세 편집(상품만 여는 composer의 ‘상세 고치기’) | `/products/:id/story` | `src/app/(tabs)/products/[id]/story.tsx`(`lib/DetailEditor.tsx`) | FEAT-04 |
+| SCR-25 | (없앰) 상품 편집 → redirect | `/products/:id/edit` | `src/app/(tabs)/products/[id]/edit.tsx`(→ `/detail`) | FEAT-04 |
+| SCR-26 | (없앰) 예약 기간·가격 → redirect | `/products/:id/stages` | `src/app/(tabs)/products/[id]/stages.tsx`(→ `/detail?terms=1`) | FEAT-05 |
 | SCR-27 | 소식 올리기 | `/broadcast/new` | `src/app/broadcast/new.tsx` | FEAT-12, 15 |
 | SCR-28 | 채팅 목록 | `/chats` | `src/app/(tabs)/chats/index.tsx` | FEAT-12, 13 |
 | SCR-28 하위 | 소비자별 채팅 | `/chats/:consumerId` | `src/app/(tabs)/chats/[consumerId].tsx` | FEAT-13 |
@@ -39,6 +45,7 @@
 - 공용 컴포넌트·토큰은 `@farmclub/ui`(packages/ui), 서버 호출은 `@farmclub/api`(packages/api)만 쓴다.
 - 서버 주소는 `EXPO_PUBLIC_API_URL`(packages/api spec).
 - 환경설정 → 농가 프로필에서 복사하는 링크는 서버의 `/s/farms/<id>`다(ADR 0006). 소비자 앱 주소를 직접 복사하지 않는다.
+- 설정과 농가 프로필의 소비자 화면 버튼은 같은 링크 도우미로 `EXPO_PUBLIC_CONSUMER_URL`의 `/farms/<id>`를 연다(DEV-370, AC-02-3).
 - I1 로그인은 생산자 테스트 계정 선택(`GET /api/auth/test-accounts?app=producer`, `POST /api/auth/test-login`의 `app: producer`, ADR 0009·0010). 시드 생산자는 승인·확인 중·반려·정지·농가 없음 5명(tech-design 시드 데이터). 소비자 계정은 이 앱에 로그인하지 않고, 403 `WRONG_APP`이면 토큰을 지우고 로그인으로. 가입 신청(SCR-20)이 생산자 계정 만들기를 겸한다. 카카오 리다이렉트 `/auth/kakao`는 I2.
 - 출하 처리(SCR-29)는 주문을 여러 건 골라 ‘n건 선택 · 출하 처리’(DEV-294) → 주문마다 `POST /api/orders/{orderId}/ship`(`carrier`, `trackingNumber`)을 반복한다(새 일괄 API 없음). 생산자는 배송 완료로 바꾸지 못한다(R-19). 자연어 입력은 I2.
 - 화면 모양·크기·문구는 Figma v6/UI 1.6이 기준이다(목록 줄 최소 56). DEV-294부터 현황·배송 현황과 생산자 문구는 Figma 검토본 `TEN0IqovZJenoRqSIma3wL`(기준표, 1:62, 1:74, 11:133)을 따르고, 크기는 숫자 대신 `tokens.*`를 써서 토큰 개편(DEV-293)을 따라간다.
@@ -89,16 +96,16 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 ## DEV-51 현재 프론트 구현 기준 (1.6)
 
 제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
-OwnNewsRoom을 채팅 탭 본문에 유지하고 비활성 때 polling을 끈다. 기본 news, 품목 접힘. 현황은 전체 cursor 주문 건수 및 대표 상품 판매량(DEV-300부터 옵션별 박스, kg은 보조)을 분리한다. ship은 RESERVED 조회만(맨 위 ‘수확 시작하기’ 줄은 예약 기간 카드로 이동), PREPARING 송장/출하만 제공한다. 수확 시작은 예약 기간 화면(`stages.tsx` + `lib/HarvestStart.tsx`)에서 기간 단위로 호출한다(DEV-231). 저장 안 한 값이 있으면 막아 폼과 섞이지 않게 한다.
+OwnNewsRoom을 채팅 탭 본문에 유지하고 비활성 때 polling을 끈다. 기본 news, 품목 접힘. 현황은 전체 cursor 주문 건수 및 대표 상품 판매량(DEV-300부터 옵션별 박스, kg은 보조)을 분리한다. ship의 RESERVED 탭은 PREPARING 탭과 같은 체크 고르기로 수확 시작(`lib/HarvestStart.tsx` 확인 시트 → `orders.harvestOrders`)을 하고, PREPARING은 송장/출하를 한다(DEV-361). 예약 탭 고르기는 뺀 주문 id(`unpicked`)만 들고 있어 기본이 전체 선택이고 새로 승인된 예약도 골라진 채로 보인다. 시트 멱등 키는 시트를 열 때 새로 만들고 같은 시트의 재시도는 같은 키. 예약 기간 화면(`stages.tsx`)에는 수확 칸이 없다(DEV-231의 기간 단위 수확·`?stage=` 스크롤 삭제). DEV-361 PR C부터 `stages.tsx`는 redirect 파일이다.
 
 
 ## I2 생산자 오류 복구 (DEV-29/34/38)
 
-SCR-24는 초안·상품 생성 요청을 하나씩 수행하고 빈 문자열·빈 배열을 확인 필요로 취급한다. SCR-25는 원산지·보관 필수값도 현재 폼에서 검사한다. SCR-30은 Web Share 취소와 실패를 구분하고 실패 시 기존 복사 경로를 사용한다. SCR-29는 출하 중 확인/선택을 잠그고 기존 데이터가 있어도 갱신 오류와 재시도를 표시한다. 농가 조회/수정 응답의 shareUrl은 실제 서버 공유 페이지의 절대 주소다. 나머지 서버 계약 변경 없음.
+SCR-24는 초안·상품 생성 요청을 하나씩 수행하고 빈 문자열·빈 배열을 확인 필요로 취급한다. SCR-25는 원산지·보관 필수값도 현재 폼에서 검사했다(DEV-361 PR C부터는 상품 수정 composer의 ‘상품에 반영’이 누를 때 상품명·원산지·품종명·보관 방법을 검사하고, 판매 전 상품은 SCR-24b가 서버 `missing_fields`로 안내한다). SCR-30은 Web Share 취소와 실패를 구분하고 실패 시 기존 복사 경로를 사용한다. SCR-29는 출하 중 확인/선택을 잠그고 기존 데이터가 있어도 갱신 오류와 재시도를 표시한다. 농가 조회/수정 응답의 shareUrl은 실제 서버 공유 페이지의 절대 주소다. 나머지 서버 계약 변경 없음.
 
 ## DEV-56/57/58 integration
 
-Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.
+Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace used the sourceAnalysis client and shared ModuleStory renderer (deleted in DEV-361 PR C; the composer `NewProductComposer` is the only source screen, and the helpers it used moved to `lib/sourceBatch.ts`). Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.
 
 ## DEV-58 초기 입력 보존
 
@@ -108,12 +115,12 @@ DEV-58 현재 계약: 개인정보는 업로드 전에 직접 제거한다. 새 
 
 DEV-58 자료 작업 UI: 공용 토큰의 20px 좌우 여백·16px 카드·64px 썸네일·최소48px 터치를 따른다. 작업 중 탭 위 스피너와 “분석 중이에요”를 표시하고 과거 개인정보 승인 대기 작업은 취소 후 재분석을 안내한다. 업로드 직후 이미지는 로컬 object URL, 전처리 후 이미지/PDF는 인증된 가림 첫 쪽으로 표시한다. TXT·준비 전 PDF·미리보기 실패는 파일 형식 타일을 사용한다. 로컬 URL은 삭제/작업 전환/화면 종료 시 해제한다. 연결·삭제·추가 시각 설정과 문구 입력은 펼쳐보기에 보존하며 기존 저장/적용 계약은 유지한다.
 
-DEV-58 새 상품 진입: /products/new에서 새 비공개 상품과 연결된 자료 작업을 만들고 업로드 화면으로 바로 이동한다. 이전 문구/직접 입력은 /products/manual에 유지한다. 상품 생성 응답이 확인된 경우 같은 상품·작업 멱등 키로 재시도하며 불확실하면 상품 목록 확인을 안내한다. (DEV-184부터) 새 상품은 두 장이다. ① `composer=1` 채우기(`NewProductComposer`: 구매자 상품 페이지 모양, 빈 칸만 점선, 하단 AI 시트) → '다음: 판매·가격'에서 판매 전(DRAFT/REJECTED) 상품은 확인 없이 상세 반영 → ② `/products/:id/sell`(옵션·받는 시기·가격·배송비·물량 → 구매자 화면 미리보기 → 판매 시작 요청, 운영자 승인 대기). 그 밖의 상태는 확인 후 상품 편집(SCR-25). 그 밖의 자료 작업은 기존 `SourceWorkspace`. Mock 전용 환경은 자료 API가 없어 manual을 사용한다.
-DEV-84 자료 분석이 꺼진 환경의 복구 경로(운영은 DEV-90에서 활성화): 진입 시 `GET /api/source-analysis/config`의 `enabled`를 먼저 본다. false면 `/products/new` → `/products/manual`, 판매페이지 수정(`ProductPageEditor`) → 기존 `DetailEditor`. 조회 실패는 오류와 다시 시도로 두고 다른 경로로 추측해 보내지 않는다(404는 상품 없음과 구분되지 않아 신호로 쓰지 않음).
-상품 목록의 별도 자료로 상세 만들기 버튼은 제거하며 새 상품 버튼을 단일 신규 진입으로 사용한다. 기존 상품의 저장 작업 편집 진입은 유지한다.
+DEV-58 새 상품 진입: /products/new에서 새 비공개 상품과 연결된 자료 작업을 만들고 업로드 화면으로 바로 이동한다. 이전 문구/직접 입력은 /products/manual에 유지한다. 상품 생성 응답이 확인된 경우 같은 상품·작업 멱등 키로 재시도하며 불확실하면 상품 목록 확인을 안내한다. (DEV-184부터) 새 상품은 두 장이다. ① `composer=1` 채우기(`NewProductComposer`: 구매자 상품 페이지 모양, 빈 칸만 점선, 하단 AI 시트) → '다음: 판매·가격'에서 판매 전(DRAFT/REJECTED) 상품은 확인 없이 상세 반영 → ② `/products/:id/sell`(옵션·받는 시기·가격·배송비·물량 → 구매자 화면 미리보기 → 판매 시작 요청, 운영자 승인 대기). 그 밖의 상태는 확인 후 상품 편집(SCR-25)이었다(DEV-361 PR C부터 아래 ‘상품 수정 = composer 한 화면’ 절). 그 밖의 자료 작업은 기존 `SourceWorkspace`였고 DEV-361 PR C에서 지웠다(`/products/source-analysis`는 늘 composer). Mock 전용 환경은 자료 API가 없어 새 상품은 manual을 사용한다.
+DEV-84 자료 분석이 꺼진 환경의 복구 경로(운영은 DEV-90에서 활성화): 진입 시 `GET /api/source-analysis/config`의 `enabled`를 먼저 본다. false면 `/products/new` → `/products/manual`, 판매페이지 수정(`ProductPageEditor`) → 기존 `DetailEditor`. DEV-361 PR C부터 `ProductPageEditor`는 지웠고, 상품 수정은 상품만 여는 composer, 상세는 그 화면의 ‘상세 고치기’ → `/products/:id/story`(`DetailEditor`)다. 조회 실패는 오류와 다시 시도로 두고 다른 경로로 추측해 보내지 않는다(404는 상품 없음과 구분되지 않아 신호로 쓰지 않음).
+상품 목록의 별도 자료로 상세 만들기 버튼은 제거하며 새 상품 버튼을 단일 신규 진입으로 사용한다. 기존 상품의 저장 작업 편집 진입은 DEV-361 PR C에서 2탭 화면과 함께 없앴다(상품 하나에 묶이지 않은 작업은 composer가 상품 목록으로 안내).
 
 ### 상품별 판매페이지 수정 (DEV-58, 2026-10-17)
-- (DEV-346부터 `판매페이지 수정`은 composer로 연다. 이 절의 비공개 수정본 편집기는 composer로 옮기지 못한 페이지·예전 앱·자료 분석이 꺼진 서버의 대체 경로다. 동작은 `docs/spec/source-integration.md` 'DEV-346' 절.)
+- (DEV-361 PR C에서 이 편집기(`ProductPageEditor`)를 지웠다. 이 절은 기록이다.) (DEV-346부터 `판매페이지 수정`은 composer로 연다. 이 절의 비공개 수정본 편집기는 composer로 옮기지 못한 페이지·예전 앱·자료 분석이 꺼진 서버의 대체 경로였다. 동작은 `docs/spec/source-integration.md` 'DEV-346' 절.)
 - 상품 목록의 `판매페이지 수정`은 해당 상품의 비공개 수정본을 연다. 없으면 현재 `moduleDetail` 또는 `detailContent`를 사진 URI/문구 그대로 보존하여 시작한다. 원본 자료가 없어도 수정할 수 있다.
 - `수정본 저장`은 공개 내용을 변경하지 않는다. `상품에 반영` 확인 후에만 상품 상세가 변경된다. 판매 중인 상품은 구매자 페이지에 즉시 반영되며, 초안/심사 상태는 바꾸지 않는다.
 - 상품 버전이 바뀌면 적용을 거절한다. 수정본을 자동 폐기하지 않고, 사용자가 명시적으로 현재 상품 불러오기를 선택해야 폐기한다. 저장하지 않은 입력에는 이탈 확인을 표시한다.
@@ -123,13 +130,29 @@ DEV-84 자료 분석이 꺼진 환경의 복구 경로(운영은 DEV-90에서 �
 
 
 ### 판매페이지 수정 = composer (DEV-346, 구현 결정)
-- `/products/:id/detail`은 `productWorkspace.open(..., composer: true)` 응답이 `composer: true`일 때 `/products/source-analysis?batchId=…&composer=1`로 바꿔 연다(`notice=replaced|replaced-ai`는 한 번 보이고 지움). `composer: false`·예전 서버(400)·자료 분석 꺼짐·Mock은 `ProductPageEditor`(`composerBlocked`면 `warning`). 서버 오류면 '다시 열기'·'기존 편집기로 열기'.
-- 판매 중·승인 대기·종료 상품: composer에서 상품명·원산지·보관·품종·당도·대표사진을 잠그고 상품 값을 보이며, 누르면 상품 편집으로 가는 시트. 반영은 상세만(상품 PATCH 없음, `saveProduct`는 판매 전만). 확인 시트 뒤 SCR-25.
+- `/products/:id/detail`은 `productWorkspace.open(..., composer: true)` 응답이 `composer: true`일 때 `/products/source-analysis?batchId=…&composer=1`로 바꿔 연다(`notice=replaced|replaced-ai`는 한 번 보이고 지움, `terms=1`은 넘김). `composer: false`·예전 서버(400)·자료 분석 꺼짐·Mock은 DEV-361 PR C부터 상품만 여는 composer(`<NewProductComposer productId>`, 예전 `ProductPageEditor`). `composerBlocked: LEGACY_REVISION`이면 '그 수정 버리고 열기'(새 멱등 키로 `open(discardChanges, version)`)·'상품만 열기'. 서버 오류(`ApiError`)면 '다시 열기'·'상품만 열기', 연결 실패면 '다시 열기'만.
+- (DEV-361 PR C에서 바뀜) 판매 중·승인 대기·종료 상품의 칸 잠금·상품 편집으로 가는 시트·상세만 반영 뒤 SCR-25는 지웠다. 아래 ‘상품 수정 = composer 한 화면’ 절.
 - 사진 주소: `sourcePhotoUrl`/`productPhotoUrl`(`lib/sourcePhoto.ts`) — 올린 사진은 `sourcePageImage`, 옮겨 온 사진은 주소 그대로(`/api/source-media/`는 생산자 인증 주소). 카드 썸네일(`CardPhoto`)도 같은 규칙.
 - 409 `PAGE_CHANGED`면 오류 줄에 '다시 열기'. '이미 반영한 초안' 세션 기억(DEV-184)은 그대로 둔다.
 
+### 상품 수정 = composer 한 화면 (DEV-361 PR C, 구현 결정)
+화면 서술·문구는 `docs/spec/screens.md` ‘상품 수정’ 절, 결정 C-1~C-19는 `tasks/DEV-361.md` PR C 절.
+
+- ‘내용 추가’ 칩의 스크롤과 강조는 `PageCanvas`가 실제 입력 칸의 ref를 기준으로 처리한다. 선택과 임시 강조는 편집기 로컬 상태다(DEV-372, AC-SRC-11).
+- `NewProductComposer`는 두 방식이다. batch composer(`/products/source-analysis?batchId&composer=1`)와 상품만 여는 composer(`productId` prop, `detail.tsx`가 Mock·자료 분석 꺼짐·`composer: false`·예전 서버 400·사용자가 고른 ‘상품만 열기’에서 렌더). 상품만 여는 composer는 batch가 없어 AI 버튼·사진·자료 시트를 숨기고, 상세는 `ModuleStory`/`DetailStory`로 읽기 전용 + ‘상세 고치기’ → `/products/:id/story`, 대표사진은 `pickMedia`로 상품 `photos` 맨 앞(잘라 내지 않음. 대표사진 포함 10장을 넘으면 사진 줄 안내와 ‘상품에 반영’·‘다음’ 강조로 생산자가 뺄 사진을 고른다, 서버도 400). 사진 상한 셈(`photoOver`)은 서버 `apply_draft`와 같다: batch는 처음 연 뒤 새로 고른 대표사진이 지금 사진에 없을 때만 한 장 더(이미 반영한 올린 대표사진은 판매 전·판매 중 모두 서버가 다시 넣지 않음, `cover_applied`), 넘는 장수만큼 ‘N장을 빼 주세요’.
+- 판매 전 판단은 `lib/productGroups.ts` `isPreSale` 하나(composer 자체 판정 삭제). 구매자에게 보이는 상품은 composer 안 `isLive`(판매 중·승인 대기), 그 밖(CLOSED)은 읽기 전용.
+- 구매자에게 보이는 상품의 상품 칸·판매 조건은 서버 상품 초안(PR B)에 둔다. `draftMode`: `draft`(초안 API 있음, Mock 포함) / `direct`(`productDraft` 조회가 404이거나 400 `fields.productId` — 초안 API가 없는 서버). `direct`는 ‘임시 저장’을 숨기고 ‘상품에 반영’이 `catalog.update`(바뀐 칸만) → `catalog.putStages`(기간이 바뀐 경우)를 차례로 부른다. 서버는 바꾸지 않았다.
+- 초안 본문(`draftBody`)은 상품과 다른 칸만 보내고, ‘상품에 반영 (N)’의 N은 `changedKeys`(상품 칸·판매 조건 칸) + 판매페이지 1(저장 안 한 상세 수정, 처음 연 뒤 새로 저장한 판매페이지 초안, 바꾼 대표사진). 다시 열면 `withDraft`로 초안 값을 상품 값에 덮어 화면 값으로 쓴다. 반영 확인 시트 표는 앱이 `diffRows`(화면 값 ↔ 지금 상품, 바뀐 칸 하나에 한 줄)로 만들고 못 만든 묶음만 서버 `changes`로 채운다(PM 11/18, 예전: `draft`면 서버 `changes`, `direct`면 화면에서 만든 `localChanges`.
+- `apply-all`의 `page`는 이 화면이 아직 반영하지 않은 최신 판매페이지 초안(`pendingPage`)이 있을 때만. 반영 뒤 ‘이미 반영한 초안’ 세션 기억(DEV-184)에 그 초안을 적는다.
+- 판매 조건 편집부는 `lib/SalesTermsEditor.tsx`(`Terms` 모델, `termsFrom`·`termsKey`·`termsStages`·`checkTerms`, `SalesTermsEditor` `mode="new"|"live"`, 읽기 요약 `TermsSummary`, 단계 표시 `PreSaleSteps`)로 빼서 `/sell`과 composer 판매 조건 시트가 같이 쓴다. `mode="live"`는 예약 있는 기간의 날짜 고정·삭제 불가·확보 박스(예전 `stages.tsx`), 받는 시기 변경 R-21 안내. 총 물량·한 주문 최대는 `/sell`에만 둔다.
+- 위쪽 줄(판매 전 단계 표시, 판매 종료 안내)은 공용 `lib/CollapsingTop.tsx`(`useCollapsingTop`·`CollapsingTop`·`CollapsingFrame`·`CollapsingSpacer`)로 composer와 `/sell`에 같은 동작을 준다: `packages/ui` `Scroll`의 `onScroll(y)`로 방향을 보고 아래로 6px 넘게 움직이면 숨김, 위로 6px 넘게 또는 맨 위(4px 이하)면 보임. 180ms 투명도·위로 밀기(동작 줄이기면 0ms, `reduceMotionChanged` 구독), 내용이 지나가면 아래쪽 그림자, 숨었을 때만 눌림을 뒤로 넘김. 틀(`CollapsingFrame`)이 `overflow: hidden`이라 줄이 머리 위로 겹쳐 올라가지 않는다. 내용 맨 위에 줄 높이만큼 자리(`CollapsingSpacer`). PM 11/18, DEV-361 C-32.
+- 예전 `SourceWorkspace`에서 composer가 쓰던 도우미(`panel`·`ACTIVE`·`states`·`canEditBatch`)는 `lib/sourceBatch.ts`로 옮겼다. `PageCanvas`·`SourceDetailsEditor`·`DetailEditor`는 남긴다.
+- `edit.tsx`·`stages.tsx`는 `<Redirect>`만 남긴다(`/edit` → `/detail`, `/stages` → `/detail?terms=1`). composer는 `terms=1`을 한 번만 처리하고 `setParams`로 지운다(판매 전이면 `/sell?from=composer`로 push). 몇 주 뒤 지울지는 후속.
+- 필수 칸(PM 11/18): 버튼은 저장 중·상태 때문일 때만 끈다. 누르면 `ApiError(400, fields)` 모양으로 오류를 만들어 `FieldFeedbackContext`가 첫 칸으로 스크롤·강조한다. `FieldFeedback`에 `outline`(기본 true)을 더해 글 칸(`FillInput`)은 바깥 상자 없이 자기 빨간 테두리만 쓴다.
+- 진입 링크를 `/detail`로 바꿨다: 상품 카드(탭·‘상품 수정’), `manual.tsx`(만든 뒤 replace), `OwnNewsRoom` 상품 줄, `DetailEditor` 뒤로 대체 경로·‘판매페이지 화면에서 상세 편집’.
+
 ### DEV-58 통합 편집
-AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.
+AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문(2탭 화면은 DEV-184에서 새 상품 composer로 대체되고 DEV-361 PR C에서 지움).
 
 - DEV-58 상세 편집 스위치: 공통 SectionSwitch의 눈/눈 감김 아이콘, 44px 터치 영역. switch 역할과 checked/disabled 상태, 웹 Space/Enter 조작을 유지한다.
 
@@ -158,7 +181,7 @@ DEV-108: 관문은 `lib/gate.ts`의 `homeFor`. 로그인된 사용자는 농가 
 
 ## DEV-92 첨부 전 수동 입력 저장 순서
 
-SourceWorkspace가 SourceBasicInfo의 flush를 SourceAttachments에 주입한다. 새 파일 및 새 텍스트 업로드는 기본 정보 저장(진행 중 blur 및 마지막 입력 포함)을 기다린 뒤 최신 batch.version을 조회한다. 저장 실패 시 업로드를 보내지 않고 파일/텍스트와 수동 입력을 보존해 명시적 재시도를 허용한다. 직접 편집 > 기본 정보 > AI 제안 우선순위와 다른 편집자 충돌 보호는 유지한다(AC-SRC-1/5/11).
+(DEV-361 PR C에서 SourceWorkspace를 지웠다. 이 문단은 기록이다.) SourceWorkspace가 SourceBasicInfo의 flush를 SourceAttachments에 주입한다. 새 파일 및 새 텍스트 업로드는 기본 정보 저장(진행 중 blur 및 마지막 입력 포함)을 기다린 뒤 최신 batch.version을 조회한다. 저장 실패 시 업로드를 보내지 않고 파일/텍스트와 수동 입력을 보존해 명시적 재시도를 허용한다. 직접 편집 > 기본 정보 > AI 제안 우선순위와 다른 편집자 충돌 보호는 유지한다(AC-SRC-1/5/11).
 
 
 ## DEV-179 구현 결정 (2026-11-02)
@@ -246,8 +269,8 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 
 화면 서술·문구는 screens.md 판매 설정·SCR-26, 기록은 `tasks/DEV-345.md`.
 - 품절 안내는 `lib/soldOutGuide.ts` 순수 함수(`scripts/test-sold-out-guide.mjs`). 판정은 서버 `availability`를 그대로 쓰고 `PUBLISHED`만 안내한다(승인 전은 한도 0이라 서버가 `TOTAL_SOLD_OUT`을 줌). 박스 소진은 `currentStageId` 기간의 모든 옵션이 `quantity ≤ reservedCount`, 그 기간에 박스를 정한 옵션이 하나도 없으면(옵션 교체) kg 대신 이번 기간 안내.
-- 물량·판매 설정의 오류·성공 안내는 상태 `at`(save·pause·request·page) 한 자리에만 보인다: 누른 버튼 바로 아래, 신청·철회는 ‘물량 추가 신청’ 영역 끝, 불러오기 실패만 맨 아래. 기간·가격도 저장 오류·저장 뒤 안내를 저장 버튼 아래에 둔다(불러오기 실패는 위).
+- 물량·판매 설정의 오류·성공 안내는 상태 `at`(save·pause·request·page) 한 자리에만 보인다: 누른 버튼 바로 아래, 신청·철회는 ‘물량 추가 신청’ 영역 끝, 불러오기 실패만 맨 아래. 기간·가격도 저장 오류·저장 뒤 안내를 저장 버튼 아래에 뒀다(불러오기 실패는 위, DEV-361 PR C에서 화면과 함께 없어짐).
 - 화면 밖이면 웹에서만 `scrollIntoView({ block: "nearest" })`(View ref의 DOM 노드, 네이티브에는 함수가 없어 아무 일도 안 함 — `lib/FieldFeedback.tsx`와 같은 방식). ‘물량 추가 신청하기’는 신청 영역을 `block: "center"`로 옮기고 `Input.inputRef`로 초점.
-- 판매 설정 → ‘기간·가격에서 박스 늘리기’는 `/products/:id/stages?from=sales`로 열고, 기간·가격의 ‘판매 한도 늘리기’는 `from=sales`이고 `router.canGoBack()`이면 `router.back()`(판매 설정→기간→판매 설정으로 스택이 쌓여 뒤로가 맴도는 것을 막음), 아니면 push.
+- 판매 설정 → ‘기간·가격에서 박스 늘리기’는 `/products/:id/stages?from=sales`로 열고, 기간·가격의 ‘판매 한도 늘리기’는 `from=sales`이고 `router.canGoBack()`이면 `router.back()`(판매 설정→기간→판매 설정으로 스택이 쌓여 뒤로가 맴도는 것을 막음), 아니면 push. DEV-361 PR C부터 버튼은 ‘판매 조건에서 박스 늘리기’ → `/products/:id/detail?terms=1`(push)이고 기간·가격의 ‘판매 한도 늘리기’는 없다.
 - 판매 설정은 `useFocusEffect`로 읽는다(처음 열 때·돌아올 때). 다시 들어올 때는 지난 결과 안내(`error`·`note`·`at`·`capExceeded`)를 지우고, 판매 한도·한 주문 최대 칸은 마지막으로 불러온 값과 같을 때만 새 값으로 바꾼다(고친 입력 보존). 저장·중지 등 성공 뒤와 ‘최신 상태 확인’은 예전처럼 서버 값으로 덮는다.
-- 기간·가격 저장 뒤 상품을 다시 읽어 `PUBLISHED`이고 `TOTAL_SOLD_OUT`이면 머문다. 다시 고치거나 기간을 추가·삭제하면 그 안내를 지운다.
+- 기간·가격 저장 뒤 상품을 다시 읽어 `PUBLISHED`이고 `TOTAL_SOLD_OUT`이면 머물렀다. 다시 고치거나 기간을 추가·삭제하면 그 안내를 지웠다(DEV-361 PR C에서 화면과 함께 없어짐).

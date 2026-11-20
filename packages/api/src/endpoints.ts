@@ -64,6 +64,24 @@ export const auth = {
     setToken(res.accessToken);
     return res;
   },
+  /* ---- 아이디·비밀번호 (DEV-363) ---- */
+  /** 아이디·비밀번호 로그인(계정은 운영자가 만든다). 틀리면 401(한 문구), 잠기면 429 RATE_LIMITED(retryAfter) */
+  async passwordLogin(username: string, password: string) {
+    const res = await request<A.LoginResult>("POST", "/api/auth/login", {
+      body: { app: appName(), username, password },
+    });
+    writeStore(SIGNUP_KEY, null);
+    setToken(res.accessToken);
+    return res;
+  },
+  /** 비밀번호 변경. 그 계정의 다른 로그인은 모두 풀리고 새 토큰을 받는다 */
+  async changePassword(currentPassword: string, newPassword: string) {
+    const res = await request<A.LoginResult>("POST", "/api/auth/me/password", {
+      body: { currentPassword, newPassword },
+    });
+    setToken(res.accessToken);
+    return res;
+  },
   logout: () => setToken(null),
   /**
    * 회원 탈퇴(DEV-94). 끝나지 않은 주문이 있으면 409 WITHDRAW_BLOCKED(orderNos).
@@ -276,10 +294,10 @@ export const orders = {
     request<A.Paged<A.ProducerOrder>>("GET", "/api/orders/producer", {
       query: q,
     }),
-  /** 수확 시작 = 출하 준비 시작(DEV-231). 그 기간의 예약 완료 주문만 옮긴다 */
-  harvestStart: (productId: string, stageId: string, key: string) =>
-    request<A.HarvestStarted>("POST", "/api/orders/producer/harvest-start", {
-      body: { productId, stageId },
+  /** 수확 시작 = 출하 준비 시작(DEV-361). 고른 주문 중 지금 예약 완료인 것만 옮기고 옮긴 수를 돌려준다 */
+  harvestOrders: (orderIds: string[], key: string) =>
+    request<A.HarvestedOrders>("POST", "/api/orders/producer/harvest-orders", {
+      body: { orderIds },
       idempotencyKey: key,
     }),
   updateTracking: (orderId: string, version: number, carrier: A.Carrier, trackingNumber: string | null, key: string) =>

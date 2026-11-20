@@ -98,6 +98,41 @@ The two after runs use identical code, yet 35 facts went PASS→FAIL and 34 FAIL
 
 The pass lines are not lowered. The I4 decision (limit exposure, manual fallback, or move to I5) is the PM's.
 
+## Holdout v2 — the unseen check (2026-11-18, run once)
+
+12 sources the improver never saw, scored on the merged code `472047bd`. Zahra ran it in her own terminal on a fresh local database. The agent saw only the totals below. No per-source output was shared.
+
+**Attempt record:**
+- The folder already held a run-once marker dated 2026-11-05, from an earlier unfinished v2 attempt. The PM confirmed on 11/16 that the earlier attempt showed no per-source results.
+- The first try today stopped at that marker before any model call ($0, nothing produced).
+- This run is therefore recorded by the script as attempt 2 (`--force-rerun`), with the reason saved in the marker. The earlier marker is kept.
+
+| Format | Sources | Facts (strict) | Critical | Forbidden | Unsupported |
+| --- | ---: | --- | --- | ---: | ---: |
+| text | 3 | 27/49 (55.1%) | 10/15 | 1 | 2 |
+| image | 3 | 14/25 (56.0%) | 5/6 | 0 | 0 |
+| long_image | 3 | 16/24 (66.7%) | 3/3 | 1 | 0 |
+| pdf | 3 | 18/36 (50.0%) | 7/9 | 1 | 0 |
+| **overall** | **12** | **75/134 (56.0%)** | **25/33 (75.8%)** | **3** | **2** |
+
+- **Semantic recall** (`fact-judge-v1`, PM-approved, no-training providers only): 95/134 (70.9%) facts, 25/33 critical.
+- **Run:** all 12 sources EVALUATED. Cost $0.148, plus $0.007 for the judge.
+
+**Against development:**
+
+| | Holdout v2 | Development (final mean) |
+|---|---|---|
+| Critical facts | 75.8% | 75.4% |
+| All facts | 56.0% | 67.7% |
+| Safety (forbidden / unsupported) | 3 / 2 | 0–1 / 0–1 |
+
+- **Critical facts hold** on unseen sources.
+- **All facts are about 12 points lower** than on development. Part of the development gain is tuning to those sources.
+- **Safety is worse on unseen data.** Deterministic code checks are the next step (DEV-355).
+- There is no holdout "before" number: v2 had never produced results. This is one after-point, not a before/after comparison.
+
+**Pass lines:** not met (facts ≥ 95%, forbidden 0, unsupported 0). Not lowered.
+
 ## DEV-355 follow-up — initial f1 loss attribution
 
 The previous agent reported that a development-only attribution script reproduced the f1 headline (220/324 facts, 96/134 critical; paired 49 FAIL→PASS and 24 PASS→FAIL) before producing this table. The script was not found with the available private development files, so the counts below remain handoff-reported until independently reproduced from the saved run artifacts.
@@ -161,8 +196,8 @@ In g1, `h3-pdf-01` FAILED with `INVALID_MODEL_OUTPUT` (the model's output did no
 **PM review response (11/18).** The closed-list `OTHER_PRODUCT` validator was removed: it guessed whether a cultivar belonged to the current product from names alone, while the unchanged stage-2 prompt already tells the model to exclude other products. The saved GPT f1/f2 and product-setup g1/g2 diagnostics contained zero `OTHER_PRODUCT` rejections, so removing that code did not restore a scored sentence in these four runs. We retained the narrow `PRODUCT_LINEUP` check: an offline replay without it restored one forbidden line-up sentence in confirmation g2 (facts 243 → 244, critical 120 → 121, forbidden 0 → 1). We also removed the broad `생산 품목` marker that rejected a single-product sentence; other lineup heuristics can still misclassify semantic edge cases. Product identity/package attribution remains a known validation gap and was not tested on holdout data.
 
 ## Not done / next
+- ~~Holdout v2~~: done, see above.
 - **PDF stage-1 prompt follow-up (DEV-355):** `source-v10-historical-scope` narrows `historical=true` to explicit past-sales facts and tells the model to keep harvest/production years and seasons in their ordinary fields. This targets the audited ambiguity where six rejected PDF candidates matched eight gold composition facts. Against the two GPT stage-2 / v9 stage-1 runs, the two clean v10 runs scored PDF factual recall 73/107 and 74/107 (mean 73.5/107, 68.7%) and critical recall 32/48 and 34/48 (mean 33/48, 68.8%). The baseline pair scored 73/107 and 66/107 (mean 69.5/107, 65.0%) and 32/48 and 28/48 (mean 30/48, 62.5%). That is +4 facts and +3 critical facts on these two-run means. Run 1 was unchanged; the gain is entirely in run 2, so this is a promising but preliminary signal with substantial run variance. Run 2 had eight rejected PDF candidates overall, but its artifacts do not retain reason-level counts; the reduction in `HISTORICAL_FIELD` rejections cannot be confirmed. The prompt change also coincided with lower long-image recall in v10 run 2; full-format means were 244/354 facts and 114.5/154 critical versus GPT baseline 254.5/354 and 115.5/154. Keep the prompt revision as a narrow experimental candidate and do not claim overall improvement or generalization. No holdout was used. Clean run artifacts: `source-i4-dev355-pdfstage-v10-f1-clean` and `source-i4-dev355-pdfstage-v10-f2-clean` (outside the repository).
-- **Holdout v2**, once, on the merged code. Zahra runs it in her own terminal on a fresh database and pastes back only totals. Semantic recall on holdout was approved by Jinwoo on 11/17, on four conditions: no-training providers only (enforced in code), totals shared only, strict recall stays the pass line, one run (`--allow-holdout`).
 - **Human review** of the drafts (Jinwoo).
 - **Cost of this work:** about $5.5 of the $6 approved, development runs and judge included.
 

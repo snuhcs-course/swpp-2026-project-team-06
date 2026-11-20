@@ -1,5 +1,5 @@
 declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode, type Ref } from "react";
 import {
   Image,
   Pressable,
@@ -49,15 +49,23 @@ export function Scroll({
   bottom = 40,
   gap,
   footer,
+  onScroll,
+  scrollRef,
 }: {
   children: ReactNode;
   bottom?: number;
   gap?: number;
   footer?: ReactNode;
+  scrollRef?: Ref<ScrollView>;
+  /** 세로 스크롤 위치(px). 위쪽 줄을 스크롤에 따라 숨길 때 쓴다(생산자 상품 수정, DEV-361) */
+  onScroll?: (y: number) => void;
 }) {
   return (
     <ScrollView
+      ref={scrollRef}
       style={{ flex: 1 }}
+      onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined}
+      scrollEventThrottle={onScroll ? 16 : undefined}
       contentContainerStyle={[
         { paddingBottom: bottom, gap },
         footer ? { flexGrow: 1 } : null,

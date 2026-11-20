@@ -21,6 +21,7 @@ from app.orders.schemas import (
     DashboardStage,
     DashboardStageOption,
     DashboardTodo,
+    HarvestedOrders,
     HarvestStarted,
     HarvestTarget,
     OrderInput,
@@ -66,18 +67,31 @@ def capacity_totals(db: Session, product_id: str) -> tuple[int, int, int]:
     return reserved_grams, shipped_grams, sold_quantity
 
 
+# 받는 시기를 바꾸면 새 기간을 제안받는 주문(R-21)
+DELIVERY_PROPOSAL_STATUSES = ("AWAITING_DEPOSIT", "RESERVED", "PREPARING")
+
+
 def propose_delivery_window(
     db: Session, product_id: str, delivery_start, delivery_end
 ) -> None:
     orders = db.scalars(
         select(Order).where(
             Order.product_id == product_id,
-            Order.status.in_(("AWAITING_DEPOSIT", "RESERVED", "PREPARING")),
+            Order.status.in_(DELIVERY_PROPOSAL_STATUSES),
         )
     )
     for order in orders:
         order.proposed_delivery_start = delivery_start
         order.proposed_delivery_end = delivery_end
+
+
+def delivery_proposal_people(db: Session, product_id: str) -> int:
+    """받는 시기를 바꾸면 동의를 물을 사람 수(R-21, 같은 사람의 여러 주문은 한 명, DEV-361)."""
+    return db.scalar(
+        select(func.count(func.distinct(Order.consumer_id))).where(
+            Order.product_id == product_id, Order.status.in_(DELIVERY_PROPOSAL_STATUSES)
+        )
+    ) or 0
 
 
 def reserved_people(db: Session, product_ids: list[str]) -> dict[str, int]:
@@ -989,7 +1003,8 @@ def dashboard(db: Session, farm) -> Dashboard:
                 1 for o in farm_orders if o.status == "REFUNDED" and o.id in unsettled
             ),
             has_account=farms.has_deposit_account(farm),
-            to_harvest=sum(t.count for t in targets if t.closed),
+            # DEV-361(PM 11/18): 예약 탭 '수확 시작 · n건'과 같은 수 = 농가의 모든 예약 완료 주문
+            to_harvest=sum(1 for o in farm_orders if o.status == "RESERVED"),
             harvest_targets=targets,
         ),
         product=product,
@@ -1015,8 +1030,9 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
     item = catalog.load_product(db, order.product_id)
     option = next((row for row in item.options if row.id == order.option_id), None)
     awaiting = order.status == "AWAITING_DEPOSIT"
-    # 결제(입금 확인) 전 주문은 배송지를 보여 주지 않는다(R-15 최소 노출)
-    hide = order.paid_at is None
+    # 배송 완료 뒤 환불돼 상태가 바뀌어도 배송 정보는 다시 노출하지 않는다(R-15).
+    delivered = order.delivered_at is not None or order.status in ("DELIVERED", "COMPLETED")
+    hide = delivered or order.paid_at is None
     return ProducerOrder(
         order_id=order.id,
         order_no=order.order_no,
@@ -1038,13 +1054,28 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         refund_settled_at=_refund_settled_at(db, order),
         deposit_issue=order.deposit_issue if awaiting else None,
         refund_issue=_refund_issue(db, order),
-        # 입금 전에는 배송지를 보여 주지 않는다(R-15 최소 노출)
-        recipient_name=order.recipient_name,
+        # 입금 대조용 이름은 유지하되 배송 완료 뒤에는 이름도 가린다.
+        recipient_name="○○○" if delivered else order.recipient_name,
         recipient_phone="" if hide else order.recipient_phone,
         postal_code="" if hide else order.postal_code,
         address="" if hide else order.address,
         address_detail="" if hide else order.address_detail,
     )
+
+
+def producer_tracking_response(db: Session, farm_id: str, order_id: str, response: dict) -> dict:
+    """캐시된 송장·버전은 유지하되 배송 정보에는 현재 R-15 가림을 적용한다."""
+    order = db.get(Order, order_id)
+    if order is None or not order_belongs_to_farm(db, order, farm_id):
+        raise not_found("주문을 찾을 수 없어요.")
+    shipping = producer_order_view(db, order).model_dump(
+        by_alias=True,
+        include={
+            "recipient_name", "recipient_phone", "postal_code", "address", "address_detail",
+            "delivery_note",
+        },
+    )
+    return response | shipping
 
 
 def producer_orders(
@@ -1114,6 +1145,7 @@ def harvest_start(
     """수확 시작 = 출하 준비 시작(DEV-231, FEAT-17 AC-17-11).
 
     그 기간(없으면 상품 전체)의 예약 완료 주문만 출하 준비로 옮긴다. 입금 대기·환불·취소는 그대로.
+    DEV-361부터 앱은 `harvest_orders`(고른 주문)를 쓴다. 이 함수는 예전 앱 빌드 호환으로 남긴다.
     """
     from app.admin.models import ManagerEvent
     from app.catalog import service as catalog
@@ -1148,6 +1180,62 @@ def harvest_start(
         )
     db.flush()
     return HarvestStarted(changed=len(orders), stage_id=stage_id, order_ids=order_ids)
+
+
+def harvest_orders(
+    db: Session, farm_id: str, actor_id: str, order_ids: list[str]
+) -> HarvestedOrders:
+    """고른 주문 수확 시작 = 출하 준비 시작(DEV-361, FEAT-17 AC-17-11).
+
+    예약 기간과 상관없이 생산자가 주문·출하 화면 예약 탭에서 고른 자기 농가 주문 중 지금 예약 완료인
+    것만 출하 준비로 옮긴다. 하나라도 없거나 다른 농가 주문이면 404이고 아무것도 바꾸지 않는다.
+    그새 예약 완료가 아니게 된 주문(소비자 취소·이미 옮김 등)은 건너뛰고 옮긴 수만 센다.
+    """
+    from app.admin.models import ManagerEvent
+    from app.catalog.models import Product
+
+    wanted = list(dict.fromkeys(order_ids))
+    own = set(
+        db.scalars(
+            select(Order.id)
+            .join(Product, Product.id == Order.product_id)
+            .where(Order.id.in_(wanted), Product.farm_id == farm_id, PRODUCER_VISIBLE)
+        )
+    )
+    if len(own) != len(wanted):
+        raise not_found("찾을 수 없는 주문이에요.")
+    # 잠근 뒤 다시 본다: 그새 소비자가 취소했으면 RESERVED 조건에서 빠진다
+    orders = list(
+        db.scalars(
+            select(Order)
+            .where(Order.id.in_(wanted), Order.status == "RESERVED")
+            .order_by(Order.created_at, Order.id)
+            .with_for_update()
+        )
+    )
+    for order in orders:
+        order.status = "PREPARING"
+    moved = [o.id for o in orders]
+    if orders:
+        timestamp = now()
+        db.add(
+            ManagerEvent(
+                id=new_id("manager-event"),
+                event_type="orders.harvest_started",
+                actor_id=actor_id,
+                target_type="farm",
+                target_id=farm_id,
+                request_summary={"orderIds": wanted},
+                result={"changed": len(orders), "orderIds": moved},
+                status="SUCCEEDED",
+                retryable=False,
+                attempts=1,
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+        )
+    db.flush()
+    return HarvestedOrders(changed=len(moved), order_ids=moved, skipped=len(wanted) - len(moved))
 
 
 def ship_order(

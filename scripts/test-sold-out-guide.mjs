@@ -35,14 +35,14 @@ test("AC-04-9 DEV-345: fully sold out with approved > limit points to raising th
   assert.deepEqual(soldOutGuide(product()), {
     title: "전체 물량 품절",
     body: "판매 한도 250kg를 모두 채웠어요. 승인 2,400kg까지 늘릴 수 있어요.",
-    hint: "한도를 늘린 뒤 박스가 모자라면 기간·가격에서 박스 수도 늘려 주세요.",
+    hint: "한도를 늘린 뒤 박스가 모자라면 상품 수정의 판매 조건에서 박스 수도 늘려 주세요.",
     toStages: false,
   });
 });
 
 test("AC-04-9 DEV-345: fully sold out with approved > limit and no boxes left also links to periods", () => {
   const guide = soldOutGuide(product({}, { "opt-5": [38, 38], "opt-10": [6, 6] }));
-  assert.equal(guide.hint, "이번 기간에 남은 박스도 없어요. 기간·가격에서 박스 수도 늘려 주세요.");
+  assert.equal(guide.hint, "이번 기간에 남은 박스도 없어요. 상품 수정의 판매 조건에서 박스 수도 늘려 주세요.");
   assert.equal(guide.toStages, true);
 });
 
@@ -63,7 +63,7 @@ test("AC-04-9 DEV-345: approved = limit asks for a supply request, or says one i
 test("AC-04-9 DEV-345: sold out for this period points to periods and prices", () => {
   assert.deepEqual(soldOutGuide(product({ availability: "PERIOD_SOLD_OUT", salesLimitGrams: 2_400_000 })), {
     title: "이번 기간 품절",
-    body: "이번 기간에 남은 박스가 없어요. 기간·가격에서 박스 수를 늘리면 바로 다시 예약받아요.",
+    body: "이번 기간에 남은 박스가 없어요. 상품 수정의 판매 조건에서 박스 수를 늘려 '상품에 반영'하면 다시 예약받아요.",
     hint: null,
     toStages: true,
   });

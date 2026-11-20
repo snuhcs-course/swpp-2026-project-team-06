@@ -107,6 +107,10 @@ test-integration: ## Real-stack API + Chromium (CI integration job, heavy)
 test-e2e: ## Chromium only, against an already-running real stack
 	npm run test:e2e
 
+.PHONY: test-release-login
+test-release-login: ## Production web exports: retired evaluator entry and seed-account isolation (DEV-367)
+	node scripts/check-release-login.mjs
+
 # I3 evaluation environment (DEV-165); see docs/evaluation/i3-env/README.md. Not run in CI (one live AI call).
 i3-smoke: ## I3 env smoke: reseed the local DB, then check roles/orders/AI against the running API
 	@$(LOCAL_DB_ONLY)

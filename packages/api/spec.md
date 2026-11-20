@@ -1,5 +1,12 @@
 # packages/api spec
 
+## DEV-367 평가 빌드 플래그 폐기
+- evaluatorBuild export와 EXPO_PUBLIC_EVALUATOR_LOGIN 해석을 제거한다. 시드 로그인 API 계약은 로컬 개발/Mock용으로 유지하며 앱의 AC-01-34 경계에서 목록 요청을 제한한다.
+
+## DEV-254 생산자 배송 완료 가림
+- Mock 생산자 주문 응답도 서버와 같이 DELIVERED·COMPLETED 또는 `deliveredAt`이 있으면 수령인 `○○○`, 전화·우편번호·주소·상세주소 빈 문자열, 배송 메모 null로 만든다(R-15, AC-17-13). 입금 전 계약·소비자 응답·원본 저장은 유지한다.
+- 송장 수정은 멱등 결과의 비개인정보를 유지하고 현재 농가 소유 확인·배송 정보 가림을 마지막에 적용한다(AC-17-9 개인정보 예외).
+
 ## DEV-252 세션 응답 격리
 - setToken 이벤트 serial/namespace/token을 요청 시작 때 붙잡고, 응답의 401/WRONG_APP·온보딩/동의 side effect는 같은 세션에만 적용한다. 동일 JWT로 다시 로그인해도 이전 응답은 새 세션을 지우지 않는다.
 - 비공개 사진 GET/multipart upload도 같은 auth 응답 처리를 쓴다. 권한 없는 사진/주문 404는 세션 로그아웃으로 바꾸지 않는다. 토큰·사진 URL은 읽기 위치 메타데이터에 저장하지 않는다.

@@ -157,6 +157,8 @@ RULES: dict[str, Rule] = {
     "users": lambda k: _in(_t("users").c.id, k.users),
     # 저장한 응답(JSON)에 지울 소비자 정보가 들어 있을 수 있다. 재시도 재생용이라 전부 지운다
     "idempotency_records": lambda k: false(),
+    # 로그인·가입 시도 카운터(DEV-363). 짧게 쓰는 값이라 모두 지운다
+    "auth_throttles": lambda k: false(),
     "notice_reads": lambda k: _in(_t("notice_reads").c.user_id, k.users),
     "shipping_addresses": lambda k: _in(_t("shipping_addresses").c.user_id, k.users),
     "user_consents": lambda k: _in(_t("user_consents").c.user_id, k.users),
@@ -192,6 +194,8 @@ RULES: dict[str, Rule] = {
     "stages": lambda k: _in(_t("stages").c.product_id, k.products),
     "stage_prices": lambda k: _in(_t("stage_prices").c.product_id, k.products),
     "stage_allocations": lambda k: _in(_t("stage_allocations").c.product_id, k.products),
+    # 상품 변경 기록(DEV-361). 반영한 사람이 지워지면 아래 _null_dangling이 비운다
+    "product_change_events": lambda k: _in(_t("product_change_events").c.product_id, k.products),
     # 주문 쪽은 전부 지운다(실거래 없음). 남는 사용자는 생산자·운영자뿐이다
     "orders": lambda k: false(),
     "payments": lambda k: false(),
@@ -483,6 +487,7 @@ def _null_dangling(session: Session, keep: Keep) -> dict[str, int]:
     for column in ("actor_id", "last_retried_by", "resolved_by"):
         null("manager_events", column, keep.users)
     null("capacity_requests", "decided_by", keep.users)
+    null("product_change_events", "actor_user_id", keep.users)
     null("escalations", "resolved_by", keep.users)
     # 지운 답장을 인용한 소식은 인용 ID와 답장 본문 스냅샷(reply_to)을 함께 비운다
     null("broadcasts", "quoted_reply_id", keep.replies, "reply_to")
