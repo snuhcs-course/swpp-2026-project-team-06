@@ -111,7 +111,11 @@ def has_product_lineup(value, target_name=""):
     Product identity/package attribution is deliberately not inferred from cultivar names.
     """
     compact = re.sub(r"\s+", "", value)
-    if _contains(value, SAFETY_LISTS["lineupMarkers"]):
-        return True
+    # A marker is a line-up only when a list follows it ("주 생산품목: 비트차, 비트칩"), not when
+    # it introduces one product ("주 생산 품목인 레드향은 …").
+    for marker in SAFETY_LISTS["lineupMarkers"]:
+        at = compact.lower().find(re.sub(r"\s+", "", marker).lower())
+        if at >= 0 and re.search(r"[,·/、]", compact[at:]):
+            return True
     own = re.sub(r"\s+", "", target_name or "")
     return sum(1 for name in SAFETY_LISTS["cultivars"] if name in compact and name not in own) >= 3
