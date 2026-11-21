@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+import { expect, test, type Page } from "@playwright/test";
 import { apiLogin, apiUrl, loginProducer, producerUrl, skipHelpGuide } from "./helpers";
 
 // DEV-121: 원산지 표시제도 안내(원산지표시법 제6조 ⑥, 시행규칙 제4조의2 1호 = 초기 화면 상시 게시 + 확인 안내).
@@ -6,10 +8,47 @@ import { apiLogin, apiUrl, loginProducer, producerUrl, skipHelpGuide } from "./h
 // 시드를 새로 넣은 실제 스택에서 돈다(강영수는 안 읽은 상태로 시작).
 const shot = (name: string) => process.env.DEV121_SHOTS && `${process.env.DEV121_SHOTS}/${name}.png`;
 
+// 강영수(u-kang)를 안 읽은 상태로 되돌린다. 이 테스트가 읽음을 서버에 남기므로, 되돌리지 않으면
+// CI 재시도(retries: 1)·--repeat-each에서 두 번째 실행이 '안내 읽기' 할 일을 못 찾고 떨어진다(2026-11-17 머지 큐 44077432702).
+function resetOriginNotice() {
+  execFileSync(
+    path.resolve("server/.venv/bin/python"),
+    [
+      "-c",
+      `
+from sqlalchemy import delete
+from sqlalchemy.engine import make_url
+from tests import migrations_models
+from app.accounts.models import NoticeRead
+from app.core.config import get_settings
+from app.core.db import get_sessionmaker
+
+cfg = get_settings()
+assert cfg.app_env == 'local'
+assert make_url(cfg.database_url).host in ('localhost', '127.0.0.1', '::1')
+with get_sessionmaker()() as db, db.begin():
+ db.execute(delete(NoticeRead).where(NoticeRead.user_id == 'u-kang', NoticeRead.kind == 'ORIGIN'))
+`,
+    ],
+    { cwd: path.resolve("server"), env: { ...process.env, APP_ENV: "local" }, encoding: "utf8", stdio: "pipe" },
+  );
+}
+
+// 현황은 사용자(/me)만 오면 원산지 줄을 그리고, 할 일·주문 수·물량·공유 줄은 각자 응답이 올 때 위에 끼어든다.
+// 그 사이에 누르면 줄이 누르는 도중 아래로 밀려 눌림이 빗나간다(44077432702: 누른 곳 y=363, 물량 응답이 34ms 뒤 도착).
+// 화면을 밀어내는 응답이 다 그려진 뒤에 누른다.
+async function homeSettled(page: Page) {
+  await expect(page.getByRole("button", { name: /^소비자에게 우리 농가 공유하기/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^전체 주문 \d+건$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "예약·출하 물량" })).toBeVisible();
+}
+
 test("DEV-121 AC-14-6: unread producer reads the origin notice from the home todo, then it stays as a row", async ({ page, request }) => {
+  resetOriginNotice();
   await loginProducer(page, "강영수");
   const todo = page.getByText("원산지 표시제도 안내 읽기", { exact: true });
   await expect(todo).toBeVisible();
+  await homeSettled(page);
   if (shot("after-impl-home-unread")) await page.screenshot({ path: shot("after-impl-home-unread")! });
 
   await todo.click();
@@ -39,6 +78,7 @@ test("DEV-121 AC-14-6: unread producer reads the origin notice from the home tod
   expect(me.originNoticeReadAt).toBeTruthy();
 
   // 다시 열면 '확인했어요' 없이 본문만
+  await homeSettled(page);
   await page.getByText("원산지 표시제도 안내", { exact: true }).click();
   await expect(page.getByRole("heading", { name: /감귤을 올리기 전에/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "확인했어요" })).toHaveCount(0);
