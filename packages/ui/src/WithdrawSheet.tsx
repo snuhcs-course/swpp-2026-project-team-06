@@ -5,26 +5,9 @@ import { View } from "react-native";
 
 import { Sheet } from "./bars";
 import { Button } from "./Button";
+import { WITHDRAW_KEPT as KEPT, WITHDRAW_REMOVED as REMOVED, type AppRole as Role } from "./legalContent";
 import { T } from "./Text";
 import { tokens } from "./tokens";
-
-type Role = "CONSUMER" | "PRODUCER";
-
-const REMOVED: Record<Role, string[]> = {
-  CONSUMER: [
-    "이름·닉네임·휴대폰 번호·이메일과 카카오 연결·아이디·비밀번호",
-    "저장한 배송지, 팔로우·좋아요",
-    "내가 쓴 채팅·소식 답장의 글과 사진(주문 문의는 제외)",
-  ],
-  PRODUCER: [
-    "대표자 이름·휴대폰 번호·이메일과 카카오 연결·아이디·비밀번호",
-    "농가의 입금 계좌·연락처",
-    "농가는 소비자 화면에서 사라져요",
-  ],
-};
-
-const KEPT =
-  "법으로 보관해야 하는 주문·입금·환불 기록과 주문 문의, 약관 동의 기록은 정해진 기간 동안 따로 보관해요. 농가·소비자에게는 ‘탈퇴한 회원’으로 보여요.";
 
 /** 409 WITHDRAW_BLOCKED의 주문 번호. ApiError(details.orderNos)를 그대로 받는다 */
 function blockedOrders(e: unknown): string[] | null {

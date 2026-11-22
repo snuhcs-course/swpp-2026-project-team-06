@@ -410,8 +410,10 @@ by hand so both apps are rebuilt. These variables only reach the web build. The 
 and iOS apps read the same values from EAS, so keep a copy in EAS as well (see
 [Native apps with EAS](#native-apps-with-eas-dev-33)); every row except
 `BUSINESS_MAIL_ORDER_NO` is set there as of 2026-11-21. After `expo export`,
-`scripts/legal-pages.mjs` writes `dist/privacy.html` and `dist/terms.html` (served at
-`/privacy` and `/terms` via `vercel.json`) and puts the same footer in `index.html`'s
+`scripts/legal-pages.mjs` writes `dist/privacy.html`, `dist/terms.html` and
+`dist/account-deletion.html` (served at `/privacy`, `/terms` and `/account-deletion` via
+`vercel.json`; the account deletion page is the Google Play deletion URL and differs per app,
+picked from the `slug` in `app.json`, DEV-423) and puts the same footer in `index.html`'s
 `<noscript>`, so the pages read without JavaScript.
 
 Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
@@ -422,7 +424,7 @@ server. To do the same by hand:
 ```
 EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=https://api.farmclub.kr \
   npx expo export -p web   # run inside apps/consumer and apps/producer
-node ../../scripts/legal-pages.mjs dist   # static /privacy and /terms (DEV-113)
+node ../../scripts/legal-pages.mjs dist   # static /privacy, /terms (DEV-113) and /account-deletion (DEV-423)
 vercel deploy --prod       # from the exported dist/
 ```
 

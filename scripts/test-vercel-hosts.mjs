@@ -1,6 +1,6 @@
 // DEV-236 Vercel 기본 주소(farmclub-consumer.vercel.app, farmclub-producer.vercel.app)가 공식 도메인으로 넘어가지 않고
 // 그 주소 안에서 동작한다. DEV-127의 308 리다이렉트 대신 검색엔진에 안 잡히게 X-Robots-Tag만 붙인다.
-// - 두 앱 vercel.json: 리다이렉트 없음, 기본 주소 host에만 noindex 헤더, 기존 rewrite(/s/·약관·SPA) 그대로
+// - 두 앱 vercel.json: 리다이렉트 없음, 기본 주소 host에만 noindex 헤더, 기존 rewrite(/s/·약관·계정 삭제 안내(DEV-423)·SPA) 그대로
 // - 웹 카카오 인가 요청·복귀 화면의 redirect_uri는 접속한 주소 기준(서버는 CONSUMER_APP_ALT_URLS 등으로 받는다)
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -13,11 +13,11 @@ const json = (p) => JSON.parse(readFileSync(path.join(root, p), "utf8"));
 const APPS = {
   consumer: {
     host: "farmclub-consumer.vercel.app",
-    rewrites: ["/s/:path*", "/privacy", "/terms", "/(.*)"],
+    rewrites: ["/s/:path*", "/privacy", "/terms", "/account-deletion", "/(.*)"],
   },
   producer: {
     host: "farmclub-producer.vercel.app",
-    rewrites: ["/privacy", "/terms", "/(.*)"],
+    rewrites: ["/privacy", "/terms", "/account-deletion", "/(.*)"],
   },
 };
 
@@ -37,6 +37,8 @@ for (const [app, { host, rewrites }] of Object.entries(APPS)) {
       rewrites,
       "rewrite는 그대로(SPA fallback이 마지막)",
     );
+    // DEV-423: 계정 삭제 안내는 정적 HTML로(SPA 대체 응답보다 먼저)
+    assert.equal(vercel.rewrites.find((r) => r.source === "/account-deletion")?.destination, "/account-deletion.html");
     assert.equal(vercel.rewrites.at(-1).destination, "/index.html");
   });
 
