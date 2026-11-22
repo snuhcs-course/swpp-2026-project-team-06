@@ -61,7 +61,7 @@ async function changePassword(page: Page, current: string, next: string) {
 test.describe.configure({ mode: "serial" });
 
 test("AC_01_22 login screens have ID login and the forgot note but no public sign-up", async ({ page }) => {
-  await page.goto(`${consumerUrl}/login`);
+  await page.goto(`${consumerUrl}/login?id=1`);
   await expect(page.getByTestId("password-login-section")).toBeVisible();
   await expect(page.getByTestId("forgot-password")).toContainText("비밀번호를 잊었다면 farmclub에 문의해 주세요");
   await expect(page.getByRole("button", { name: "아이디로 회원가입" })).toHaveCount(0);
@@ -70,7 +70,7 @@ test("AC_01_22 login screens have ID login and the forgot note but no public sig
   await expect(page.getByTestId("invalid-field-username")).toBeVisible();
   await expect(page.getByTestId("invalid-field-password")).toBeVisible();
   await skipHelpGuide(page);
-  await page.goto(`${producerUrl}/login`);
+  await page.goto(`${producerUrl}/login?id=1`);
   await expect(page.getByTestId("password-login-section")).toBeVisible();
   await expect(page.getByRole("button", { name: "아이디로 회원가입" })).toHaveCount(0);
 });
@@ -79,7 +79,7 @@ test("AC_01_22 AC_01_23 AC_01_31 AC_01_30 operator-created consumer: forced chan
   test.skip(!adminToken, "FARMCLUB_ADMIN_TOKEN 필요(scripts/run-integration.mjs)");
   const created = await createAccount(request, "consumer", "pwbuyer1");
 
-  await page.goto(`${consumerUrl}/login`);
+  await page.goto(`${consumerUrl}/login?id=1`);
   await fillLogin(page, created.username.toUpperCase(), "wrong-pass-1");
   await expect(page.getByTestId("login-error")).toHaveText("아이디 또는 비밀번호가 맞지 않아요");
   await fillLogin(page, created.username.toUpperCase(), created.temporaryPassword);
@@ -120,7 +120,7 @@ test("AC_01_26 AC_01_27 one message for wrong login, 429 lock after 10 failures"
   const created = await createAccount(request, "consumer", "pwlocked1", { nickname: "잠금시험" });
   await finishFirstLogin(request, created.username, created.temporaryPassword);
 
-  await page.goto(`${consumerUrl}/login`);
+  await page.goto(`${consumerUrl}/login?id=1`);
   await fillLogin(page, "nobody999", PASSWORD);
   await expect(page.getByTestId("login-error")).toHaveText("아이디 또는 비밀번호가 맞지 않아요");
   for (let i = 0; i < 10; i++) {
@@ -137,7 +137,7 @@ test("AC_01_23 AC_01_33 operator-created producer: forced change, consent, appli
   test.skip(!adminToken, "FARMCLUB_ADMIN_TOKEN 필요");
   const created = await createAccount(request, "producer", "pwfarmer1");
   await skipHelpGuide(page);
-  await page.goto(`${producerUrl}/login`);
+  await page.goto(`${producerUrl}/login?id=1`);
   await fillLogin(page, created.username, created.temporaryPassword);
   await expect(page).toHaveURL(/\/password/);
   await changePassword(page, created.temporaryPassword, NEW_PASSWORD);
@@ -182,7 +182,7 @@ test("AC_01_23 consumer without phone: consent wording, profile fields, and save
   await page.setViewportSize({ width: 390, height: 844 });
   const created = await createAccount(request, "consumer", "pwnophone", { phone: "" });
 
-  await page.goto(`${consumerUrl}/login`);
+  await page.goto(`${consumerUrl}/login?id=1`);
   await fillLogin(page, created.username, created.temporaryPassword);
   await expect(page).toHaveURL(/\/password/);
   await changePassword(page, created.temporaryPassword, NEW_PASSWORD);
@@ -226,4 +226,110 @@ test("AC_01_23 consumer without phone: consent wording, profile fields, and save
   const profile = await me.json();
   expect(profile.phone.replace(/\D/g, "")).toBe(enteredPhone.replace(/\D/g, ""));
   expect(profile.consentRequired).toBe(false);
+});
+
+// DEV-378 (FEAT-01 AC-01-35): 카카오가 켜져 있으면 아이디 로그인은 ‘아이디로 로그인’ 글자 하나로 접혀 있고,
+// 누르면 펼치고 다시 누르면 접는다. 웹 `/login?id=1`은 처음부터 펼친다. 카카오 꺼짐·설정 못 읽음이면 지금처럼 펼친 채 링크가 없다.
+function kakaoConfig(page: Page, mode: "enabled" | "disabled" | "error") {
+  return page.route("**/api/auth/kakao/config", (route) =>
+    mode === "error"
+      ? route.fulfill({ status: 500, json: { code: "INTERNAL_ERROR", message: "Fixture error" } })
+      : route.fulfill({
+          json: { enabled: mode === "enabled", clientId: mode === "enabled" ? "test-client" : null, redirectPath: "/auth/kakao" },
+        }),
+  );
+}
+
+for (const { app, base } of [
+  { app: "consumer", base: consumerUrl },
+  { app: "producer", base: producerUrl },
+] as const) {
+  test(`AC_01_35 ${app} login collapses the ID form behind the link above the business footer when Kakao is on`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await kakaoConfig(page, "enabled");
+    if (app === "producer") await skipHelpGuide(page);
+    await page.goto(`${base}/login`);
+    const toggle = page.getByTestId("id-login-toggle");
+    await expect(page.getByRole("button", { name: "카카오로 시작하기" })).toBeVisible();
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveText("아이디로 로그인");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByTestId("login-username")).toBeHidden();
+    await expect(page.getByRole("button", { name: "로그인하기" })).toBeHidden();
+    await expect(page.getByText("또는 아이디로 로그인")).toHaveCount(0);
+    // 링크는 사업자 정보 칸 바로 위(남는 높이는 링크 위로, 결정 a2)
+    const link = await toggle.boundingBox();
+    const footer = await page.getByTestId("legal-footer").boundingBox();
+    expect(link && footer).toBeTruthy();
+    expect(footer!.y - (link!.y + link!.height)).toBeGreaterThanOrEqual(0);
+    expect(footer!.y - (link!.y + link!.height)).toBeLessThanOrEqual(40);
+
+    // 펼침: 칸·로그인하기·비밀번호 안내가 그대로, 아이디 칸에 포커스
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const username = page.getByTestId("login-username");
+    await expect(username).toBeVisible();
+    await expect(username).toBeFocused();
+    await expect(page.getByRole("button", { name: "로그인하기" })).toBeVisible();
+    await expect(page.getByTestId("forgot-password")).toBeVisible();
+    await username.fill("keepme01");
+
+    // 다시 누르면 접히고, 다시 펼쳐도 적은 아이디는 남는다
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(username).toBeHidden();
+    await toggle.click();
+    await expect(username).toHaveValue("keepme01");
+  });
+
+  test(`AC_01_35 ${app} login opens the ID form from ?id=1`, async ({ page }) => {
+    await kakaoConfig(page, "enabled");
+    if (app === "producer") await skipHelpGuide(page);
+    // 기존 값(from·next)과 같이 붙어도 된다(소비자)
+    await page.goto(app === "consumer" ? `${base}/login?from=reserve&next=%2Forders&id=1` : `${base}/login?id=1`);
+    await expect(page.getByTestId("id-login-toggle")).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByTestId("login-username")).toBeVisible();
+    if (app === "consumer") await expect(page.getByText(/로그인하고\s*예약을 이어 가요/)).toBeVisible();
+    // 펼친 채 시작해도 같은 글자로 접는다
+    await page.getByTestId("id-login-toggle").click();
+    await expect(page.getByTestId("login-username")).toBeHidden();
+  });
+
+  for (const mode of ["disabled", "error"] as const) {
+    test(`AC_01_35 ${app} login keeps the ID form open without the link when Kakao config is ${mode}`, async ({ page }) => {
+      await kakaoConfig(page, mode);
+      if (app === "producer") await skipHelpGuide(page);
+      await page.goto(`${base}/login`);
+      await expect(page.getByTestId("login-username")).toBeVisible();
+      await expect(page.getByRole("button", { name: "로그인하기" })).toBeVisible();
+      await expect(page.getByTestId("id-login-toggle")).toHaveCount(0);
+    });
+  }
+
+  test(`AC_01_35 AC_01_26 ${app} login keeps the form open while a login error is shown`, async ({ page }) => {
+    await kakaoConfig(page, "enabled");
+    await page.route("**/api/auth/login", (route) =>
+      route.fulfill({ status: 401, json: { code: "INVALID_CREDENTIALS", message: "아이디 또는 비밀번호가 맞지 않아요" } }),
+    );
+    if (app === "producer") await skipHelpGuide(page);
+    await page.goto(`${base}/login`);
+    const toggle = page.getByTestId("id-login-toggle");
+    await toggle.click();
+    await fillLogin(page, "nobody999", "wrong-pass-1");
+    await expect(page.getByTestId("login-error")).toHaveText("아이디 또는 비밀번호가 맞지 않아요");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByTestId("login-error")).toBeVisible();
+    await expect(page.getByTestId("login-username")).toBeVisible();
+  });
+}
+
+test("AC_01_35 AC_01_31 a consumer opens the collapsed ID form and signs in with a temporary password", async ({ page, request }) => {
+  test.skip(!adminToken, "FARMCLUB_ADMIN_TOKEN 필요(scripts/run-integration.mjs)");
+  const created = await createAccount(request, "consumer", "pwfold");
+  await kakaoConfig(page, "enabled");
+  await page.goto(`${consumerUrl}/login`);
+  await page.getByTestId("id-login-toggle").click();
+  await fillLogin(page, created.username, created.temporaryPassword);
+  await expect(page).toHaveURL(/\/password/);
 });
