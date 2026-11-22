@@ -30,7 +30,7 @@ with get_sessionmaker()() as db, db.begin():
  db.execute(delete(NoticeRead).where(NoticeRead.user_id == 'u-kang', NoticeRead.kind == 'ORIGIN'))
 `,
     ],
-    { cwd: path.resolve("server"), env: { ...process.env, APP_ENV: "local" }, encoding: "utf8", stdio: "pipe" },
+    { cwd: path.resolve("server"), encoding: "utf8", stdio: "pipe" },
   );
 }
 
