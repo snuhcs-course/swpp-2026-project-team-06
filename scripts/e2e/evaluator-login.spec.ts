@@ -48,6 +48,9 @@ for (const { app, base, account, role } of [
       expect(seed?.userId, `The local ${app} API fixture contains ${account} (${role})`).toBeTruthy();
 
       await expect(page.getByTestId("password-login-section")).toBeVisible();
+      // 카카오 꺼짐·설정 오류면 칸이 펼친 채이고 접는 링크가 없다(DEV-378)
+      await expect(page.getByTestId("login-username")).toBeVisible();
+      await expect(page.getByTestId("id-login-toggle")).toHaveCount(0);
       if (mode === "disabled") await expect(page.getByRole("button", { name: "카카오로 시작하기" })).toHaveCount(0);
       const radio = page.getByRole("radio").filter({ hasText: account });
       await expect(radio).toBeVisible();
@@ -92,9 +95,15 @@ for (const { app, base, account, role } of [
       await page.goto(`${base}/login${query ? "?evaluator=1" : ""}`);
       await expect(page.getByRole("button", { name: "카카오로 시작하기" })).toBeVisible();
       await expect(page.getByTestId("password-login-section")).toBeVisible();
+      // 카카오가 켜지면 칸은 링크 뒤에 접혀 있고, 누르면 펼친다(DEV-378)
+      const toggle = page.getByTestId("id-login-toggle");
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByTestId("login-username")).toBeHidden();
       await page.waitForLoadState("networkidle", { timeout: 10_000 });
       await expect(page.getByRole("radio")).toHaveCount(0);
       await expect(page.getByTestId("login-bottom-bar")).toHaveCount(0);
+      await toggle.click();
+      await expect(page.getByTestId("login-username")).toBeVisible();
     });
   }
 }

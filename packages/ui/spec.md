@@ -117,7 +117,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 | 결정 | 이유 |
 | --- | --- |
 | 문안은 `src/legalContent.ts` 한 곳(지울 수 있는 타입만, import 없음). `LegalFooter`·`LegalDocument`(`src/Legal.tsx`)와 `scripts/legal-pages.mjs`(Node type stripping으로 직접 import)가 같이 쓴다 | SPA라 JS 없이 읽히는 정적 HTML이 따로 필요하고, 두 벌로 쓰면 문안이 어긋난다 |
-| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’ | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장 |
+| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’ | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장. 웹은 GitHub Actions 변수, 네이티브는 두 EAS 프로젝트의 `preview`·`production` 환경 변수에서 온다(DEV-131) |
 | `LegalFooter`는 링크를 직접 열지 않고 `onOpen(path)`로 앱 라우터에 맡긴다 | ui 패키지는 expo-router에 의존하지 않는다 |
 | 파일 이름은 `Legal.tsx`와 `legalContent.ts`. `legal.ts`는 macOS(대소문자 무시)에서 `Legal.tsx`와 충돌한다 | TS1149 |
 | (DEV-116) 푸터는 `<Scroll footer={<LegalFooter … />}>` 슬롯으로 둔다. footer가 있으면 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'` + 위 여백 section(40)으로 붙인다 | 내용 바로 뒤에 두면 짧은 화면(카카오 운영 로그인)에서 푸터가 화면 중간에 뜬다. flexGrow는 footer가 있을 때만 켜 다른 화면에 영향이 없다 |
@@ -197,3 +197,6 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 ## 품절 덮개 (DEV-327, 2026-11-15)
 - `SoldOutOverlay`(`SoldOutOverlay.tsx`)는 `Photo`를 감싸는 View다. `show`면 같은 모서리 반경의 흰색 62% 막과 가운데 굵은 ‘품절’(`rgba(74,74,74,0.85)`, 글자 `soldOutFontSize(height)` = clamp(20, round(height × 0.16), 28))을 얹는다. `testID="sold-out-overlay"`, `pointerEvents="none"`, 바깥 여백은 감싼 View의 `style`로. `Photo`는 바꾸지 않는다.
 - 쓰는 곳은 소비자 홈 ‘제철 상품’ 카드와 농가 목록 줄뿐이다(AC-07-3, PM 11/15). 상품 상세·판매 품목·소식 선반에는 넣지 않는다.
+
+## DEV-378 아이디 로그인 접기
+`IdLoginSection`(`AuthForms.tsx`)은 `PasswordLoginForm`을 고치지 않고 감싼다. `collapsible`(카카오 켜짐)이면 '아이디로 로그인' 글자 링크(누르는 영역 48, `aria-expanded`, 꺾쇠는 `chevronDown`을 펼치면 180° 회전)로 접고 펼친다. 접힘은 `display: none`이라 적은 아이디가 남는다. `PasswordLoginForm`의 선택 콜백 `onErrorChange`로 실패 문구가 보이는 동안 접기를 막고 링크를 disabled·투명도 0.4로 둔다(오류 줄이 숨지 않게). 펼칠 때 웹에서만 누른 순간 아이디 칸에 포커스(iOS Safari 키보드), 스크롤은 다음 프레임. 로그인 화면의 카카오 설정 조회는 `withTimeout`(`timeout.ts`, 5초)으로 감싸 넘으면 설정 못 읽음으로 본다. `placement="footer"`는 사업자 정보 칸 바로 위(아래 간격 접힘 8·펼침 24)이고, 앱은 `Scroll`의 `footerGap`(기본 40)을 16으로 줄여 링크를 footer 안에 넣는다(FEAT-01 AC-01-35).
