@@ -290,6 +290,7 @@ test("DEV-423 AC-01-36: blank business values fall back to the operator name and
   assert.match(byPhone.noLogin, /연락처로 삭제를 요청해 주세요/);
   assert.match(byPhone.partial, /위 연락처로 삭제를 요청해 주세요/);
   assert.equal(content.accountDeletionPage("PRODUCER", {}).byline, "farmclub 농가 앱 · 개발자 farmclub 운영자");
+  assert.equal(content.accountDeletionPage("PRODUCER", { name: "" }).byline, "farmclub 농가 앱 · 개발자 farmclub 운영자");
 });
 
 test("DEV-423 AC-01-36: kept rows are the privacy policy Art. 3 rows that outlive withdrawal", () => {

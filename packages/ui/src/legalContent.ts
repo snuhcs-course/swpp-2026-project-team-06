@@ -706,7 +706,7 @@ export function accountDeletionPage(role: AppRole, info: BusinessInfo = business
   const consumer = role === "CONSUMER";
   const appName = consumer ? "farmclub" : "farmclub 농가";
   const web = consumer ? "farmclub.kr" : "farm.farmclub.kr";
-  const developer = info.name ?? "farmclub 운영자";
+  const developer = info.name || "farmclub 운영자";
   const contacts = officerContacts(info);
   // 이메일이 있으면 승인 문구 그대로 '이메일로', 없으면 보이는 연락처를 가리킨다
   const via = info.email ? "이메일" : "연락처";
