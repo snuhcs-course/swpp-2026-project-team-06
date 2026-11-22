@@ -106,17 +106,26 @@ export function PasswordLoginForm({
   size = "consumer",
   onLogin,
   disabled,
+  onErrorChange,
 }: {
   size?: Size;
   /** 서버 로그인. 실패하면 ApiError를 던진다 */
   onLogin: (username: string, password: string) => Promise<void>;
   disabled?: boolean;
+  /** 로그인 실패 문구가 보이는지 알린다(접기 막기, DEV-378) */
+  onErrorChange?: (shown: boolean) => void;
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const errors = useFieldErrors(LOGIN_ORDER);
+  const shown = !!failed;
+  useEffect(() => {
+    onErrorChange?.(shown);
+    // 문구가 보이고 사라질 때만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown]);
 
   async function submit() {
     if (busy || disabled) return;
@@ -187,7 +196,7 @@ export function PasswordLoginForm({
 
 /** 로그인 화면의 아이디 로그인 칸(DEV-378). 카카오가 켜져 있으면(`collapsible`) ‘아이디로 로그인 ⌄’ 글자 하나로 접어 두고,
  *  누르면 PasswordLoginForm을 그대로 펼친다(다시 누르면 접힘, ⌃). 접어도 칸을 지우지 않고 숨기기만 해 적은 아이디가 남는다.
- *  로그인이 실패해 오류가 보이는 동안은 접지 않는다(오류가 숨지 않게). `footer`면 사업자 정보 칸 바로 위에 붙는 간격을 쓴다 */
+ *  로그인 실패 문구가 보이는 동안은 접지 않는다(오류가 숨지 않게, 문구 표시 여부는 폼의 onErrorChange로 받는다). `footer`면 사업자 정보 칸 바로 위에 붙는 간격을 쓴다 */
 export function IdLoginSection({
   collapsible,
   defaultOpen,
@@ -209,36 +218,30 @@ export function IdLoginSection({
   style?: object;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
-  // 마지막 로그인 시도가 실패했다(폼이 오류 줄을 보이는 중). 다음 시도 때 다시 정한다
-  const [failed, setFailed] = useState(false);
+  // 폼이 로그인 실패 문구를 보이는 중이다(폼이 알려 준다). 문구가 사라지면 다시 접을 수 있다
+  const [errorShown, setErrorShown] = useState(false);
   const form = useRef<View>(null);
   const shown = !collapsible || open;
-  const locked = open && failed;
-
-  async function login(username: string, password: string) {
-    setFailed(false);
-    try {
-      await onLogin(username, password);
-    } catch (e) {
-      setFailed(true);
-      throw e;
-    }
-  }
+  const locked = open && errorShown;
 
   function toggle() {
     if (locked) return;
     const next = !open;
-    setOpen(next);
-    if (!next) return;
-    // 펼치면 아이디 칸에 포커스를 주고 칸이 보이게 스크롤한다(웹. 앱은 스크롤 위치 그대로)
-    requestAnimationFrame(() => {
+    if (next) {
+      // 웹: iOS Safari는 누른 그 순간(사용자 동작 안)에 포커스해야 키보드가 뜬다. 숨긴 칸을 먼저 보이게 하고 바로 포커스한다.
+      // 다음 렌더도 display: flex라 결과가 같다. 앱(네이티브)에는 querySelector가 없어 건너뛴다
       const el = form.current as unknown as {
+        style?: { display?: string };
         querySelector?: (s: string) => { focus?: (o?: object) => void } | null;
         scrollIntoView?: (o: object) => void;
       } | null;
-      el?.querySelector?.("input")?.focus?.({ preventScroll: true });
-      el?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
-    });
+      if (el?.querySelector && el.style) {
+        el.style.display = "flex";
+        el.querySelector("input")?.focus?.({ preventScroll: true });
+      }
+      requestAnimationFrame(() => el?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }));
+    }
+    setOpen(next);
   }
 
   const color = open ? tokens.color.text : tokens.color.textMuted;
@@ -251,8 +254,9 @@ export function IdLoginSection({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="아이디로 로그인"
-          accessibilityState={{ expanded: open, disabled: locked }}
           aria-expanded={open}
+          // 오류 문구가 보이는 동안은 접지 않는다. 막힌 것이 보이게 흐리게 한다
+          disabled={locked}
           testID="id-login-toggle"
           onPress={toggle}
           style={{
@@ -261,6 +265,7 @@ export function IdLoginSection({
             alignItems: "center",
             justifyContent: "center",
             gap: tokens.space.xs,
+            opacity: locked ? 0.4 : 1,
           }}
         >
           <T
@@ -281,7 +286,7 @@ export function IdLoginSection({
         testID="password-login-body"
         style={{ display: shown ? "flex" : "none", paddingTop: collapsible ? tokens.space.sm : 0 }}
       >
-        <PasswordLoginForm size={size} onLogin={login} disabled={disabled} />
+        <PasswordLoginForm size={size} onLogin={onLogin} disabled={disabled} onErrorChange={setErrorShown} />
       </View>
     </View>
   );
