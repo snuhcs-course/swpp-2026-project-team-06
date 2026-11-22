@@ -4,7 +4,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
-import { isReservedOrder, myReservationHref } from "../apps/consumer/src/lib/myReservation.ts";
+import {
+  MyReservationError,
+  isReservedOrder,
+  myReservationHref,
+  myReservationLine,
+} from "../apps/consumer/src/lib/myReservation.ts";
 import { orderGroup } from "../apps/consumer/src/lib/orderGroups.ts";
 
 const require = createRequire(import.meta.url);
@@ -110,4 +115,42 @@ test("DEV-379 Mock: a second p-house order (awaiting deposit) sends 김민지 to
   const cancel = await api("POST", `/api/orders/${created.body.orderId}/cancel`, minji, {});
   assert.equal(cancel.status, 200);
   assert.equal(myReservationHref(await productOrders(minji, "p-house"), "p-house"), "/orders/o-42");
+});
+
+test("DEV-379: what the first line shows before, during and after reading my orders", () => {
+  const key = "u-minji:p-house";
+  const base = {
+    soldOut: false,
+    sessionReady: true,
+    hasToken: true,
+    userId: "u-minji",
+    key,
+    answer: null,
+    error: null,
+  };
+  const line = (x) => myReservationLine({ ...base, ...x });
+  const checking = { state: "checking" };
+  const reserved = { state: "reserved", href: "/orders/o-42" };
+
+  // 로그인 안 함(세션 확인 끝, 토큰 없음): 'n번째'
+  assert.equal(line({ hasToken: false, userId: null }), null);
+  // 세션 확인 전: 저장된 토큰이 있으면 높이만, 없으면 'n번째'
+  assert.deepEqual(line({ sessionReady: false, userId: null }), checking);
+  assert.equal(line({ sessionReady: false, hasToken: false, userId: null }), null);
+  // 세션 확인 뒤 응답 전: 높이만
+  assert.deepEqual(line({}), checking);
+  // 답: 이미 예약 → 링크, 예약 없음 → 'n번째'
+  assert.deepEqual(line({ answer: { key, href: "/orders/o-42" } }), reserved);
+  assert.equal(line({ answer: { key, href: null } }), null);
+  // 지금 키의 실패: 'n번째'
+  assert.equal(line({ error: new MyReservationError(key) }), null);
+  // 다른 키(계정·상품이 바뀐 직후)의 옛 답·옛 실패, 멈춘 읽기: 높이만('n번째'가 끼지 않음)
+  assert.deepEqual(line({ answer: { key: "u-seojun:p-house", href: "/orders/o-38" } }), checking);
+  assert.deepEqual(line({ error: new MyReservationError("u-minji:p-noji") }), checking);
+  assert.deepEqual(line({ error: new MyReservationError(null) }), checking);
+  // 다시 읽는 중·다시 읽기 실패: 앞 답 그대로
+  assert.deepEqual(line({ answer: { key, href: "/orders/o-42" }, error: new MyReservationError(key) }), reserved);
+  // 품절: 보조 줄 없음(무엇이 와도)
+  assert.equal(line({ soldOut: true, answer: { key, href: "/orders/o-42" } }), null);
+  assert.equal(line({ soldOut: true, sessionReady: false }), null);
 });
