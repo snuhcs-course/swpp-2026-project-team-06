@@ -4,9 +4,10 @@
 // 필수 칸 규칙(PM 11/18): 버튼은 늘 켜 두고, 누르면 첫 오류 칸으로 스크롤해 그 칸들만 빨갛게 보인다. 누르기 전에는 빨갛지 않다.
 import { FORGOT_PASSWORD_TEXT, INVALID_LOGIN_TEXT, PASSWORD_RULE, passwordError } from "@farmclub/api";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { Button } from "./Button";
+import { Icon } from "./Icon";
 import { Input } from "./Input";
 import { T } from "./Text";
 import { tokens } from "./tokens";
@@ -180,6 +181,108 @@ export function PasswordLoginForm({
       {/* ‘로그인하기’: 테스트 계정 바(‘○○ 로그인’, e2e는 /로그인$/로 찾음)와 이름이 겹치지 않게 */}
       <Button label="로그인하기" size={size} loading={busy} onPress={() => void submit()} />
       <ForgotPasswordNote />
+    </View>
+  );
+}
+
+/** 로그인 화면의 아이디 로그인 칸(DEV-378). 카카오가 켜져 있으면(`collapsible`) ‘아이디로 로그인 ⌄’ 글자 하나로 접어 두고,
+ *  누르면 PasswordLoginForm을 그대로 펼친다(다시 누르면 접힘, ⌃). 접어도 칸을 지우지 않고 숨기기만 해 적은 아이디가 남는다.
+ *  로그인이 실패해 오류가 보이는 동안은 접지 않는다(오류가 숨지 않게). `footer`면 사업자 정보 칸 바로 위에 붙는 간격을 쓴다 */
+export function IdLoginSection({
+  collapsible,
+  defaultOpen,
+  placement = "flow",
+  size = "consumer",
+  onLogin,
+  disabled,
+  style,
+}: {
+  /** false면 지금처럼 칸만 펼친다(카카오 꺼짐·설정 못 읽음) */
+  collapsible: boolean;
+  /** 처음부터 펼침(웹 `/login?id=1`) */
+  defaultOpen?: boolean;
+  /** footer: 사업자 정보 칸 바로 위(접힘 8, 펼침 24 아래 간격) · flow: 본문 안(테스트 계정 목록 위) */
+  placement?: "footer" | "flow";
+  size?: Size;
+  onLogin: (username: string, password: string) => Promise<void>;
+  disabled?: boolean;
+  style?: object;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  // 마지막 로그인 시도가 실패했다(폼이 오류 줄을 보이는 중). 다음 시도 때 다시 정한다
+  const [failed, setFailed] = useState(false);
+  const form = useRef<View>(null);
+  const shown = !collapsible || open;
+  const locked = open && failed;
+
+  async function login(username: string, password: string) {
+    setFailed(false);
+    try {
+      await onLogin(username, password);
+    } catch (e) {
+      setFailed(true);
+      throw e;
+    }
+  }
+
+  function toggle() {
+    if (locked) return;
+    const next = !open;
+    setOpen(next);
+    if (!next) return;
+    // 펼치면 아이디 칸에 포커스를 주고 칸이 보이게 스크롤한다(웹. 앱은 스크롤 위치 그대로)
+    requestAnimationFrame(() => {
+      const el = form.current as unknown as {
+        querySelector?: (s: string) => { focus?: (o?: object) => void } | null;
+        scrollIntoView?: (o: object) => void;
+      } | null;
+      el?.querySelector?.("input")?.focus?.({ preventScroll: true });
+      el?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    });
+  }
+
+  const color = open ? tokens.color.text : tokens.color.textMuted;
+  return (
+    <View
+      testID="password-login-section"
+      style={[placement === "footer" && collapsible ? { paddingBottom: shown ? tokens.space.lg : tokens.space.sm } : null, style]}
+    >
+      {collapsible ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="아이디로 로그인"
+          accessibilityState={{ expanded: open, disabled: locked }}
+          aria-expanded={open}
+          testID="id-login-toggle"
+          onPress={toggle}
+          style={{
+            minHeight: tokens.touchTarget.min,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: tokens.space.xs,
+          }}
+        >
+          <T
+            variant="body"
+            weight={open ? "semibold" : "regular"}
+            color={color}
+            style={{ textDecorationLine: "underline", textDecorationColor: "#B8B8B4" } as object}
+          >
+            아이디로 로그인
+          </T>
+          <View style={open ? { transform: [{ rotate: "180deg" }] } : undefined}>
+            <Icon name="chevronDown" size={16} color={color} strokeWidth={2} />
+          </View>
+        </Pressable>
+      ) : null}
+      <View
+        ref={form}
+        testID="password-login-body"
+        style={{ display: shown ? "flex" : "none", paddingTop: collapsible ? tokens.space.sm : 0 }}
+      >
+        <PasswordLoginForm size={size} onLogin={login} disabled={disabled} />
+      </View>
     </View>
   );
 }

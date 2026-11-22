@@ -141,6 +141,7 @@ export { sourceModuleIcon } from "./ModuleStory";
 export {
   ErrorScroll,
   ForgotPasswordNote,
+  IdLoginSection,
   PasswordChangeForm,
   PasswordLoginForm,
   loginErrorText,

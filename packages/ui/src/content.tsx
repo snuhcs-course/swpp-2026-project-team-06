@@ -49,6 +49,7 @@ export function Scroll({
   bottom = 40,
   gap,
   footer,
+  footerGap = tokens.space.section,
   onScroll,
   scrollRef,
 }: {
@@ -56,6 +57,8 @@ export function Scroll({
   bottom?: number;
   gap?: number;
   footer?: ReactNode;
+  /** 내용과 footer 사이 최소 간격(기본 40). 로그인 화면처럼 footer 위에 링크를 붙일 때 줄인다(DEV-378) */
+  footerGap?: number;
   scrollRef?: Ref<ScrollView>;
   /** 세로 스크롤 위치(px). 위쪽 줄을 스크롤에 따라 숨길 때 쓴다(생산자 상품 수정, DEV-361) */
   onScroll?: (y: number) => void;
@@ -74,7 +77,7 @@ export function Scroll({
     >
       {children}
       {footer ? (
-        <View style={{ marginTop: "auto", paddingTop: tokens.space.section }}>
+        <View style={{ marginTop: "auto", paddingTop: footerGap }}>
           {footer}
         </View>
       ) : null}

@@ -196,3 +196,6 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 ## 품절 덮개 (DEV-327, 2026-11-15)
 - `SoldOutOverlay`(`SoldOutOverlay.tsx`)는 `Photo`를 감싸는 View다. `show`면 같은 모서리 반경의 흰색 62% 막과 가운데 굵은 ‘품절’(`rgba(74,74,74,0.85)`, 글자 `soldOutFontSize(height)` = clamp(20, round(height × 0.16), 28))을 얹는다. `testID="sold-out-overlay"`, `pointerEvents="none"`, 바깥 여백은 감싼 View의 `style`로. `Photo`는 바꾸지 않는다.
 - 쓰는 곳은 소비자 홈 ‘제철 상품’ 카드와 농가 목록 줄뿐이다(AC-07-3, PM 11/15). 상품 상세·판매 품목·소식 선반에는 넣지 않는다.
+
+## DEV-378 아이디 로그인 접기
+`IdLoginSection`(`AuthForms.tsx`)은 `PasswordLoginForm`을 고치지 않고 감싼다. `collapsible`(카카오 켜짐)이면 '아이디로 로그인' 글자 링크(누르는 영역 48, `aria-expanded`, 꺾쇠는 `chevronDown`을 펼치면 180° 회전)로 접고 펼친다. 접힘은 `display: none`이라 적은 아이디가 남는다. 감싼 `onLogin`이 던지면 다음 시도까지 접기를 막는다(오류 줄이 숨지 않게). 펼칠 때 웹에서만 아이디 칸 포커스·스크롤. `placement="footer"`는 사업자 정보 칸 바로 위(아래 간격 접힘 8·펼침 24)이고, 앱은 `Scroll`의 `footerGap`(기본 40)을 16으로 줄여 링크를 footer 안에 넣는다(FEAT-01 AC-01-35).
