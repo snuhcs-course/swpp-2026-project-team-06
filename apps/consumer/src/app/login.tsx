@@ -1,4 +1,4 @@
-// SCR-05 로그인 — 카카오(ADR 0003)·아이디·비밀번호(DEV-363, 운영자가 만든 계정)·개발/Mock 테스트 계정 선택(ADR 0009) — design: scr-05
+// SCR-05 로그인 — 카카오(ADR 0003)·아이디·비밀번호(DEV-363, 운영자가 만든 계정, 카카오가 켜지면 접어 둠 DEV-378)·개발/Mock 테스트 계정 선택(ADR 0009) — design: scr-05
 import { auth, isMock, type TestAccount } from "@farmclub/api";
 import {
   BrandLogo,
@@ -6,8 +6,8 @@ import {
   EmptyState,
   LegalFooter,
   HeaderBar,
+  IdLoginSection,
   Notice,
-  PasswordLoginForm,
   Radio,
   Screen,
   Scroll,
@@ -35,10 +35,12 @@ const consumerOnly = (list: TestAccount[] | null) =>
 const testLoginAvailable = __DEV__ || isMock;
 
 export default function Login() {
-  const { next, reason, from } = useLocalSearchParams<{
+  const { next, reason, from, id } = useLocalSearchParams<{
     next?: string;
     reason?: string;
     from?: string;
+    /** 1이면 아이디 로그인을 처음부터 펼친다(웹 심사·평가 안내용 보조 주소, DEV-378) */
+    id?: string;
   }>();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -69,6 +71,23 @@ export default function Login() {
   const kakaoOn = !!kakao.data?.enabled;
   const showTest = testLoginAvailable &&
     (isMock || !!kakao.error || (!!kakao.data && !kakaoOn));
+  // 아이디 로그인(DEV-378): 카카오 설정을 받은 뒤에만 그린다(켜졌으면 접힘 + 링크, 꺼짐·못 읽음이면 펼친 채 링크 없음).
+  // 운영 모양(테스트 목록 없음)에서는 링크를 사업자 정보 칸 바로 위에 두고 남는 높이는 링크 위로 보낸다. 테스트 목록이 있으면 목록 위 본문에
+  const kakaoReady = !!kakao.data || !!kakao.error;
+  const idAtFooter = kakaoOn && !showTest;
+  const idSection = (placement: "footer" | "flow") => (
+    <IdLoginSection
+      collapsible={kakaoOn}
+      defaultOpen={id === "1"}
+      placement={placement}
+      onLogin={passwordLogin}
+      disabled={busy}
+      style={{
+        paddingHorizontal: tokens.space.gutter,
+        paddingTop: placement === "flow" ? tokens.space.lg : 0,
+      }}
+    />
+  );
 
   useEffect(() => {
     if (data && !picked) setPicked(data[0]?.userId ?? null);
@@ -157,7 +176,17 @@ export default function Login() {
       />
       <Scroll
         bottom={showTest ? barHeight : safe("bottom", 16)}
-        footer={<LegalFooter onOpen={(path) => router.push(path)} />}
+        footerGap={idAtFooter ? tokens.space.md : undefined}
+        footer={
+          idAtFooter ? (
+            <View>
+              {idSection("footer")}
+              <LegalFooter onOpen={(path) => router.push(path)} />
+            </View>
+          ) : (
+            <LegalFooter onOpen={(path) => router.push(path)} />
+          )
+        }
       >
         <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 8, gap: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -212,21 +241,7 @@ export default function Login() {
           </View>
         ) : null}
         {/* 아이디·비밀번호 로그인(DEV-363). 계정은 운영자가 만들어 공개 가입 버튼은 없다(PM 11/18). 개발/Mock 전용 시드 목록은 아래에 */}
-        <View
-          testID="password-login-section"
-          style={{ paddingHorizontal: tokens.space.gutter, paddingTop: tokens.space.lg, gap: 16 }}
-        >
-          {kakaoOn ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: tokens.color.border }} />
-              <T variant="caption" muted>
-                또는 아이디로 로그인
-              </T>
-              <View style={{ flex: 1, height: 1, backgroundColor: tokens.color.border }} />
-            </View>
-          ) : null}
-          <PasswordLoginForm onLogin={passwordLogin} disabled={busy} />
-        </View>
+        {kakaoReady && !idAtFooter ? idSection("flow") : null}
         {!showTest ? null : error ? (
           isStatus(error, 404) ? (
             <EmptyState
