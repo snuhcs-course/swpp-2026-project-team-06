@@ -18,6 +18,7 @@
     { "source": "/s/:path*", "destination": "https://api.farmclub.kr/s/:path*" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/account-deletion", "destination": "/account-deletion.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
