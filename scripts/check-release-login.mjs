@@ -193,8 +193,18 @@ async function runCase(browser, base, app, kakao, input) {
 
     const kakaoButton = page.getByRole("button", { name: "카카오로 시작하기", exact: true });
     const form = page.getByTestId("password-login-section");
+    // DEV-378: 카카오가 켜지면 칸은 '아이디로 로그인' 링크 뒤에 접혀 있다. 링크만 보여도 통과하지 않게 칸까지 확인한다
+    const toggle = page.getByTestId("id-login-toggle");
+    const usernameField = form.getByTestId("login-username");
     async function checkScreen(phase) {
       await check(`${phase} ID form`, () => expect(form).toBeVisible({ timeout }));
+      if (kakao === "enabled") {
+        await check(`${phase} ID login link`, () => expect(toggle).toBeVisible({ timeout }));
+        await check(`${phase} ID fields folded`, () => expect(usernameField).toBeHidden({ timeout }));
+      } else {
+        await check(`${phase} ID fields open`, () => expect(usernameField).toBeVisible({ timeout }));
+        await check(`${phase} no ID login link`, () => expect(toggle).toHaveCount(0, { timeout }));
+      }
       // Observe any seed request or controls rendered after the initial login screen.
       await page.waitForLoadState("networkidle");
       await Promise.all([
@@ -206,6 +216,12 @@ async function runCase(browser, base, app, kakao, input) {
           expect(page.getByText("처음이세요? 농가로 가입 신청 ›", { exact: true })).toHaveCount(0, { timeout }),
         ),
       ]);
+      if (kakao === "enabled") {
+        await check(`${phase} ID link opens the fields`, async () => {
+          await toggle.click({ timeout });
+          await expect(usernameField).toBeVisible({ timeout });
+        });
+      }
     }
 
     const loginUrl = base + "/login" + (input.query ? "?evaluator=1" : "");

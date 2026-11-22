@@ -175,6 +175,10 @@ test("AC_01_22 AC-01-34 retired evaluator link keeps password and Kakao login wi
   await page.waitForLoadState("networkidle", { timeout: 10_000 });
   await expect(page.getByRole("radio")).toHaveCount(0);
   await expect(page.getByTestId("login-bottom-bar")).toHaveCount(0);
+  // 카카오가 켜져 있어 칸은 링크 뒤에 접혀 있다(DEV-378). 링크로 펼친다
+  await expect(page.getByTestId("login-username")).toBeHidden();
+  await page.getByTestId("id-login-toggle").click();
+  await expect(page.getByTestId("login-username")).toBeVisible();
 });
 
 test("AC_01_23 consumer without phone: consent wording, profile fields, and saved onboarding", async ({ page, request }, testInfo) => {
@@ -317,12 +321,57 @@ for (const { app, base } of [
     await toggle.click();
     await fillLogin(page, "nobody999", "wrong-pass-1");
     await expect(page.getByTestId("login-error")).toHaveText("아이디 또는 비밀번호가 맞지 않아요");
-    await toggle.click();
+    // 막힌 것이 보인다(눌리지 않고 흐림)
+    await expect(toggle).toBeDisabled();
+    await expect(toggle).toHaveCSS("opacity", "0.4");
+    await toggle.click({ force: true });
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByTestId("login-error")).toBeVisible();
     await expect(page.getByTestId("login-username")).toBeVisible();
   });
+
+  test(`AC_01_35 ${app} login folds again once the error line is gone`, async ({ page }) => {
+    await kakaoConfig(page, "enabled");
+    await page.route("**/api/auth/login", (route) =>
+      route.fulfill({ status: 401, json: { code: "INVALID_CREDENTIALS", message: "아이디 또는 비밀번호가 맞지 않아요" } }),
+    );
+    if (app === "producer") await skipHelpGuide(page);
+    await page.goto(`${base}/login`);
+    const toggle = page.getByTestId("id-login-toggle");
+    await toggle.click();
+    await fillLogin(page, "nobody999", "wrong-pass-1");
+    await expect(page.getByTestId("login-error")).toBeVisible();
+    await expect(toggle).toBeDisabled();
+    // 비밀번호를 지우고 다시 누르면 폼이 실패 문구를 지우고 빈 칸 검증에서 멈춘다(서버 호출 없음) → 다시 접을 수 있다
+    await page.getByTestId("login-password").fill("");
+    await page.getByRole("button", { name: "로그인하기" }).click();
+    await expect(page.getByTestId("invalid-field-password")).toBeVisible();
+    await expect(page.getByTestId("login-error")).toHaveCount(0);
+    await expect(toggle).toBeEnabled();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByTestId("login-username")).toBeHidden();
+  });
+
+  test(`AC_01_35 ${app} login opens the ID form when the Kakao config never answers`, async ({ page }) => {
+    // 설정 응답이 멈춰도 빈 화면으로 남지 않고, 시간 제한(5초) 뒤 "설정 못 읽음"처럼 칸을 펼친 채 링크 없이 그린다
+    await page.route("**/api/auth/kakao/config", () => {});
+    if (app === "producer") await skipHelpGuide(page);
+    await page.goto(`${base}/login`);
+    await expect(page.getByTestId("login-username")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "로그인하기" })).toBeVisible();
+    await expect(page.getByTestId("id-login-toggle")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "카카오로 시작하기" })).toHaveCount(0);
+  });
 }
+
+test("AC_01_35 consumer login opens the ID form from ?id=1 together with reason=signedout", async ({ page }) => {
+  await kakaoConfig(page, "enabled");
+  await page.goto(`${consumerUrl}/login?reason=signedout&id=1`);
+  await expect(page.getByText("로그인이 풀렸어요")).toBeVisible();
+  await expect(page.getByTestId("id-login-toggle")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByTestId("login-username")).toBeVisible();
+});
 
 test("AC_01_35 AC_01_31 a consumer opens the collapsed ID form and signs in with a temporary password", async ({ page, request }) => {
   test.skip(!adminToken, "FARMCLUB_ADMIN_TOKEN 필요(scripts/run-integration.mjs)");
