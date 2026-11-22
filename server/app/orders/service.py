@@ -404,16 +404,18 @@ def get_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
     return order_view(db, order)
 
 
-def list_orders(db: Session, consumer_id: str) -> list[OrderView]:
+def list_orders(
+    db: Session, consumer_id: str, product_id: str | None = None
+) -> list[OrderView]:
     if expire_overdue_deposits(db, consumer_id=consumer_id):
         db.commit()
-    orders = list(
-        db.scalars(
-            select(Order).where(
-                Order.consumer_id == consumer_id, Order.status != "PENDING_PAYMENT"
-            )
-        )
+    query = select(Order).where(
+        Order.consumer_id == consumer_id, Order.status != "PENDING_PAYMENT"
     )
+    # 상품 상세의 '이미 예약했어요'(DEV-379)는 이 상품 주문만 본다. 정렬·응답은 그대로
+    if product_id:
+        query = query.where(Order.product_id == product_id)
+    orders = list(db.scalars(query))
     orders.sort(
         key=lambda order: (
             "respondDeliveryWindow" in _actions(order) or "confirm" in _actions(order),

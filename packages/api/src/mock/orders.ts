@@ -352,6 +352,8 @@ register({
     // 입금 전 취소·기한 만료(CANCELED)도 사유와 함께 보인다(DEV-68)
     const list = Object.values(ctx.db.orders)
       .filter((o) => o.consumerId === uid && o.status !== "PENDING_PAYMENT")
+      // 상품 상세 '이미 예약했어요'(DEV-379): productId를 주면 그 상품 주문만(서버와 같다)
+      .filter((o) => !ctx.query.productId || o.productId === ctx.query.productId)
       .sort(
         (a, b) =>
           Number(SORT_ACTION(b)) - Number(SORT_ACTION(a)) ||

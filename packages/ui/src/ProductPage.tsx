@@ -90,6 +90,16 @@ export type ProductPageData = {
 };
 
 /**
+ * 알아 둘 세 줄 첫 줄 아래 한 줄(SCR-04, DEV-379).
+ * 넘기지 않음 = '지금 예약하면 n번째예요'(예약 전·로그인 안 함·확인 실패),
+ * checking = 내 주문 확인 중(글 없이 줄 높이만 잡아 둔다),
+ * reserved = '이미 예약했어요 · 내 예약 보기 ›'(줄 전체를 누르면 onPress).
+ */
+export type MyReservation =
+  | { state: "checking" }
+  | { state: "reserved"; onPress: () => void };
+
+/**
  * 새 상품 채우기(DEV-184): 미리보기와 같은 화면에서 자리만 편집 칸으로 바꾼다.
  * 넘기지 않은 자리는 구매자 화면 그대로 그린다.
  */
@@ -119,6 +129,7 @@ export function ProductPageBody({
   onBack,
   onShare,
   slots,
+  myReservation,
 }: {
   p: ProductPageData;
   slots?: ProductPageSlots;
@@ -130,6 +141,8 @@ export function ProductPageBody({
   onBack?: () => void;
   /** 사진 위 공유(결정 26) */
   onShare?: () => void;
+  /** 알아 둘 세 줄 첫 줄 아래 한 줄(SCR-04, DEV-379). 소비자 상세만 넘긴다 */
+  myReservation?: MyReservation;
 }) {
   const [open, setOpen] = useState<Open>(null);
   const toggle = (k: NonNullable<typeof open>) =>
@@ -200,6 +213,7 @@ export function ProductPageBody({
             open={open}
             toggle={toggle}
             reference={reference}
+            myReservation={myReservation}
           />
         )}
       </View>
@@ -479,12 +493,14 @@ function SaleRows({
   open,
   toggle,
   reference,
+  myReservation,
 }: {
   p: ProductPageData;
   cur: ProductPageData["stages"][number] | null;
   open: Open;
   toggle: (k: NonNullable<Open>) => void;
   reference: (optionId: string) => number | null;
+  myReservation?: MyReservation;
 }) {
   const fee = shippingText(p.shippingFeeType, p.shippingFee);
   return (
@@ -591,7 +607,7 @@ function SaleRows({
       {/* 가격 계단: 지금 기간부터 마지막 기간까지, 칸마다 그 기간 가격, 같은 가격은 한 칸(AC-07-9, DEV-348) */}
       <PriceStair p={p} />
       {/* 알아 둘 세 줄(AC-07-10, DEV-348 UX ①) */}
-      <TrustRows p={p} />
+      <TrustRows p={p} myReservation={myReservation} />
       {/* 취소·환불 규정 한 줄 + 펼치기(DEV-293). 세 줄에 없는 ‘출하 후 단순 변심 반품 불가’를 담아 그대로 둔다(DEV-348) */}
       <Pressable
         accessibilityRole="button"
@@ -635,54 +651,108 @@ function SaleRows({
  * 알아 둘 세 줄(DEV-268 UX ①): 사회적 근거 → 돈이 나가는 방식 → 돌려받는 약속.
  * 숫자는 응답 값만 쓴다. 예약한 사람이 없거나 최대 지연 기한이 없으면 그 줄째 뺀다(M-24).
  */
-function TrustRows({ p }: { p: ProductPageData }) {
+function TrustRows({
+  p,
+  myReservation,
+}: {
+  p: ProductPageData;
+  myReservation?: MyReservation;
+}) {
   const people = p.reservedCount ?? 0;
-  const rows: { icon: "people" | "card" | "refund"; title: string; note?: string }[] = [];
-  if (people > 0)
+  type Row = {
+    icon: "people" | "card" | "refund";
+    title: string;
+    note?: ReactNode;
+    onPress?: () => void;
+  };
+  const rows: Row[] = [];
+  if (people > 0) {
+    // 품절이면 아래 줄이 없다(지금 그대로). 이미 예약한 사람에게는 예측 문구 대신 내 예약으로 가는 길(DEV-379 ②)
+    const reserved = !p.soldOut && myReservation?.state === "reserved" ? myReservation : null;
     rows.push({
       icon: "people",
       title: `${people.toLocaleString("ko-KR")}명이 예약했어요`,
-      // reservedCount는 예약한 사람 수라 다음 예약은 n+1번째(서버 순번이 아닌 예측 문구, DEV-311 결정 ②)
-      note: p.soldOut ? undefined : `지금 예약하면 ${(people + 1).toLocaleString("ko-KR")}번째예요`,
+      note: p.soldOut ? undefined : reserved ? (
+        <T variant="sub" muted>
+          이미 예약했어요 ·{" "}
+          <T variant="sub" weight="semibold">
+            내 예약 보기
+          </T>
+        </T>
+      ) : myReservation?.state === "checking" ? (
+        // 내 주문을 확인하는 동안은 글 없이 줄 높이만 잡아, 답이 와도 줄이 깜빡이거나 아래가 밀리지 않게 한다
+        <View style={{ height: tokens.lineHeight.sub }} />
+      ) : (
+        // reservedCount는 예약한 사람 수라 다음 예약은 n+1번째(서버 순번이 아닌 예측 문구, DEV-311 결정 ②)
+        <T variant="sub" muted>
+          {`지금 예약하면 ${(people + 1).toLocaleString("ko-KR")}번째예요`}
+        </T>
+      ),
+      onPress: reserved?.onPress,
     });
+  }
   rows.push({
     icon: "card",
     title: "농가 계좌로 직접 입금해요",
-    note: "예약하면 24시간 동안 물량을 잡아 둬요",
+    note: (
+      <T variant="sub" muted>
+        예약하면 24시간 동안 물량을 잡아 둬요
+      </T>
+    ),
   });
   if (p.maxDelayUntil)
     rows.push({
       icon: "refund",
       title: `${md(p.maxDelayUntil)}까지 못 보내면 전액 환불`,
-      note: "보내기 전에는 언제든 취소할 수 있어요",
+      note: (
+        <T variant="sub" muted>
+          보내기 전에는 언제든 취소할 수 있어요
+        </T>
+      ),
     });
   return (
     <View testID="product-trust-rows">
-      {rows.map((r, i) => (
-        <View
-          key={r.icon}
-          testID="product-trust-row"
-          style={{
-            flexDirection: "row",
-            alignItems: "flex-start",
-            gap: 12,
-            minHeight: tokens.touchTarget.min,
-            paddingVertical: 12,
-            borderTopWidth: i === 0 ? 0 : 1,
-            borderTopColor: tokens.color.border,
-          }}
-        >
-          <Icon name={r.icon} size={24} color={tokens.color.textMuted} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <T>{r.title}</T>
-            {r.note ? (
-              <T variant="sub" muted>
-                {r.note}
-              </T>
+      {rows.map((r, i) => {
+        const style = {
+          flexDirection: "row" as const,
+          alignItems: r.onPress ? ("center" as const) : ("flex-start" as const),
+          gap: 12,
+          minHeight: tokens.touchTarget.min,
+          paddingVertical: 12,
+          borderTopWidth: i === 0 ? 0 : 1,
+          borderTopColor: tokens.color.border,
+        };
+        const body = (
+          <>
+            <View style={r.onPress ? { alignSelf: "flex-start" } : undefined}>
+              <Icon name={r.icon} size={24} color={tokens.color.textMuted} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T>{r.title}</T>
+              {r.note ?? null}
+            </View>
+            {r.onPress ? (
+              <Icon name="chevron" size={16} color={tokens.color.textMuted} />
             ) : null}
+          </>
+        );
+        // 줄 전체가 누르는 영역(68, 48 이상). 화면 읽기는 링크 하나로 '37명이 예약했어요 이미 예약했어요 · 내 예약 보기'를 읽는다
+        return r.onPress ? (
+          <Pressable
+            key={r.icon}
+            testID="product-trust-row"
+            accessibilityRole="link"
+            onPress={r.onPress}
+            style={style}
+          >
+            {body}
+          </Pressable>
+        ) : (
+          <View key={r.icon} testID="product-trust-row" style={style}>
+            {body}
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }

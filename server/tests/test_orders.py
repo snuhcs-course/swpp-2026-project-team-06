@@ -613,6 +613,52 @@ def test_AC_10_6_lists_filters_and_order_actions(client, login):
     assert canceled.json()["status"] == "REFUNDED"
 
 
+def test_DEV_379_list_orders_filters_by_product(client, login):
+    """상품 상세 '이미 예약했어요'(SCR-04, DEV-379).
+
+    productId를 주면 내 주문 중 그 상품 것만, 응답 모양은 같다.
+    """
+    consumer = login("u-minji")
+    every = client.get("/api/orders", headers=consumer).json()["items"]
+    assert {o["productId"] for o in every} >= {"p-house", "p-redhyang", "p-noji"}
+
+    house = client.get("/api/orders", headers=consumer, params={"productId": "p-house"}).json()
+    assert [o["orderId"] for o in house["items"]] == ["o-42"]
+    assert house["items"][0] == next(o for o in every if o["orderId"] == "o-42")
+    # 다른 소비자의 같은 상품 주문(o-38 등)은 섞이지 않는다
+    assert all(o["productId"] == "p-house" for o in house["items"])
+
+    refunded = client.get(
+        "/api/orders", headers=consumer, params={"productId": "p-redhyang"}
+    ).json()["items"]
+    assert [(o["orderId"], o["status"]) for o in refunded] == [("o-03", "REFUNDED")]
+
+    # 빈 값이면 거르지 않는다(전체 목록)
+    blank = client.get("/api/orders", headers=consumer, params={"productId": ""}).json()["items"]
+    assert [o["orderId"] for o in blank] == [o["orderId"] for o in every]
+
+    none = client.get("/api/orders", headers=consumer, params={"productId": "p-none"}).json()
+    assert none == {"items": [], "nextCursor": None}
+
+    # 같은 상품 두 번째 주문(입금 대기)까지 페이지를 넘겨도 그 상품 것만 온다
+    second = client.post("/api/orders", headers=consumer | key(), json=order_body()).json()
+    assert deposit(client, consumer, second["orderId"]).status_code == 200
+    first_page = client.get(
+        "/api/orders", headers=consumer, params={"productId": "p-house", "limit": 1}
+    ).json()
+    assert len(first_page["items"]) == 1 and first_page["nextCursor"]
+    next_page = client.get(
+        "/api/orders",
+        headers=consumer,
+        params={"productId": "p-house", "limit": 1, "cursor": first_page["nextCursor"]},
+    ).json()
+    assert {o["orderId"] for o in first_page["items"] + next_page["items"]} == {
+        "o-42",
+        second["orderId"],
+    }
+    assert next_page["nextCursor"] is None
+
+
 def test_other_consumers_order_is_not_found(client, login):
     response = client.get("/api/orders/o-42", headers=login("u-seojun"))
 
