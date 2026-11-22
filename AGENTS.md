@@ -14,6 +14,7 @@
 - 기능 작업 전 `docs/spec/README.md`의 순서대로 읽는다: `prd.md` → `functional/FEAT-xx-*.md` → `functional/rules.md` → `ia.md` → 작업 폴더 `spec.md`·이슈 파일 `tasks/<이슈 키>.md`.
 - 동작·규칙을 바꾸는 PR은 같은 PR에서 `docs/spec/`과 `docs/wiki/` 영문 요약을 함께 고친다.
 - 화면 모양·문구가 바뀌면 같은 PR에서 Figma v6도 고친다. 못 하면 PR에 후속 이슈를 적는다(PR 본문 `Figma:` 줄, CI `figma-line`이 검사). 관리자 웹(`scripts/admin-web`)도 Figma v6 '현재 시안 · 관리자' 페이지가 기준이다.
+- 화면 모양·문구가 바뀌는 일은 디자인 제안 보드(`docs/design/proposals/`) → 승인 → 개발 순서로 한다. 바뀌기 전·후 캡처를 브랜치에 커밋해 PR 본문과 Linear에 붙인다.
 - 문서끼리 다르거나 스펙에 없으면 추측해 구현하지 않는다. PR·이슈에 질문으로 남긴다.
 - 커밋·PR에 FEAT·규칙 ID를 적고, 테스트 이름에 AC ID를 넣는다(예: `test_AC_09_1_...`).
 
