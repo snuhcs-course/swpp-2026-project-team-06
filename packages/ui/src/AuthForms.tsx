@@ -4,9 +4,10 @@
 // 필수 칸 규칙(PM 11/18): 버튼은 늘 켜 두고, 누르면 첫 오류 칸으로 스크롤해 그 칸들만 빨갛게 보인다. 누르기 전에는 빨갛지 않다.
 import { FORGOT_PASSWORD_TEXT, INVALID_LOGIN_TEXT, PASSWORD_RULE, passwordError } from "@farmclub/api";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { Button } from "./Button";
+import { Icon } from "./Icon";
 import { Input } from "./Input";
 import { T } from "./Text";
 import { tokens } from "./tokens";
@@ -105,17 +106,26 @@ export function PasswordLoginForm({
   size = "consumer",
   onLogin,
   disabled,
+  onErrorChange,
 }: {
   size?: Size;
   /** 서버 로그인. 실패하면 ApiError를 던진다 */
   onLogin: (username: string, password: string) => Promise<void>;
   disabled?: boolean;
+  /** 로그인 실패 문구가 보이는지 알린다(접기 막기, DEV-378) */
+  onErrorChange?: (shown: boolean) => void;
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const errors = useFieldErrors(LOGIN_ORDER);
+  const shown = !!failed;
+  useEffect(() => {
+    onErrorChange?.(shown);
+    // 문구가 보이고 사라질 때만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown]);
 
   async function submit() {
     if (busy || disabled) return;
@@ -180,6 +190,104 @@ export function PasswordLoginForm({
       {/* ‘로그인하기’: 테스트 계정 바(‘○○ 로그인’, e2e는 /로그인$/로 찾음)와 이름이 겹치지 않게 */}
       <Button label="로그인하기" size={size} loading={busy} onPress={() => void submit()} />
       <ForgotPasswordNote />
+    </View>
+  );
+}
+
+/** 로그인 화면의 아이디 로그인 칸(DEV-378). 카카오가 켜져 있으면(`collapsible`) ‘아이디로 로그인 ⌄’ 글자 하나로 접어 두고,
+ *  누르면 PasswordLoginForm을 그대로 펼친다(다시 누르면 접힘, ⌃). 접어도 칸을 지우지 않고 숨기기만 해 적은 아이디가 남는다.
+ *  로그인 실패 문구가 보이는 동안은 접지 않는다(오류가 숨지 않게, 문구 표시 여부는 폼의 onErrorChange로 받는다). `footer`면 사업자 정보 칸 바로 위에 붙는 간격을 쓴다 */
+export function IdLoginSection({
+  collapsible,
+  defaultOpen,
+  placement = "flow",
+  size = "consumer",
+  onLogin,
+  disabled,
+  style,
+}: {
+  /** false면 지금처럼 칸만 펼친다(카카오 꺼짐·설정 못 읽음) */
+  collapsible: boolean;
+  /** 처음부터 펼침(웹 `/login?id=1`) */
+  defaultOpen?: boolean;
+  /** footer: 사업자 정보 칸 바로 위(접힘 8, 펼침 24 아래 간격) · flow: 본문 안(테스트 계정 목록 위) */
+  placement?: "footer" | "flow";
+  size?: Size;
+  onLogin: (username: string, password: string) => Promise<void>;
+  disabled?: boolean;
+  style?: object;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  // 폼이 로그인 실패 문구를 보이는 중이다(폼이 알려 준다). 문구가 사라지면 다시 접을 수 있다
+  const [errorShown, setErrorShown] = useState(false);
+  const form = useRef<View>(null);
+  const shown = !collapsible || open;
+  const locked = open && errorShown;
+
+  function toggle() {
+    if (locked) return;
+    const next = !open;
+    if (next) {
+      // 웹: iOS Safari는 누른 그 순간(사용자 동작 안)에 포커스해야 키보드가 뜬다. 숨긴 칸을 먼저 보이게 하고 바로 포커스한다.
+      // 다음 렌더도 display: flex라 결과가 같다. 앱(네이티브)에는 querySelector가 없어 건너뛴다
+      const el = form.current as unknown as {
+        style?: { display?: string };
+        querySelector?: (s: string) => { focus?: (o?: object) => void } | null;
+        scrollIntoView?: (o: object) => void;
+      } | null;
+      if (el?.querySelector && el.style) {
+        el.style.display = "flex";
+        el.querySelector("input")?.focus?.({ preventScroll: true });
+      }
+      requestAnimationFrame(() => el?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }));
+    }
+    setOpen(next);
+  }
+
+  const color = open ? tokens.color.text : tokens.color.textMuted;
+  return (
+    <View
+      testID="password-login-section"
+      style={[placement === "footer" && collapsible ? { paddingBottom: shown ? tokens.space.lg : tokens.space.sm } : null, style]}
+    >
+      {collapsible ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="아이디로 로그인"
+          aria-expanded={open}
+          // 오류 문구가 보이는 동안은 접지 않는다. 막힌 것이 보이게 흐리게 한다
+          disabled={locked}
+          testID="id-login-toggle"
+          onPress={toggle}
+          style={{
+            minHeight: tokens.touchTarget.min,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: tokens.space.xs,
+            opacity: locked ? 0.4 : 1,
+          }}
+        >
+          <T
+            variant="body"
+            weight={open ? "semibold" : "regular"}
+            color={color}
+            style={{ textDecorationLine: "underline", textDecorationColor: "#B8B8B4" } as object}
+          >
+            아이디로 로그인
+          </T>
+          <View style={open ? { transform: [{ rotate: "180deg" }] } : undefined}>
+            <Icon name="chevronDown" size={16} color={color} strokeWidth={2} />
+          </View>
+        </Pressable>
+      ) : null}
+      <View
+        ref={form}
+        testID="password-login-body"
+        style={{ display: shown ? "flex" : "none", paddingTop: collapsible ? tokens.space.sm : 0 }}
+      >
+        <PasswordLoginForm size={size} onLogin={onLogin} disabled={disabled} onErrorChange={setErrorShown} />
+      </View>
     </View>
   );
 }

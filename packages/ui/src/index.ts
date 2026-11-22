@@ -141,8 +141,10 @@ export { sourceModuleIcon } from "./ModuleStory";
 export {
   ErrorScroll,
   ForgotPasswordNote,
+  IdLoginSection,
   PasswordChangeForm,
   PasswordLoginForm,
   loginErrorText,
   useFieldErrors,
 } from "./AuthForms";
+export { LOGIN_CONFIG_TIMEOUT_MS, withTimeout } from "./timeout";
