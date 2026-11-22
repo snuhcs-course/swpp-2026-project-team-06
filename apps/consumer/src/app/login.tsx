@@ -17,6 +17,7 @@ import {
   safe,
   tokens,
   useAsync,
+  withTimeout,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -61,7 +62,8 @@ export default function Login() {
     [],
   );
   // 카카오 로그인 사용 여부(ADR 0003). 꺼져 있으면 버튼을 숨긴다
-  const kakao = useAsync(() => auth.kakaoConfig(), []);
+  // 설정 조회가 5초를 넘으면 "설정 못 읽음"과 같게 아이디 칸을 펼친 채 그린다(DEV-378, 응답이 멈춰 빈 화면이 남지 않게)
+  const kakao = useAsync(() => withTimeout(auth.kakaoConfig()), []);
   const data = consumerOnly(all);
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

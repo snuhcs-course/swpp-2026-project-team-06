@@ -15,6 +15,7 @@ import {
   safe,
   tokens,
   useAsync,
+  withTimeout,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -66,7 +67,8 @@ export default function Login() {
       : Promise.resolve([]),
     [],
   );
-  const kakao = useAsync(() => auth.kakaoConfig(), []);
+  // 설정 조회가 5초를 넘으면 "설정 못 읽음"과 같게 아이디 칸을 펼친 채 그린다(DEV-378, 응답이 멈춰 빈 화면이 남지 않게)
+  const kakao = useAsync(() => withTimeout(auth.kakaoConfig()), []);
   const kakaoOn = !!kakao.data?.enabled;
   const showTest = testLoginAvailable &&
     (isMock || !!kakao.error || (!!kakao.data && !kakaoOn));
