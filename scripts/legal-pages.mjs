@@ -92,7 +92,7 @@ b{font-weight:700}
 .ask{background:#f5f5f3;border:1px solid #e8e8e6;border-radius:12px;padding:12px 16px;margin:16px 0}
 .ask dt{font-size:15px;color:#6b6b6b}
 .ask dd{margin:0;font-weight:700;overflow-wrap:anywhere}
-.ask dd.empty{font-weight:400}
+.ask div+div{margin-top:8px}
 .btn{display:flex;align-items:center;justify-content:center;height:52px;border:1px solid #111;border-radius:12px;color:#111;font-weight:700;text-decoration:none;margin:16px 0 0}
 main a{color:#111}
 `;
@@ -152,7 +152,11 @@ export function accountDeletionHtml(role) {
 <a class="btn" href="${esc(d.login.href)}">${esc(d.login.label)}</a></section>
 <section><h2>${esc(d.noLoginTitle)}</h2>
 <p>${esc(d.noLogin)}</p>
-<dl class="ask"><dt>${esc(d.email.label)}</dt><dd${d.email.filled ? "" : ' class="empty"'}>${esc(d.email.value)}</dd></dl></section>
+${
+  d.contacts.length
+    ? `<dl class="ask">${d.contacts.map(([l, v]) => `<div><dt>${esc(l)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`
+    : `<p class="ask empty">${esc(d.notRegistered)}</p>`
+}</section>
 <section><h2>${esc(d.removedTitle)}</h2>
 <ul>${d.removed.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></section>
 <section><h2>${esc(d.keptTitle)}</h2>

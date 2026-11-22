@@ -74,14 +74,24 @@ const OPERATOR = business.name ? `${business.name}(farmclub 운영자)` : "farmc
 /** 사업자 정보를 넣기 전(로컬·Mock·값 없는 배포)에 사업자 정보 자리에 보이는 글 */
 export const TEST_SERVICE = "farmclub · 테스트 서비스";
 
-/** 처리방침 제11조의 개인정보 보호책임자·연락처 줄 */
+/** 연락처가 하나도 없을 때(처리방침 제12조·계정 삭제 안내) */
+export const CONTACT_NOT_REGISTERED = "테스트 서비스 기간이라 아직 등록 전입니다.";
+
+/** 개인정보 보호책임자·이메일·연락처 중 값 있는 것만 [이름, 값]으로. 처리방침 제12조와 계정 삭제 안내(DEV-423)가 같이 쓴다 */
+export function officerContacts(info: BusinessInfo = business): [string, string][] {
+  return (
+    [
+      ["개인정보 보호책임자", info.privacyOfficer],
+      ["이메일", info.email],
+      ["연락처", info.phone],
+    ] as [string, string | undefined][]
+  ).flatMap(([label, value]) => (value ? [[label, value] as [string, string]] : []));
+}
+
+/** 처리방침 제12조의 개인정보 보호책임자·연락처 줄 */
 export function officerLines(info: BusinessInfo = business): string[] {
-  const lines = [
-    info.privacyOfficer && `개인정보 보호책임자 ${info.privacyOfficer}`,
-    info.email && `이메일 ${info.email}`,
-    info.phone && `연락처 ${info.phone}`,
-  ].filter((l): l is string => !!l);
-  return lines.length ? lines : ["테스트 서비스 기간이라 아직 등록 전입니다."];
+  const lines = officerContacts(info).map(([label, value]) => `${label} ${value}`);
+  return lines.length ? lines : [CONTACT_NOT_REGISTERED];
 }
 
 /** 공정거래위원회 사업자정보 공개 페이지. 사업자등록번호가 있을 때만 */
@@ -125,7 +135,8 @@ const TERMS_EFFECTIVE = "2026년 11월 13일";
 /** 2026년 11월 17일 변경분(입금자명, DEV-342)의 시행일: 배포일 바로(PM 11/17, 실제 소비자 이용자가 아직 없어 사전 공지 기간을 두지 않음) */
 const DEPOSIT_CODE_EFFECTIVE = "2026년 11월 17일";
 
-/** 처리방침 제3조 표에서 탈퇴 뒤에도 남는 행([정보, 보유 기간, 근거]). 처리방침 표와 계정 삭제 안내(DEV-423)가 같은 배열을 쓴다 */
+/** 처리방침 제3조 표에서 탈퇴 뒤에도 남는 행([정보, 보유 기간, 근거]). 처리방침 표와 계정 삭제 안내(DEV-423)가 같은 배열을 쓴다.
+ * 처리방침 본문이다: 바꾸면 처리방침 시행일과 제14조 변경 이력도 고친다(안내에서만 다르게 쓸 말은 RETAINED_PERIOD_SHORT로). test-legal.mjs가 글자를 고정해 확인한다 */
 export const RETAINED_AFTER_WITHDRAW: [string, string, string][] = [
   ["계약 또는 청약철회 등에 관한 기록", "5년", "전자상거래 등에서의 소비자보호에 관한 법률"],
   ["대금결제 및 재화 등의 공급에 관한 기록", "5년", "전자상거래 등에서의 소비자보호에 관한 법률"],
@@ -663,7 +674,9 @@ export type AccountDeletionPage = {
   login: { label: string; href: string };
   noLoginTitle: string;
   noLogin: string;
-  email: { label: string; value: string; filled: boolean };
+  /** 요청받을 연락처(처리방침 제12조와 같은 규칙). 하나도 없으면 빈 배열이고 notRegistered를 보인다 */
+  contacts: [string, string][];
+  notRegistered: string;
   removedTitle: string;
   removed: string[];
   keptTitle: string;
@@ -694,6 +707,9 @@ export function accountDeletionPage(role: AppRole, info: BusinessInfo = business
   const appName = consumer ? "farmclub" : "farmclub 농가";
   const web = consumer ? "farmclub.kr" : "farm.farmclub.kr";
   const developer = info.name ?? "farmclub 운영자";
+  const contacts = officerContacts(info);
+  // 이메일이 있으면 승인 문구 그대로 '이메일로', 없으면 보이는 연락처를 가리킨다
+  const via = info.email ? "이메일" : "연락처";
   return {
     appName,
     title: "계정 삭제 안내",
@@ -709,22 +725,30 @@ export function accountDeletionPage(role: AppRole, info: BusinessInfo = business
         ]
       : [
           [`${appName} 앱이나 웹 ${web}에서 로그인해요.`],
-          ["아래 탭 ", { b: "‘설정’" }, "을 눌러요. 가입 신청을 확인하는 중이면 신청 확인 화면 맨 아래에 있어요."],
+          [
+            "아래 탭 ",
+            { b: "‘설정’" },
+            "을 눌러요(가입 신청 확인 중이거나 반려됐으면 신청 확인 화면 맨 아래 ",
+            { b: "‘회원 탈퇴’" },
+            "를 누르고 4단계로).",
+          ],
           [{ b: "‘계정’" }, " 목록 맨 아래 ", { b: "‘회원 탈퇴’" }, "를 눌러요."],
           ["안내를 읽고 ", { b: "‘다음’" }, ", ", { b: "‘탈퇴할게요’" }, "를 차례로 눌러요."],
         ],
     // 소비자 로그인은 next를 받아 로그인 뒤 ‘내 정보’로 간다(login.tsx). 생산자 로그인은 next가 없어 로그인 뒤 홈
     login: { label: "로그인하기", href: consumer ? "/login?next=/me" : "/login" },
     noLoginTitle: "로그인할 수 없을 때",
-    noLogin:
-      "카카오나 아이디로 로그인할 수 없으면 이메일로 삭제를 요청해 주세요. 받은 날부터 10일 안에 처리 결과를 알려 드려요.",
-    email: info.email
-      ? { label: "이메일", value: info.email, filled: true }
-      : { label: "이메일", value: "테스트 서비스 기간이라 아직 등록 전입니다.", filled: false },
+    noLogin: `카카오나 아이디로 로그인할 수 없으면 ${via}로 삭제를 요청해 주세요. 받은 날부터 10일 안에 처리 결과를 알려 드려요.`,
+    contacts,
+    notRegistered: CONTACT_NOT_REGISTERED,
     removedTitle: "바로 지우는 정보",
     removed: WITHDRAW_REMOVED[role],
     keptTitle: "보관하는 정보와 기간",
-    kept: `법으로 보관해야 하는 거래 기록·주문 문의·동의 기록만 회원과 분리해 보관하고, 기간이 지나면 파기해요. ${consumer ? "농가" : "소비자"}에게는 ‘탈퇴한 회원’으로 보여요.`,
+    // 소비자가 탈퇴하면 농가 화면에 '탈퇴한 회원'(accounts.public_name). 생산자가 탈퇴하면 농가는 이름을 둔 채 숨김(SUSPENDED)이라
+    // 소비자의 지난 주문에는 농가 이름이 남고, 농가 페이지·소식방·채팅은 소비자 화면에서 빠진다
+    kept: `거래 기록·주문 문의·동의 기록 등 아래 표의 정보만 회원과 분리해 보관하고, 기간이 지나면 파기해요. ${
+      consumer ? "농가에게는 ‘탈퇴한 회원’으로 보여요." : "소비자의 지난 주문에는 농가 이름이 그대로 남아요."
+    }`,
     retainedHead: ["정보", "보관 기간"],
     retained: retainedAfterWithdraw(),
     retainedNote: [
@@ -739,8 +763,8 @@ export function accountDeletionPage(role: AppRole, info: BusinessInfo = business
     ],
     partialTitle: "계정은 두고 일부만 지우기",
     partial: consumer
-      ? "닉네임·이름·휴대폰 번호는 ‘내 정보’에서 고칠 수 있고, 저장한 배송지는 지울 수 있어요. 그 밖의 정보는 위 이메일로 삭제를 요청해 주세요."
-      : "농가 사진과 소개는 ‘설정’의 ‘농가 프로필·공유 링크’에서 고칠 수 있어요. 그 밖의 정보는 위 이메일로 삭제를 요청해 주세요.",
+      ? `닉네임·이름·휴대폰 번호는 ‘내 정보’에서 고칠 수 있고, 저장한 배송지는 지울 수 있어요. 그 밖의 정보는 위 ${via}로 삭제를 요청해 주세요.`
+      : `농가 사진과 소개는 ‘설정’의 ‘농가 프로필·공유 링크’에서 고칠 수 있어요. 그 밖의 정보는 위 ${via}로 삭제를 요청해 주세요.`,
   };
 }
 

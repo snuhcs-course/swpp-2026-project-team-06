@@ -238,10 +238,14 @@ test("DEV-423 AC-01-36: consumer account deletion page names the app, developer,
   // 결정 (c): 테두리 '로그인하기', 소비자는 로그인 뒤 바로 ‘내 정보’
   assert.ok(html.includes('<a class="btn" href="/login?next=/me">로그인하기</a>'));
   assert.ok(html.includes("받은 날부터 10일 안에 처리 결과를 알려 드려요."));
-  assert.ok(html.includes('<dl class="ask"><dt>이메일</dt><dd>help@example.com</dd></dl>'));
+  // 연락처는 처리방침 제12조와 같은 규칙(값 있는 것만). 이 테스트는 이메일만 있다
+  assert.ok(html.includes('<dl class="ask"><div><dt>이메일</dt><dd>help@example.com</dd></div></dl>'));
+  assert.ok(html.includes("로그인할 수 없으면 이메일로 삭제를 요청해 주세요."));
   // 본인 확인 방법은 처리방침에 없어 적지 않는다(승인 때 결정)
   assert.doesNotMatch(html, /휴대폰 번호를 함께 적어/);
   for (const line of content.WITHDRAW_REMOVED.CONSUMER) assert.ok(html.includes(`<li>${line}</li>`), line);
+  // 아래 표에 접속 기록·PostHog·오류 기록도 있어 '거래 기록·주문 문의·동의 기록만'이라 하지 않는다
+  assert.ok(html.includes("거래 기록·주문 문의·동의 기록 등 아래 표의 정보만 회원과 분리해 보관하고"));
   assert.ok(html.includes("농가에게는 ‘탈퇴한 회원’으로 보여요."));
   assert.ok(html.includes("<li>입금 대기·예약·출하 준비·배송 중인 주문이 있으면 그 주문이 끝난 뒤 탈퇴할 수 있어요.</li>"));
   assert.ok(html.includes('근거는 <a href="/privacy">개인정보 처리방침</a> 제3조에 있어요.'));
@@ -259,13 +263,16 @@ test("DEV-423 AC-01-36: producer account deletion page uses the producer app nam
   assert.ok(html.includes("farmclub 농가 앱 · 개발자 테스트상호 &lt;b&gt;"));
   assert.ok(html.includes("웹(farm.farmclub.kr)"));
   for (const name of ["‘설정’", "‘계정’", "‘회원 탈퇴’", "‘다음’", "‘탈퇴할게요’"]) assert.ok(html.includes(`<b>${name}</b>`), name);
-  assert.ok(html.includes("가입 신청을 확인하는 중이면 신청 확인 화면 맨 아래에 있어요."));
+  // 승인 전·반려는 '설정' 탭이 없어 신청 확인 화면 맨 아래 '회원 탈퇴'에서 4단계로 바로 간다
+  assert.ok(html.includes("을 눌러요(가입 신청 확인 중이거나 반려됐으면 신청 확인 화면 맨 아래 <b>‘회원 탈퇴’</b>를 누르고 4단계로).</span></li>"));
   // 생산자 로그인은 next를 받지 않는다
   assert.ok(html.includes('<a class="btn" href="/login">로그인하기</a>'));
   assert.doesNotMatch(html, /‘내 정보’/);
   assert.doesNotMatch(html, /‘환경설정’/);
   for (const line of content.WITHDRAW_REMOVED.PRODUCER) assert.ok(html.includes(`<li>${line}</li>`), line);
-  assert.ok(html.includes("소비자에게는 ‘탈퇴한 회원’으로 보여요."));
+  // 생산자 탈퇴는 농가를 이름을 둔 채 숨긴다(SUSPENDED). 소비자에게 '탈퇴한 회원'으로 보이지 않는다
+  assert.ok(html.includes("소비자의 지난 주문에는 농가 이름이 그대로 남아요."));
+  assert.doesNotMatch(html, /탈퇴한 회원/);
   // 생산자는 자기 주문이 아니라 농가 상품의 주문이 막는다(server accounts/service.py)
   assert.ok(html.includes("<li>농가 상품에 입금 대기·예약·출하 준비·배송 중인 주문이 있으면"));
   assert.ok(html.includes("‘설정’의 ‘농가 프로필·공유 링크’에서 고칠 수 있어요."));
@@ -274,11 +281,31 @@ test("DEV-423 AC-01-36: producer account deletion page uses the producer app nam
 test("DEV-423 AC-01-36: blank business values fall back to the operator name and the privacy policy's not-yet-registered line", () => {
   const page = content.accountDeletionPage("CONSUMER", {});
   assert.equal(page.byline, "farmclub 앱 · 개발자 farmclub 운영자");
-  assert.deepEqual(page.email, { label: "이메일", value: content.officerLines({})[0], filled: false });
+  assert.deepEqual(page.contacts, []);
+  assert.equal(page.notRegistered, content.officerLines({})[0]);
+  // 이메일이 없어도 처리방침 제12조처럼 연락처·책임자가 있으면 그것을 보이고, 문장은 '연락처로'
+  const phoneOnly = { phone: "010-0000-0000", privacyOfficer: "담당자" };
+  const byPhone = content.accountDeletionPage("CONSUMER", phoneOnly);
+  assert.deepEqual(byPhone.contacts.map(([l, v]) => `${l} ${v}`), content.officerLines(phoneOnly));
+  assert.match(byPhone.noLogin, /연락처로 삭제를 요청해 주세요/);
+  assert.match(byPhone.partial, /위 연락처로 삭제를 요청해 주세요/);
   assert.equal(content.accountDeletionPage("PRODUCER", {}).byline, "farmclub 농가 앱 · 개발자 farmclub 운영자");
 });
 
 test("DEV-423 AC-01-36: kept rows are the privacy policy Art. 3 rows that outlive withdrawal", () => {
+  // 처리방침 본문이라 글자를 고정한다. 안내용으로 고치면 처리방침 제3조가 조용히 바뀌므로 여기서 걸린다
+  // (바꿔야 하면 처리방침 시행일·제14조 변경 이력과 함께 이 값도 고친다)
+  const law = "전자상거래 등에서의 소비자보호에 관한 법률";
+  assert.deepEqual(content.RETAINED_AFTER_WITHDRAW, [
+    ["계약 또는 청약철회 등에 관한 기록", "5년", law],
+    ["대금결제 및 재화 등의 공급에 관한 기록", "5년", law],
+    ["소비자의 불만 또는 분쟁처리에 관한 기록", "3년", law],
+    ["표시·광고에 관한 기록", "6개월", law],
+    ["가입·결제 전 동의 기록", "위 거래 기록과 같은 기간", "동의 증빙"],
+    ["서비스 접속 기록", "3개월", "통신비밀보호법"],
+    ["이용 통계·세션 녹화(PostHog)", "제6조 표의 PostHog 보유·이용 기간", "서비스 개선"],
+    ["오류 기록", "각 도구의 보관 설정 기간이 지나면 삭제", "서비스 개선"],
+  ]);
   const art3 = content.privacyPolicy.sections.find((s) => s.title.startsWith("제3조")).body.find((b) => typeof b === "object" && "table" in b).table.rows;
   // 처리방침 표의 마지막 8행이 같은 배열이다(처리방침 본문은 그대로)
   assert.deepEqual(art3.slice(-content.RETAINED_AFTER_WITHDRAW.length), content.RETAINED_AFTER_WITHDRAW);
