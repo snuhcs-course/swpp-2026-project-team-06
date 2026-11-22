@@ -37,6 +37,35 @@ for (const [app, { id, scheme, host }] of Object.entries(APPS)) {
     assert.equal(new Set(expo.ios.associatedDomains).size, expo.ios.associatedDomains.length, "associatedDomains 중복 없음");
   });
 
+  // DEV-435: 스토어 심사 전 네이티브 설정. iPad 미지원(PM 11/22), 쓰지 않는 Android 권한은 막고 쓰는 기능의 권한은 남긴다.
+  test(`DEV-435 ${app} app.json: iPad 끔, 쓰지 않는 Android 권한만 막음`, () => {
+    const { expo } = json(`apps/${app}/app.json`);
+    assert.equal(expo.ios.supportsTablet, false, "iPad 미지원(TARGETED_DEVICE_FAMILY 1)");
+    assert.equal(expo.orientation, "portrait");
+    // 끌어온 곳: SYSTEM_ALERT_WINDOW·VIBRATE는 Expo prebuild 템플릿, USE_BIOMETRIC·USE_FINGERPRINT는 expo-secure-store의 androidx.biometric.
+    // 앱은 진동·다른 앱 위 그리기·생체 인증(requireAuthentication)을 쓰지 않는다. debug 빌드(dev client)의 SYSTEM_ALERT_WINDOW는 debug 매니페스트가 따로 둔다.
+    assert.deepEqual(expo.android.blockedPermissions, [
+      "android.permission.SYSTEM_ALERT_WINDOW",
+      "android.permission.VIBRATE",
+      "android.permission.USE_BIOMETRIC",
+      "android.permission.USE_FINGERPRINT",
+    ]);
+    // 쓰는 기능의 권한은 막지 않는다: 네트워크, expo-updates, 사진 선택(Android 12 이하 저장소), install referrer, androidx.core 수신기
+    for (const keep of [
+      "android.permission.INTERNET",
+      "android.permission.ACCESS_NETWORK_STATE",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE",
+    ])
+      assert.ok(!expo.android.blockedPermissions.includes(keep), `${keep}는 막지 않음`);
+    assert.equal(expo.android.permissions, undefined, "권한을 따로 더하지 않음");
+    // 카메라·마이크는 expo-image-picker 플러그인이 막는다(기존 값)
+    const picker = expo.plugins.find((p) => Array.isArray(p) && p[0] === "expo-image-picker")[1];
+    assert.equal(picker.cameraPermission, false);
+    assert.equal(picker.microphonePermission, false);
+  });
+
   test(`${app} eas.json: 프로필·채널·autoIncrement·서버 주소`, () => {
     const eas = json(`apps/${app}/eas.json`);
     assert.equal(eas.cli.appVersionSource, "remote");
