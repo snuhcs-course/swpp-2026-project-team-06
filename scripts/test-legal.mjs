@@ -223,8 +223,8 @@ test("DEV-363: privacy policy lists operator-made ID accounts and bumps the vers
   assert.equal(server, "2026-11-20");
 });
 
-// DEV-423 (AC-01-35): 로그인 없이 열리는 계정 삭제 안내(Google Play 계정 삭제 URL). 앱마다 한 장, 처리방침·탈퇴 시트와 같은 말
-test("DEV-423 AC-01-35: consumer account deletion page names the app, developer, steps, email and kept records", () => {
+// DEV-423 (AC-01-36): 로그인 없이 열리는 계정 삭제 안내(Google Play 계정 삭제 URL). 앱마다 한 장, 처리방침·탈퇴 시트와 같은 말
+test("DEV-423 AC-01-36: consumer account deletion page names the app, developer, steps, email and kept records", () => {
   const html = pages.accountDeletionHtml("CONSUMER");
   assert.ok(html.includes("<title>계정 삭제 안내 · farmclub</title>"));
   assert.ok(html.includes('<header><a href="/">farmclub</a></header>'));
@@ -252,7 +252,7 @@ test("DEV-423 AC-01-35: consumer account deletion page names the app, developer,
   assert.doesNotMatch(html, /<script/);
 });
 
-test("DEV-423 AC-01-35: producer account deletion page uses the producer app name, Settings steps and farm order rule", () => {
+test("DEV-423 AC-01-36: producer account deletion page uses the producer app name, Settings steps and farm order rule", () => {
   const html = pages.accountDeletionHtml("PRODUCER");
   assert.ok(html.includes("<title>계정 삭제 안내 · farmclub 농가</title>"));
   assert.ok(html.includes('<header><a href="/">farmclub 농가</a></header>'));
@@ -271,14 +271,14 @@ test("DEV-423 AC-01-35: producer account deletion page uses the producer app nam
   assert.ok(html.includes("‘설정’의 ‘농가 프로필·공유 링크’에서 고칠 수 있어요."));
 });
 
-test("DEV-423 AC-01-35: blank business values fall back to the operator name and the privacy policy's not-yet-registered line", () => {
+test("DEV-423 AC-01-36: blank business values fall back to the operator name and the privacy policy's not-yet-registered line", () => {
   const page = content.accountDeletionPage("CONSUMER", {});
   assert.equal(page.byline, "farmclub 앱 · 개발자 farmclub 운영자");
   assert.deepEqual(page.email, { label: "이메일", value: content.officerLines({})[0], filled: false });
   assert.equal(content.accountDeletionPage("PRODUCER", {}).byline, "farmclub 농가 앱 · 개발자 farmclub 운영자");
 });
 
-test("DEV-423 AC-01-35: kept rows are the privacy policy Art. 3 rows that outlive withdrawal", () => {
+test("DEV-423 AC-01-36: kept rows are the privacy policy Art. 3 rows that outlive withdrawal", () => {
   const art3 = content.privacyPolicy.sections.find((s) => s.title.startsWith("제3조")).body.find((b) => typeof b === "object" && "table" in b).table.rows;
   // 처리방침 표의 마지막 8행이 같은 배열이다(처리방침 본문은 그대로)
   assert.deepEqual(art3.slice(-content.RETAINED_AFTER_WITHDRAW.length), content.RETAINED_AFTER_WITHDRAW);
@@ -298,7 +298,7 @@ test("DEV-423 AC-01-35: kept rows are the privacy policy Art. 3 rows that outliv
   assert.ok(pages.pageHtml(content.termsOfService).includes('<a href="/account-deletion">계정 삭제</a>'));
 });
 
-test("DEV-423 AC-01-35: step names match the real screens and the app names match app.json", async () => {
+test("DEV-423 AC-01-36: step names match the real screens and the app names match app.json", async () => {
   const { readFile } = await import("node:fs/promises");
   const src = (p) => readFile(p, "utf8");
   const consumerMe = await src("apps/consumer/src/app/(tabs)/me/index.tsx");
