@@ -222,3 +222,101 @@ test("DEV-363: privacy policy lists operator-made ID accounts and bumps the vers
   const server = (await readFile("server/app/accounts/schemas.py", "utf8")).match(/^CONSENT_VERSION = "([^"]+)"/m)?.[1];
   assert.equal(server, "2026-11-20");
 });
+
+// DEV-423 (AC-01-35): 로그인 없이 열리는 계정 삭제 안내(Google Play 계정 삭제 URL). 앱마다 한 장, 처리방침·탈퇴 시트와 같은 말
+test("DEV-423 AC-01-35: consumer account deletion page names the app, developer, steps, email and kept records", () => {
+  const html = pages.accountDeletionHtml("CONSUMER");
+  assert.ok(html.includes("<title>계정 삭제 안내 · farmclub</title>"));
+  assert.ok(html.includes('<header><a href="/">farmclub</a></header>'));
+  assert.ok(html.includes("<h1>계정 삭제 안내</h1>"));
+  // 개발자 이름은 상호 빌드 변수(이스케이프)
+  assert.ok(html.includes('<p class="effective">farmclub 앱 · 개발자 테스트상호 &lt;b&gt;</p>'));
+  assert.ok(html.includes("앱과 웹(farmclub.kr)은 같은 계정이라"));
+  // 단계의 화면 이름은 실제 화면 글자(아래 소스 확인 test)
+  for (const name of ["‘내 정보’", "‘회원 탈퇴’", "‘다음’", "‘탈퇴할게요’"]) assert.ok(html.includes(`<b>${name}</b>`), name);
+  assert.equal(html.match(/<li><span>/g).length, 4);
+  // 결정 (c): 테두리 '로그인하기', 소비자는 로그인 뒤 바로 ‘내 정보’
+  assert.ok(html.includes('<a class="btn" href="/login?next=/me">로그인하기</a>'));
+  assert.ok(html.includes("받은 날부터 10일 안에 처리 결과를 알려 드려요."));
+  assert.ok(html.includes('<dl class="ask"><dt>이메일</dt><dd>help@example.com</dd></dl>'));
+  // 본인 확인 방법은 처리방침에 없어 적지 않는다(승인 때 결정)
+  assert.doesNotMatch(html, /휴대폰 번호를 함께 적어/);
+  for (const line of content.WITHDRAW_REMOVED.CONSUMER) assert.ok(html.includes(`<li>${line}</li>`), line);
+  assert.ok(html.includes("농가에게는 ‘탈퇴한 회원’으로 보여요."));
+  assert.ok(html.includes("<li>입금 대기·예약·출하 준비·배송 중인 주문이 있으면 그 주문이 끝난 뒤 탈퇴할 수 있어요.</li>"));
+  assert.ok(html.includes('근거는 <a href="/privacy">개인정보 처리방침</a> 제3조에 있어요.'));
+  assert.ok(html.includes("닉네임·이름·휴대폰 번호는 ‘내 정보’에서 고칠 수 있고"));
+  // 결정 (b): 하단 링크 줄에 '계정 삭제'. JS 없이 읽힌다
+  assert.ok(html.includes('<a href="/account-deletion">계정 삭제</a>'));
+  assert.ok(html.includes("<dt>호스팅서비스 제공자</dt><dd>Vercel Inc.</dd>"));
+  assert.doesNotMatch(html, /<script/);
+});
+
+test("DEV-423 AC-01-35: producer account deletion page uses the producer app name, Settings steps and farm order rule", () => {
+  const html = pages.accountDeletionHtml("PRODUCER");
+  assert.ok(html.includes("<title>계정 삭제 안내 · farmclub 농가</title>"));
+  assert.ok(html.includes('<header><a href="/">farmclub 농가</a></header>'));
+  assert.ok(html.includes("farmclub 농가 앱 · 개발자 테스트상호 &lt;b&gt;"));
+  assert.ok(html.includes("웹(farm.farmclub.kr)"));
+  for (const name of ["‘설정’", "‘계정’", "‘회원 탈퇴’", "‘다음’", "‘탈퇴할게요’"]) assert.ok(html.includes(`<b>${name}</b>`), name);
+  assert.ok(html.includes("가입 신청을 확인하는 중이면 신청 확인 화면 맨 아래에 있어요."));
+  // 생산자 로그인은 next를 받지 않는다
+  assert.ok(html.includes('<a class="btn" href="/login">로그인하기</a>'));
+  assert.doesNotMatch(html, /‘내 정보’/);
+  assert.doesNotMatch(html, /‘환경설정’/);
+  for (const line of content.WITHDRAW_REMOVED.PRODUCER) assert.ok(html.includes(`<li>${line}</li>`), line);
+  assert.ok(html.includes("소비자에게는 ‘탈퇴한 회원’으로 보여요."));
+  // 생산자는 자기 주문이 아니라 농가 상품의 주문이 막는다(server accounts/service.py)
+  assert.ok(html.includes("<li>농가 상품에 입금 대기·예약·출하 준비·배송 중인 주문이 있으면"));
+  assert.ok(html.includes("‘설정’의 ‘농가 프로필·공유 링크’에서 고칠 수 있어요."));
+});
+
+test("DEV-423 AC-01-35: blank business values fall back to the operator name and the privacy policy's not-yet-registered line", () => {
+  const page = content.accountDeletionPage("CONSUMER", {});
+  assert.equal(page.byline, "farmclub 앱 · 개발자 farmclub 운영자");
+  assert.deepEqual(page.email, { label: "이메일", value: content.officerLines({})[0], filled: false });
+  assert.equal(content.accountDeletionPage("PRODUCER", {}).byline, "farmclub 농가 앱 · 개발자 farmclub 운영자");
+});
+
+test("DEV-423 AC-01-35: kept rows are the privacy policy Art. 3 rows that outlive withdrawal", () => {
+  const art3 = content.privacyPolicy.sections.find((s) => s.title.startsWith("제3조")).body.find((b) => typeof b === "object" && "table" in b).table.rows;
+  // 처리방침 표의 마지막 8행이 같은 배열이다(처리방침 본문은 그대로)
+  assert.deepEqual(art3.slice(-content.RETAINED_AFTER_WITHDRAW.length), content.RETAINED_AFTER_WITHDRAW);
+  const rows = content.retainedAfterWithdraw();
+  assert.deepEqual(rows.map(([item]) => item), content.RETAINED_AFTER_WITHDRAW.map(([item]) => item));
+  assert.equal(rows.length, 8);
+  // 다른 조문을 가리키는 칸만 그 기간을 옮겨 적는다(PostHog는 제6조와 같은 7년·30일)
+  assert.deepEqual(rows.find(([item]) => item.includes("PostHog")), ["이용 통계·세션 녹화(PostHog)", "이용 기록 최대 7년, 세션 녹화 30일"]);
+  const privacy = pages.pageHtml(content.privacyPolicy);
+  assert.ok(privacy.includes("수집한 날부터 최대 7년, 세션 녹화는 녹화한 날부터 30일"));
+  for (const [item, period] of rows.filter(([item]) => !item.includes("PostHog") && item !== "오류 기록"))
+    assert.ok(privacy.includes(`<td>${item}</td><td>${period}</td>`), item);
+  const html = pages.accountDeletionHtml("CONSUMER");
+  for (const [item, period] of rows) assert.ok(html.includes(`<tr><td>${item}</td><td>${period}</td></tr>`), item);
+  // 처리방침·약관 하단에도 '계정 삭제' 링크
+  assert.ok(privacy.includes('<a href="/account-deletion">계정 삭제</a>'));
+  assert.ok(pages.pageHtml(content.termsOfService).includes('<a href="/account-deletion">계정 삭제</a>'));
+});
+
+test("DEV-423 AC-01-35: step names match the real screens and the app names match app.json", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const src = (p) => readFile(p, "utf8");
+  const consumerMe = await src("apps/consumer/src/app/(tabs)/me/index.tsx");
+  assert.ok(consumerMe.includes('label="회원 탈퇴"'));
+  assert.ok((await src("apps/consumer/src/app/(tabs)/_layout.tsx")).includes('label: "내 정보"'));
+  const sheet = await src("packages/ui/src/WithdrawSheet.tsx");
+  assert.ok(sheet.includes('label="다음"') && sheet.includes('label="탈퇴할게요"'));
+  assert.ok(sheet.includes("WITHDRAW_REMOVED"), "the sheet uses the same removed lines");
+  const settings = await src("apps/producer/src/app/(tabs)/settings.tsx");
+  for (const s of ['title="설정"', 'title="계정"', 'label="회원 탈퇴"', 'label="농가 프로필·공유 링크"']) assert.ok(settings.includes(s), s);
+  assert.ok((await src("apps/producer/src/app/(tabs)/_layout.tsx")).includes('label: "설정"'));
+  assert.ok((await src("apps/producer/src/app/pending.tsx")).includes('label="회원 탈퇴"'));
+  // 소비자 로그인은 next를 받아 그 화면으로 간다(로그인 버튼 /login?next=/me)
+  assert.ok((await src("apps/consumer/src/app/login.tsx")).includes("next.startsWith(\"/\")"));
+  for (const [app, role] of [["consumer", "CONSUMER"], ["producer", "PRODUCER"]]) {
+    const appJson = JSON.parse(await src(`apps/${app}/app.json`));
+    assert.equal(content.accountDeletionPage(role).appName, appJson.expo.name);
+    assert.equal(await pages.appRoleOf(`apps/${app}/dist`), role);
+  }
+  await assert.rejects(pages.appRoleOf("scripts/admin-web/dist"));
+});

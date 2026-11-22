@@ -125,6 +125,18 @@ const TERMS_EFFECTIVE = "2026년 11월 13일";
 /** 2026년 11월 17일 변경분(입금자명, DEV-342)의 시행일: 배포일 바로(PM 11/17, 실제 소비자 이용자가 아직 없어 사전 공지 기간을 두지 않음) */
 const DEPOSIT_CODE_EFFECTIVE = "2026년 11월 17일";
 
+/** 처리방침 제3조 표에서 탈퇴 뒤에도 남는 행([정보, 보유 기간, 근거]). 처리방침 표와 계정 삭제 안내(DEV-423)가 같은 배열을 쓴다 */
+export const RETAINED_AFTER_WITHDRAW: [string, string, string][] = [
+  ["계약 또는 청약철회 등에 관한 기록", "5년", "전자상거래 등에서의 소비자보호에 관한 법률"],
+  ["대금결제 및 재화 등의 공급에 관한 기록", "5년", "전자상거래 등에서의 소비자보호에 관한 법률"],
+  ["소비자의 불만 또는 분쟁처리에 관한 기록", "3년", "전자상거래 등에서의 소비자보호에 관한 법률"],
+  ["표시·광고에 관한 기록", "6개월", "전자상거래 등에서의 소비자보호에 관한 법률"],
+  ["가입·결제 전 동의 기록", "위 거래 기록과 같은 기간", "동의 증빙"],
+  ["서비스 접속 기록", "3개월", "통신비밀보호법"],
+  ["이용 통계·세션 녹화(PostHog)", "제6조 표의 PostHog 보유·이용 기간", "서비스 개선"],
+  ["오류 기록", "각 도구의 보관 설정 기간이 지나면 삭제", "서비스 개선"],
+];
+
 export const privacyPolicy: LegalDoc = {
   path: "/privacy",
   title: "개인정보 처리방침",
@@ -229,14 +241,7 @@ export const privacyPolicy: LegalDoc = {
               ["로그인 시도 기록(아이디를 알아볼 수 없게 바꾼 값과 실패 횟수)", "마지막 시도 후 1일이 지난 기록은 이후 로그인 시도 때 순차적으로 삭제합니다. 로그인 시도가 없으면 다음 정리 시점까지 보관합니다.", "부정 로그인 방지"],
               ["저장한 배송지", "삭제하거나 탈퇴할 때까지", "회원 계약"],
               ["소식·채팅·문의 내용과 사진", "회원 탈퇴 시까지", "회원 계약"],
-              ["계약 또는 청약철회 등에 관한 기록", "5년", "전자상거래 등에서의 소비자보호에 관한 법률"],
-              ["대금결제 및 재화 등의 공급에 관한 기록", "5년", "전자상거래 등에서의 소비자보호에 관한 법률"],
-              ["소비자의 불만 또는 분쟁처리에 관한 기록", "3년", "전자상거래 등에서의 소비자보호에 관한 법률"],
-              ["표시·광고에 관한 기록", "6개월", "전자상거래 등에서의 소비자보호에 관한 법률"],
-              ["가입·결제 전 동의 기록", "위 거래 기록과 같은 기간", "동의 증빙"],
-              ["서비스 접속 기록", "3개월", "통신비밀보호법"],
-              ["이용 통계·세션 녹화(PostHog)", "제6조 표의 PostHog 보유·이용 기간", "서비스 개선"],
-              ["오류 기록", "각 도구의 보관 설정 기간이 지나면 삭제", "서비스 개선"],
+              ...RETAINED_AFTER_WITHDRAW,
             ],
           },
         },
@@ -620,6 +625,124 @@ export const legalDocs: Record<LegalPath, LegalDoc> = {
   "/privacy": privacyPolicy,
   "/terms": termsOfService,
 };
+
+export type AppRole = "CONSUMER" | "PRODUCER";
+
+/** 탈퇴하면 바로 지우는 것. 회원 탈퇴 시트(WithdrawSheet)와 계정 삭제 안내(DEV-423)가 같이 쓴다 */
+export const WITHDRAW_REMOVED: Record<AppRole, string[]> = {
+  CONSUMER: [
+    "이름·닉네임·휴대폰 번호·이메일과 카카오 연결·아이디·비밀번호",
+    "저장한 배송지, 팔로우·좋아요",
+    "내가 쓴 채팅·소식 답장의 글과 사진(주문 문의는 제외)",
+  ],
+  PRODUCER: [
+    "대표자 이름·휴대폰 번호·이메일과 카카오 연결·아이디·비밀번호",
+    "농가의 입금 계좌·연락처",
+    "농가는 소비자 화면에서 사라져요",
+  ],
+};
+
+/** 회원 탈퇴 시트의 ‘남는 것’ 한 줄 */
+export const WITHDRAW_KEPT =
+  "법으로 보관해야 하는 주문·입금·환불 기록과 주문 문의, 약관 동의 기록은 정해진 기간 동안 따로 보관해요. 농가·소비자에게는 ‘탈퇴한 회원’으로 보여요.";
+
+/** 로그인 없이 열리는 계정 삭제 안내(DEV-423, Google Play 계정 삭제 URL). 정적 HTML만 있다(scripts/legal-pages.mjs) */
+export const ACCOUNT_DELETION_PATH = "/account-deletion";
+
+/** 글 조각: 문자열은 보통 글, b는 굵게(화면 이름), a는 링크 */
+export type RichText = (string | { b: string } | { a: string; href: string })[];
+
+export type AccountDeletionPage = {
+  /** 스토어에 보이는 앱 이름(앱 폴더 app.json의 expo.name, DEV-377) */
+  appName: string;
+  title: string;
+  byline: string;
+  lead: string;
+  stepsTitle: string;
+  steps: RichText[];
+  login: { label: string; href: string };
+  noLoginTitle: string;
+  noLogin: string;
+  email: { label: string; value: string; filled: boolean };
+  removedTitle: string;
+  removed: string[];
+  keptTitle: string;
+  kept: string;
+  retainedHead: [string, string];
+  retained: [string, string][];
+  retainedNote: RichText;
+  checkTitle: string;
+  checks: string[];
+  partialTitle: string;
+  partial: string;
+};
+
+/** 안내 표에서만 짧게 쓰는 보유 기간. 처리방침 표의 다른 조문을 가리키는 칸은 그 조문의 기간을 옮겨 적는다(제6조 PostHog 행) */
+const RETAINED_PERIOD_SHORT: Record<string, string> = {
+  "이용 통계·세션 녹화(PostHog)": "이용 기록 최대 7년, 세션 녹화 30일",
+  "오류 기록": "각 도구의 보관 설정 기간",
+};
+
+/** 탈퇴 뒤에도 남는 정보와 기간([정보, 보유 기간]). 행은 처리방침 제3조 표와 같다 */
+export function retainedAfterWithdraw(): [string, string][] {
+  return RETAINED_AFTER_WITHDRAW.map(([item, period]) => [item, RETAINED_PERIOD_SHORT[item] ?? period]);
+}
+
+/** 앱별 계정 삭제 안내 문안. 개발자 이름은 상호, 비면 'farmclub 운영자'. 이메일이 비면 처리방침과 같은 대체 문장 */
+export function accountDeletionPage(role: AppRole, info: BusinessInfo = business): AccountDeletionPage {
+  const consumer = role === "CONSUMER";
+  const appName = consumer ? "farmclub" : "farmclub 농가";
+  const web = consumer ? "farmclub.kr" : "farm.farmclub.kr";
+  const developer = info.name ?? "farmclub 운영자";
+  return {
+    appName,
+    title: "계정 삭제 안내",
+    byline: `${appName} 앱 · 개발자 ${developer}`,
+    lead: `${appName} 계정은 회원 탈퇴로 삭제해요. 앱과 웹(${web})은 같은 계정이라 어느 쪽에서 탈퇴해도 돼요.`,
+    stepsTitle: "탈퇴하는 방법",
+    steps: consumer
+      ? [
+          [`${appName} 앱이나 웹 ${web}에서 로그인해요.`],
+          ["아래 탭 ", { b: "‘내 정보’" }, "를 눌러요."],
+          ["목록 맨 아래 ", { b: "‘회원 탈퇴’" }, "를 눌러요."],
+          ["안내를 읽고 ", { b: "‘다음’" }, ", ", { b: "‘탈퇴할게요’" }, "를 차례로 눌러요."],
+        ]
+      : [
+          [`${appName} 앱이나 웹 ${web}에서 로그인해요.`],
+          ["아래 탭 ", { b: "‘설정’" }, "을 눌러요. 가입 신청을 확인하는 중이면 신청 확인 화면 맨 아래에 있어요."],
+          [{ b: "‘계정’" }, " 목록 맨 아래 ", { b: "‘회원 탈퇴’" }, "를 눌러요."],
+          ["안내를 읽고 ", { b: "‘다음’" }, ", ", { b: "‘탈퇴할게요’" }, "를 차례로 눌러요."],
+        ],
+    // 소비자 로그인은 next를 받아 로그인 뒤 ‘내 정보’로 간다(login.tsx). 생산자 로그인은 next가 없어 로그인 뒤 홈
+    login: { label: "로그인하기", href: consumer ? "/login?next=/me" : "/login" },
+    noLoginTitle: "로그인할 수 없을 때",
+    noLogin:
+      "카카오나 아이디로 로그인할 수 없으면 이메일로 삭제를 요청해 주세요. 받은 날부터 10일 안에 처리 결과를 알려 드려요.",
+    email: info.email
+      ? { label: "이메일", value: info.email, filled: true }
+      : { label: "이메일", value: "테스트 서비스 기간이라 아직 등록 전입니다.", filled: false },
+    removedTitle: "바로 지우는 정보",
+    removed: WITHDRAW_REMOVED[role],
+    keptTitle: "보관하는 정보와 기간",
+    kept: `법으로 보관해야 하는 거래 기록·주문 문의·동의 기록만 회원과 분리해 보관하고, 기간이 지나면 파기해요. ${consumer ? "농가" : "소비자"}에게는 ‘탈퇴한 회원’으로 보여요.`,
+    retainedHead: ["정보", "보관 기간"],
+    retained: retainedAfterWithdraw(),
+    retainedNote: [
+      "법령에서 보관하도록 정한 정보는 그 기간 동안 삭제를 요구할 수 없어요. 근거는 ",
+      { a: "개인정보 처리방침", href: "/privacy" },
+      " 제3조에 있어요.",
+    ],
+    checkTitle: "탈퇴 전에 확인할 것",
+    checks: [
+      `${consumer ? "" : "농가 상품에 "}입금 대기·예약·출하 준비·배송 중인 주문이 있으면 그 주문이 끝난 뒤 탈퇴할 수 있어요.`,
+      "탈퇴는 되돌릴 수 없어요. 같은 카카오로 다시 가입해도 지난 기록과 이어지지 않는 새 계정이에요.",
+    ],
+    partialTitle: "계정은 두고 일부만 지우기",
+    partial: consumer
+      ? "닉네임·이름·휴대폰 번호는 ‘내 정보’에서 고칠 수 있고, 저장한 배송지는 지울 수 있어요. 그 밖의 정보는 위 이메일로 삭제를 요청해 주세요."
+      : "농가 사진과 소개는 ‘설정’의 ‘농가 프로필·공유 링크’에서 고칠 수 있어요. 그 밖의 정보는 위 이메일로 삭제를 요청해 주세요.",
+  };
+}
 
 /** 원산지 표시제도 안내(DEV-121). 통신판매중개자는 판매자에게 원산지 표시제도를 알려야 한다
  * (원산지표시법 제6조 ⑥, 2026.10.22 시행). 알릴 내용은 시행령 제5조의2(1. 표시 대상·방법 2. 거짓 표시 금지·제재),
