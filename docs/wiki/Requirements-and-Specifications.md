@@ -212,6 +212,8 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **AND** the login screen then reads "Log in and continue your reservation" next to the approved combined logo (150 wide at 390); other sheets and a directly opened login keep their current wording
 
 **AC-01-22~33: ID/password login for operator-created accounts (DEV-363, PM decision 11/18)**
+
+Consumer My info identifies accounts with a username as “아이디 계정” (ID account), including seed accounts later provisioned with ID credentials. Without a username, seed accounts show “테스트 계정” and other accounts show “카카오 계정”. The role suffix and profile/password controls remain unchanged (DEV-440, AC-01-38).
 - Both apps add ID/password login next to Kakao; Kakao stays; DEV-367 later retires evaluator entry and limits seed selection to development/Mock. This reverses the earlier DEV-198 note that said we would not build ID/password login; OneStore review and UAT need a way in without Kakao.
 - **There is no public ID sign-up.** Everyday users sign up with Kakao. An operator creates ID accounts in the admin web ("ID accounts": app, ID, nickname, optional phone); the server generates a temporary password that the operator sees once. The same-day first design (in-app ID sign-up plus operator approval) was replaced by this.
 - **GIVEN** an operator-created account **WHEN** the user logs in with the temporary password **THEN** they must set a new password first, then accept the same required consents as Kakao sign-up (consumer onboarding incl. age 14+, producer terms screen); until then every other API is refused. Producers then continue to the existing farm application and approval.

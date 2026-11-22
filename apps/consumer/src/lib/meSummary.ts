@@ -9,6 +9,12 @@ type HeadingUser = {
   isTestAccount: boolean;
 };
 
+/** ID 발급 뒤에도 시드 테스트 분류는 유지될 수 있어 username을 먼저 본다. */
+export function accountLabel(user: { username?: string | null; isTestAccount: boolean }): string {
+  if (user.username) return "아이디 계정";
+  return user.isTestAccount ? "테스트 계정" : "카카오 계정";
+}
+
 /**
  * 머리 글. 닉네임이 없어도 실명으로 대신하지 않는다.
  * 닉네임 없는 카카오 계정은 서버·Mock이 늘 가입 전(`needsOnboarding`)으로 보므로 바로 아래 ‘가입 마치기’가 닉네임을 받는다.

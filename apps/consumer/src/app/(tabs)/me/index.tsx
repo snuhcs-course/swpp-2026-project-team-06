@@ -21,7 +21,7 @@ import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { takeFlash } from "../../../lib/flash";
-import { addressSummary, meHeading } from "../../../lib/meSummary";
+import { accountLabel, addressSummary, meHeading } from "../../../lib/meSummary";
 import { useSession } from "../../../lib/session";
 import { useToast } from "../../../lib/toast";
 import { Avatar, openExternal } from "../../../lib/views";
@@ -101,7 +101,7 @@ export default function Me() {
             {heading}
           </T>
           <T variant="sub" muted>
-            {user.isTestAccount ? "테스트 계정" : "카카오 계정"} ·{" "}
+            {accountLabel(user)} ·{" "}
             {user.role === "CONSUMER" ? "소비자" : "생산자"}
           </T>
         </View>
