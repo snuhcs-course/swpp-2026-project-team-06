@@ -426,6 +426,7 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **THEN** under the option card I see "n people reserved" with "Reserve now and you're number n+1" (people, not boxes; hidden at zero; no second line when not reservable), "Pay straight into the farm's account" with "We hold your boxes for 24 hours after you reserve", and, when a latest ship date exists, "Full refund if not shipped by Nov 30" with "Cancel any time before it ships"
 - **AND** the one-line cancellation policy stays below them
 - **AND** if I'm signed in and already have an order for this product (awaiting or reported deposit, reserved, preparing, shipped, delivered or completed), the second line under "n people reserved" says "You've already reserved · See my reservation" instead of "number n+1", and the whole row opens that order, or My orders when there are two or more. Canceled or refunded orders don't count. The list request takes an optional `productId` filter for this (DEV-379)
+- **Known limit:** orders still awaiting a deposit aren't in the reserved count yet, so if that's my only kind of order and nobody else has reserved, the row doesn't appear at all, and otherwise "n people" doesn't include me
 
 **AC-07-5: Full product story**
 - **GIVEN** a product has story blocks, or only a plain description
