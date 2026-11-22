@@ -9,6 +9,7 @@ import { test } from "node:test";
 import {
   NICKNAME_PROMPT,
   NO_NICKNAME,
+  accountLabel,
   addressSummary,
   meHeading,
 } from "../apps/consumer/src/lib/meSummary.ts";
@@ -22,6 +23,14 @@ const code = (p) =>
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 const kakao = { isTestAccount: false, needsOnboarding: false };
+
+test("test_AC_01_38_account_source_distinguishes_password_kakao_and_seed_accounts", () => {
+  assert.equal(accountLabel({ isTestAccount: false, username: "example" }), "아이디 계정");
+  // AC-01-37: 기존 시드 계정에 ID를 발급해도 테스트 분류는 유지된다.
+  assert.equal(accountLabel({ isTestAccount: true, username: "example" }), "아이디 계정");
+  assert.equal(accountLabel({ isTestAccount: false, username: null }), "카카오 계정");
+  assert.equal(accountLabel({ isTestAccount: true }), "테스트 계정");
+});
 
 test("test_DEV_316_heading_shows_nickname_only", () => {
   assert.equal(meHeading({ ...kakao, nickname: "귤러버", name: "김민지" }), "귤러버");
@@ -49,6 +58,7 @@ test("test_DEV_316_consumer_me_first_screen_does_not_render_personal_fields", ()
   // 배송지 주소(`.address`, `addresses`는 목록 이름이라 제외)
   assert.ok(!/\.address\b/.test(src), "내 정보 첫 화면이 배송지 주소를 그린다");
   assert.match(src, /meHeading\(user\)/);
+  assert.match(src, /accountLabel\(user\)/);
   assert.match(src, /addressSummary\(/);
   // 하위 화면은 지금처럼 전체 값을 보여 준다
   const profile = code("apps/consumer/src/app/(tabs)/me/profile.tsx");

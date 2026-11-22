@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-440 내 정보 계정 출처
+- FEAT-01 AC-01-38: SCR-17의 계정 출처는 `lib/meSummary.ts`의 accountLabel에서 username 우선, 없을 때 isTestAccount로 결정한다. ID 발급 뒤 시드 테스트 분류를 유지하는 AC-01-37과 맞춘다. 역할 접미사·프로필·비밀번호 메뉴 조건은 바꾸지 않는다.
+
 ## DEV-379 이미 예약한 사람의 '알아 둘 세 줄' 첫 줄
 상품 상세는 로그인했을 때만 `orders.list({ productId })`를 `allPages`로 끝까지 읽어 `lib/myReservation.ts`의 `myReservationHref`로 이동 대상을 정한다(이미 예약 상태가 없으면 null → 'n번째'). 앱이 다시 productId로 거르므로 거르기를 모르는 서버여도 맞다. `useFocusedAsync`라 화면에 돌아오면 다시 읽고, 답에 `사용자:상품` 키를 붙여 옛 답으로 그리지 않는다. 첫 답 전은 `myReservation={ state: "checking" }`(보조 줄 높이만), 실패는 넘기지 않음('n번째'). 하나면 주문 상세, 둘 이상이면 내 주문(모두 구매 확정이면 확정 탭). FEAT-07 AC-07-10, `scripts/test-my-reservation.mjs`.
 
