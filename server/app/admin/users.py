@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.accounts import service as accounts
 from app.accounts.models import User
-from app.accounts.schemas import KindFilter, TemporaryPasswordView
+from app.accounts.schemas import IdCredentialsProvisionInput, KindFilter, TemporaryPasswordView
 from app.accounts.service import account_kind, kind_clause
 from app.admin.models import ManagerEvent
 from app.admin.schemas import AdminUserPage, AdminUserView
@@ -185,3 +185,61 @@ def issue_temporary_password(db: Db, admin: Admin, user_id: str, response: Respo
         logger.warning("temporary password issued but login unlock failed for %s", user_id)
     response.headers["Cache-Control"] = "no-store"
     return view
+
+
+@router.post("/{user_id}/id-credentials", response_model=TemporaryPasswordView)
+def provision_id_credentials(
+    db: Db,
+    admin: Admin,
+    user_id: str,
+    body: IdCredentialsProvisionInput,
+    response: Response,
+):
+    """기존 테스트 생산자에 ID 로그인을 설정한다(DEV-439).
+
+    응답 비밀번호는 이번 응답에서만 반환한다. 감사 행은 행위자·대상·결과만 기록하고,
+    멱등 저장소는 사용하지 않는다. 이미 설정된 계정은 409라 재시도로 비밀을 잃거나
+    계정을 중복 생성하지 않는다.
+    """
+    user = db.scalar(select(User).where(User.id == user_id).with_for_update())
+    if user is None:
+        raise not_found("사용자를 찾을 수 없어요.")
+    if db.scalar(select(Farm.id).where(Farm.producer_id == user.id)) is None:
+        raise conflict(
+            "NOT_ELIGIBLE_PRODUCER",
+            "연결된 농가가 있는 생산자 계정만 설정할 수 있어요.",
+        )
+
+    value = accounts.provision_id_credentials(db, user, body.username)
+    event_id = new_id("manager-event")
+    at = now()
+    db.add(
+        ManagerEvent(
+            id=event_id,
+            event_type="user.id_credentials_provisioned",
+            actor_id=admin.id,
+            target_type="user",
+            target_id=user_id,
+            scope=f"id-credentials:{user_id}",
+            idempotency_key=f"issued:{event_id}",
+            original_body={},
+            request_summary={},
+            status="SUCCEEDED",
+            retryable=False,
+            attempts=1,
+            result={"status": "ISSUED"},
+            created_at=at,
+            updated_at=at,
+        )
+    )
+    db.commit()
+    try:
+        accounts.unlock_login(user.role, user.username)
+    except Exception:  # noqa: BLE001 - 자격 증명 발급은 커밋됐으므로 발급 응답을 보존한다
+        logger.warning("ID credential provisioned but login unlock failed for %s", user_id)
+    response.headers["Cache-Control"] = "no-store"
+    return TemporaryPasswordView(
+        user_id=user.id,
+        username=user.username,
+        temporary_password=value,
+    )

@@ -254,6 +254,12 @@ class IdAccountInput(CamelModel):
     phone: str | None = Field(default=None, max_length=32)
 
 
+class IdCredentialsProvisionInput(CamelModel):
+    """기존 시드 생산자에게 운영자 ID 로그인 자격 증명을 붙인다(DEV-439)."""
+
+    username: str = Field(max_length=64)
+
+
 class IdAccountView(CamelModel):
     """운영자 아이디 계정 목록 한 줄. 전화는 끝 4자리만."""
 

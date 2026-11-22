@@ -54,8 +54,11 @@ function card(u) {
   const password = u.signup === "PASSWORD";
   // 임시 비밀번호(DEV-363, AC-01-31)는 아이디 계정에만. 두 번 눌러 발급하고 결과는 아래 .slot에 한 번만 보인다(assets/admin.js)
   const tempButton = password ? `<button class="danger" data-act="temp-password">임시 비밀번호</button>` : "";
+  const provisionForm = u.isTestAccount && u.role === "PRODUCER" && u.signup === "SEED" && !u.withdrawn && u.farmId
+    ? `<div class="row" data-provision-form style="margin-top: 10px"><input data-login-username aria-label="로그인 아이디" required minlength="4" maxlength="20" pattern="[A-Za-z][A-Za-z0-9]{3,19}" placeholder="로그인 아이디 (영문·숫자 4~20자)" autocomplete="off"><button class="danger" type="button" data-act="provision-id-login">아이디 로그인 설정</button></div>`
+    : "";
   const action = u.isTestAccount
-    ? `<p class="hint">시드 테스트 계정이라 이미 테스트로 세요.</p>${tempButton ? `<div class="row">${tempButton}</div>` : ""}`
+    ? `<p class="hint">시드 테스트 계정이라 테스트 분류는 유지됩니다.</p>${tempButton ? `<div class="row">${tempButton}</div>` : provisionForm}`
     : `<div class="row"><button class="${u.opsTester ? "text" : "primary"}" data-act="${u.opsTester ? "unmark" : "mark"}">${u.opsTester ? "테스트 표시 해제" : "테스트로 표시"}</button>${tempButton}</div>`;
   return `<article class="card app" data-id="${esc(u.userId)}">
     <div class="row" style="justify-content: space-between">
@@ -112,6 +115,7 @@ $("#list").onclick = async (e) => {
   const u = rows.find((r) => r.userId === id), who = u.nickname || u.name || id;
   if (secretAction(b)) return;
   if (act === "temp-password") return issueTemporaryPassword(b, slot, id, who);
+  if (act === "provision-id-login") return provisionIdLogin(b, slot, id, who, u);
   if (b.dataset.confirm !== "1") {
     b.dataset.confirm = "1";
     b.textContent = act === "mark" ? `${who}을(를) 테스트로 표시할까요? 한 번 더 누르기` : `${who}의 테스트 표시를 풀까요? 한 번 더 누르기`;
