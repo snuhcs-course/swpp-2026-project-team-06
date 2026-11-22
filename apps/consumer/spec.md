@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-379 이미 예약한 사람의 '알아 둘 세 줄' 첫 줄
+상품 상세는 로그인했을 때만 `orders.list({ productId })`를 `allPages`로 끝까지 읽어 `lib/myReservation.ts`의 `myReservationHref`로 이동 대상을 정한다(이미 예약 상태가 없으면 null → 'n번째'). 앱이 다시 productId로 거르므로 거르기를 모르는 서버여도 맞다. `useFocusedAsync`라 화면에 돌아오면 다시 읽고, 답에 `사용자:상품` 키를 붙여 옛 답으로 그리지 않는다. 첫 답 전은 `myReservation={ state: "checking" }`(보조 줄 높이만), 실패는 넘기지 않음('n번째'). 하나면 주문 상세, 둘 이상이면 내 주문(모두 구매 확정이면 확정 탭). FEAT-07 AC-07-10, `scripts/test-my-reservation.mjs`.
+
 ## DEV-367 평가 진입 폐기
 - FEAT-01 AC-01-34: release 실서버는 시드 계정을 요청·표시하지 않는다. 개발 빌드 또는 명시적 앱 Mock만 목록을 쓴다. 개발 실서버는 카카오 비활성·오류 시, 앱 Mock은 카카오와 함께 보인다.
 - 평가 query/storage/buildflag 로직을 제거한다. 저장된 표시를 읽거나 새로 저장하지 않는다. 카카오·아이디 인증과 기존 세션/복귀는 유지한다.

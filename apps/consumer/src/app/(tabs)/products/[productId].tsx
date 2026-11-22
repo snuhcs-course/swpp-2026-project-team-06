@@ -1,7 +1,7 @@
 import { apiUrl } from "@farmclub/api";
 // SCR-04 상품 상세 (FEAT-07) — design: scr-04, s-04-soldout, s-04-ended, scr-04-sheet
 import { track } from "@farmclub/analytics";
-import { catalog, farms, referencePrice } from "@farmclub/api";
+import { allPages, catalog, farms, getToken, orders, referencePrice } from "@farmclub/api";
 import {
   BottomBar,
   Button,
@@ -19,8 +19,8 @@ import {
   tokens,
   useAsync,
 } from "@farmclub/ui";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Share, View } from "react-native";
 
 import { useHideTabBar, useSession } from "../../../lib/session";
@@ -28,6 +28,11 @@ import { useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet, copyText, isStatus } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
 import { useFocusedAsync } from "../../../lib/useFocusedAsync";
+import {
+  MyReservationError,
+  myReservationHref,
+  myReservationLine,
+} from "../../../lib/myReservation";
 
 declare const process: { env: { EXPO_PUBLIC_CONSUMER_URL?: string } };
 
@@ -69,7 +74,7 @@ export default function ProductPage() {
   useHideTabBar();
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const router = useRouter();
-  const { user, requireLogin, resume, clearResume } = useSession();
+  const { user, ready, requireLogin, resume, clearResume } = useSession();
   const {
     data: p,
     error,
@@ -82,6 +87,40 @@ export default function ProductPage() {
     async () => (farmId ? farms.get(farmId) : null),
     [farmId],
   );
+  // 이미 예약한 사람이면 'n번째' 대신 '이미 예약했어요 · 내 예약 보기 ›'(SCR-04, DEV-379).
+  // 로그인했을 때만 이 상품 주문을 읽는다(로그인 안 하면 요청 없음). 상품과 함께 읽고, 화면에 돌아오면 다시 읽는다(취소 반영).
+  // 답·실패에 누구·어느 상품 것인지(key) 붙여 옛 답으로 그리지 않고, 화면을 벗어나거나 키가 바뀌면 남은 페이지를 읽지 않는다.
+  // 무엇을 보일지는 lib/myReservation.ts의 myReservationLine이 정한다
+  const userId = user?.userId;
+  const mineKey = `${userId}:${productId}`;
+  const mineKeyNow = useRef(mineKey);
+  mineKeyNow.current = mineKey;
+  const focused = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      focused.current = true;
+      return () => {
+        focused.current = false;
+      };
+    }, []),
+  );
+  const mine = useFocusedAsync(async () => {
+    if (!userId) return null;
+    const key = mineKey;
+    const stop = () => !focused.current || mineKeyNow.current !== key;
+    let items;
+    try {
+      items = await allPages(
+        (cursor) => orders.list({ productId, limit: 50, cursor }),
+        stop,
+      );
+    } catch (e) {
+      throw new MyReservationError(stop() ? null : key, e);
+    }
+    // 중간에 멈췄으면 일부만 읽은 것이라 답으로 쓰지 않는다(앞 답은 그대로 남는다)
+    if (stop()) throw new MyReservationError(null);
+    return { key, href: myReservationHref(items, productId) };
+  }, [mineKey]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [optionId, setOptionId] = useState<string>("");
   const [qty, setQty] = useState(1);
@@ -189,6 +228,20 @@ export default function ProductPage() {
               toast.show("링크를 복사했어요"),
             )
           }
+          myReservation={(() => {
+            const line = myReservationLine({
+              soldOut: p.soldOut,
+              sessionReady: ready,
+              hasToken: !!getToken(),
+              userId,
+              key: mineKey,
+              answer: mine.data,
+              error: mine.error,
+            });
+            return line?.state === "reserved"
+              ? { state: "reserved", onPress: () => router.push(line.href as Href) }
+              : (line ?? undefined);
+          })()}
         />
       </Scroll>
 
