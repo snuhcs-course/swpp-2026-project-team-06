@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -173,8 +173,13 @@ def list_orders(
     user: Consumer,
     limit: Annotated[int, Depends(page_limit)],
     cursor: str | None = None,
+    product_id: Annotated[str | None, Query(alias="productId")] = None,
 ):
-    return _page(service.list_orders(db, user.id), cursor, limit)
+    """내 주문(FEAT-10). productId를 주면 그 상품 주문만(응답 모양은 같다).
+
+    상품 상세 '이미 예약했어요'(SCR-04, DEV-379)가 쓴다.
+    """
+    return _page(service.list_orders(db, user.id, product_id), cursor, limit)
 
 
 @router.post("/{order_id}/cancel", response_model=OrderView)
