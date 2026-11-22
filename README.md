@@ -393,7 +393,7 @@ selected; a manual run always deploys the current `main`.
 | `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://api.farmclub.kr`: the apps call the server. |
 | `APP_POSTHOG_KEY` | Repository **variable** | PostHog project API key (`phc_…`, public). Empty: no analytics or session replay. Set: screen events, replays and heatmaps go to PostHog (DEV-71). |
 | `APP_POSTHOG_HOST` | Repository **variable** | Optional. Empty: `https://us.i.posthog.com` (US Cloud). |
-| `BUSINESS_NAME` | Repository or `production` **variable** | Footer business info (DEV-113): trade name (상호), exactly as on the business registration certificate. |
+| `BUSINESS_NAME` | Repository or `production` **variable**, plus EAS `preview`/`production` as `EXPO_PUBLIC_…` (both projects) | Footer business info (DEV-113): trade name (상호), exactly as on the business registration certificate. |
 | `BUSINESS_OWNER` | same | Representative (대표자). |
 | `BUSINESS_REGISTRATION_NO` | same | Business registration number (사업자등록번호), e.g. `000-00-00000`. Also turns on the 사업자정보 확인 link (ftc.go.kr). |
 | `BUSINESS_MAIL_ORDER_NO` | same | Mail-order business report number (통신판매업 신고번호), e.g. `제0000-서울00-0000호`. |
@@ -406,10 +406,13 @@ The business values are public on the live site but must never be committed (the
 personal/company details and the repository is mirrored publicly). Each one maps to
 `EXPO_PUBLIC_<NAME>` at export time; an empty variable is left out of the footer, and with
 none set the footer shows "farmclub · 테스트 서비스". After changing them, run the workflow
-by hand so both apps are rebuilt. After `expo export`, `scripts/legal-pages.mjs` writes
-`dist/privacy.html` and `dist/terms.html` (served at `/privacy` and `/terms` via
-`vercel.json`) and puts the same footer in `index.html`'s `<noscript>`, so the pages read
-without JavaScript.
+by hand so both apps are rebuilt. These variables only reach the web build. The Android
+and iOS apps read the same values from EAS, so keep a copy in EAS as well (see
+[Native apps with EAS](#native-apps-with-eas-dev-33)); every row except
+`BUSINESS_MAIL_ORDER_NO` is set there as of 2026-11-21. After `expo export`,
+`scripts/legal-pages.mjs` writes `dist/privacy.html` and `dist/terms.html` (served at
+`/privacy` and `/terms` via `vercel.json`) and puts the same footer in `index.html`'s
+`<noscript>`, so the pages read without JavaScript.
 
 Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
 users see. Do it outside user tests, and merge the server routes the apps call (for
@@ -487,6 +490,15 @@ npx eas-cli@latest update --channel preview --environment preview --message "...
 `EXPO_PUBLIC_API_MOCK`, `EXPO_PUBLIC_CONSUMER_URL` and `EXPO_PUBLIC_PRODUCER_URL` were created in
 both projects' `preview` and `production` environments on 2026-10-23 (`eas env:list --environment
 preview`); an update published without them would point the app at `localhost`.
+The footer business info works the same way. The GitHub variables above are not passed to EAS, so
+the 2026-11-20 APK went to ONE store without it. On 2026-11-21 `EXPO_PUBLIC_BUSINESS_NAME`,
+`EXPO_PUBLIC_BUSINESS_OWNER`, `EXPO_PUBLIC_BUSINESS_REGISTRATION_NO`, `EXPO_PUBLIC_BUSINESS_ADDRESS`,
+`EXPO_PUBLIC_BUSINESS_PHONE`, `EXPO_PUBLIC_BUSINESS_EMAIL` and `EXPO_PUBLIC_PRIVACY_OFFICER` were
+created in both projects' `preview` and `production` environments (`EXPO_PUBLIC_BUSINESS_MAIL_ORDER_NO`
+is not set yet, as on GitHub). The `internal` profile also builds with the `preview` environment (the
+build log says "Resolved preview environment"). When you change a business value on GitHub, change
+it in EAS too. The values are JS-only, so an `eas update` reaches installed builds on the same
+runtime version; builds from before a runtime change (such as the app rename in DEV-377) need a new build.
 The temporary evaluator build flag used for the 11/4 heuristic evaluation was removed from
 both projects on 2026-11-04. DEV-367 retires its client behavior and the old evaluator query/storage
 entry. Internal/release reviewers now use operator-created ID/password accounts; do not enable a

@@ -117,7 +117,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 | 결정 | 이유 |
 | --- | --- |
 | 문안은 `src/legalContent.ts` 한 곳(지울 수 있는 타입만, import 없음). `LegalFooter`·`LegalDocument`(`src/Legal.tsx`)와 `scripts/legal-pages.mjs`(Node type stripping으로 직접 import)가 같이 쓴다 | SPA라 JS 없이 읽히는 정적 HTML이 따로 필요하고, 두 벌로 쓰면 문안이 어긋난다 |
-| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’ | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장 |
+| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’ | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장. 웹은 GitHub Actions 변수, 네이티브는 두 EAS 프로젝트의 `preview`·`production` 환경 변수에서 온다(DEV-131) |
 | `LegalFooter`는 링크를 직접 열지 않고 `onOpen(path)`로 앱 라우터에 맡긴다 | ui 패키지는 expo-router에 의존하지 않는다 |
 | 파일 이름은 `Legal.tsx`와 `legalContent.ts`. `legal.ts`는 macOS(대소문자 무시)에서 `Legal.tsx`와 충돌한다 | TS1149 |
 | (DEV-116) 푸터는 `<Scroll footer={<LegalFooter … />}>` 슬롯으로 둔다. footer가 있으면 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'` + 위 여백 section(40)으로 붙인다 | 내용 바로 뒤에 두면 짧은 화면(카카오 운영 로그인)에서 푸터가 화면 중간에 뜬다. flexGrow는 footer가 있을 때만 켜 다른 화면에 영향이 없다 |
