@@ -97,6 +97,7 @@ server/
 | 2026-11-04 | 상품 카드 `sold_out`은 `availability != "AVAILABLE"`(PAUSED·TOTAL_SOLD_OUT·PERIOD_SOLD_OUT·NOT_OPEN·ENDED 모두 true, Mock과 같음). `next_stage_starts_at`은 NOT_OPEN·PERIOD_SOLD_OUT일 때만 | DEV-215. 중지·총 한도 소진 상품이 홈 추천·농가 대표에 남고 상세가 예약 가능처럼 보였다. 기다려도 열리지 않는 상태엔 다음 기간 날짜를 약속하지 않는다 | AC-07-1, AC-07-3, R-27 |
 | 2026-11-05 | 소식방 `_room_rows`는 팔로우하지 않은 소비자에게도 본인 답장(`consumer_id == user.id`)을 준다. 공개 방송만 함께 주고 `canReply`는 거짓, 비로그인은 답장 없음. `rooms()`는 팔로우한 농가만(변경 없음) | 팔로우를 끊어도 내 글이 사라지지 않게(DEV-230, PM 결정). 더 보이는 것은 본인 글뿐(M-02) | AC-15-8, AC-06-8 |
 | 2026-11-15 | 홈 추천·농가 대표 후보는 `farms.service.listed_cards`: `availability`가 `AVAILABLE`·`TOTAL_SOLD_OUT`·`PERIOD_SOLD_OUT`인 카드만 `catalog.by_deadline` 순(예약 가능 먼저, 품절 뒤)으로. 히어로는 `AVAILABLE`만. `FeaturedProduct.availability`를 싣고, 농가 정렬 키는 `(대표 없음, 대표 품절, d_day)` | DEV-327, 생산자 피드백 11/15·PM: 품절 상품이 홈·농가 목록에서 사라지지 않게. 중지·시작 전·종료는 계속 뺀다 | AC-07-3, AC-06-1, R-27 |
+| 2026-11-23 | DEV-439 기존 seed producer credentials는 `POST /admin/users/{userId}/id-credentials`로 해당 `User` 행만 수정한다. 계정·farm link 보존, one-time secret 감사, 멱등 저장 없음. credentialed seed producer는 password-change·producer-consent gate를 적용한다. Farm approval/status와 product/order 데이터는 이 경로에서 수정하지 않는다 | UAT producer가 기존 농가를 운영해야 하지만 DEV-363은 새 ID account만 만들 수 있다 | FEAT-01 AC-01-37 |
 
 - DEV-58: see docs/spec/source-editor.md for the approved two-box input, description-only placement, and in-page editor contract. Source assets retain their existing role flag; description revisions are independent of image revisions.
 
