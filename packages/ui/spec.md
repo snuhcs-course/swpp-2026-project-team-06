@@ -127,7 +127,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 | (DEV-116) 고정 하단 바가 있는 로그인은 바 높이를 `onLayout`으로 재서 `Scroll bottom`으로 쓴다 | 바 높이가 상태(카카오 버튼만·테스트 계정 버튼·오류 문구)마다 달라 고정값이면 푸터와 바 사이가 빈다 |
 | (DEV-372) `Scroll`은 선택적 `scrollRef`를 전달한다. `ModuleStory`는 편집기에서 일시적으로 펼칠 모듈을 받을 수 있다 | 편집 조작으로 특정 입력 칸에 이동하되 저장된 공개 여부는 건드리지 않는다 |
 | (DEV-122) `LEGAL_VERSION`(동의 버전)과 `PRIVACY_EFFECTIVE`(시행일)를 따로 둔다. 동의를 받아 처리하는 항목이 바뀔 때만 버전을 올리고, 근거·고지 문구만 바뀌면 시행일과 변경 기록만 고친다. `test-legal.mjs`는 버전 날짜가 변경 기록에 있고 시행일보다 늦지 않은지, 시행일이 더 늦으면 마지막 변경 기록이 ‘다시 동의를 받지 않습니다’를 적는지 본다 | 버전을 올리면 생산자 앱 전체가 재동의 전까지 막힌다(#251/DEV-124). 법상 재동의는 동의 근거 항목이 바뀔 때만 필요하다(개인정보 보호법 제15조 제2항 후단, 제28조의8 제3항) |
-| (DEV-423) 계정 삭제 안내 문안은 `accountDeletionPage(role)`(앱별), 정적 HTML만 `scripts/legal-pages.mjs`가 만든다. 탈퇴 뒤 남는 행 `RETAINED_AFTER_WITHDRAW`는 처리방침 제3조 표에 펼쳐 넣어 같은 배열을 쓰고, 다른 조문을 가리키는 칸(PostHog·오류 기록)만 안내에서 짧게 옮긴다. 탈퇴 시트의 지우는 줄·남는 줄(`WITHDRAW_REMOVED`·`WITHDRAW_KEPT`)도 여기 둔다 | 처리방침·시트·안내가 따로 쓰이면 보관 기간·지우는 항목이 어긋난다. 처리방침 본문은 한 글자도 바뀌지 않게 표 행만 상수로 뺐다 |
+| (DEV-423) 계정 삭제 안내 문안은 `accountDeletionPage(role)`(앱별), 정적 HTML만 `scripts/legal-pages.mjs`가 만든다. 탈퇴 뒤 남는 행 `RETAINED_AFTER_WITHDRAW`는 처리방침 제3조 표에 펼쳐 넣어 같은 배열을 쓰고, 다른 조문을 가리키는 칸(PostHog·오류 기록)만 안내에서 짧게 옮긴다. 탈퇴 시트의 지우는 줄·남는 줄(`WITHDRAW_REMOVED`·`WITHDRAW_KEPT`)도 여기 둔다. 남는 줄은 앱별이고, 남은 기록이 상대에게 보이는 문장(`WITHDRAWN_SEEN_AS`)을 시트와 안내가 같이 쓴다(DEV-434) | 처리방침·시트·안내가 따로 쓰이면 보관 기간·지우는 항목이 어긋난다. 처리방침 본문은 한 글자도 바뀌지 않게 표 행만 상수로 뺐다 |
 ## DEV-33 네이티브 분기 (ADR 0013)
 
 - 화면 숨김 판단은 `src/foreground.ts`의 `inBackground()`(`AppState`; 웹에서는 `document.visibilityState`를 비춘다). `ChatThread`·`NewsRoom`·`useLiveList`가 쓴다.

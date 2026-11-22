@@ -653,9 +653,19 @@ export const WITHDRAW_REMOVED: Record<AppRole, string[]> = {
   ],
 };
 
-/** 회원 탈퇴 시트의 ‘남는 것’ 한 줄 */
-export const WITHDRAW_KEPT =
-  "법으로 보관해야 하는 주문·입금·환불 기록과 주문 문의, 약관 동의 기록은 정해진 기간 동안 따로 보관해요. 농가·소비자에게는 ‘탈퇴한 회원’으로 보여요.";
+/** 탈퇴 뒤 남은 기록이 상대에게 어떻게 보이는지(앱별, DEV-434). 회원 탈퇴 시트와 계정 삭제 안내가 같이 쓴다.
+ * 소비자가 탈퇴하면 농가 화면에 '탈퇴한 회원'(accounts.public_name). 생산자가 탈퇴하면 농가는 이름을 둔 채 숨김(SUSPENDED)이라
+ * 소비자의 지난 주문에는 농가 이름이 남고, 농가 페이지·소식방·채팅은 소비자 화면에서 빠진다 */
+export const WITHDRAWN_SEEN_AS: Record<AppRole, string> = {
+  CONSUMER: "농가에게는 ‘탈퇴한 회원’으로 보여요.",
+  PRODUCER: "소비자의 지난 주문에는 농가 이름이 그대로 남아요.",
+};
+
+/** 회원 탈퇴 시트의 ‘남는 것’ 한 줄(앱별, DEV-434). 앞부분은 두 앱이 같고 뒷부분은 WITHDRAWN_SEEN_AS */
+export const WITHDRAW_KEPT: Record<AppRole, string> = {
+  CONSUMER: `법으로 보관해야 하는 주문·입금·환불 기록과 주문 문의, 약관 동의 기록은 정해진 기간 동안 따로 보관해요. ${WITHDRAWN_SEEN_AS.CONSUMER}`,
+  PRODUCER: `법으로 보관해야 하는 주문·입금·환불 기록과 주문 문의, 약관 동의 기록은 정해진 기간 동안 따로 보관해요. ${WITHDRAWN_SEEN_AS.PRODUCER}`,
+};
 
 /** 로그인 없이 열리는 계정 삭제 안내(DEV-423, Google Play 계정 삭제 URL). 정적 HTML만 있다(scripts/legal-pages.mjs) */
 export const ACCOUNT_DELETION_PATH = "/account-deletion";
@@ -744,11 +754,8 @@ export function accountDeletionPage(role: AppRole, info: BusinessInfo = business
     removedTitle: "바로 지우는 정보",
     removed: WITHDRAW_REMOVED[role],
     keptTitle: "보관하는 정보와 기간",
-    // 소비자가 탈퇴하면 농가 화면에 '탈퇴한 회원'(accounts.public_name). 생산자가 탈퇴하면 농가는 이름을 둔 채 숨김(SUSPENDED)이라
-    // 소비자의 지난 주문에는 농가 이름이 남고, 농가 페이지·소식방·채팅은 소비자 화면에서 빠진다
-    kept: `거래 기록·주문 문의·동의 기록 등 아래 표의 정보만 회원과 분리해 보관하고, 기간이 지나면 파기해요. ${
-      consumer ? "농가에게는 ‘탈퇴한 회원’으로 보여요." : "소비자의 지난 주문에는 농가 이름이 그대로 남아요."
-    }`,
+    // 남은 기록이 상대에게 보이는 모습은 탈퇴 시트와 같은 문장(WITHDRAWN_SEEN_AS)
+    kept: `거래 기록·주문 문의·동의 기록 등 아래 표의 정보만 회원과 분리해 보관하고, 기간이 지나면 파기해요. ${WITHDRAWN_SEEN_AS[role]}`,
     retainedHead: ["정보", "보관 기간"],
     retained: retainedAfterWithdraw(),
     retainedNote: [

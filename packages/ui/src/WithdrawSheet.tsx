@@ -71,7 +71,7 @@ export function WithdrawSheet({
             ))}
           </View>
           <T variant="sub" muted>
-            {KEPT}
+            {KEPT[role]}
           </T>
           <T variant="sub" muted>
             입금 대기·예약·출하 준비·배송 중인 주문이 있으면 탈퇴할 수 없어요.
