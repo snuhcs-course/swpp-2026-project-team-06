@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "scheme": "farmclub-consumer",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "kr.farmclub.consumer",
       "associatedDomains": [
         "applinks:farmclub.kr"
@@ -20,6 +20,12 @@
     },
     "android": {
       "package": "kr.farmclub.consumer",
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#FFF4E8",
         "foregroundImage": "./assets/android-icon-foreground.png",
