@@ -1,7 +1,7 @@
 import { apiUrl } from "@farmclub/api";
 // SCR-04 상품 상세 (FEAT-07) — design: scr-04, s-04-soldout, s-04-ended, scr-04-sheet
 import { track } from "@farmclub/analytics";
-import { catalog, farms, referencePrice } from "@farmclub/api";
+import { allPages, catalog, farms, orders, referencePrice } from "@farmclub/api";
 import {
   BottomBar,
   Button,
@@ -19,7 +19,7 @@ import {
   tokens,
   useAsync,
 } from "@farmclub/ui";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useState } from "react";
 import { Platform, Share, View } from "react-native";
 
@@ -28,6 +28,7 @@ import { useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet, copyText, isStatus } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
 import { useFocusedAsync } from "../../../lib/useFocusedAsync";
+import { myReservationHref } from "../../../lib/myReservation";
 
 declare const process: { env: { EXPO_PUBLIC_CONSUMER_URL?: string } };
 
@@ -82,6 +83,25 @@ export default function ProductPage() {
     async () => (farmId ? farms.get(farmId) : null),
     [farmId],
   );
+  // 이미 예약한 사람이면 'n번째' 대신 '이미 예약했어요 · 내 예약 보기 ›'(SCR-04, DEV-379).
+  // 로그인했을 때만 이 상품 주문을 읽는다(로그인 안 하면 요청 없음). 상품과 함께 읽고, 화면에 돌아오면 다시 읽는다(취소 반영).
+  // 답에 누구·어느 상품 것인지 붙여, 계정·상품이 바뀐 직후 옛 답으로 한 번 그리는 일을 막는다
+  const userId = user?.userId;
+  const mineKey = `${userId}:${productId}`;
+  const mine = useFocusedAsync(
+    async () =>
+      userId
+        ? {
+            key: mineKey,
+            href: myReservationHref(
+              await allPages((cursor) => orders.list({ productId, limit: 50, cursor })),
+              productId,
+            ),
+          }
+        : null,
+    [mineKey],
+  );
+  const mineNow = mine.data?.key === mineKey ? mine.data : null;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [optionId, setOptionId] = useState<string>("");
   const [qty, setQty] = useState(1);
@@ -188,6 +208,18 @@ export default function ProductPage() {
             void shareProduct(p.name, here, () =>
               toast.show("링크를 복사했어요"),
             )
+          }
+          myReservation={
+            // 첫 답 전에는 줄 높이만 잡는다. 실패하면 지금처럼 'n번째'(오류 안내는 띄우지 않는다). 다시 읽는 동안은 앞 답 그대로
+            !userId || p.soldOut
+              ? undefined
+              : mineNow
+                ? mineNow.href
+                  ? { state: "reserved", onPress: () => router.push(mineNow.href as Href) }
+                  : undefined
+                : mine.error
+                  ? undefined
+                  : { state: "checking" }
           }
         />
       </Scroll>
