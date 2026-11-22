@@ -115,6 +115,7 @@ export {
   ProductPageBody,
   type ProductPageData,
   type ProductPageSlots,
+  type MyReservation,
 } from "./ProductPage";
 export { PriceStair, StairMark, stairBasisOptionId } from "./PriceStair";
 export { priceHoldsUntil, priceStair, type Stair, type StairInput } from "./stairSteps";
