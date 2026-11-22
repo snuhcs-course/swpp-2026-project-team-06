@@ -198,4 +198,4 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - 쓰는 곳은 소비자 홈 ‘제철 상품’ 카드와 농가 목록 줄뿐이다(AC-07-3, PM 11/15). 상품 상세·판매 품목·소식 선반에는 넣지 않는다.
 
 ## DEV-378 아이디 로그인 접기
-`IdLoginSection`(`AuthForms.tsx`)은 `PasswordLoginForm`을 고치지 않고 감싼다. `collapsible`(카카오 켜짐)이면 '아이디로 로그인' 글자 링크(누르는 영역 48, `aria-expanded`, 꺾쇠는 `chevronDown`을 펼치면 180° 회전)로 접고 펼친다. 접힘은 `display: none`이라 적은 아이디가 남는다. 감싼 `onLogin`이 던지면 다음 시도까지 접기를 막는다(오류 줄이 숨지 않게). 펼칠 때 웹에서만 아이디 칸 포커스·스크롤. `placement="footer"`는 사업자 정보 칸 바로 위(아래 간격 접힘 8·펼침 24)이고, 앱은 `Scroll`의 `footerGap`(기본 40)을 16으로 줄여 링크를 footer 안에 넣는다(FEAT-01 AC-01-35).
+`IdLoginSection`(`AuthForms.tsx`)은 `PasswordLoginForm`을 고치지 않고 감싼다. `collapsible`(카카오 켜짐)이면 '아이디로 로그인' 글자 링크(누르는 영역 48, `aria-expanded`, 꺾쇠는 `chevronDown`을 펼치면 180° 회전)로 접고 펼친다. 접힘은 `display: none`이라 적은 아이디가 남는다. `PasswordLoginForm`의 선택 콜백 `onErrorChange`로 실패 문구가 보이는 동안 접기를 막고 링크를 disabled·투명도 0.4로 둔다(오류 줄이 숨지 않게). 펼칠 때 웹에서만 누른 순간 아이디 칸에 포커스(iOS Safari 키보드), 스크롤은 다음 프레임. 로그인 화면의 카카오 설정 조회는 `withTimeout`(`timeout.ts`, 5초)으로 감싸 넘으면 설정 못 읽음으로 본다. `placement="footer"`는 사업자 정보 칸 바로 위(아래 간격 접힘 8·펼침 24)이고, 앱은 `Scroll`의 `footerGap`(기본 40)을 16으로 줄여 링크를 footer 안에 넣는다(FEAT-01 AC-01-35).
