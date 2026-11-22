@@ -633,6 +633,10 @@ def test_DEV_379_list_orders_filters_by_product(client, login):
     ).json()["items"]
     assert [(o["orderId"], o["status"]) for o in refunded] == [("o-03", "REFUNDED")]
 
+    # 빈 값이면 거르지 않는다(전체 목록)
+    blank = client.get("/api/orders", headers=consumer, params={"productId": ""}).json()["items"]
+    assert [o["orderId"] for o in blank] == [o["orderId"] for o in every]
+
     none = client.get("/api/orders", headers=consumer, params={"productId": "p-none"}).json()
     assert none == {"items": [], "nextCursor": None}
 
