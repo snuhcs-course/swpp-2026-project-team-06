@@ -51,6 +51,7 @@ export function Composer({
   tool,
   inputRef,
   above,
+  sendOnEnter = false,
 }: {
   value: string;
   onChangeText: (text: string) => void;
@@ -73,8 +74,46 @@ export function Composer({
   inputRef?: Ref<TextInput>;
   /** 입력줄 위(답장 대상, 첨부 사진, 도구 칩 등) */
   above?: ReactNode;
+  /** 1:1 채팅에서 Enter 전송을 사용한다. 소식 작성은 줄바꿈을 유지한다. */
+  sendOnEnter?: boolean;
 }) {
   const auto = useWebAutoHeight(value);
+  const composing = useRef(false), allowNewline = useRef(false), imeEnter = useRef(false);
+  const sendState = useRef({ editable, canSend, busy, onSend });
+  sendState.current = { editable, canSend, busy, onSend };
+  const submit = () => {
+    const state = sendState.current;
+    if (state.editable && state.canSend && !state.busy && !composing.current) state.onSend();
+  };
+  useLayoutEffect(() => {
+    if (!sendOnEnter || Platform.OS !== "web") return;
+    // RN Web filters composition props; subscribe on the actual textarea.
+    const node = auto.node.current as unknown as HTMLTextAreaElement | null;
+    const start = () => { composing.current = true; imeEnter.current = false; };
+    const end = () => { composing.current = false; };
+    const keyUp = (event: KeyboardEvent) => {
+      if (event.key === "Enter" || event.keyCode === 229) imeEnter.current = false;
+    };
+    const beforeInput = (event: InputEvent) => {
+      if (!["insertLineBreak", "insertParagraph"].includes(event.inputType) || event.isComposing || composing.current) return;
+      // Safari can end composition before the 229 Enter and its line-break event.
+      if (imeEnter.current) { imeEnter.current = false; event.preventDefault(); return; }
+      if (allowNewline.current) { allowNewline.current = false; return; }
+      event.preventDefault();
+      submit();
+    };
+    node?.addEventListener("keyup", keyUp);
+    node?.addEventListener("beforeinput", beforeInput);
+    node?.addEventListener("compositionstart", start);
+    node?.addEventListener("compositionend", end);
+    return () => {
+      node?.removeEventListener("keyup", keyUp);
+      node?.removeEventListener("beforeinput", beforeInput);
+      node?.removeEventListener("compositionstart", start);
+      node?.removeEventListener("compositionend", end);
+    };
+  }, [sendOnEnter]);
+
   // 바깥 inputRef(포커스 등)와 높이 재기용 ref를 함께 건다
   const setRef = useCallback(
     (el: TextInput | null) => {
@@ -112,12 +151,27 @@ export function Composer({
         <TextInput
           ref={setRef}
           accessibilityLabel={accessibilityLabel}
-          placeholder={placeholder}
+          placeholder={sendOnEnter && !value ? `${placeholder} · Enter로 전송` : placeholder}
           placeholderTextColor={tokens.color.textMuted}
           value={value}
           onChangeText={onChangeText}
           editable={editable}
           multiline
+          returnKeyType={sendOnEnter ? "send" : "default"}
+          submitBehavior={sendOnEnter && Platform.OS !== "web" ? "submit" : "newline"}
+          onSubmitEditing={sendOnEnter && Platform.OS !== "web" ? submit : undefined}
+          {...(sendOnEnter && Platform.OS === "web" ? {
+            enterKeyHint: "send",
+            onKeyPress: (e: { key: string; shiftKey: boolean; keyCode?: number; nativeEvent?: { isComposing?: boolean; keyCode?: number }; isComposing?: boolean; preventDefault: () => void }) => {
+              imeEnter.current = e.key === "Enter" && Boolean(composing.current || e.isComposing ||
+                e.nativeEvent?.isComposing || e.keyCode === 229 || e.nativeEvent?.keyCode === 229);
+              allowNewline.current = e.key === "Enter" && e.shiftKey;
+              if (e.key !== "Enter" || e.shiftKey || composing.current || e.isComposing ||
+                  e.nativeEvent?.isComposing || e.keyCode === 229 || e.nativeEvent?.keyCode === 229) return;
+              e.preventDefault();
+              submit();
+            },
+          } as object : {})}
           // 웹 textarea는 기본 2줄 높이라 한 줄(40)로 시작하게 하고, 글이 길어지면 6줄까지 늘린다(DEV-342). 그 뒤는 스크롤
           {...(Platform.OS === "web" ? { numberOfLines: 1, onLayout: auto.measure } : null)}
           maxLength={maxLength}

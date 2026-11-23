@@ -824,6 +824,7 @@ export function ChatThread({
         }}
       >
         <Composer
+          sendOnEnter
           value={text}
           onChangeText={setText}
           placeholder={placeholder}
