@@ -295,6 +295,7 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
       o.status === "REFUNDED" && !o.refundSettledAt
         ? (o.refundIssue ?? null)
         : null,
+    deliveryWindow: o.deliveryWindow,
     recipientName: delivered ? "○○○" : o.recipientName,
     recipientPhone: hide ? "" : o.recipientPhone,
     postalCode: hide ? "" : o.postalCode,

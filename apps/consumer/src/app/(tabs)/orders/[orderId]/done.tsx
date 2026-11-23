@@ -1,5 +1,5 @@
 // SCR-12 주문 접수·입금 확인 중 (FEAT-09 개정 DEV-68, 06) — design: scr-12, s-12-detailfail
-// 입금 대기면 「입금 대기」(알린 뒤 「입금 확인 중」, DEV-207)와 계좌·입금자명·기한을, 확인된 뒤에 열면 「예약 완료」를 보여 준다.
+// 입금 대기면 「입금 대기」(알린 뒤 「입금 확인 중」, DEV-207)와 계좌·입금자명·기한을, 확인된 뒤에 열면 현재 주문 상태를 보여 준다.
 import { farms, orders, serverNow } from "@farmclub/api";
 import {
   Button,
@@ -83,13 +83,11 @@ export default function Done() {
     ? "입금 대기"
     : o.status === "CANCELED" && o.cancelReason === "입금 기한 초과"
       ? "입금 기한이 지나 취소됐어요"
-      : awaiting || ended
-        ? statusTitle(o)
-        : "예약 완료";
+      : statusTitle(o);
   const sentence = !o
     ? "주문을 접수했어요."
     : awaiting
-      ? `농가가 입금을 확인하면 예약 완료로 바뀌어요. ${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
+      ? `농가가 입금을 확인하면 배송 대기로 바뀌어요. ${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
       : o.status === "CANCELED"
         ? // 다시 예약은 문장 대신 아래 ‘다시 예약하기’ 버튼(DEV-293, Figma 11:133 ③)
           "물량은 다른 분께 돌아갔어요"

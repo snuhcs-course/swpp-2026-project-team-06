@@ -106,7 +106,7 @@ test("DEV-318 AC-10-9: an open order detail updates when its producer confirms t
 
   // A separate actor changes the real order while this exact screen stays open.
   await post(request, `/api/orders/${order.orderId}/confirm-deposit`, await producerAuth(request));
-  await expect(page.getByRole("heading", { name: "예약 완료", exact: true })).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByRole("heading", { name: "배송 대기", exact: true })).toBeVisible({ timeout: 12_000 });
   await expect(page.getByText(/에 입금했다고 알려 주셨어요/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "상품 문제 문의 · 사진 첨부", exact: true })).toBeVisible();
   await expect(page).toHaveURL(`${consumerUrl}/orders/${order.orderId}`);
@@ -258,7 +258,7 @@ test("DEV-318 AC-10-9: returning to detail refreshes even while the previous vis
 
     await page.getByRole("button", { name: "뒤로", exact: true }).click();
     await expect(page).toHaveURL(`${consumerUrl}/orders/${order.orderId}`);
-    await expect(page.getByRole("heading", { name: "예약 완료", exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("heading", { name: "배송 대기", exact: true })).toBeVisible({ timeout: 5000 });
     expect(freshReads).toBeGreaterThan(0);
     expect(released, "the new visit must refresh without waiting for the old GET").toBe(false);
 
@@ -267,7 +267,7 @@ test("DEV-318 AC-10-9: returning to detail refreshes even while the previous vis
     release.resolve();
     await staleDelivered;
     await page.evaluate(() => new Promise<void>(done => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
-    await expect(page.getByRole("heading", { name: "예약 완료", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "배송 대기", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "입금 확인 중", exact: true })).toHaveCount(0);
     clean();
   } finally {

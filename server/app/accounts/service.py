@@ -283,7 +283,7 @@ def test_accounts(db: Session, app: str) -> list[TestAccount]:
     result = []
     for uid in TEST_ACCOUNTS[app]:
         user = users.get(uid)
-        if user is None or not user.is_test_account:
+        if user is None or not user.is_test_account or user.uat_closed_at is not None:
             continue
         farm = farms.get_farm_of_producer(db, uid)
         result.append(
@@ -302,7 +302,7 @@ def test_login(db: Session, user_id: str, app: str) -> LoginResult:
     """시드 테스트 계정만 로그인한다. 새 계정은 만들지 않는다(AC-01-4)."""
     _require_mock_login()
     user = get_user(db, user_id)
-    if user is None or not user.is_test_account:
+    if user is None or not user.is_test_account or user.uat_closed_at is not None:
         raise not_found("테스트 계정이 아니에요.")
     if user.role != APP_ROLE[app]:
         raise forbidden("이 앱의 계정이 아니에요.", reason="WRONG_APP")
@@ -449,6 +449,8 @@ def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> KakaoLog
             }
         )
         return KakaoLoginResult(signup=KakaoSignup(signup_token=token, email=email or None))
+    if user.uat_closed_at is not None:
+        raise _invalid_login()
     if profile.email.strip():
         user.email = profile.email.strip()[:200]
     if not user.name.strip() and profile.name.strip():
@@ -506,6 +508,8 @@ def kakao_signup(db: Session, data: KakaoSignupInput) -> LoginResult:
             from app.messaging.support import ensure_consumer_support
 
             ensure_consumer_support(db, user.id)
+    if user.uat_closed_at is not None:
+        raise _invalid_login()
     save_consents(db, user, ConsentsInput(consents=data.consents))
     return _login_result(db, user)
 
@@ -610,7 +614,8 @@ def password_login(db: Session, data: PasswordLoginInput) -> LoginResult:
     if passwords.USERNAME_RE.fullmatch(username):
         row = db.execute(
             select(User.id, User.password_hash).where(
-                User.username == username, User.role == role, User.deleted_at.is_(None)
+                User.username == username, User.role == role, User.deleted_at.is_(None),
+                User.uat_closed_at.is_(None),
             )
         ).first()
         if row is not None:
@@ -639,7 +644,7 @@ def password_login(db: Session, data: PasswordLoginInput) -> LoginResult:
             new_hash = candidate
     user = db.get(User, user_id)
     # 검증한 뒤 비밀번호가 바뀌었거나 탈퇴했으면 이 로그인은 받지 않는다
-    stale = user is None or user.deleted_at is not None
+    stale = user is None or user.deleted_at is not None or user.uat_closed_at is not None
     if stale or user.password_hash not in (old_hash, new_hash):
         db.rollback()
         raise _invalid_login()

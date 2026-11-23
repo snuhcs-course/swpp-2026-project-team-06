@@ -283,7 +283,7 @@ register({
     return order(ctx.db, o);
   },
 
-  // 생산자 입금 확인(AC-09-8): 입금 대기 → 예약 완료. 이미 확인됐으면 그대로
+  // 생산자 입금 확인(AC-09-8): 입금 대기 → 배송 대기. 이미 확인됐으면 그대로
   "POST /api/orders/:orderId/confirm-deposit": (ctx) => {
     const o = farmOrder(ctx);
     if (o.paidAt && ACTIVE.has(o.status)) return producerOrder(ctx.db, o);
@@ -295,7 +295,7 @@ register({
     const p = ctx.db.products[o.productId];
     if (p && !hasActiveOrder(ctx, o.consumerId, p.productId))
       p.reservedCount += 1;
-    o.status = "RESERVED";
+    o.status = "PREPARING";
     o.paidAt = nowIso();
     o.depositIssue = null;
     return producerOrder(ctx.db, o);

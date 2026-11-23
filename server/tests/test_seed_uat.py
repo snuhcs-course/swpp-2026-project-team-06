@@ -273,3 +273,65 @@ def test_DEV_305_uat_login_keeps_apps_apart_and_skips_onboarding(client, login):
     assert {p["productId"] for p in mine.json()["items"]} == {"p-uat-1a", "p-uat-1b"}
     pending = client.get("/api/auth/me", headers=login("u-uat-p3", "producer")).json()
     assert pending["farmStatus"] == "PENDING"
+
+
+def test_post_uat_closure_hides_farm_and_invalidates_only_target_logins(client, login):
+    from app.accounts import passwords
+    from app.admin.close_uat import close_accounts
+    from tests.test_orders import key, order_body
+    from tests.test_password_login import PRODUCER_CONSENTS
+
+    seed_uat.main(["--commit"])
+    retire_test_farm.restore("f-uat-1", commit=True)
+    tester = login("u-uat-p1", "producer")
+    regular = login("u-minji")
+    credentials = {"app": "producer", "username": "orchard123", "password": "Uat-example-123"}
+    with get_sessionmaker()() as db, db.begin():
+        user = db.get(User, "u-uat-p1")
+        user.username = credentials["username"]
+        user.password_hash = passwords.hash_password(credentials["password"])
+    assert client.post("/api/auth/login", json=credentials).status_code == 200
+    assert client.post(
+        "/api/auth/me/consents", headers=tester, json={"consents": PRODUCER_CONSENTS}
+    ).status_code == 200
+    assert client.put("/api/farms/f-uat-1/follow", headers=regular).status_code == 200
+    response = client.post("/api/messaging/news", headers=tester | key(), json={"body": "UAT 소식"})
+    assert response.status_code == 200, response.text
+    broadcast = response.json()["broadcastId"]
+
+    def feed_ids():
+        feed = client.get("/api/messaging/news", headers=regular)
+        assert feed.status_code == 200
+        return {item["broadcastId"] for item in feed.json()["items"]}
+
+    assert broadcast in feed_ids()
+    order = client.post(
+        "/api/orders", headers=login("u-uat-c1", "consumer") | key(),
+        json=order_body(productId="p-uat-1a"),
+    )
+    assert order.status_code == 200, order.text
+    before = table_counts()
+    with get_sessionmaker()() as db, db.begin():
+        assert len(close_accounts(db, [], False)) == 6
+    assert client.get("/api/auth/me", headers=tester).status_code == 200
+    assert client.get("/api/products/p-uat-1a", headers=regular).status_code == 200
+    with get_sessionmaker()() as db, db.begin():
+        close_accounts(db, [], True)
+    with get_sessionmaker()() as db, db.begin():
+        close_accounts(db, [], True)
+        assert db.get(User, "u-uat-p1").token_version == 1
+    assert client.get("/api/auth/me", headers=tester).status_code == 401
+    assert client.get("/api/auth/me", headers=regular).status_code == 200
+    assert client.post("/api/auth/login", json=credentials).status_code == 401
+    assert client.post(
+        "/api/auth/test-login", json={"app": "producer", "userId": "u-uat-p1"}
+    ).status_code == 404
+    assert not {a["userId"] for a in accounts(client, "consumer").json()}.intersection(CONSUMERS)
+    assert client.get("/api/products/p-uat-1a", headers=regular).status_code == 404
+    assert client.get("/api/products/p-uat-1a").status_code == 404
+    assert "f-uat-1" not in {farm["farmId"] for farm in client.get("/api/farms").json()["items"]}
+    assert broadcast not in feed_ids()
+    assert client.get("/api/messaging/rooms/f-uat-1/messages", headers=regular).status_code == 404
+    after = table_counts()
+    for name in ("broadcasts", "users", "orders", "threads", "thread_messages", "products"):
+        assert before[name] == after[name]

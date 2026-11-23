@@ -628,7 +628,7 @@ def _example_orders() -> list[dict]:
             option_id="opt-5",
             quantity=2,
             unit_price=29000,
-            status="RESERVED",
+            status="PREPARING",
             created_at=at("2026-10-07", "09:12"),
             delivery_note="문 앞에 두고 벨 눌러 주세요",
             **minji,
@@ -641,7 +641,7 @@ def _example_orders() -> list[dict]:
             option_id="opt-10",
             quantity=1,
             unit_price=24000,
-            status="RESERVED",
+            status="PREPARING",
             created_at=at("2026-09-21"),
             proposed_delivery_start=d("2026-12-08"),
             proposed_delivery_end=d("2026-12-22"),
@@ -729,7 +729,7 @@ def _example_orders() -> list[dict]:
 
 
 def _house_orders() -> tuple[list[dict], dict[str, str]]:
-    """하우스 감귤 40건(o-40·38·35·42 포함): 예약 완료 30 · 출하 준비 7 · 출하 3, 소비자 37명."""
+    """하우스 감귤 40건(o-40·38·35·42 포함): 배송 대기 37 · 출하 3, 소비자 37명."""
     g: list[dict] = [
         dict(
             id="o-g0",
@@ -807,7 +807,7 @@ def _house_orders() -> tuple[list[dict], dict[str, str]]:
                 name=name,
                 opt="opt-10" if i % 2 == 1 and i < 12 else "opt-5",
                 qty=2 if i == 8 else 1,
-                status="RESERVED",
+                status="PREPARING",
                 day=f"2026-10-0{2 + k % 5}",
             )
         )
@@ -820,7 +820,7 @@ def _house_orders() -> tuple[list[dict], dict[str, str]]:
                 name=repeat["name"] if repeat else f"예약자{i + 1}",
                 opt="opt-5",
                 qty=1,
-                status="RESERVED",
+                status="PREPARING",
                 day=f"2026-10-0{1 + i % 7}",
             )
         )

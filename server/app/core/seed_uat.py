@@ -16,8 +16,7 @@ retire_test_farm --restore --commit으로 연다.
 
 기간·받는 시기는 앱 기준일(clock.today(), KST. FIXED_NOW가 있으면 그 날) 기준 상대 날짜다.
 넣는 날을 미리 알 수 없어서다.
-UAT가 끝나면 DEV-304 정리 명령(계획 이름 app.admin.purge_except, 머지 뒤 재확인)을
-실제 생산자만 --keep으로 다시 돌려 지운다.
+UAT 종료 시 app.admin.close_uat로 대상 계정과 농가를 확인한 뒤 접속과 공개를 종료한다.
 """
 
 import sys

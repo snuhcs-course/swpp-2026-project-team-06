@@ -406,7 +406,7 @@ def test_AC_33_3_resolve_does_not_change_order(client, login):
     assert resolved["version"] == 2
     assert resolved["resolvedAt"]
     assert stale.status_code == 409
-    assert order["status"] == "RESERVED"
+    assert order["status"] == "PREPARING"
     assert order["refundedAt"] is None
 
 

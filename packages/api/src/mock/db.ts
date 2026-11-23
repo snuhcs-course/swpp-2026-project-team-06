@@ -279,7 +279,7 @@ export type DB = {
 
 // 8: 농가 입금 계좌·입금 대기 주문 필드(DEV-68). 이전 state.json은 설정 › 데모 데이터 초기화 또는 파일 삭제 후 다시 시작
 // 9: 소비자 farmclub 문의 대화방 supportRooms(DEV-150)
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 let cache: DB | null = null;
 let persistence = {
   read: () => readStore("mock-db"),
@@ -296,6 +296,13 @@ export function db(): DB {
   const raw = persistence.read();
   if (raw) {
     const parsed = JSON.parse(raw) as DB;
+    if (parsed.version === 9) {
+      for (const order of Object.values(parsed.orders)) {
+        if (order.status === "RESERVED" && order.paidAt) order.status = "PREPARING";
+      }
+      parsed.version = DB_VERSION;
+      persistence.write(JSON.stringify(parsed));
+    }
     if (parsed.version !== DB_VERSION)
       throw new Error(
         "Mock schema changed: back up and explicitly migrate/reset local data before starting.",
@@ -1111,7 +1118,7 @@ export function seed(): DB {
       optionId: "opt-5",
       quantity: 2,
       unitPrice: 29000,
-      status: "RESERVED",
+      status: "PREPARING",
       createdAt: at("2026-10-07", "09:12"),
       deliveryNote: "문 앞에 두고 벨 눌러 주세요",
     }),
@@ -1124,7 +1131,7 @@ export function seed(): DB {
       optionId: "opt-10",
       quantity: 1,
       unitPrice: 24000,
-      status: "RESERVED",
+      status: "PREPARING",
       createdAt: at("2026-09-21"),
       proposedDeliveryWindow: { start: "2026-12-08", end: "2026-12-22" },
     }),
@@ -1295,7 +1302,7 @@ export function seed(): DB {
       name,
       opt: i % 2 === 1 && i < 12 ? "opt-10" : "opt-5",
       qty: i === 8 ? 2 : 1,
-      status: "RESERVED",
+      status: "PREPARING",
       date: `2026-10-0${2 + (k % 5)}`,
     });
   });
@@ -1308,7 +1315,7 @@ export function seed(): DB {
       name: repeat ? repeat.name : `예약자${i + 1}`,
       opt: "opt-5",
       qty: 1,
-      status: "RESERVED",
+      status: "PREPARING",
       date: `2026-10-0${1 + (i % 7)}`,
     });
   }

@@ -200,12 +200,12 @@ test("DEV-281 AC-09-9/10 AC-10-9 AC-33-5: record the local consumer recovery dem
     ]);
     await page.waitForTimeout(2000);
     await post(`${orderEndpoint}/confirm-deposit`, producer);
-    const reserved = page.getByRole("heading", { name: "예약 완료", exact: true });
-    await expect(reserved).toBeVisible({ timeout: 12_000 });
+    const preparing = page.getByRole("heading", { name: "배송 대기", exact: true });
+    await expect(preparing).toBeVisible({ timeout: 12_000 });
     await expect(page).toHaveURL(`${origins.consumer}/orders/${orderId}`);
     assertions.push("AC-10-9: the same open order detail reflects producer confirmation within 12 seconds without navigation or manual refresh");
     await caption(page, "02 / 확인한 결과", "같은 화면에서 상태 갱신", [
-      "자동 조회로 예약 완료 상태가 반영됐습니다.",
+      "자동 조회로 배송 대기 상태가 반영됐습니다.",
       "승인은 로컬 테스트 API로 수행한 모의 동작입니다.",
     ]);
     await page.waitForTimeout(2000);

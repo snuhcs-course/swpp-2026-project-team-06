@@ -454,8 +454,8 @@ register({
       )
         invalid({ salesLimitGrams: "0 이상의 중량을 입력해 주세요" });
       if (
-        !Number.isSafeInteger(b.maxQuantityPerOrder) ||
-        Number(b.maxQuantityPerOrder) < 1
+        b.maxQuantityPerOrder != null &&
+        (!Number.isSafeInteger(b.maxQuantityPerOrder) || Number(b.maxQuantityPerOrder) < 1)
       )
         invalid({ maxQuantityPerOrder: "1 이상의 정수로 입력해 주세요" });
       if (typeof b.salesPaused !== "boolean")
@@ -494,7 +494,7 @@ register({
           );
       }
       p.salesLimitGrams = Number(b.salesLimitGrams);
-      p.maxQuantityPerOrder = Number(b.maxQuantityPerOrder);
+      if (b.maxQuantityPerOrder != null) p.maxQuantityPerOrder = Number(b.maxQuantityPerOrder);
       p.salesPaused = b.salesPaused;
       p.version++;
       p.updatedAt = nowIso();

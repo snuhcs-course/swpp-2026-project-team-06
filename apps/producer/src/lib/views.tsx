@@ -16,7 +16,7 @@ export const ORDER_STATUS: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "입금 안내 전",
   AWAITING_DEPOSIT: "입금 대기",
   RESERVED: "예약 완료",
-  PREPARING: "출하 준비",
+  PREPARING: "배송 대기",
   SHIPPED: "출하",
   DELIVERED: "배송 완료",
   COMPLETED: "구매 확정",

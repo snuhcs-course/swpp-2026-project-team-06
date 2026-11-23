@@ -12,7 +12,7 @@ import { ProductPageBody, type ProductPageData } from "@farmclub/ui";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { daysBetween } from "./fields";
-import { seoulToday } from "./HarvestStart";
+import { seoulToday } from "./seoulToday";
 
 const PRIVATE = "/api/source-media/";
 

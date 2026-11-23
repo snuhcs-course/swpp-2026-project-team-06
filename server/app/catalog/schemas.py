@@ -311,7 +311,7 @@ class StagesResult(CamelModel):
 
 class SalesInput(CamelModel):
     sales_limit_grams: int = Field(ge=0)
-    max_quantity_per_order: int = Field(ge=1)
+    max_quantity_per_order: int | None = Field(default=None, ge=1)
     sales_paused: bool
     version: int
 
