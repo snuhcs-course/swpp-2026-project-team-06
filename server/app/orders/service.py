@@ -1257,9 +1257,12 @@ def ship_order(
         raise not_found("주문을 찾을 수 없어요.")
     if order.status != "PREPARING":
         raise conflict("INVALID_TRANSITION", "출하 준비인 주문만 출하로 바꿀 수 있어요.")
+    tracking_number = (tracking_number or "").strip() or None
+    if tracking_number and not carrier:
+        raise invalid({"carrier": "택배사를 골라 주세요"})
     order.status = "SHIPPED"
     order.shipped_at = now()
-    order.tracking_number = (tracking_number or "").strip() or None
+    order.tracking_number = tracking_number
     order.carrier = carrier
     db.flush()
     return producer_order_view(db, order)

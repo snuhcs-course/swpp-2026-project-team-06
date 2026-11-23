@@ -793,9 +793,10 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 - **THEN** the buyer sees "In delivery" and the Cancel button disappears
 
 **AC-17-5: Tracking number**
-- **GIVEN** I entered tracking number "123-456" for a preparing order
+- **GIVEN** I entered tracking number "123-456" and selected a carrier for a preparing order
 - **WHEN** I mark it shipped
 - **THEN** the ship date and tracking number are recorded
+- The shipment API also requires a carrier when the trimmed tracking number is non-empty (DEV-442). Missing/null carrier returns 400 with a carrier field error, leaving status, shipment time and tracking unchanged. Shipping without a tracking number (including blank input) still permits an omitted carrier.
 
 **AC-17-7: Refund sent by the farm (DEV-68)**
 - **GIVEN** an order was fully refunded

@@ -921,6 +921,58 @@ def _correct(client, producer, order_id, **body):
     )
 
 
+@pytest.mark.parametrize("extra", [{}, {"carrier": None}])
+def test_AC_17_5_shipment_requires_carrier_with_tracking_without_mutation(client, login, extra):
+    order_id, consumer, producer = _order(client, login, ship=False)
+    reserve(client, consumer, order_id, login=login)
+    harvest = client.post(
+        "/api/orders/producer/harvest-orders",
+        headers=producer | key(),
+        json={"orderIds": [order_id]},
+    )
+    assert harvest.status_code == 200, harvest.text
+    before = client.get(f"/api/orders/{order_id}", headers=consumer).json()
+    rejected = client.post(
+        f"/api/orders/{order_id}/ship",
+        headers=producer,
+        json={"trackingNumber": "  6012-3456-7890  "} | extra,
+    )
+    assert rejected.status_code == 400, rejected.text
+    assert rejected.json()["details"]["fields"] == {"carrier": "택배사를 골라 주세요"}
+    unchanged = client.get(f"/api/orders/{order_id}", headers=consumer).json()
+    for field in ("status", "shippedAt", "carrier", "trackingNumber"):
+        assert unchanged[field] == before[field]
+    assert unchanged["status"] == "PREPARING"
+    retry = client.post(
+        f"/api/orders/{order_id}/ship",
+        headers=producer,
+        json={"carrier": "CJ", "trackingNumber": "  6012-3456-7890  "},
+    )
+    assert retry.status_code == 200, retry.text
+    detail = client.get(f"/api/orders/{order_id}", headers=consumer).json()
+    assert (detail["status"], detail["carrier"], detail["trackingNumber"]) == (
+        "SHIPPED", "CJ", "6012-3456-7890"
+    )
+
+
+@pytest.mark.parametrize("tracking", [None, "", "   "])
+def test_AC_17_5_shipment_without_tracking_keeps_carrier_optional(client, login, tracking):
+    order_id, consumer, producer = _order(client, login, ship=False)
+    reserve(client, consumer, order_id, login=login)
+    harvest = client.post(
+        "/api/orders/producer/harvest-orders",
+        headers=producer | key(),
+        json={"orderIds": [order_id]},
+    )
+    assert harvest.status_code == 200, harvest.text
+    shipped = client.post(
+        f"/api/orders/{order_id}/ship", headers=producer, json={"trackingNumber": tracking}
+    )
+    assert shipped.status_code == 200, shipped.text
+    data = shipped.json()
+    assert (data["status"], data["carrier"], data["trackingNumber"]) == ("SHIPPED", None, None)
+
+
 def _tracking_events(order_id):
     with get_sessionmaker()() as db:
         return [
