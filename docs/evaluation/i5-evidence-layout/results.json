@@ -1,0 +1,44 @@
+{
+  "status": "OFFLINE_TARGETED_VALIDATION_REPLAY_NOT_NEW_GENERATION_OR_RELEASE_ACCEPTANCE",
+  "sources": 3,
+  "formats": [
+    "pdf",
+    "long_image"
+  ],
+  "counts": {
+    "originalAcceptedExactlyPreserved": 68,
+    "originalRejectionsExactlyReproduced": 16,
+    "newlyAcceptedCandidates": 8,
+    "recoveredEchoPassesUnchangedPageSafety": 6
+  },
+  "rejectionCodesBefore": {
+    "HISTORICAL_FIELD": 6,
+    "INVALID_EVIDENCE": 10
+  },
+  "rejectionCodesAfter": {
+    "HISTORICAL_FIELD": 6,
+    "INVALID_EVIDENCE": 2
+  },
+  "recoveredEchoRejectionsByUnchangedPageSafety": {
+    "EXAGGERATION": 1,
+    "HEALTH_CLAIM": 1
+  },
+  "samePromptBody": true,
+  "pipelineVersion": "source-v9-coverage-wrap1",
+  "modelCalls": 0,
+  "inputFilesUnchanged": 11,
+  "oldAcceptedValuesAndQuotesExactlyUnchanged": true,
+  "historicalFlagsChanged": false,
+  "goldOrScorerChanged": false,
+  "holdoutAccessed": false,
+  "fullOriginalProviderChunksCaptured": false,
+  "reconstruction": "Unique page offsets in retained flat OCR transcript, checked against all accepted quotes and referenced-span bounds; not a new OCR or full provider-request reproduction.",
+  "privateArtifactSha256": {
+    "trace": "634725323882f44e289b199d59b4ea8c144bf7a21a5cb11193196a46dca5a44b",
+    "script": "886a1a47b02bde192c38839415f6445c7f6a2c09c8ffec34ee58e111fc3196be"
+  },
+  "codeSha256": {
+    "worker.py": "bebb4c51bacb525333b33e76bf9d86618a7e3daaaa65e5b26b1bf14a4bc8f859",
+    "source_analysis.py": "43ed68a202e3a6be643e62cfed353b0767750b0202bd6db9a5532610db5700b1"
+  }
+}

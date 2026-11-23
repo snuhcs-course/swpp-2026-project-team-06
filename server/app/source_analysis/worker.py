@@ -282,13 +282,32 @@ def canonical_quote(quote, source):
         return None
     if quote in source:
         return quote
-    tokens = list(re.finditer(r"\s+|\S", source))
-    normalized = "".join(" " if t.group().isspace() else t.group() for t in tokens)
-    wanted = re.sub(r"\s+", " ", quote).strip()
-    start = normalized.find(wanted)
-    if start < 0:
-        return None
-    return source[tokens[start].start() : tokens[start + len(wanted) - 1].end()]
+
+    def layout(text, unwrap_hangul):
+        tokens = list(re.finditer(r"\s+|\S", text))
+        kept = []
+        for i, token in enumerate(tokens):
+            # Only a single physical line wrap between Korean syllables may vanish.
+            # Never join numeric/unit boundaries, paragraph breaks or ordinary spaces.
+            if (
+                unwrap_hangul
+                and 0 < i < len(tokens) - 1
+                and re.fullmatch(r"[ \t]*\r?\n[ \t]*", token.group())
+                and re.fullmatch(r"[가-힣]", tokens[i - 1].group())
+                and re.fullmatch(r"[가-힣]", tokens[i + 1].group())
+            ):
+                continue
+            kept.append(token)
+        return kept, "".join(" " if t.group().isspace() else t.group() for t in kept)
+
+    for unwrap_hangul in (False, True):
+        tokens, normalized = layout(source, unwrap_hangul)
+        _, wanted = layout(quote, unwrap_hangul)
+        wanted = wanted.strip()
+        start = normalized.find(wanted)
+        if start >= 0:
+            return source[tokens[start].start() : tokens[start + len(wanted) - 1].end()]
+    return None
 
 
 def validate(extraction, chunk, allowed_targets):

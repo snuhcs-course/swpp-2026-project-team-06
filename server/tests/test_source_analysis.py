@@ -780,6 +780,6 @@ def test_AC_SRC_2_stage1_prompt_has_coverage_checklist():
     """DEV-264: short facts stage 1 often skipped (packing, size grades, taste caveats)."""
     from app.ai.source_analysis import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-v9-coverage"
+    assert PROMPT_VERSION == "source-v9-coverage-wrap1"
     for item in ("shipping and packing", "size grades", "taste qualifiers", "appearance notes"):
         assert item in PROMPT
