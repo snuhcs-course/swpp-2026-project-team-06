@@ -1,0 +1,52 @@
+# DEV-447 development gold review packet preparation
+
+**Prepared, not adjudicated.** The private packet covers all 47 existing development sources and all 354 historical facts (154 critical). Every human decision is PENDING. No gold label, historical score, generator, product policy or release decision changed. No provider/model calls were made. No sealed holdout file was opened.
+
+Zahra authorized preparation while Jinwoo reviews the proposed content contract in [PR #795](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/795). Jinwoo is the assigned gold adjudicator, Korean editorial reviewer and producer-feedback coordinator; role assignment does not establish completed review, availability or producer participation. This work does not mark DEV-446/447 Done.
+
+## What is ready
+
+The packet is stored outside git. Its entry page links to 47 source-specific Markdown worksheets and a priority queue for the 51 critical misses previously investigated across 17 sources. It also contains an editable JSON worksheet, a preserved original-gold snapshot, the prior audit, preparation summary and verification record. One-off build/verification scripts are retained privately; their hashes appear in [preparation-results.json](preparation-results.json). Filled worksheets, local paths, raw sources and scripts containing those paths must not be uploaded to this public repository, PR or Linear.
+
+Each claim retains the original source/fact ID, product, statement, reference sentence, selectors, critical flag and section/module. Source rows link to the corresponding original public-development asset or synthetic fixture definition. Public source files were byte-hash checked against the saved input snapshot. The 23 synthetic sources are linked to their existing fixture definitions; this task did not render or visually inspect new image/PDF assets. Synthetic-definition linkage is not original-image verification.
+
+The 51 prior audit entries are preserved exactly as agent findings, with source-location notes and concrete Korean review questions. The remaining 303 facts are queued for original-source review; exact claim-level page/region verification is incomplete and must be supplied by the reviewer. Existing candidate quotes/spans and selector matches are only navigation leads, not proof of extraction success or semantic support. No new full-corpus visual audit is claimed.
+
+Proposed claim fields cover relation, value/unit, negation, approximation, expected/measured status, sample/time context, source-claim versus independent verification, inclusion class, criticality, primary/permitted modules, equivalent forms and a misleading near-miss control. Unknown fields remain empty/UNRESOLVED. There is a separate human adjudication record: actual reviewer, original-source confirmation, retain/merge/correct/exclude/unresolved, canonical ID, rationale, policy approval and review time. The assigned reviewer field does not fill in the actual reviewer or confirmation.
+
+## Inventory and limits
+
+| Format | Sources | Facts | Critical facts |
+| --- | ---: | ---: | ---: |
+| Text | 26 | 103 | 46 |
+| Image | 9 | 52 | 35 |
+| Long image | 4 | 92 | 25 |
+| PDF | 8 | 107 | 48 |
+| Total | 47 | 354 | 154 |
+
+These are inventory counts pooled across **24 public-development and 23 synthetic cases**, not pooled quality metrics. Any later performance reporting must separate cohorts. Four empty-gold source rows remain, with explicit correct-empty versus processing-failure review prompts. Four duplicate-selector pairs and six reference sentences flagged by existing product checks remain review leads; none was automatically merged, excluded or approved.
+
+The priority queue starts with the 51 prior audited critical misses and retains the other 303 facts. Its questions cover source spelling/unit/range equivalence, policy conflicts, temporal/product applicability, criticality, useful alternative placement, historical labeling and rejected evidence. Prior agent verification remains distinct from Jinwoo's human verification. Unresolved cases cannot be silently removed from the denominator.
+
+## Jinwoo's next steps
+
+1. Open the private entry page and priority queue. The local file links require access on the author's machine; they are not a working cross-machine share. Zahra must arrange an approved private handoff before remote review. No message or raw attachment was sent to Jinwoo by this task.
+2. Inspect original text/image/PDF locations and the unchanged old labels. Review the 51 priority claims, then all remaining facts and the four empty cases. Verify source context rather than relying on OCR, selector matches or agent comments.
+3. Fill the proposal and actual human-review fields. Every original ID needs a disposition; merged claims retain all old-ID mappings and sources. Keep conditions/product/time distinctions. Do not make policy/criticality changes simply because they improve current scores.
+4. Resolve contract questions with Zahra and the proposed DEV-446 standards. Before audited-gold acceptance, approve/freeze the policy and record decisions, reviewer identity, source revision/location, full old-to-new mapping and a new gold version/digest. Preserve original files and historical results.
+5. Only then does DEV-448 validate a revised evaluator and rescore saved baseline/candidate outputs symmetrically. Original-source ambiguity stays unresolved rather than becoming an extraction-failure label. DEV-452/412/413 separately govern producer acceptance and release.
+
+## Executed verification
+
+Two private scripts ran offline: packet construction and independent completion/verification. The latter passed **17 checks, 0 failed**:
+
+- All 354 unique old claim records round-trip exactly; all 154 critical flags and all 47 source rows survive.
+- The 51 original audit records are unchanged and occupy the first 51 queue positions; no human review is preapproved and no proposed label is silently adopted.
+- All four empty-gold sources, four duplicate-selector pairs and six flagged-reference leads remain.
+- All 24 public source assets match the saved input byte hashes; 23 synthetic fixture definitions are linked without claiming rendered-image verification.
+- All 54 tracked inputs (gold/manifest/audit/fixtures/input index, original assets and stored extraction files) have unchanged before/after hashes.
+- All 123 private Markdown links resolve, all 47 source worksheets exist, private files have mode 0600 and directories mode 0700; format counts reconcile.
+
+The verification record and artifact hashes describe this **initial prepared packet**, not later human edits. Revised worksheets require new hashes/version metadata. Input immutability/link checks do not establish semantic correctness, label quality or model improvement. No runtime code changed; pytest/npm were not run under the documentation-only exception. Public Markdown links, diff scope and PR table are checked separately before finalizing the draft PR.
+
+Provenance: repository baseline ef390bde; reused offline diagnostics from the DEV-445 worktree at 1e2b114c. Private scripts pin known development inputs explicitly rather than discovering/reading sealed files. Existing $5 shared model budget is unchanged: $1.322573 settled plus $0.061929 uncertain reservation previously accounted for. Schedule reconciliation, actual human review and policy/gate approval remain open. No merge or deployment.
