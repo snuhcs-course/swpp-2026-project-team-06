@@ -6,6 +6,7 @@ import time
 
 from sqlalchemy import or_, select
 
+from app.ai.page_plan import coverage_ledger
 from app.ai.source_refine import (
     PROMPT,
     PROMPT_VERSION,
@@ -13,6 +14,7 @@ from app.ai.source_refine import (
     RefineError,
     farm_common_allowed,
     refine,
+    request_payload,
 )
 from app.core.db import get_sessionmaker
 from app.source_analysis.models import Asset, Batch, Candidate, Item, Page, Run
@@ -275,6 +277,7 @@ def validate(output, candidates, target_id, *, target_count=0, target_name=""):
         "rejected": rejected,
         "warningCount": len(warnings),
         "warnings": warnings,
+        "coverageLedger": coverage_ledger(list(by_id.values()), modules, excluded),
     }
 
 
@@ -385,7 +388,7 @@ def process(item_id, token):
             token,
             "refine",
             model,
-            {"prompt": PROMPT, "candidates": safe},
+            {"prompt": PROMPT, **request_payload(target, safe)},
             [target],
             [],
             lambda: refine(mode, model, target, safe),

@@ -82,6 +82,7 @@ test: test-server test-apps test-admin test-ci ## Server + apps + admin page + C
 test-source-final: ## Offline stage-2 evaluator and final-text scorer tests (DEV-170)
 	@$(LOCAL_DB_ONLY)
 	$(SERVER) uv run pytest tests/test_final_eval.py tests/test_final_score.py
+	$(SERVER) uv run pytest tests/test_page_plan.py tests/test_gold_audit.py tests/test_page_compare.py tests/test_page_writer.py
 
 test-server: ## pytest + alembic check (CI server job; run make db first)
 	@$(LOCAL_DB_ONLY)
