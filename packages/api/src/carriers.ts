@@ -36,3 +36,56 @@ export function trackingUrl(
       return null;
   }
 }
+
+/** 숫자를 입력하는 동안 택배사별 구분자를 넣는다. 원문 숫자는 자르지 않는다. */
+export function formatTrackingNumber(code: Carrier | null | undefined, value: string): string {
+  if (!CARRIERS.some(c => c.code === code) || code === "ETC" || !/^[\d\s-]*$/.test(value)) return value;
+  const digits = value.replace(/[\s-]/g, "");
+  const groups = code === "EPOST" ? [6] : code === "LOGEN" && digits.length <= 11 ? [3, 4] : [4, 4];
+  const parts: string[] = [];
+  let offset = 0;
+  for (const size of groups) {
+    if (digits.length <= offset) break;
+    parts.push(digits.slice(offset, offset + size));
+    offset += size;
+  }
+  if (digits.length > offset) parts.push(digits.slice(offset));
+  const formatted = parts.join("-");
+  return formatted.length <= 50 ? formatted : digits;
+}
+
+type TextSelection = { start: number; end: number };
+
+/** 구분자 삽입 뒤에도 숫자 기준 커서·선택 범위를 보존한다. */
+export function editTrackingNumber(
+  code: Carrier | null | undefined,
+  previous: string,
+  raw: string,
+  selection: TextSelection,
+  previousSelection: TextSelection,
+): { text: string; selection: TextSelection } {
+  let start = selection.start, end = selection.end;
+  const numeric = CARRIERS.some(c => c.code === code) && code !== "ETC" && /^[\d\s-]*$/.test(raw);
+  if (numeric && raw.length === previous.length - 1 && start === end &&
+      previousSelection.start === previousSelection.end && previous[start] === "-" &&
+      raw.replace(/\D/g, "") === previous.replace(/\D/g, "")) {
+    // Backspace/Delete at a separator removes the adjacent digit, instead of trapping the cursor.
+    const backward = previousSelection.start > start;
+    const at = backward ? start - 1 : start;
+    if (at >= 0 && /\d/.test(raw[at] ?? "")) {
+      raw = raw.slice(0, at) + raw.slice(at + 1);
+      start = end = backward ? at : start;
+    }
+  }
+  const text = formatTrackingNumber(code, raw);
+  if (text === raw) return { text, selection: { start, end } };
+  const position = (index: number) => {
+    const count = raw.slice(0, index).replace(/\D/g, "").length;
+    let pos = 0, seen = 0;
+    while (pos < text.length && seen < count) if (/\d/.test(text[pos++])) seen++;
+    if (index > 0 && /[\s-]/.test(raw[index - 1]))
+      while (pos < text.length && /[\s-]/.test(text[pos])) pos++;
+    return pos;
+  };
+  return { text, selection: { start: position(start), end: position(end) } };
+}

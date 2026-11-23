@@ -1,3 +1,4 @@
+import { TrackingNumberInput } from "../lib/TrackingNumberInput";
 // SCR-29 주문·출하 처리 (FEAT-17, FEAT-09 AC-09-8 입금 확인·AC-09-9 미승인, AC-17-7 환불 송금·AC-17-8 미승인, R-07·15·19·28, DEV-68) — design: p-scr-29, DEV-68 보드
 // 입금 승인은 확인 시트 후 처리하고 환불 완료는 줄에서 처리한다. 미승인은 줄 안에 사유(필수) 칸이 펼쳐진다.
 // 받는 사람 실명·전체 주소는 이 화면에서만 보인다(배송 목적, R-15). 입금 대기 줄에는 배송지가 없다. 여러 건 출하는 주문마다 ship API를 반복 호출한다.
@@ -5,6 +6,7 @@ import {
   ApiError,
   CARRIERS,
   carrierLabel,
+  formatTrackingNumber,
   allPages,
   messaging,
   orders,
@@ -230,7 +232,7 @@ export default function Ship() {
   // 시트에서 저장하면 그 주문을 고르고 토스트(SCR-29 버튼 동작). 서버에는 출하할 때 함께 보낸다.
   async function saveInvoice() {
     if (!invoiceFor || busy) return;
-    const no = draft.no.trim();
+    const no = formatTrackingNumber(draft.carrier, draft.no.trim());
     if (no.length > 50) {
       shownError("tracking_too_long");
       return setInvoiceError("송장 번호는 50자까지예요");
@@ -911,7 +913,10 @@ export default function Ship() {
                 aria-checked={on}
                 accessibilityLabel={c.label}
                 onPress={() => {
-                  setDraft((d) => ({ ...d, carrier: on ? null : c.code }));
+                  setDraft((d) => {
+                    const carrier = on ? null : c.code;
+                    return { ...d, carrier, no: formatTrackingNumber(carrier, d.no) };
+                  });
                   setInvoiceError(null);
                 }}
                 style={(st) =>
@@ -938,19 +943,15 @@ export default function Ship() {
             );
           })}
         </View>
-        <Input
-          label="송장 번호"
-          optional
-          editable={!busy}
+        <TrackingNumberInput
+          carrier={draft.carrier}
           value={draft.no}
-          onChangeText={(v) => {
-            setDraft((d) => ({ ...d, no: v }));
+          editable={!busy}
+          onChange={no => {
+            setDraft(d => ({ ...d, no }));
             setInvoiceError(null);
           }}
-          placeholder="예: 6012-3456-7890"
           error={invoiceError ?? undefined}
-          hint="넣으면 소비자가 배송을 조회할 수 있어요"
-          maxLength={50}
         />
         <Button
           label="저장"
