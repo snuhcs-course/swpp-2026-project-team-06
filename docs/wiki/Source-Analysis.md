@@ -306,3 +306,16 @@ Stage-2 validation rejects unsupported Korean range rewrites (`a에서 b 사이`
 ## Light producer photo previews (DEV-341, November 17)
 
 Producer screens never download the lossless analysis PNG (DEV-341): the cover and editor use a display preview (long edge at most 1600px JPEG) and attachment tiles a thumbnail (short edge at most 480px), both made from the sanitized image and created at photo upload. Previews are cached only in the producer's own browser per source revision (`private, max-age=86400`, ETag, `Vary: Authorization`), shared between screens, time out instead of hanging, and a failed photo can be retried on its own. Originals and unredacted pages stay `no-store`. The product page editor shrinks photos to a 1600px JPEG before upload, and the server encodes them outside the product lock. Adding photos shows progress only on the add control that started the upload.
+
+
+## DEV-445 page drafting prototype (2026-11-24)
+
+The candidate writer receives a deterministic source-sentence inventory and explicit section purposes within the existing single provider call. It is instructed to preserve factual details and qualifications while avoiding repeated explanations across sections. The plan is advisory; it does not certify claims or invent missing content.
+
+Existing safety checks, private saves, producer edits and explicit apply remain in place. A private coverage ledger distinguishes verbatim text, citation-only coverage, exclusions and unaccounted units; semantic completeness is not established by a citation. Full input is included in cost reservation.
+
+The offline gold audit identifies duplicate selectors and reference wording flagged by current checks as review leads, not automatic gold corrections. A local comparison runner uses identical saved development extraction candidates and the unchanged historical scorer, with a cumulative approved $5 cap and private side-by-side output. Producer acceptance and human editorial review remain pending.
+
+DEV-445 rollout clarification: v12 and source-unit-writer-v1 are explicit experimental adapters, not the production default. The v11-routing generation prompt remains the default; its cache version is source-refine-v11-source-audit for the source-audited validation and title cleanup changes. Grouped experimental calls are reserved/settled separately by the local comparison tool.
+
+The source audit found a valid Brix statement rejected when OCR inserted spaces within the Korean unit. Validation now recognizes spacing between its three letters without changing values, unit types or ranges, or supplying missing units. Title cleanup merges a shorter hero title only when it is a whole suffix phrase of a longer unqualified title; the longer wording and all citations remain. Numeric, negative and measurement qualifiers are guarded. Other sections are unchanged. The original gold/scorer remain frozen; see the aggregate source audit under docs/evaluation/i5-page-drafting/source-audit.md.

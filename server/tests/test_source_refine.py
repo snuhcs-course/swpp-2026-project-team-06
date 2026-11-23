@@ -1710,7 +1710,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v11-routing"
+    assert PROMPT_VERSION == "source-refine-v11-source-audit"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 

@@ -47,6 +47,13 @@ def validate_limits(max_usd, trials, consent):
         raise ValueError("INVALID_TRIAL_COUNT")
 
 
+def private_output(path):
+    destination = private_path(path)
+    if any((parent / ".git").exists() for parent in [destination, *destination.parents]):
+        raise ValueError("PRIVATE_OUTPUT_OUTSIDE_CHECKOUT_REQUIRED")
+    return destination
+
+
 def page_wide_recall(source, record):
     """Diagnostic only: frozen token matches independent of prescribed section."""
     text = "\n".join(t for m in record["modules"] for t in m["texts"])
@@ -95,7 +102,7 @@ def run(args):
     if url.database != "farmclub_dev445_eval":
         raise ValueError("ISOLATED_EVALUATION_DATABASE_REQUIRED")
     validate_limits(args.max_usd, args.trials, args.yes)
-    out = private_path(args.out)
+    out = private_output(args.out)
     out.mkdir(parents=True, exist_ok=False, mode=0o700)
     metadata = json.loads((args.snapshot / "metadata.json").read_text())
     if metadata.get("split") != "development":
@@ -111,6 +118,13 @@ def run(args):
         "sources": [{**s, "format": formats[s["id"]]} for s in sources],
     }
     final_score.Gold.model_validate(gold)
+    frozen = {}
+    snapshot_hash = hashlib.sha256()
+    for source in sources:
+        sid = source["id"]
+        data = (args.snapshot / (sid + ".stored.json")).read_bytes()
+        snapshot_hash.update(sid.encode() + b"\0" + data)
+        frozen[sid] = json.loads(data)
     # Only import the API key, never deployment/production DB settings.
     if args.env_file:
         from dotenv import dotenv_values
@@ -135,6 +149,7 @@ def run(args):
             "snapshotMetadataSha256": hashlib.sha256(
                 (args.snapshot / "metadata.json").read_bytes()
             ).hexdigest(),
+            "acceptedCandidatesSha256": snapshot_hash.hexdigest(),
             "baselineSourceSha256": hashlib.sha256(args.baseline.read_bytes()).hexdigest(),
             "candidatePromptSha256": hashlib.sha256(candidate_builder.PROMPT.encode()).hexdigest(),
             "candidateVersion": candidate_builder.PROMPT_VERSION,
@@ -147,7 +162,7 @@ def run(args):
         records = {"baseline": [], "candidate": []}
         for source in sources:
             sid = source["id"]
-            stored = json.loads((args.snapshot / (sid + ".stored.json")).read_text())
+            stored = frozen[sid]
             candidates, _ = refinement.limit_candidates(stored.get("candidates", []))
             safe = [
                 {
@@ -284,8 +299,14 @@ def main():
     parser.add_argument("--max-usd", type=float, default=5)
     parser.add_argument("--yes", action="store_true")
     parser.add_argument("--strategy", choices=["single", "grouped", "units"], default="single")
-    run(parser.parse_args())
+    try:
+        run(parser.parse_args())
+    except Exception:
+        # Pydantic/provider exceptions may contain private source text or credentials.
+        print(json.dumps({"error": "PAGE_COMPARISON_FAILED", "details": "redacted"}))
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

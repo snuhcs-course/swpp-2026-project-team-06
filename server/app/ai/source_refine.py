@@ -21,7 +21,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v11-routing"
+PROMPT_VERSION = "source-refine-v11-source-audit"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)

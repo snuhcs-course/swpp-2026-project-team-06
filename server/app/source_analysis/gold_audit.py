@@ -54,15 +54,52 @@ def audit_gold(sources):
     }
 
 
+def review_worksheet(sources):
+    """Private claim-by-claim review queue. No label is silently approved or rewritten."""
+    return {
+        "status": "UNREVIEWED",
+        "claims": [
+            {
+                "sourceId": source["id"],
+                "product": source.get("product"),
+                "factId": fact["id"],
+                "statement": fact.get("statement"),
+                "referenceText": sentence["text"],
+                "sourceLocation": sentence.get("where"),
+                "section": sentence["section"],
+                "module": sentence.get("module"),
+                "mustContain": fact["mustContain"],
+                "critical": fact["critical"],
+                "decision": "UNREVIEWED",
+                "originalSourceVerified": False,
+                "reviewer": None,
+                "rationale": None,
+            }
+            for source in sources
+            for sentence in source["sentences"]
+            for fact in sentence["facts"]
+        ],
+        "diagnostics": audit_gold(sources),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("gold", type=Path, nargs="+")
+    parser.add_argument("--private-review-out", type=Path)
     args = parser.parse_args()
     sources = []
     for path in args.gold:
         data = json.loads(path.read_text())
         sources.extend(data if isinstance(data, list) else data["sources"])
     report = audit_gold(sources)
+    if args.private_review_out:
+        from app.source_analysis.page_compare import private_output
+
+        path = private_output(args.private_review_out)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path.touch(mode=0o600, exist_ok=False)
+        path.write_text(json.dumps(review_worksheet(sources), ensure_ascii=False, indent=2))
     # No source excerpts, names, forbidden PII or local paths on stdout.
     print(
         json.dumps(

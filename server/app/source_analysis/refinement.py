@@ -6,7 +6,7 @@ import time
 
 from sqlalchemy import or_, select
 
-from app.ai.page_plan import coverage_ledger
+from app.ai.page_plan import coverage_ledger, merge_title_variants
 from app.ai.source_refine import (
     PROMPT,
     PROMPT_VERSION,
@@ -246,6 +246,7 @@ def validate(output, candidates, target_id, *, target_count=0, target_name=""):
                         )
                 field.append(text.model_dump(by_alias=True))
     modules = [{"module": m, "texts": accepted[m]} for m in TEXT_MODULE_FIELDS if accepted.get(m)]
+    modules, merged_titles = merge_title_variants(modules)
     # Keep one explanation per candidate, with safety rejections taking precedence.
     reasons = {}
     for entry in output.excluded:
@@ -277,6 +278,7 @@ def validate(output, candidates, target_id, *, target_count=0, target_name=""):
         "rejected": rejected,
         "warningCount": len(warnings),
         "warnings": warnings,
+        "mergedTitleVariants": merged_titles,
         "coverageLedger": coverage_ledger(list(by_id.values()), modules, excluded),
     }
 

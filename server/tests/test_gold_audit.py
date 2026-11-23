@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from app.source_analysis.gold_audit import audit_gold
+from app.source_analysis.gold_audit import audit_gold, review_worksheet
 
 
 def test_AC_SRC_2_gold_audit_flags_without_rewriting_labels():
@@ -23,3 +23,9 @@ def test_AC_SRC_2_gold_audit_flags_without_rewriting_labels():
     assert result["flaggedReferenceSentences"][0]["flags"] == ["exaggeration"]
     assert result["verdict"] == "REQUIRES_HUMAN_ADJUDICATION"
     assert result["duplicateSelectorPairs"]
+    review = review_worksheet(rows)
+    assert len(review["claims"]) == 3
+    assert all(
+        c["decision"] == "UNREVIEWED" and not c["originalSourceVerified"] for c in review["claims"]
+    )
+    assert rows == old

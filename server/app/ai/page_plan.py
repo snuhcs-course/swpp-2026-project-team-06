@@ -3,6 +3,7 @@
 import hashlib
 import re
 from collections import defaultdict
+from copy import deepcopy
 
 from app.source_analysis.schemas import SECTION_MODULES
 
@@ -117,6 +118,42 @@ def writing_groups(candidates, max_candidates=10, max_chars=6000):
     if current:
         groups.append(current)
     return groups
+
+
+def merge_title_variants(modules):
+    """Conservative same-title cleanup; never merge quantities or qualified claims."""
+    result, removed = deepcopy(modules), 0
+    guarded = re.compile(r"\d|예상|실측|표본|보장|않|없|아니|아닌|미확|미정|불확|비인증|무인증")
+    for module in result:
+        if module["module"] != "hero":
+            continue
+        texts = module["texts"]
+        keep = [True] * len(texts)
+        for i, text in enumerate(texts):
+            if not keep[i] or guarded.search(text["value"]):
+                continue
+            short = re.sub(r"\s+", "", text["value"]).casefold()
+            for j, other in enumerate(texts):
+                if i == j or not keep[j] or guarded.search(other["value"]):
+                    continue
+                long = re.sub(r"\s+", "", other["value"]).casefold()
+                if (
+                    len(long) > len(short)
+                    and long.endswith(short)
+                    and re.search(
+                        r"\s" + r"\s*".join(re.escape(c) for c in text["value"].strip()) + r"$",
+                        other["value"].strip(),
+                        re.I,
+                    )
+                ):
+                    other["candidateIds"] = list(
+                        dict.fromkeys(other["candidateIds"] + text["candidateIds"])
+                    )
+                    keep[i] = False
+                    removed += 1
+                    break
+        module["texts"] = [text for index, text in enumerate(texts) if keep[index]]
+    return result, removed
 
 
 EDITORIAL_CONTRACT = """

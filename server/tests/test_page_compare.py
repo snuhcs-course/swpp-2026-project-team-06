@@ -3,6 +3,7 @@ import pytest
 from app.source_analysis.page_compare import (
     duplicate_texts,
     page_wide_recall,
+    private_output,
     render_comparison,
     validate_limits,
 )
@@ -52,3 +53,27 @@ def test_AC_SRC_2_page_wide_diagnostic_keeps_failed_output_as_misses():
     }
     record["status"] = "EVALUATED"
     assert page_wide_recall(source, record)["hit"] == 1
+
+
+def test_AC_SRC_6_private_comparison_rejects_other_checkout(tmp_path):
+    (tmp_path / ".git").write_text("gitdir: elsewhere")
+    with pytest.raises(ValueError):
+        private_output(tmp_path / "private-output")
+
+
+def test_AC_SRC_6_comparison_cli_redacts_source_exception(monkeypatch, capsys):
+    from app.source_analysis import page_compare
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["page_compare", "--snapshot", "s", "--gold", "g", "--baseline", "b", "--out", "o"],
+    )
+
+    def fail(args):
+        raise ValueError("PRIVATE SOURCE AND KEY")
+
+    monkeypatch.setattr(page_compare, "run", fail)
+    assert page_compare.main() == 2
+    output = capsys.readouterr().out
+    assert "PRIVATE SOURCE" not in output
+    assert "redacted" in output

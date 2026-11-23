@@ -21,3 +21,13 @@ Audit duplicate text and candidate coverage separately. Gold audit flags are rev
 ## Limits and gates
 
 Historical targets remain at least 95% fact recall per format and zero unsupported critical/forbidden output. Changes in strict scores are development evidence, not generalization. Editorial acceptance needs Korean-speaking human review and producer feedback; no automatic duplicate metric or LLM score substitutes for it. The proposed editorial 4/5 gate is not approved by this prototype. DEV-412/413 remain the release decision and evaluation.
+
+## Follow-up arms declared after the first result
+
+Experiment 2 groups complete candidates in source order (10 candidates / about 6,000 serialized characters, with oversized candidates intact). Every group is reserved and settled independently. Exact duplicate outputs merge citations before the unchanged safety validator. Two trials per arm use the same complete 24-source snapshot.
+
+Experiment 3 uses source-unit dispositions instead of free module generation. A group has at most five candidates. Every source unit must occur exactly once as a decision with outputs or an explicit exclusion; unknown IDs, missing decisions and empty reasons are rejected. Outputs cite source-unit IDs which are mapped back to original candidate references before the unchanged validator. Two trials compare the old writer against this experimental writer on the same complete 24-source snapshot and same model. Unit accounting does not prove semantic preservation. All experiments share the same isolated database and cumulative $5 cap; uncertainty retains reservations. No previous failure is erased and no gold is changed.
+
+## Source-audit follow-up
+
+After all three experimental writers failed to reliably improve critical recall, Zahra selected original-source auditing before further paid calls. Audit the union of critical misses from the four experiment-3 outputs, keeping the original gold unchanged. Reconstruct accepted citations from saved ledgers and rejected generated texts from diagnostics. Require exact pre-fix module reproduction before replaying validation changes; retain failed records, apply fixes to both arms, and report the unchanged scorer's disagreements separately. The replay is an offline validation experiment, not a new model sample. Results and evidence fingerprints are in source-audit.md and results.md.

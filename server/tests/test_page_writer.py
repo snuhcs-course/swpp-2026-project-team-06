@@ -1,3 +1,6 @@
+import json
+from types import SimpleNamespace
+
 import pytest
 
 from app.ai import page_writer
@@ -69,3 +72,45 @@ def test_AC_SRC_3_unit_writer_requires_reason_for_exclusion():
     schema = provider_schema(page_writer.UnitPage)
     assert schema["required"] == ["decisions"]
     assert "qualityEvidence" in schema["$defs"]["UnitText"]["properties"]["module"]["enum"]
+
+
+@pytest.mark.parametrize("complete", [True, False])
+def test_AC_SRC_10_unit_provider_keeps_usage_when_accounting_fails(monkeypatch, complete):
+    from app.ai import source_refine
+
+    data, requests, closed = page(), [], []
+    if not complete:
+        data["decisions"].pop()
+
+    def send(**kwargs):
+        requests.append(kwargs)
+        return SimpleNamespace(
+            id="paid-request",
+            usage=SimpleNamespace(model_dump=lambda: {"cost": 0.001}),
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    message=SimpleNamespace(content=json.dumps(data, ensure_ascii=False)),
+                )
+            ],
+        )
+
+    fake = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=send)),
+        close=lambda: closed.append(True),
+    )
+    monkeypatch.setattr(source_refine.provider, "OpenAI", lambda **kwargs: fake)
+    if complete:
+        response = page_writer.refine(
+            "openrouter", "google/gemini-3-flash-preview", {"id": "p"}, inputs()
+        )
+        assert response.usage == {"cost": 0.001}
+        assert response.request_id == "paid-request"
+        assert response.refinement.modules[0].texts[1].value == "보장값은 아닙니다."
+    else:
+        with pytest.raises(source_refine.RefineError) as error:
+            page_writer.refine("openrouter", "google/gemini-3-flash-preview", {"id": "p"}, inputs())
+        assert error.value.usage == {"cost": 0.001}
+        assert error.value.request_id == "paid-request"
+    assert requests[0]["response_format"]["json_schema"]["schema"]["required"] == ["decisions"]
+    assert closed == [True]

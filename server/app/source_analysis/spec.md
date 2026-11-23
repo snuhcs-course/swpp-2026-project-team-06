@@ -339,3 +339,14 @@ FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
 | 2026-11-17 | 작업 사진 업로드는 잠금 없이 소유·작업 공간을 먼저 확인하고 읽기 트랜잭션을 닫은 뒤(`db.rollback()`, 변환 동안 idle in transaction 방지) JPEG 변환·저장을 하고, `workspace.owned`(advisory lock + FOR UPDATE)로 다시 확인하고 행만 넣는다. 잠금 확인이 실패하면 저장한 파일은 고아 정리가 지운다 | 큰 사진 변환 동안 같은 상품의 저장·반영·다른 업로드가 기다리지 않게 | AC-SRC-11 |
 | 2026-11-17 | 공개 반영(`copy_photo`)은 `page_variant(display)`를 써서 이미 만든 미리보기 바이트를 새 키로 복사한다(같은 변환이라 결과 동일) | 반영 때 12MP PNG를 다시 디코딩하지 않음 | AC-SRC-9 |
 | 2026-11-17 | 감수한 점: 미리보기는 그 브라우저에 최대 하루 남는다(자료를 지우거나 상품 연결을 바꿔도 이미 받은 사본은 `max-age` 동안 그 생산자 브라우저에만 남음, 다른 로그인은 `Vary: Authorization`으로 재검증). 앱 메모리 공유본은 로그인이 바뀌거나 로그아웃하면 지운다. 상품사진 업로드는 미리보기 두 장을 더 만들어 12MP 기준 서버 처리 0.64초→0.79초(로컬 측정) | 여는 시간 49.6초→2.1초(10Mbps)에 비해 작은 비용. 원본·가림 전 이미지는 계속 `no-store` | AC-SRC-5/6 |
+
+
+## DEV-445 페이지 계획 및 진단 (2026-11-24)
+
+AC-SRC-2/3/5/10/11, M-11~13. 실험 어댑터의 정리 입력에 후보별 문장 inventory·섹션 역할·동일 문구 그룹을 추가한다. 힌트는 사실 확정/강제 배치가 아니다. source-refine-v12-page-plan 버전으로 기존 캐시와 구분하고 기존 예약/정산에 전체 입력을 포함한다.
+
+validate 결과의 비공개 coverageLedger는 실제 채택 문구를 기준으로 verbatim_present/cited_only/excluded/unaccounted를 구분한다. source unit 원문은 ledger에 복사하지 않는다. semanticCoverageVerified=false이며 인용만으로 완전성을 인정하지 않는다. 전체 gold 수정·사람 품질 평가·농가 인수는 미완료다.
+
+DEV-445 적용 범위: 기본 생성 prompt는 v11-routing을 유지하되, 숫자 공백 검사·제목 중복 정리 캐시를 무효화하도록 버전은 source-refine-v11-source-audit로 올린다. v12와 source-unit-writer-v1은 명시적으로 선택하는 실험 어댑터이며, 묶음별 호출은 로컬 비교 도구가 각각 예약/정산한다. 평가·사람 검토가 끝나기 전 기본 어댑터를 바꾸지 않는다.
+
+DEV-445 원문 감사 후 보정: 브/릭/스 사이 공백만 같은 브릭스 단위로 인식한다. 숫자·단위 종류·범위 변경 또는 빠진 단위 보충은 허용하지 않는다. hero의 숫자·부정·예상/실측 등 조건이 없는 제목만 단어 경계에서 짧은 제목 전체가 긴 제목의 접미구일 때 합치며 긴 문구와 모든 인용을 보존한다. 다른 섹션은 합치지 않는다. 전체 gold/scorer는 바꾸지 않았고, 원문 감사 결과는 docs/evaluation/i5-page-drafting/source-audit.md에 구분해 기록한다.
