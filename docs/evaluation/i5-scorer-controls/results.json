@@ -1,0 +1,1935 @@
+{
+  "probeVersion": "dev448-synthetic-controls-v1",
+  "measurementVersion": "dev264-number-evidence-v2",
+  "semanticReviewStatus": "PROPOSED_HUMAN_REVIEW_PENDING",
+  "scope": "INVENTED_CAPABILITY_CONTROLS_NOT_MODEL_OR_POPULATION_PERFORMANCE",
+  "summary": {
+    "controls": 38,
+    "referenceNonemptyGateFailures": 1,
+    "byCategory": {
+      "baseline": 1,
+      "contradiction": 1,
+      "deduplication": 1,
+      "empty-contract": 1,
+      "equivalence": 5,
+      "fragment-binding": 1,
+      "measurement-status": 2,
+      "negation": 2,
+      "numeric-negative": 3,
+      "paraphrase": 2,
+      "placement": 2,
+      "processing": 4,
+      "product-binding": 1,
+      "qualification": 3,
+      "quantity-binding": 1,
+      "range-negative": 1,
+      "sample-binding": 1,
+      "sample-scope": 2,
+      "temporal": 2,
+      "unsupported-extra": 2
+    },
+    "historicalGate": {
+      "FAIL": 15,
+      "PASS": 23
+    },
+    "diagnosticFlags": {
+      "pageWidePreservationDistinctFromStrictPlacement": 1,
+      "proposedCorrectEmptyCountedAsHistoricalFailure": 1,
+      "proposedIncorrectClaimGetsLexicalCredit": 12,
+      "proposedUnsupportedOutputPassesHistoricalGate": 13,
+      "proposedValidPrimaryClaimMissedLexically": 4,
+      "proposedValidPrimaryOutputFailsHistoricalGate": 5
+    }
+  },
+  "cases": [
+    {
+      "id": "exact",
+      "category": "baseline",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "동일 사실과 위치를 유지한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "whitespace",
+      "category": "equivalence",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "단위 앞 공백만 달라진다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "mass-unit-equivalence",
+      "category": "equivalence",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "동일 중량의 kg/g 변환이다. 새 수량을 만들지 않는다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 1
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 1,
+          "rate": 0.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedValidPrimaryOutputFailsHistoricalGate",
+        "proposedValidPrimaryClaimMissedLexically"
+      ]
+    },
+    {
+      "id": "korean-count",
+      "category": "equivalence",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "한 상자와 1상자는 동일 개수다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "range-separator",
+      "category": "equivalence",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "같은 범위 양끝/단위/조건에서 기호만 다르다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedValidPrimaryOutputFailsHistoricalGate",
+        "proposedValidPrimaryClaimMissedLexically"
+      ]
+    },
+    {
+      "id": "spaced-brix",
+      "category": "equivalence",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "원문 단위 내부 공백만 정돈한다. 표본 평균과 값은 유지한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 1
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 1,
+          "rate": 0.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 1
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedValidPrimaryOutputFailsHistoricalGate"
+      ]
+    },
+    {
+      "id": "korean-paraphrase",
+      "category": "paraphrase",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "여기서는 같은 보관 장소 의미의 가상 paraphrase로 제안한다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 1,
+          "rate": 0.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedValidPrimaryOutputFailsHistoricalGate",
+        "proposedValidPrimaryClaimMissedLexically"
+      ]
+    },
+    {
+      "id": "peel-alias",
+      "category": "paraphrase",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "이 가상 문맥에서 껍질/과피가 같은 대상을 가리킨다. 실제 alias는 source별 사람 승인 필요."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 1,
+          "rate": 0.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedValidPrimaryOutputFailsHistoricalGate",
+        "proposedValidPrimaryClaimMissedLexically"
+      ]
+    },
+    {
+      "id": "negation-weak-selector",
+      "category": "negation",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "씨 존재 여부가 반전되지만 약한 selector는 부정을 담지 않는다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "negation-explicit-selector",
+      "category": "negation",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "같은 반전 사례를 부정까지 포함한 selector와 비교한다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 1,
+          "rate": 0.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "expected-to-measured",
+      "category": "measurement-status",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "예상을 실측값으로 바꾸면 수치가 같아도 잘못이다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "expected-preserved",
+      "category": "measurement-status",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "예상임을 유지한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "sample-to-guarantee",
+      "category": "sample-scope",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "표본 평균을 모든 과일에 대한 확정값으로 확대한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "sample-preserved",
+      "category": "sample-scope",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "표본 크기/평균을 보존한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "wrong-product",
+      "category": "product-binding",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "원문에 모든 숫자는 있지만 상품-중량 관계를 바꾼다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "swapped-samples",
+      "category": "sample-binding",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "두 표본의 수치를 서로 바꾼다. 단순 token 집합으로는 관계를 확인할 수 없다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "swapped-options",
+      "category": "quantity-binding",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "옵션-개수 연결을 뒤바꾼다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "new-number",
+      "category": "numeric-negative",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "원문에 없는 수량을 만든다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 1
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 1,
+          "rate": 0.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "changed-unit",
+      "category": "numeric-negative",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "값은 같지만 단위가 바뀐다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 1
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 1,
+          "rate": 0.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "separate-measurements-to-range",
+      "category": "range-negative",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "독립 표본 두 값을 전체 상품의 범위로 합친다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 1
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 1,
+          "rate": 0.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "approximation-dropped",
+      "category": "qualification",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "대략값/크기 조건을 확정 개수로 바꾼다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "approximation-preserved",
+      "category": "qualification",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "근사값과 조건을 보존한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "contradiction-added",
+      "category": "contradiction",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "정답 문장 뒤에 모순 문장을 추가한다. 정답이 모순을 상쇄하지 못한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 2,
+          "rate": 0.5
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "unrelated-fragments-same-section",
+      "category": "fragment-binding",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "서로 다른 문장의 대상/값 조각을 한 사실로 합치면 안 된다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 2,
+          "rate": 0.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "duplicate-valid",
+      "category": "deduplication",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "의미 coverage는 한 claim까지만 인정한다. 반복의 편집 품질은 별도 결함이다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 2,
+          "total": 2,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "valid-plus-new-number",
+      "category": "unsupported-extra",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "정답 문장도 원문 밖 숫자가 있는 추가 문장을 면책하지 못한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 1
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 2,
+          "rate": 0.5
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "valid-plus-invented-property",
+      "category": "unsupported-extra",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "수치/품종/인증 외의 무근거 속성도 지원되지 않은 사실이다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 2,
+          "rate": 0.5
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate"
+      ]
+    },
+    {
+      "id": "misplaced-valid",
+      "category": "placement",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "MISPLACED",
+        "processingOutcome": "SUCCESS",
+        "rationale": "페이지에는 사실이 있지만 보관 섹션에 있어 strict 위치 점수는 별도다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 1,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "pageWidePreservationDistinctFromStrictPlacement"
+      ]
+    },
+    {
+      "id": "same-section-other-module",
+      "category": "placement",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "기존 strict scorer는 같은 composition 섹션의 다른 모듈도 인정한다. 이것은 module 품질 승인과 다르다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "correct-empty-contract",
+      "category": "empty-contract",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": true,
+        "placement": "NA",
+        "processingOutcome": "CORRECT_EMPTY",
+        "rationale": "제외 정책만 있는 자료의 올바른 빈 결과와 처리 실패를 구분하는 제안이다. 역사 scorer 계약은 그대로 관찰한다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 0,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 1,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 0,
+          "rate": null
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 0,
+        "factTotal": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 1
+      },
+      "diagnosticFlags": [
+        "proposedCorrectEmptyCountedAsHistoricalFailure"
+      ]
+    },
+    {
+      "id": "failed-empty",
+      "category": "processing",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": true,
+        "placement": "NOT_PRESENT",
+        "processingOutcome": "FAILED",
+        "rationale": "생성 실패/빈 결과는 분모에서 제외하지 않는다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 1,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 0,
+          "rate": null
+        },
+        "recordStatus": "FAILED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "failed-with-output",
+      "category": "processing",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "NOT_PRESENT",
+        "processingOutcome": "FAILED",
+        "rationale": "실패에 남은 출력의 recall은 인정하지 않고 무근거 추가는 계속 검사한다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 1
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 1,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 2,
+          "rate": 0.5
+        },
+        "recordStatus": "FAILED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "missing-run",
+      "category": "processing",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": true,
+        "placement": "NOT_PRESENT",
+        "processingOutcome": "FAILED",
+        "rationale": "누락 run도 처리 실패/분모에 남긴다."
+      },
+      "historical": {
+        "factHit": 0,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "FAIL",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 1,
+        "precisionProxy": {
+          "hit": 0,
+          "total": 0,
+          "rate": null
+        },
+        "recordStatus": "MISSING"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "partial-valid",
+      "category": "processing",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "역사 scorer는 PARTIAL도 출력 문구를 채점한다. 처리 상태는 별도로 노출한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "PARTIAL"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    },
+    {
+      "id": "substring-number",
+      "category": "numeric-negative",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "4kg 부분문자열이14kg 안에 있고 두 수치가 원문에 있어도 대상 수량은 틀리다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "uncertainty-reversed",
+      "category": "qualification",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "가능성을 필연으로 강화한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "historical-to-current",
+      "category": "temporal",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "과거 배치를 현재 상품으로 바꾼다. weak selector는 연도/현재성을 검사하지 않는다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": [
+        "proposedUnsupportedOutputPassesHistoricalGate",
+        "proposedIncorrectClaimGetsLexicalCredit"
+      ]
+    },
+    {
+      "id": "historical-preserved",
+      "category": "temporal",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "과거 연도와 해당 배치를 유지한다."
+      },
+      "historical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "misplaced": 0,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "failedRuns": 0,
+        "precisionProxy": {
+          "hit": 1,
+          "total": 1,
+          "rate": 1.0
+        },
+        "recordStatus": "EVALUATED"
+      },
+      "referenceHistorical": {
+        "factHit": 1,
+        "factTotal": 1,
+        "criticalGate": "PASS",
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "failedRuns": 0
+      },
+      "diagnosticFlags": []
+    }
+  ],
+  "provenanceSha256": {
+    "controls.json": "6b2bf835f3b7ac95d2f2c59b5fb458d723efca8aa7a2851d3e7516db65885ec8",
+    "probe.py": "1be53926fa238a6f5b8dd436e93845709404ae7a02d1d8279c75f1ac4c46a173",
+    "final_score.py": "3a6f2e086e1b81a9745db3700279f436c8449f97c1e91d32e6e49424e5f78f9b",
+    "corpus_score.py": "d4e6e85c29381ec07b229af17e1a0fb8d66bb2f87e80dccf95c4da80a1fe7221",
+    "text_safety.py": "8640fb0451a46223ee6e232638e8dbf4264e3145248116dab20cab66f67ed7c7",
+    "schemas.py": "b330010d16c14b7e435fc9d711453a8418f049b317e3157acf9d01d2deea3a41",
+    "text_safety_lists.json": "ca0242c952d571dad986ff49aac92bebd214887f6d8839b4aee8dfe581996745"
+  }
+}

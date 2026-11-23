@@ -1,0 +1,1013 @@
+{
+  "schemaVersion": 1,
+  "split": "synthetic-controls",
+  "semanticReviewStatus": "PROPOSED_HUMAN_REVIEW_PENDING",
+  "cases": [
+    {
+      "id": "exact",
+      "category": "baseline",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4kg 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "동일 사실과 위치를 유지한다."
+      }
+    },
+    {
+      "id": "whitespace",
+      "category": "equivalence",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4 kg 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "단위 앞 공백만 달라진다."
+      }
+    },
+    {
+      "id": "mass-unit-equivalence",
+      "category": "equivalence",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4000g 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "동일 중량의 kg/g 변환이다. 새 수량을 만들지 않는다."
+      }
+    },
+    {
+      "id": "korean-count",
+      "category": "equivalence",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "한 상자"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4kg 1상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "한 상자와 1상자는 동일 개수다."
+      }
+    },
+    {
+      "id": "range-separator",
+      "category": "equivalence",
+      "evidence": "서늘한 곳에서 2-4개월 보관할 수 있어요.",
+      "reference": "서늘한 곳에서 2~4개월 보관할 수 있어요.",
+      "selectors": [
+        "2~4개월",
+        "보관"
+      ],
+      "referenceModule": "storage",
+      "outputs": [
+        {
+          "module": "storage",
+          "texts": [
+            "서늘한 곳에서 2-4개월 보관할 수 있어요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "같은 범위 양끝/단위/조건에서 기호만 다르다."
+      }
+    },
+    {
+      "id": "spaced-brix",
+      "category": "equivalence",
+      "evidence": "표본 평균 당도는 9브릭 스예요.",
+      "reference": "표본 평균 당도는 9브릭스예요.",
+      "selectors": [
+        "당도",
+        "9브릭스"
+      ],
+      "referenceModule": "qualityEvidence",
+      "outputs": [
+        {
+          "module": "qualityEvidence",
+          "texts": [
+            "표본 평균 당도는 9브릭스예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "원문 단위 내부 공백만 정돈한다. 표본 평균과 값은 유지한다."
+      }
+    },
+    {
+      "id": "korean-paraphrase",
+      "category": "paraphrase",
+      "evidence": "서늘한 곳에 보관하세요.",
+      "reference": "서늘한 곳에 보관하세요.",
+      "selectors": [
+        "서늘한 곳",
+        "보관"
+      ],
+      "referenceModule": "storage",
+      "outputs": [
+        {
+          "module": "storage",
+          "texts": [
+            "시원한 장소에 보관하세요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "여기서는 같은 보관 장소 의미의 가상 paraphrase로 제안한다."
+      }
+    },
+    {
+      "id": "peel-alias",
+      "category": "paraphrase",
+      "evidence": "감귤 껍질에 점이 생길 수 있어요.",
+      "reference": "감귤 껍질에 점이 생길 수 있어요.",
+      "selectors": [
+        "껍질",
+        "점"
+      ],
+      "referenceModule": "appearanceFaq",
+      "outputs": [
+        {
+          "module": "appearanceFaq",
+          "texts": [
+            "감귤 과피에 점이 생길 수 있어요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "이 가상 문맥에서 껍질/과피가 같은 대상을 가리킨다. 실제 alias는 source별 사람 승인 필요."
+      }
+    },
+    {
+      "id": "negation-weak-selector",
+      "category": "negation",
+      "evidence": "감귤에는 씨가 없어요.",
+      "reference": "감귤에는 씨가 없어요.",
+      "selectors": [
+        "감귤",
+        "씨"
+      ],
+      "referenceModule": "taste",
+      "outputs": [
+        {
+          "module": "taste",
+          "texts": [
+            "감귤에는 씨가 있어요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "씨 존재 여부가 반전되지만 약한 selector는 부정을 담지 않는다."
+      }
+    },
+    {
+      "id": "negation-explicit-selector",
+      "category": "negation",
+      "evidence": "감귤에는 씨가 없어요.",
+      "reference": "감귤에는 씨가 없어요.",
+      "selectors": [
+        "씨가 없어요"
+      ],
+      "referenceModule": "taste",
+      "outputs": [
+        {
+          "module": "taste",
+          "texts": [
+            "감귤에는 씨가 있어요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "같은 반전 사례를 부정까지 포함한 selector와 비교한다."
+      }
+    },
+    {
+      "id": "expected-to-measured",
+      "category": "measurement-status",
+      "evidence": "예상 당도는 9브릭스예요.",
+      "reference": "예상 당도는 9브릭스예요.",
+      "selectors": [
+        "당도",
+        "9브릭스"
+      ],
+      "referenceModule": "qualityEvidence",
+      "outputs": [
+        {
+          "module": "qualityEvidence",
+          "texts": [
+            "실측 당도는 9브릭스예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "예상을 실측값으로 바꾸면 수치가 같아도 잘못이다."
+      }
+    },
+    {
+      "id": "expected-preserved",
+      "category": "measurement-status",
+      "evidence": "예상 당도는 9브릭스예요.",
+      "reference": "예상 당도는 9브릭스예요.",
+      "selectors": [
+        "예상",
+        "9브릭스"
+      ],
+      "referenceModule": "qualityEvidence",
+      "outputs": [
+        {
+          "module": "qualityEvidence",
+          "texts": [
+            "예상 당도는 9브릭스예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "예상임을 유지한다."
+      }
+    },
+    {
+      "id": "sample-to-guarantee",
+      "category": "sample-scope",
+      "evidence": "표본 4개의 평균 당도는 9브릭스예요.",
+      "reference": "표본 4개의 평균 당도는 9브릭스예요.",
+      "selectors": [
+        "당도",
+        "9브릭스"
+      ],
+      "referenceModule": "qualityEvidence",
+      "outputs": [
+        {
+          "module": "qualityEvidence",
+          "texts": [
+            "모든 감귤의 당도는 9브릭스예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "표본 평균을 모든 과일에 대한 확정값으로 확대한다."
+      }
+    },
+    {
+      "id": "sample-preserved",
+      "category": "sample-scope",
+      "evidence": "표본 4개의 평균 당도는 9브릭스예요.",
+      "reference": "표본 4개의 평균 당도는 9브릭스예요.",
+      "selectors": [
+        "4개",
+        "9브릭스"
+      ],
+      "referenceModule": "qualityEvidence",
+      "outputs": [
+        {
+          "module": "qualityEvidence",
+          "texts": [
+            "표본 4개의 평균 당도는 9브릭스예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "표본 크기/평균을 보존한다."
+      }
+    },
+    {
+      "id": "wrong-product",
+      "category": "product-binding",
+      "evidence": "A상품은 4kg이고 B상품은 6kg이에요.",
+      "reference": "A상품은 4kg이에요.",
+      "selectors": [
+        "A상품",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "B상품은 4kg이고 A상품은 6kg이에요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "원문에 모든 숫자는 있지만 상품-중량 관계를 바꾼다."
+      }
+    },
+    {
+      "id": "swapped-samples",
+      "category": "sample-binding",
+      "evidence": "A표본 당도는 9브릭스이고 B표본 당도는 11브릭스예요.",
+      "reference": "A표본 당도는 9브릭스예요.",
+      "selectors": [
+        "A표본",
+        "9브릭스"
+      ],
+      "referenceModule": "qualityEvidence",
+      "outputs": [
+        {
+          "module": "qualityEvidence",
+          "texts": [
+            "A표본 당도는 11브릭스이고 B표본 당도는 9브릭스예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "두 표본의 수치를 서로 바꾼다. 단순 token 집합으로는 관계를 확인할 수 없다."
+      }
+    },
+    {
+      "id": "swapped-options",
+      "category": "quantity-binding",
+      "evidence": "4kg 상자는 24개이고 6kg 상자는 36개예요.",
+      "reference": "4kg 상자는 24개예요.",
+      "selectors": [
+        "4kg",
+        "24개"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "4kg 상자는 36개이고 6kg 상자는 24개예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "옵션-개수 연결을 뒤바꾼다."
+      }
+    },
+    {
+      "id": "new-number",
+      "category": "numeric-negative",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 7kg 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "원문에 없는 수량을 만든다."
+      }
+    },
+    {
+      "id": "changed-unit",
+      "category": "numeric-negative",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4g 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "값은 같지만 단위가 바뀐다."
+      }
+    },
+    {
+      "id": "separate-measurements-to-range",
+      "category": "range-negative",
+      "evidence": "A표본은 9브릭스, B표본은 11브릭스예요.",
+      "reference": "A표본은 9브릭스예요.",
+      "selectors": [
+        "A표본",
+        "9브릭스"
+      ],
+      "referenceModule": "qualityEvidence",
+      "outputs": [
+        {
+          "module": "qualityEvidence",
+          "texts": [
+            "감귤은 9~11브릭스예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "독립 표본 두 값을 전체 상품의 범위로 합친다."
+      }
+    },
+    {
+      "id": "approximation-dropped",
+      "category": "qualification",
+      "evidence": "감귤은 약 24개이며 크기에 따라 달라요.",
+      "reference": "감귤은 약 24개이며 크기에 따라 달라요.",
+      "selectors": [
+        "감귤",
+        "24개"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤은 정확히 24개예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "대략값/크기 조건을 확정 개수로 바꾼다."
+      }
+    },
+    {
+      "id": "approximation-preserved",
+      "category": "qualification",
+      "evidence": "감귤은 약 24개이며 크기에 따라 달라요.",
+      "reference": "감귤은 약 24개이며 크기에 따라 달라요.",
+      "selectors": [
+        "약 24개",
+        "크기에 따라"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤은 약 24개이며 크기에 따라 달라요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "근사값과 조건을 보존한다."
+      }
+    },
+    {
+      "id": "contradiction-added",
+      "category": "contradiction",
+      "evidence": "감귤에는 씨가 없어요.",
+      "reference": "감귤에는 씨가 없어요.",
+      "selectors": [
+        "씨가 없어요"
+      ],
+      "referenceModule": "taste",
+      "outputs": [
+        {
+          "module": "taste",
+          "texts": [
+            "감귤에는 씨가 없어요.",
+            "감귤에는 씨가 있어요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "정답 문장 뒤에 모순 문장을 추가한다. 정답이 모순을 상쇄하지 못한다."
+      }
+    },
+    {
+      "id": "unrelated-fragments-same-section",
+      "category": "fragment-binding",
+      "evidence": "A상품은 4kg이고 B상품은 6kg이에요.",
+      "reference": "A상품은 4kg이에요.",
+      "selectors": [
+        "A상품",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "A상품을 소개해요.",
+            "B상품은 4kg이에요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "서로 다른 문장의 대상/값 조각을 한 사실로 합치면 안 된다."
+      }
+    },
+    {
+      "id": "duplicate-valid",
+      "category": "deduplication",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4kg 한 상자입니다.",
+            "감귤 4kg 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "의미 coverage는 한 claim까지만 인정한다. 반복의 편집 품질은 별도 결함이다."
+      }
+    },
+    {
+      "id": "valid-plus-new-number",
+      "category": "unsupported-extra",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4kg 한 상자입니다.",
+            "감귤은 7kg예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "정답 문장도 원문 밖 숫자가 있는 추가 문장을 면책하지 못한다."
+      }
+    },
+    {
+      "id": "valid-plus-invented-property",
+      "category": "unsupported-extra",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4kg 한 상자입니다.",
+            "씨가 없어요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "수치/품종/인증 외의 무근거 속성도 지원되지 않은 사실이다."
+      }
+    },
+    {
+      "id": "misplaced-valid",
+      "category": "placement",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "storage",
+          "texts": [
+            "감귤 4kg 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "MISPLACED",
+        "processingOutcome": "SUCCESS",
+        "rationale": "페이지에는 사실이 있지만 보관 섹션에 있어 strict 위치 점수는 별도다."
+      }
+    },
+    {
+      "id": "same-section-other-module",
+      "category": "placement",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "pieceCount",
+          "texts": [
+            "감귤 4kg 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "기존 strict scorer는 같은 composition 섹션의 다른 모듈도 인정한다. 이것은 module 품질 승인과 다르다."
+      }
+    },
+    {
+      "id": "correct-empty-contract",
+      "category": "empty-contract",
+      "evidence": "고객센터 운영 시간 안내입니다.",
+      "reference": null,
+      "selectors": [],
+      "referenceModule": "composition",
+      "outputs": [],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": true,
+        "placement": "NA",
+        "processingOutcome": "CORRECT_EMPTY",
+        "rationale": "제외 정책만 있는 자료의 올바른 빈 결과와 처리 실패를 구분하는 제안이다. 역사 scorer 계약은 그대로 관찰한다."
+      }
+    },
+    {
+      "id": "failed-empty",
+      "category": "processing",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [],
+      "recordStatus": "FAILED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": true,
+        "placement": "NOT_PRESENT",
+        "processingOutcome": "FAILED",
+        "rationale": "생성 실패/빈 결과는 분모에서 제외하지 않는다."
+      }
+    },
+    {
+      "id": "failed-with-output",
+      "category": "processing",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4kg 한 상자입니다.",
+            "감귤 7kg예요."
+          ]
+        }
+      ],
+      "recordStatus": "FAILED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "NOT_PRESENT",
+        "processingOutcome": "FAILED",
+        "rationale": "실패에 남은 출력의 recall은 인정하지 않고 무근거 추가는 계속 검사한다."
+      }
+    },
+    {
+      "id": "missing-run",
+      "category": "processing",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [],
+      "recordStatus": "MISSING",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": true,
+        "placement": "NOT_PRESENT",
+        "processingOutcome": "FAILED",
+        "rationale": "누락 run도 처리 실패/분모에 남긴다."
+      }
+    },
+    {
+      "id": "partial-valid",
+      "category": "processing",
+      "evidence": "감귤 4kg 한 상자입니다.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 4kg 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "PARTIAL",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "역사 scorer는 PARTIAL도 출력 문구를 채점한다. 처리 상태는 별도로 노출한다."
+      }
+    },
+    {
+      "id": "substring-number",
+      "category": "numeric-negative",
+      "evidence": "감귤 4kg 한 상자이며 다른 상품은 14kg이에요.",
+      "reference": "감귤 4kg 한 상자입니다.",
+      "selectors": [
+        "감귤",
+        "4kg"
+      ],
+      "referenceModule": "composition",
+      "outputs": [
+        {
+          "module": "composition",
+          "texts": [
+            "감귤 14kg 한 상자입니다."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "4kg 부분문자열이14kg 안에 있고 두 수치가 원문에 있어도 대상 수량은 틀리다."
+      }
+    },
+    {
+      "id": "uncertainty-reversed",
+      "category": "qualification",
+      "evidence": "껍질에 점이 생길 수 있어요.",
+      "reference": "껍질에 점이 생길 수 있어요.",
+      "selectors": [
+        "껍질",
+        "점"
+      ],
+      "referenceModule": "appearanceFaq",
+      "outputs": [
+        {
+          "module": "appearanceFaq",
+          "texts": [
+            "껍질에는 반드시 점이 생겨요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "가능성을 필연으로 강화한다."
+      }
+    },
+    {
+      "id": "historical-to-current",
+      "category": "temporal",
+      "evidence": "2024년 수확분은 4kg 상자였어요.",
+      "reference": "2024년 수확분은 4kg 상자였어요.",
+      "selectors": [
+        "4kg",
+        "상자"
+      ],
+      "referenceModule": "farmStory",
+      "outputs": [
+        {
+          "module": "farmStory",
+          "texts": [
+            "현재 수확분은 4kg 상자예요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": false,
+        "allOutputSupported": false,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "과거 배치를 현재 상품으로 바꾼다. weak selector는 연도/현재성을 검사하지 않는다."
+      }
+    },
+    {
+      "id": "historical-preserved",
+      "category": "temporal",
+      "evidence": "2024년 수확분은 4kg 상자였어요.",
+      "reference": "2024년 수확분은 4kg 상자였어요.",
+      "selectors": [
+        "2024년",
+        "4kg"
+      ],
+      "referenceModule": "farmStory",
+      "outputs": [
+        {
+          "module": "farmStory",
+          "texts": [
+            "2024년 수확분은 4kg 상자였어요."
+          ]
+        }
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {
+        "claimPreserved": true,
+        "allOutputSupported": true,
+        "placement": "PRIMARY",
+        "processingOutcome": "SUCCESS",
+        "rationale": "과거 연도와 해당 배치를 유지한다."
+      }
+    }
+  ]
+}
