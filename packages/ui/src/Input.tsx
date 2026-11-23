@@ -5,6 +5,7 @@ import {
   TextInput,
   View,
   type KeyboardTypeOptions,
+  type TextInputProps,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -38,6 +39,8 @@ type Props = {
   /** 브라우저·키체인 자동 완성 힌트(username, current-password, new-password) */
   autoComplete?: "username" | "current-password" | "new-password" | "off";
   onSubmitEditing?: () => void;
+  selection?: TextInputProps["selection"];
+  onSelectionChange?: TextInputProps["onSelectionChange"];
   testID?: string;
 };
 
@@ -63,6 +66,8 @@ export function Input({
   plain,
   autoComplete,
   onSubmitEditing,
+  selection,
+  onSelectionChange,
   testID,
 }: Props) {
   const [focused, setFocused] = useState(false);
@@ -102,6 +107,8 @@ export function Input({
         maxLength={maxLength}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
+        selection={selection}
+        onSelectionChange={onSelectionChange}
         style={[
           styles.input,
           multiline && {
