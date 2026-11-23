@@ -204,9 +204,7 @@ export function conflictView(
       return ended(
         maximum > 0 ? "남은 예약 물량이 부족해요" : c.reason === "SOLD_OUT"
           ? "선택한 옵션이 품절됐어요" : "예약 물량이 다 찼어요",
-        maximum > 0 && ctx.quantity > maximum
-          ? `선택한 수량은 ${ctx.quantity}개이고, 지금 예약 가능한 수량은 최대 ${maximum}개예요. 상품에서 수량을 다시 골라 주세요.`
-          : "상품 화면에서 남은 수량과 다른 옵션을 확인해 주세요.",
+        "상품 화면에서 남은 수량과 다른 옵션을 확인해 주세요.",
       );
     }
     case "QUANTITY_LIMIT":

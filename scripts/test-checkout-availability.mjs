@@ -42,7 +42,7 @@ for (const [reason, p] of [["TOTAL_LIMIT_REACHED", product(10000)], ["SOLD_OUT",
     const view = conflictView({ reason, details: { reason, optionId: "five" } },
       { product: p, optionId: "five", quantity: 3 }, format);
     assert.ok(view.title);
-    assert.ok(view.body);
+    assert.equal(view.body, "상품 화면에서 남은 수량과 다른 옵션을 확인해 주세요.");
     assert.equal(view.inline, null);
     assert.equal(view.primary.action, "backToProduct");
     assert.equal(view.primary.enabled, true);
@@ -57,7 +57,7 @@ test("AC08-9: zero total or option stock exits to the product", () => {
     assert.equal(view.primary.action, "backToProduct");
     assert.equal(view.primary.enabled, true);
     assert.ok(view.title);
-    assert.ok(view.body);
+    assert.equal(view.body, "상품 화면에서 남은 수량과 다른 옵션을 확인해 주세요.");
   }
 });
 
