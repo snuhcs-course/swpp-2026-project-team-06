@@ -276,7 +276,7 @@ def enqueue_extraction(db, source, run, item, pages):
     item.status = "SUCCEEDED"
 
 
-def canonical_quote(quote, source):
+def canonical_quote(quote, source, *, allow_hangul_wrap=True):
     """Recover exact source offsets when only whitespace layout differs."""
     if not quote.strip():
         return None
@@ -300,7 +300,7 @@ def canonical_quote(quote, source):
             kept.append(token)
         return kept, "".join(" " if t.group().isspace() else t.group() for t in kept)
 
-    for unwrap_hangul in (False, True):
+    for unwrap_hangul in ((False, True) if allow_hangul_wrap else (False,)):
         tokens, normalized = layout(source, unwrap_hangul)
         _, wanted = layout(quote, unwrap_hangul)
         wanted = wanted.strip()
@@ -312,6 +312,9 @@ def canonical_quote(quote, source):
 
 def validate(extraction, chunk, allowed_targets):
     span_map = {(p["number"], s["id"]): s["text"] for p in chunk["pages"] for s in p["spans"]}
+    span_positions = {
+        (p["number"], s["id"]): i for p in chunk["pages"] for i, s in enumerate(p["spans"])
+    }
     for candidate_index, candidate in enumerate(extraction.candidates):
         quotes = "\n".join(e.quote for e in candidate.evidence)
 
@@ -348,7 +351,9 @@ def validate(extraction, chunk, allowed_targets):
                     details={"candidate": candidate_index, "reason": "UNKNOWN_SPAN"},
                 )
             quoted = "\n".join(span_map[(evidence.page, sid)] for sid in evidence.span_ids)
-            exact = canonical_quote(evidence.quote, quoted)
+            positions = [span_positions[(evidence.page, sid)] for sid in evidence.span_ids]
+            contiguous = positions == list(range(positions[0], positions[0] + len(positions)))
+            exact = canonical_quote(evidence.quote, quoted, allow_hangul_wrap=contiguous)
             if exact is None or "[가림]" in exact:
                 raise ExtractionError(
                     "INVALID_EVIDENCE",

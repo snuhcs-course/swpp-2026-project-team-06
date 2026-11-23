@@ -23,6 +23,7 @@
     "EXAGGERATION": 1,
     "HEALTH_CLAIM": 1
   },
+  "orderedConsecutiveSpanGuard": true,
   "samePromptBody": true,
   "pipelineVersion": "source-v9-coverage-wrap1",
   "modelCalls": 0,
@@ -35,10 +36,10 @@
   "reconstruction": "Unique page offsets in retained flat OCR transcript, checked against all accepted quotes and referenced-span bounds; not a new OCR or full provider-request reproduction.",
   "privateArtifactSha256": {
     "trace": "634725323882f44e289b199d59b4ea8c144bf7a21a5cb11193196a46dca5a44b",
-    "script": "886a1a47b02bde192c38839415f6445c7f6a2c09c8ffec34ee58e111fc3196be"
+    "script": "0c99c1317450a9459a9bd3cbdef87b81f16fbe75a708bce5467e73671bc0dd8b"
   },
   "codeSha256": {
-    "worker.py": "bebb4c51bacb525333b33e76bf9d86618a7e3daaaa65e5b26b1bf14a4bc8f859",
+    "worker.py": "1a4696629deab2638707617900286b362114339af30b313005d6eb01c1af820b",
     "source_analysis.py": "43ed68a202e3a6be643e62cfed353b0767750b0202bd6db9a5532610db5700b1"
   }
 }

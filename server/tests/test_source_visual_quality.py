@@ -374,6 +374,48 @@ def test_AC_SRC_3_DEV_453_recovered_quote_cannot_bypass_page_safety(source, quot
     assert diag["rejected"][0]["code"] == code
 
 
+@pytest.mark.parametrize("kind", ["gap", "reversed", "duplicate"])
+def test_AC_SRC_8_DEV_453_wrap_fallback_requires_consecutive_source_spans(kind):
+    from app.source_analysis.worker import validate_candidates
+
+    spans = [{"id": "a", "text": "과즙이 풍부"}, {"id": "b", "text": "합니다."}]
+    ids, quote = ["a", "b"], "과즙이 풍부합니다."
+    if kind == "gap":
+        spans.insert(1, {"id": "omitted", "text": "하지 않아요. 다른 상품은"})
+    elif kind == "reversed":
+        spans = [{"id": "a", "text": "다"}, {"id": "b", "text": "가"}]
+        ids, quote = ["b", "a"], "가다"
+    else:
+        spans = [{"id": "a", "text": "가"}]
+        ids, quote = ["a", "a"], "가가"
+    chunk = {"sourceId": "s", "sourceRevision": 1, "pages": [{"number": 1, "spans": spans}]}
+    extraction = Extraction.model_validate(
+        {
+            "candidates": [
+                {
+                    "targetId": "t",
+                    "fieldKey": "taste",
+                    "value": quote,
+                    "historical": False,
+                    "evidence": [
+                        {
+                            "sourceId": "s",
+                            "sourceRevision": 1,
+                            "page": 1,
+                            "spanIds": ids,
+                            "quote": quote,
+                        }
+                    ],
+                }
+            ],
+            "photoRequests": [],
+        }
+    )
+    accepted, diag = validate_candidates(extraction, chunk, {"t"})
+    assert accepted.candidates == []
+    assert diag["rejected"][0]["code"] == "INVALID_EVIDENCE"
+
+
 def test_AC_SRC_8_rapid_output_is_json_safe_and_recognition_is_reenabled(monkeypatch):
     import json
 
