@@ -1,0 +1,22 @@
+{
+  "status": "PRIVATE_PORTABLE_REVIEW_READY_NOT_SENT_NOT_ADJUDICATED",
+  "sources": 47,
+  "claims": 354,
+  "criticalFacts": 154,
+  "priorityClaims": 51,
+  "originalAssetsCopiedByteExactly": 24,
+  "syntheticDefinitions": 23,
+  "humanReviewedClaims": 0,
+  "relativeHtmlLinksVerified": 247,
+  "files": 105,
+  "originalPacketAndLabelsUnchanged": true,
+  "absoluteMachinePathsInHtmlOrJson": 0,
+  "zipCrcTestPassed": true,
+  "archiveBytes": 47752626,
+  "archiveSha256": "daf9a0844453247a75e7c665dccb04677089a14ec0fc88bc5cf315e65010b1e3",
+  "manifestSha256": "a5419a23a9aa50324d725a488900fde992b339fb7593e62142f9ebc5dfe417ae",
+  "buildScriptSha256": "3b26a79600659d5d2c01874a24f5fe9c364e6530f52092ee21b2cbc9bf633352",
+  "sentOrShared": false,
+  "modelCalls": 0,
+  "holdoutAccessed": false
+}

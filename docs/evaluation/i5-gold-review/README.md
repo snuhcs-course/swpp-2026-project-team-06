@@ -38,6 +38,10 @@ The priority queue starts with the 51 prior audited critical misses and retains 
 
 ## Executed verification
 
+A later independent preparation step adds a **private portable bundle**; [portable-results.json](portable-results.json) records its verification and fingerprints. It includes byte-identical copies of all 24 frozen public-development assets, the 23 synthetic definitions, all 354 unchanged claim records, 47 source HTML worksheets, the priority queue, proposed standards/protocol and 38 invented scorer controls. All 247 relative HTML links resolve; all 105 files pass archive integrity checks. HTML/JSON contain no machine-specific absolute paths. The original packet and all human PENDING states remain unchanged. This resolves the earlier local-link portability limitation; **delivery/sharing and human review have not occurred**.
+
+The portable packaging check initially caught a generic temporary output path in a copied scorer-command example. Only that display example was made relative; no source, gold label or proposed semantic judgment changed. The prior packaging attempt is retained privately. ZIP/file manifests and source-asset hashes were checked; no model, production or holdout access was used.
+
 Two private scripts ran offline: packet construction and independent completion/verification. The latter passed **17 checks, 0 failed**:
 
 - All 354 unique old claim records round-trip exactly; all 154 critical flags and all 47 source rows survive.
