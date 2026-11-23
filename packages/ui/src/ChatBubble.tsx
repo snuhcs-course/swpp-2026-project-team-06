@@ -143,6 +143,7 @@ export function ChatBubble({
           >
             {text || basis || quote ? (
               <View
+                testID={kind === "ai" ? "ai-answer-content" : undefined}
                 style={{
                   maxWidth: 272,
                   paddingVertical: 12,
@@ -153,7 +154,7 @@ export function ChatBubble({
                       ? { borderTopRightRadius: tokens.radius.bubbleTail }
                       : { borderTopLeftRadius: tokens.radius.bubbleTail }
                     : null),
-                  backgroundColor: mine ? MINE_BG : tokens.color.background,
+                  backgroundColor: alignRight ? MINE_BG : tokens.color.background,
                   borderWidth: kind === "ai" ? (check === "flagged" ? 1.5 : 1) : 0,
                   borderColor: check === "flagged" ? tokens.color.error : tokens.color.border,
                 }}

@@ -119,6 +119,7 @@ test("FEAT-13 AC-13-11/12/13: flagged AI answer reaches the producer, who confir
   await expect(page.getByTestId(`ai-check-${confirmedId}`)).toHaveText("답이 맞다고 확인함", { timeout: 15_000 });
   const aiAnswer = page.getByTestId(`chat-message-${confirmedId}`).getByTestId("ai-answer-bubble");
   await expect(aiAnswer).toHaveCSS("justify-content", "flex-end");
+  await expect(aiAnswer.getByTestId("ai-answer-content")).toHaveCSS("background-color", "rgb(255, 242, 233)");
   await page.screenshot({ path: info.outputPath("producer-quoted-confirmed.png") });
 
   // 5) 소비자: '농가가 답이 맞다고 확인했어요'(앱마다 주소가 달라 로그인이 남아 있다). 인용 답장 뒤에도 그대로
@@ -126,6 +127,7 @@ test("FEAT-13 AC-13-11/12/13: flagged AI answer reaches the producer, who confir
   await expect(page.getByText(plainReply, { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId(`ai-check-${confirmedId}`)).toHaveText("농가가 답이 맞다고 확인했어요");
   await expect(aiAnswer).toHaveCSS("justify-content", "flex-start");
+  await expect(aiAnswer.getByTestId("ai-answer-content")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await page.screenshot({ path: info.outputPath("consumer-quoted-confirmed.png") });
 
   // 6) 다른 AI 답변을 요청하고, 농가가 '바로잡기'로 AI 답변을 인용해 답한다
