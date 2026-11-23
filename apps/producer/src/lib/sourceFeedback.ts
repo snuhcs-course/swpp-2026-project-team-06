@@ -8,7 +8,9 @@ export function sourceActionError(error: unknown): SourceActionError {
     const fields = error.details.fields;
     const reason = fields?.representativePhoto || Object.values(fields ?? {}).find(Boolean);
     return {
-      message: reason || error.message,
+      message: /Input should be a valid date|invalid date/i.test(reason || error.message)
+        ? "날짜를 확인해 주세요. 시작일과 종료일을 올바르게 적어 주세요."
+        : reason || error.message,
       // Only input validation is fixed by editing; conflicts and failures are worth re-reading.
       canRefresh: !(error.status === 400 && reason),
     };

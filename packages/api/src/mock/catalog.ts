@@ -77,6 +77,7 @@ function myStages(p: ProductRec): MyStage[] {
       reservedOrderCount: count("RESERVED"),
       awaitingOrderCount: count("AWAITING_DEPOSIT"),
       preparingOrderCount: count("PREPARING"),
+      hasOrders: mine.length > 0,
       harvestStarted: mine.some((o) => HARVESTED.includes(o.status)),
     };
   });

@@ -21,6 +21,7 @@ export function DateInput({
     height: 48,
     boxSizing: "border-box",
     width: "100%",
+    minWidth: 0,
     border: `${error ? 1.5 : 1}px solid ${error ? tokens.color.error : tokens.color.border}`,
     borderRadius: tokens.radius.sm,
     padding: "0 14px",
@@ -30,7 +31,7 @@ export function DateInput({
     background: tokens.color.background,
   };
   return (
-    <View style={{ gap: 8, flex: 1 }}>
+    <View style={{ gap: 8, flex: 1, minWidth: 0 }}>
       <T variant="sub" weight="semibold">
         {label}
       </T>

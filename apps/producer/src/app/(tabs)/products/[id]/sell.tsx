@@ -372,14 +372,14 @@ export default function Sell() {
         </Scroll>
       </CollapsingFrame>
       <BottomBar summary={error ? <View accessibilityRole="alert" style={{ gap: 4 }}><T variant="caption" color={tokens.color.error}>{error}</T>{stale ? (
-        <Button label="최신 값 다시 불러오기" variant="text" compact disabled={busy} onPress={() => run(async () => {
+        <><T variant="caption" color={tokens.color.error}>다시 불러오면 이 화면에서 고친 판매 조건을 버려요.</T><Button label="최신 값 다시 불러오기" variant="text" compact disabled={busy} onPress={() => run(async () => {
           setInvalidFields({});
           // 실패하면 오류와 이 버튼을 다시 보인다(처음 불러오기 실패 화면은 상품이 있으면 안 나온다)
           if (!(await load(requestedKg))) {
             setError("최신 값을 불러오지 못했어요. 다시 시도해 주세요.");
             setStale(true);
           }
-        })} />
+        })} /></>
       ) : null}</View> : undefined}>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Button label="저장" variant="secondary" size="producer" disabled={busy || !editable} style={{ flex: 1 }} onPress={() => run(async () => { if (await save()) toast("저장했어요"); })} />

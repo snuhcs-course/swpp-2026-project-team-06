@@ -397,6 +397,8 @@ export type Stage = {
 
 /** 생산자 예약 기간 화면용(DEV-231). 주문 수는 박스가 아니라 주문 건수 */
 export type MyStage = Stage & {
+  /** 취소·환불을 포함해 주문 이력이 있으면 날짜 변경·삭제 불가. */
+  hasOrders: boolean;
   reservedOrderCount: number;
   awaitingOrderCount: number;
   preparingOrderCount: number;
