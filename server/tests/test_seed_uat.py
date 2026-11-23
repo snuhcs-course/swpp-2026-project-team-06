@@ -335,3 +335,24 @@ def test_post_uat_closure_hides_farm_and_invalidates_only_target_logins(client, 
     after = table_counts()
     for name in ("broadcasts", "users", "orders", "threads", "thread_messages", "products"):
         assert before[name] == after[name]
+
+def test_uat_closure_keeps_farm_with_real_consumer_chat(client, login):
+    from app.admin.close_uat import close_accounts
+    from app.core.clock import now
+    from app.messaging.models import RoomReply
+
+    seed_uat.main(["--commit"])
+    retire_test_farm.restore("f-uat-1", commit=True)
+    with get_sessionmaker()() as db, db.begin():
+        db.get(User, "u-minji").is_test_account = False
+        db.add(RoomReply(
+            id="real-fan-reply", farm_id="f-uat-1", consumer_id="u-minji",
+            body="배송 문의", created_at=now(),
+        ))
+        db.flush()
+        for commit in (False, True):
+            report = close_accounts(db, [], commit)
+            assert any("u-uat-p1 / f-uat-1 보류" in line for line in report)
+            assert db.get(Farm, "f-uat-1").approval_status == "APPROVED"
+            assert db.get(User, "u-uat-p1").uat_closed_at is None
+            assert db.get(User, "u-minji").uat_closed_at is None
