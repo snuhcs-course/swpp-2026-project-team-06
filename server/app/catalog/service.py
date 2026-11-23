@@ -255,6 +255,7 @@ def my_stage_views(db: Session, item: Loaded) -> list[MyStageView]:
         views.append(
             MyStageView(
                 **view.model_dump(),
+                has_orders=any(by.values()),
                 reserved_order_count=by.get("RESERVED", 0),
                 awaiting_order_count=by.get("AWAITING_DEPOSIT", 0),
                 preparing_order_count=by.get("PREPARING", 0),
