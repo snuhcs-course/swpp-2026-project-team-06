@@ -1,0 +1,197 @@
+{
+  "status": "LOCAL_BASELINE_AND_COMPOSED_DEFAULTS_VERIFIED_HUMAN_ACCEPTANCE_PENDING",
+  "productBaselineCommit": "ef390bdeca84beb7c389168ad7e285ca1cc525de",
+  "initialHarnessCommit": "a3ee00db876095514d5b227e5467671b3d47615a",
+  "finalTestHarnessCommit": "32d313d7c0f4f98dfee24a1ccd5549fd058f3da1",
+  "productCodeChanged": false,
+  "provider": "mock",
+  "modelCalls": 0,
+  "productionUsed": false,
+  "environment": {
+    "api": "localhost:8000",
+    "consumer": "localhost:8081",
+    "producer": "localhost:8082",
+    "isolatedDatabase": "farmclub_dev452",
+    "pytestDatabase": "farmclub_dev452_test",
+    "storage": "local",
+    "chromium": "156.0.8078.4",
+    "producerViewportWidths": [
+      360,
+      390,
+      430
+    ],
+    "strengthenedConsumerViewport": {
+      "width": 390,
+      "height": 850
+    },
+    "playwrightRetries": 0
+  },
+  "checks": {
+    "backend": {
+      "passed": 158,
+      "failed": 0,
+      "durationSeconds": 27.92,
+      "collectionErrorPreserved": "Initial command used nonexistent plural test_product_drafts.py; collected no tests. Corrected to existing singular filename before execution."
+    },
+    "serverIntegrationScenarios": {
+      "passed": 7,
+      "failed": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "workspaces": 5
+    },
+    "mockSandboxAttempt": {
+      "passed": 480,
+      "failed": 5,
+      "skipped": 0,
+      "cause": "EPERM binding local mock-server sockets"
+    },
+    "mockUnrestricted": {
+      "passed": 485,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 58863.503916
+    },
+    "browserBaseline": {
+      "startTime": "2026-11-23T18:15:10.891Z",
+      "duration": 198629.36899999998,
+      "expected": 59,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "browserStrengthenedAffectedCases": {
+      "startTime": "2026-11-23T18:20:11.559Z",
+      "duration": 68798.786,
+      "expected": 7,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "formatFlowEvidence": [
+    {
+      "format": "image",
+      "mode": "mock",
+      "mockAutomatedExtraction": false
+    },
+    {
+      "format": "long-image",
+      "mode": "mock",
+      "mockAutomatedExtraction": false
+    },
+    {
+      "format": "pdf",
+      "mode": "mock",
+      "mockAutomatedExtraction": false
+    },
+    {
+      "format": "text",
+      "mode": "mock",
+      "mockAutomatedExtraction": true
+    }
+  ],
+  "interpretation": [
+    "Text extraction uses an explicit mock fixture, not a live model.",
+    "Image/long-image/PDF flows exercise manual recovery, not automated extraction quality.",
+    "59 baseline and 7 rerun cases overlap and are reported separately.",
+    "Existing normal-reanalysis coverage is complemented by manual edits through partial-failure retry.",
+    "Initial consumer context was desktop default; four final format cases explicitly use390px and in-viewport content.",
+    "DEV-445 and DEV-453 unmerged product changes are not integrated or accepted by this baseline-only run."
+  ],
+  "artifactFingerprints": {
+    "baselineEvidence": {
+      "files": 85,
+      "manifestSha256": "9d5605001bea4f84ba0da825de3bf4c7b1751500aeda3e03fc28979a12dbf7dd"
+    },
+    "finalEvidence": {
+      "files": 81,
+      "manifestSha256": "826851a52a3e13a0960dfca9775ee855a1c8397e722774cd373cd19491db9934"
+    },
+    "baselinePlaywrightJson": "b4d6e7ead6d90f7f9879268d1dc58f9282af123698068c1bf4d721195da9fa86",
+    "finalPlaywrightJson": "48767eb4a8536d2700328305cb59a3fd784de44b85f6df25d7e7bd85486b4f85",
+    "composedEvidence": {
+      "files": 85,
+      "manifestSha256": "7ed4c23a4dd17ffd91ff7e60b218ffb885c1129a5898e3be46681d7bd2652524"
+    },
+    "composedPlaywrightJson": "fc34cb3a23e71683ca2715a9ffd177d9d65b1adb6e6ccd6a47960bdd7ecd5488",
+    "composedBackendLog": "e9393995ebf5aae8807c53cc637eb9f462bbd86fcf7a775105a7456c84b3252e"
+  },
+  "humanCodeReview": "PENDING",
+  "jinwooGoldEditorialReview": "PENDING",
+  "producerAcceptance": "PENDING",
+  "mergeOrDeployment": false,
+  "composedDefaultCompatibility": {
+    "commit": "6b682c0af909ed4d50220f54964cd3903d47a82e",
+    "privateLocalBranchOnly": true,
+    "includedPublicPrs": [
+      794,
+      798,
+      799
+    ],
+    "experimentalWriterAdopted": false,
+    "database": "farmclub_dev452_composed",
+    "pytestDatabase": "farmclub_dev452_composed_test",
+    "backend": {
+      "command": "uv run pytest -q",
+      "passed": 2208,
+      "skipped": 1,
+      "failed": 0,
+      "durationSeconds": 329.71
+    },
+    "browser": {
+      "startTime": "2026-11-23T18:29:25.619Z",
+      "duration": 212370.953,
+      "expected": 59,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "apiScenarios": {
+      "passed": 7,
+      "failed": 0
+    },
+    "modelProvider": "mock",
+    "productionUsed": false,
+    "interpretation": "Repeated compatibility checks on the same selected browser cohort, not independent samples, writing quality or selected-candidate acceptance."
+  },
+  "offlineTaDemo": {
+    "fixtures": "invented",
+    "modelCalls": 0,
+    "archiveBytes": 51876,
+    "archiveSha256": "babccce166e5e948625499ca5b7a3573f6c1402cb86fdee6c24c9e4065a19d64",
+    "builderSha256": "e2dcebe8ccab23fe6034a5ca51950157ce4f6c18add3b3bd916b2fde2aab87f4",
+    "proofs": [
+      "Hangul line-wrap exact source quote",
+      "Brix unit internal-space normalization",
+      "Conservative whole-title dedup with citations"
+    ],
+    "visualPreviewChecked": true,
+    "releaseAcceptance": false
+  },
+  "scheduleReconciliation": {
+    "sheet": "Schedule",
+    "range": "A433:Z441",
+    "issueIds": [
+      "DEV-445",
+      "DEV-446",
+      "DEV-447",
+      "DEV-448",
+      "DEV-449",
+      "DEV-450",
+      "DEV-451",
+      "DEV-452",
+      "DEV-453"
+    ],
+    "verifiedRows": 9,
+    "verifiedFormulas": 36,
+    "status": "Started / In Progress",
+    "humanHours": {
+      "parentCumulative": 5,
+      "childrenBlank": true
+    },
+    "estimatesDeadlinesCompletionDatesBlank": true,
+    "visualLimitation": "Browser access host unavailable; values/formulas/formatting/validation metadata verified."
+  }
+}
