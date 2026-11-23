@@ -2254,6 +2254,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                                 review={review}
                                 drafts={drafts}
                                 saveRef={saveEditor}
+                                onReload={async () => {
+                                  // Parent form/terms remain untouched. Clear only editor errors after all reads succeed.
+                                  await load();
+                                  setError(null);
+                                  setNotice("판매페이지를 다시 불러왔어요. 다른 입력 내용은 그대로 남아 있어요.");
+                                }}
                                 onDirty={setEditorDirty}
                                 onBusy={editorBusy}
                                 onSaved={async () => {
