@@ -62,7 +62,6 @@ export default function Sales() {
   const [p, setP] = useState<MyProduct | null>(null),
     [history, setHistory] = useState<CapacityRequest[]>([]);
   const [total, setTotal] = useState(""),
-    [perOrder, setPerOrder] = useState(""),
     [requested, setRequested] = useState("");
   const [error, setError] = useState(""),
     // DEV-345: 오류·성공 안내는 누른 버튼 바로 아래에 보인다(PM 11/16)
@@ -78,7 +77,7 @@ export default function Sales() {
   >(null);
   const pending = useRef<{ body: string; key: string } | null>(null);
   // 마지막으로 불러와 칸에 넣은 값. 다시 들어와 읽을 때 이 값과 다르면 생산자가 고친 것이라 덮지 않는다(DEV-345)
-  const loaded = useRef({ total: "", perOrder: "" });
+  const loaded = useRef("");
   // 이 화면이 보이는 동안만 판매·가격으로 옮긴다(응답 전에 떠난 뒤 늦게 온 응답이 다른 화면을 바꾸지 않게)
   const focused = useRef(false);
   /**
@@ -100,16 +99,10 @@ export default function Sales() {
     );
     setP(product);
     setHistory(requests);
-    const prev = loaded.current,
-      next = {
-        total: String(product.salesLimitGrams / 1000),
-        perOrder: String(product.maxQuantityPerOrder),
-      };
+    const previous = loaded.current;
+    const next = String(product.salesLimitGrams / 1000);
     loaded.current = next;
-    setTotal((cur) => (keepEdits && cur !== prev.total ? cur : next.total));
-    setPerOrder((cur) =>
-      keepEdits && cur !== prev.perOrder ? cur : next.perOrder,
-    );
+    setTotal((current) => (keepEdits && current !== previous ? current : next));
     return false;
   }
   /**
@@ -182,19 +175,10 @@ export default function Sales() {
             : {
                 salesLimitGrams:
                   action === "pause" ? p.salesLimitGrams : grams(total),
-                maxQuantityPerOrder:
-                  action === "pause" ? p.maxQuantityPerOrder : Number(perOrder),
                 salesPaused:
                   action === "pause" ? !p.salesPaused : p.salesPaused,
                 version: p.version,
               };
-      if (
-        action === "save" &&
-        (!/^\d+$/.test(perOrder) || Number(perOrder) < 1)
-      )
-        throw new Error(
-          "한 주문 최대 박스 수는 1 이상의 정수로 입력해 주세요.",
-        );
       const body = JSON.stringify({ action, input });
       if (pending.current?.body !== body)
         pending.current = { body, key: newIdempotencyKey() };
@@ -220,7 +204,6 @@ export default function Sales() {
           id,
           input as {
             salesLimitGrams: number;
-            maxQuantityPerOrder: number;
             salesPaused: boolean;
             version: number;
           },
@@ -429,13 +412,6 @@ export default function Sales() {
                 ) : (
                   <T muted>최초 승인 후 판매 한도가 설정돼요.</T>
                 )}
-                <Input
-                  label="한 주문 최대 박스 수"
-                  value={perOrder}
-                  onChangeText={setPerOrder}
-                  keyboardType="number-pad"
-                  editable={editable && !busy}
-                />
                 <Button
                   label="판매 설정 저장"
                   onPress={() => void mutate("save")}

@@ -241,7 +241,7 @@ export type SalesState = {
 };
 export type SalesInput = {
   salesLimitGrams: number;
-  maxQuantityPerOrder: number;
+  maxQuantityPerOrder?: number;
   salesPaused: boolean;
   version: number;
 };
@@ -725,6 +725,7 @@ export type Dashboard = {
 };
 
 export type ProducerOrder = Recipient & {
+  deliveryWindow: { start: ISODate; end: ISODate };
   trackingVersion: number;
   orderId: string;
   orderNo: string;

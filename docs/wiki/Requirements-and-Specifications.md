@@ -1235,3 +1235,7 @@ For FEAT-33 AC-33-5, an initial order lookup failure on the inquiry form has an 
 ### Evaluator entry retirement (DEV-367, 19 November 2026)
 
 UAT participants and store reviewers now use private operator-created ID/password credentials. Release real-API consumer and producer apps neither request the seed-account list nor show seed choices, even if Kakao is disabled or its config fails. The old evaluator query, device mark and build flag cannot enable that UI. Development builds keep local seed login when Kakao is off/unavailable; explicit app Mock mode keeps its fixture chooser alongside Kakao. Existing Kakao, password-change, consent and consumer-return contracts remain unchanged. This UI boundary does not disable the server test-login endpoints: a human operator must keep MOCK_LOGIN_ENABLED=false and verify that both app-specific list endpoints return 404. Historical UAT records remain unchanged.
+
+### Post-UAT ordering and chat
+
+Deposit confirmation moves the order directly to the producer’s shipping queue. Customers may reserve up to the remaining option stock and approved sales weight. The farm’s AI reply appears on the right for producers and the left for consumers, with its AI label. Operators can retire identified UAT farms and disable tester access while retaining their order and conversation history.

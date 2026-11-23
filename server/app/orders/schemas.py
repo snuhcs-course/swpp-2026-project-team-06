@@ -193,6 +193,7 @@ class ProducerOrder(CamelModel):
     option_label: str
     quantity: int
     status: OrderStatus
+    delivery_window: DateRange
     delivery_note: str | None
     carrier: str | None
     tracking_number: str | None

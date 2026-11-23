@@ -243,7 +243,7 @@ test("AC-14-3/14-4/17-6/12-12: dashboard keeps chat to one unanswered count, cha
     headers: { ...farm, "Idempotency-Key": crypto.randomUUID() }, data: {},
   });
   expect(confirmed.ok(), await confirmed.text()).toBeTruthy();
-  expect((await confirmed.json()).status).toBe("RESERVED");
+  expect((await confirmed.json()).status).toBe("PREPARING");
   await page.setViewportSize({ width: 390, height: 844 });
   await loginProducer(page, "강영수");
   await expect(page.getByRole("heading", { name: "현황", exact: true })).toBeVisible();
@@ -297,20 +297,8 @@ test("AC-14-3/14-4/17-6/12-12: dashboard keeps chat to one unanswered count, cha
       harvestWrites.push(r.url());
   });
   await page.goto(`${producerUrl}/ship?status=RESERVED`);
-  // DEV-361: one bottom Start harvest button for the selected reservations (all by default); no per-row
-  // status button, no per-period shortcut rows, and opening the tab or the sheet does not change anything.
-  await expect(page.getByRole("button", { name: "수확 시작", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: /^예약 / })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(page.getByRole("button", { name: /건 수확 시작하기(?: |$)/ })).toHaveCount(0);
-  await expect(page.getByRole("checkbox", { name: "전체 선택", exact: true })).toHaveAttribute("aria-checked", "true");
-  const harvestButton = page.getByRole("button", { name: /^수확 시작 · [1-9]\d*건$/ });
-  await expect(harvestButton).toBeVisible();
-  await harvestButton.click();
-  await expect(page.getByRole("dialog").getByText("수확을 시작할까요?", { exact: true })).toBeVisible();
-  await page.getByRole("dialog").getByRole("button", { name: "아니요", exact: true }).click();
+  await expect(page.getByRole("tab", { name: /^배송 대기 / })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("button", { name: /수확 시작/ })).toHaveCount(0);
   expect(harvestWrites).toEqual([]);
 });
 

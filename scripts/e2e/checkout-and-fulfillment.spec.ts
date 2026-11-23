@@ -103,7 +103,7 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   });
   expect(awaitingOrder.totalAmount).toBeGreaterThan(29000);
   const totalText = `${awaitingOrder.totalAmount.toLocaleString("ko-KR")}원`;
-  // AC-09-8: 통장 대조 후 확인 시트에서 최종 승인 → 예약 완료
+  // AC-09-8: 통장 대조 후 확인 시트에서 최종 승인 → 배송 대기
   await producerPage.goto(`${producerUrl}/ship?status=AWAITING_DEPOSIT`);
   await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
   await expect(
@@ -127,76 +127,11 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   expect((await approved).ok()).toBeTruthy();
   await consumerPage.goto(`${consumerUrl}/orders/${orderId}`);
   await expect(
-    consumerPage.getByRole("heading", { name: "예약 완료" }),
+    consumerPage.getByRole("heading", { name: "배송 대기" }),
   ).toBeVisible();
   expect(depositApprovals).toBe(1);
-  await producerPage.goto(`${producerUrl}/ship?status=RESERVED`);
-  await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
-  await expect(producerPage.getByText(totalText, { exact: true }).first()).toBeVisible();
-  // DEV-361 (AC-17-3·AC-17-11): 예약 탭에서 고른 주문만 한 번에 수확 시작(기본 전체 선택, 기간과 상관없음)
-  // 화면은 모든 페이지를 읽으므로 기대 건수도 커서 끝까지 읽는다
-  const reservedItems: { orderId: string; orderNo: string }[] = [];
-  for (let cursor: string | null = null, first = true; first || cursor; first = false) {
-    const page = await request.get(
-      `${apiUrl}/api/orders/producer?status=RESERVED&limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
-      { headers },
-    );
-    const body = await page.json();
-    reservedItems.push(...body.items);
-    cursor = body.nextCursor;
-  }
-  const reservedOrder = reservedItems.find((o) => o.orderId === orderId);
-  expect(reservedOrder).toBeTruthy();
-  await expect(
-    producerPage.getByText("예약 기간에서 수확을 시작하면 출하 준비로 옮겨져요", { exact: true }),
-  ).toHaveCount(0);
-  let harvestCalls = 0;
-  producerPage.on("request", (req) => {
-    if (req.method() === "POST" && /\/harvest-(orders|start)$/.test(req.url())) harvestCalls++;
-  });
-  const selectAll = producerPage.getByRole("checkbox", { name: "전체 선택", exact: true });
-  await expect(selectAll).toHaveAttribute("aria-checked", "true");
-  const harvestButton = producerPage.getByRole("button", { name: /^수확 시작 · \d+건$/ });
-  await expect(harvestButton).toHaveText(new RegExp(`^수확 시작 · ${reservedItems.length}건$`));
-  // 이 테스트 주문만 남기고 뺀다
-  await selectAll.click();
-  await expect(harvestButton).toHaveText("수확 시작 · 0건");
-  await expect(harvestButton).toBeDisabled();
-  const row = producerPage.getByRole("checkbox", {
-    name: new RegExp(`^${reservedOrder!.orderNo} .*고르기$`),
-  });
-  await row.click();
-  await expect(row).toHaveAttribute("aria-checked", "true");
-  await expect(harvestButton).toHaveText("수확 시작 · 1건");
-  await harvestButton.click();
-  const harvestSheet = producerPage.getByRole("dialog");
-  await expect(harvestSheet.getByText("수확을 시작할까요?", { exact: true })).toBeVisible();
-  await expect(harvestSheet.getByText(/‘수확·포장 중’으로 보여요/)).toBeVisible();
-  await expect(harvestSheet.getByText(/DEV25 구매자/)).toBeVisible();
-  await harvestSheet.getByRole("button", { name: "아니요", exact: true }).click();
-  expect(harvestCalls).toBe(0);
-  await expect(producerPage.getByRole("dialog")).toHaveCount(0);
-  await harvestButton.click();
-  const harvested = producerPage.waitForResponse(response =>
-    response.url().endsWith("/harvest-orders") && response.request().method() === "POST",
-  );
-  await producerPage
-    .getByRole("dialog")
-    .getByRole("button", { name: "수확 시작 · 1건", exact: true })
-    .click();
-  const harvestResponse = await harvested;
-  expect(JSON.parse(harvestResponse.request().postData() ?? "{}").orderIds).toEqual([orderId]);
-  const harvestBody = await harvestResponse.json();
-  expect(harvestBody.orderIds).toEqual([orderId]);
-  await expect(producerPage.getByText(`${harvestBody.changed}건을 출하 준비로 옮겼어요`)).toBeVisible();
-  // 뺀 예약은 그대로 남는다
-  await expect(producerPage.getByRole("tab", { name: `예약 ${reservedItems.length - 1}` })).toBeVisible();
-  expect(harvestCalls).toBe(1);
-  await consumerPage.goto(`${consumerUrl}/orders/${orderId}`);
-  await expect(
-    consumerPage.getByRole("heading", { name: "수확·포장 중" }),
-  ).toBeVisible();
   await producerPage.goto(`${producerUrl}/ship?status=PREPARING`);
+  await expect(producerPage.getByRole("button", { name: /수확 시작/ })).toHaveCount(0);
   await expect(producerPage.getByText("DEV25 구매자")).toBeVisible();
   await producerPage
     .getByRole("button", { name: /DEV25 구매자.*송장 입력/ })
@@ -225,7 +160,7 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   // AC-17-9: a shipped order keeps its shipping state while correcting its invoice.
   await producerPage.goto(`${producerUrl}/ship?status=SHIPPED`);
   await producerPage
-    .getByRole("button", { name: `${reservedOrder.orderNo} 송장 수정`, exact: true })
+    .getByRole("button", { name: `${awaitingOrder.orderNo} 송장 수정`, exact: true })
     .click();
   await expect(
     producerPage.getByRole("textbox", { name: "송장 번호", exact: true }),
@@ -241,7 +176,7 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   await producerPage.getByRole("button", { name: "저장", exact: true }).click();
   expect((await correctedResponse).ok()).toBeTruthy();
   await producerPage
-    .getByRole("button", { name: `${reservedOrder.orderNo} 송장 수정`, exact: true })
+    .getByRole("button", { name: `${awaitingOrder.orderNo} 송장 수정`, exact: true })
     .click();
   await expect(
     producerPage.getByRole("textbox", { name: "송장 번호", exact: true }),

@@ -1,6 +1,6 @@
 // 판매 조건 편집부(DEV-361 PR C): 중량 옵션·받는 시기·전액 환불 날짜·예약 기간·가격·박스·배송비.
 // 판매 전 상품의 판매·가격(SCR-24b, `mode="new"`)과 구매자에게 보이는 상품의 composer 판매 조건 시트(`mode="live"`)가 같이 쓴다.
-// 판매할 총 물량·한 주문 최대는 여기 없다(판매·가격 화면에만, 승인 뒤 한 주문 최대는 물량·판매 설정, 결정 9).
+// 판매할 총 물량은 판매·가격 화면에서 입력한다.
 import {
   newIdempotencyKey,
   type MyProduct,
@@ -13,7 +13,7 @@ import { View } from "react-native";
 
 import { FieldFeedback, FieldFeedbackContext } from "./FieldFeedback";
 import { DateInput, DateSheet, NumField, addDays } from "./fields";
-import { seoulToday } from "./HarvestStart";
+import { seoulToday } from "./seoulToday";
 import { FieldButton } from "./views";
 
 const WEIGHTS = [3, 5, 10];

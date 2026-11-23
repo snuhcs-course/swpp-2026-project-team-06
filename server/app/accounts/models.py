@@ -52,6 +52,7 @@ class User(Base):
     must_change_password: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false()
     )
+    uat_closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # JWT `ver`와 같아야 한다. 비밀번호 변경·임시 비밀번호 발급 때 올려
     # 그 사용자의 토큰을 모두 끊는다
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))

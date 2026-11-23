@@ -58,7 +58,7 @@ test("DEV-207 AC-09-7: after the deposit notice no copy asks for payment, a dead
   const sentence = t.depositRefundSentence(reported, f, NOW);
   assert.equal(
     sentence,
-    "11월 3일 오후 10:31에 입금했다고 알려 주셨어요. 농가가 통장을 확인하면 예약 완료로 바뀌어요.",
+    "11월 3일 오후 10:31에 입금했다고 알려 주셨어요. 농가가 통장을 확인하면 배송 대기로 바뀌어요.",
   );
   const all = [
     t.statusTitle(reported),

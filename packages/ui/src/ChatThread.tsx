@@ -687,6 +687,7 @@ export function ChatThread({
               } as object : {})}>
             <ChatBubble
               kind={kind}
+              alignRight={mine || (producer && kind === "ai")}
               first={first || !!days[i]}
               last={last}
               quote={m.replyTo ?? undefined}

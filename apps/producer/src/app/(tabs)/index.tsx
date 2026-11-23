@@ -178,9 +178,8 @@ export default function Home() {
     data ? data.filter((o) => !status || o.status === status).length : 0;
   const metrics = [
     { label: "전체", count: count(), tab: "all" },
-    { label: "예약", count: count("RESERVED"), tab: "RESERVED" },
     // 지금 손이 가야 하는 칸만 강조한다
-    { label: "출하 준비", count: count("PREPARING"), tab: "PREPARING", accent: true },
+    { label: "배송 대기", count: count("PREPARING"), tab: "PREPARING", accent: true },
     { label: "출하", count: count("SHIPPED"), tab: "SHIPPED" },
   ];
   const todo = dash.data?.todo;
@@ -218,16 +217,6 @@ export default function Home() {
         label="입금 확인할 주문"
         count={todo.awaitingDeposit}
         onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
-      />,
-    );
-  if (todo?.toHarvest)
-    // DEV-361: 모든 예약 완료 주문 수(예약 탭 '수확 시작 · n건'과 같음, PM 11/18) → 예약 탭에서 한 번에 수확 시작
-    rows.push(
-      <TodoRow
-        key="harvest"
-        label="수확을 시작할 예약"
-        count={todo.toHarvest}
-        onPress={() => router.push("/ship?status=RESERVED")}
       />,
     );
   if (todo?.refundsToSettle)

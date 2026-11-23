@@ -77,7 +77,7 @@ test("DEV-207 AC-09-7/11-1: deposit-notice and refund copy follow who acts next"
   });
   expect(confirmed.ok()).toBeTruthy();
   await page.goto(`${consumerUrl}/orders/${orderId}`);
-  await expect(page.getByRole("heading", { name: "예약 완료" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "배송 대기" })).toBeVisible();
   await page.getByRole("button", { name: "예약 취소하기" }).click();
   await page.getByRole("button", { name: "예약 취소하기" }).last().click();
   await expect(page.getByRole("heading", { name: "환불 대기" })).toBeVisible();

@@ -11,8 +11,9 @@ export const BUBBLE_AVATAR = 36;
 const MINE_BG = "#FFF2E9";
 
 type Props = {
-  /** farm = 상대(흰색, 왼쪽) · me = 나(옅은 주황, 오른쪽) · ai = AI 안내(얇은 회색 테두리 + 'AI 안내' 라벨, 왼쪽) */
+  /** farm = 상대(흰색, 왼쪽) · me = 나(옅은 주황, 오른쪽) · ai = AI 안내(얇은 회색 테두리 + 'AI 안내' 라벨, 농가 쪽) */
   kind: "farm" | "me" | "ai";
+  alignRight?: boolean;
   quote?: { senderType: string; body: string };
   /** 인용 블록 머리글. 없으면 보낸 사람 종류로 '농가에게 답장' 등 */
   quoteLabel?: string;
@@ -49,6 +50,7 @@ type Props = {
 /** 채팅 말풍선: 채팅 글자 토큰 · 안쪽 12/16 · 최대 폭 272 · 묶음 첫 말풍선만 꼬리 쪽 모서리 4 */
 export function ChatBubble({
   kind,
+  alignRight = kind === "me",
   quote,
   quoteLabel,
   edited,
@@ -74,7 +76,7 @@ export function ChatBubble({
       <View
         style={{
           flexShrink: 0,
-          alignItems: mine ? "flex-end" : "flex-start",
+          alignItems: alignRight ? "flex-end" : "flex-start",
           gap: 2,
         }}
       >
@@ -88,9 +90,10 @@ export function ChatBubble({
     ) : null;
   return (
     <View
+      testID={kind === "ai" ? "ai-answer-bubble" : undefined}
       style={{
         flexDirection: "row",
-        justifyContent: mine ? "flex-end" : "flex-start",
+        justifyContent: alignRight ? "flex-end" : "flex-start",
         gap: tokens.space.sm,
       }}
     >
@@ -103,7 +106,7 @@ export function ChatBubble({
         style={{
           flexShrink: 1,
           minWidth: 0,
-          alignItems: mine ? "flex-end" : "flex-start",
+          alignItems: alignRight ? "flex-end" : "flex-start",
           gap: tokens.space.xs,
         }}
       >
@@ -129,28 +132,29 @@ export function ChatBubble({
             maxWidth: "100%",
           }}
         >
-          {mine ? meta : null}
+          {alignRight ? meta : null}
           <View
             style={{
               flexShrink: 1,
               minWidth: 0,
               gap: tokens.space.xs,
-              alignItems: mine ? "flex-end" : "flex-start",
+              alignItems: alignRight ? "flex-end" : "flex-start",
             }}
           >
             {text || basis || quote ? (
               <View
+                testID={kind === "ai" ? "ai-answer-content" : undefined}
                 style={{
                   maxWidth: 272,
                   paddingVertical: 12,
                   paddingHorizontal: tokens.space.md,
                   borderRadius: tokens.radius.md,
                   ...(first
-                    ? mine
+                    ? alignRight
                       ? { borderTopRightRadius: tokens.radius.bubbleTail }
                       : { borderTopLeftRadius: tokens.radius.bubbleTail }
                     : null),
-                  backgroundColor: mine ? MINE_BG : tokens.color.background,
+                  backgroundColor: alignRight ? MINE_BG : tokens.color.background,
                   borderWidth: kind === "ai" ? (check === "flagged" ? 1.5 : 1) : 0,
                   borderColor: check === "flagged" ? tokens.color.error : tokens.color.border,
                 }}
@@ -192,7 +196,7 @@ export function ChatBubble({
             ) : null}
             {children}
           </View>
-          {!mine ? meta : null}
+          {!alignRight ? meta : null}
         </View>
         {edited ? (
           <T variant="caption" muted style={{ fontStyle: "italic" }}>
