@@ -15,7 +15,7 @@ import {
   type SourceAsset,
   type SourceReview,
 } from "@farmclub/api";
-import { Button, SOURCE_MODULES, T, tokens } from "@farmclub/ui";
+import { Button, Icon, Sheet, SOURCE_MODULES, T, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { View, type ScrollView } from "react-native";
 
@@ -106,6 +106,7 @@ export function SourceDetailsEditor({
   onSaved,
   onBusy,
   saveRef,
+  onReload,
   scrollRef,
   emptyHint = false,
   showStoryTextHints = false,
@@ -131,6 +132,7 @@ export function SourceDetailsEditor({
   onDirty: (dirty: boolean) => void;
   onBusy: (busy: boolean) => void;
   onSaved: (draft: SourceDraft) => Promise<void>;
+  onReload: () => Promise<void>;
 }) {
   const [entries, setEntries] = useState<SourceEditorField[]>(
     review.editorFields,
@@ -144,6 +146,11 @@ export function SourceDetailsEditor({
   const [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const recoveryNode = useRef<View>(null);
+  useEffect(() => {
+    if (error) (recoveryNode.current as unknown as HTMLElement | null)?.scrollIntoView?.({ block: "center" });
+  }, [error]);
+  const [confirmReload, setConfirmReload] = useState(false);
   const extraUrls = useRef<string[]>([]);
   useEffect(
     () => () => {
@@ -380,7 +387,44 @@ export function SourceDetailsEditor({
   });
   return (
     <View style={{ gap: 16 }}>
-      {error ? <T color={tokens.color.error}>{error}</T> : null}
+      {error ? (
+        <View ref={recoveryNode} accessibilityRole="alert" style={{ gap: 4, paddingHorizontal: emptyHint ? tokens.space.gutter : 0 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Icon name="alert" size={18} color={tokens.color.error} />
+            <T variant="caption" color={tokens.color.error} style={{ flex: 1 }}>{error}</T>
+            <Button label="다시 불러오기" accessibilityLabel="판매페이지 다시 불러오기" variant="text" compact disabled={busy || locked} onPress={() => setConfirmReload(true)} />
+          </View>
+          <T variant="caption" muted>입력한 내용은 그대로 남아 있어요.</T>
+        </View>
+      ) : null}
+      <Sheet visible={confirmReload} onClose={() => { if (!busy) setConfirmReload(false); }} title="판매페이지 수정을 버릴까요?">
+        <T>저장하지 못한 판매페이지 문구·사진·내용 선택을 버리고 최신 값으로 불러와요. 상품명·원산지·보관·옵션 등 다른 입력은 그대로 남아요.</T>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+        <Button label="계속 수정" accessibilityLabel="수정 계속하기" variant="secondary" style={{ flex: 1 }} disabled={busy} onPress={() => setConfirmReload(false)} />
+        <Button label="다시 불러오기" accessibilityLabel="판매페이지 수정 버리고 불러오기" style={{ flex: 1 }} loading={busy} disabled={busy} onPress={() => {
+          if (lock.current) return;
+          lock.current = true;
+          setBusy(true);
+          onBusy(true);
+          void onReload().then(() => {
+            if (!alive.current) return;
+            setDirty(false);
+            onDirty(false);
+            setExtraPhotos([]);
+            extraUrls.current.forEach(URL.revokeObjectURL);
+            extraUrls.current = [];
+            setError("");
+            setConfirmReload(false);
+          }).catch(() => {
+            if (alive.current) setError("다시 불러오지 못했어요. 입력 내용은 남아 있어요. 연결을 확인하고 다시 시도해 주세요.");
+            setConfirmReload(false);
+          }).finally(() => {
+            lock.current = false;
+            if (alive.current) { setBusy(false); onBusy(false); }
+          });
+        }} />
+        </View>
+      </Sheet>
       {failedPhotos.length ? (
         <View
           accessibilityRole="alert"
