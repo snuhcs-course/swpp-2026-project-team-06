@@ -41,7 +41,7 @@ function work(partial = false) {
   );
 }
 for (const width of [360, 390, 430]) {
-  test(`AC-SRC-1/2/7/8 DEV-361 ${width}px: upload, review, resume and apply`, async ({
+  test(`AC-SRC-1/2/5/7/8/11 DEV-361 DEV-452 ${width}px: upload, review, resume and apply`, async ({
     page,
   }) => {
     test.skip(
@@ -205,7 +205,20 @@ for (const width of [360, 390, 430]) {
     await expect(saved).toBeVisible();
     await page.reload();
     await expect(storage).toHaveValue("서늘한 곳에 보관해 주세요.");
+    let expectedSummary = "제주산 감귤입니다.";
+    let expectedStorage = "서늘한 곳에 보관해 주세요.";
     if (width === 360) {
+      // DEV-452: a partial-run retry must preserve real producer edits, not only unchanged AI text.
+      expectedSummary = "생산자가 직접 고친 소개예요.";
+      expectedStorage = "생산자가 직접 고친 보관 안내예요.";
+      const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
+      await summary.fill(expectedSummary);
+      await storage.fill(expectedStorage);
+      await save.click();
+      await expect(saved).toBeVisible();
+      await page.reload();
+      await expect(summary).toHaveValue(expectedSummary);
+      await expect(storage).toHaveValue(expectedStorage);
       await openSheet();
       // DEV-287: retry is available without a cost-confirmation step.
       await expect(page.getByRole("checkbox", { name: /비용이 다시/ })).toHaveCount(0);
@@ -213,8 +226,8 @@ for (const width of [360, 390, 430]) {
       work();
       await expect(page.getByText("AI가 다 채웠어요. 위에서 확인하고 고쳐 주세요.")).toBeVisible({ timeout: 15000 });
       await closeSheet();
-      await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue("제주산 감귤입니다.");
-      await expect(storage).toHaveValue("서늘한 곳에 보관해 주세요.");
+      await expect(summary).toHaveValue(expectedSummary);
+      await expect(storage).toHaveValue(expectedStorage);
       // Retrying changes the source version; confirm the preserved editor before applying.
       await save.click();
       await expect(saved).toBeVisible();
@@ -224,7 +237,8 @@ for (const width of [360, 390, 430]) {
       .click();
     // The page preview only (the AI sheet's hidden source tile quotes the same text)
     const preview = page.getByTestId("buyer-preview");
-    await expect(preview.getByText("제주산 감귤입니다.", { exact: true })).toBeVisible();
+    await expect(preview.getByText(expectedSummary, { exact: true })).toBeVisible();
+    await expect(preview.getByText(expectedStorage, { exact: true })).toBeVisible();
     await expect(
       page
         .getByTestId("source-module-packagePhoto")
@@ -258,7 +272,12 @@ for (const width of [360, 390, 430]) {
       product.moduleDetail.modules.find(
         (m: { id: string }) => m.id === "storage",
       ).texts[0].value,
-    ).toBe("서늘한 곳에 보관해 주세요.");
+    ).toBe(expectedStorage);
+    expect(
+      product.moduleDetail.modules.find(
+        (m: { id: string }) => m.id === "summary",
+      ).texts[0].value,
+    ).toBe(expectedSummary);
     // Applied is not public: a new product is visible to buyers only after approval.
     expect((await page.request.get(`${apiUrl}/api/products/${productId}`)).status()).toBe(404);
     expect(

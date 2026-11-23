@@ -366,7 +366,7 @@ Path(output).write_bytes(data)
     await save.click();
     await expect(page.getByText(savedNotice, { exact: true })).toBeVisible();
 
-    const publicContext = await browser.newContext();
+    const publicContext = await browser.newContext({ viewport: { width: 390, height: 850 } });
     try {
       const buyer = await publicContext.newPage();
       await buyer.goto(`${consumerUrl}/products/p-house`);
@@ -408,6 +408,11 @@ Path(output).write_bytes(data)
       await expect(buyer.getByTestId("source-module-storage").getByText(storage, { exact: true })).toBeVisible();
       await expect(buyer.getByTestId("excluded-chip")).toHaveCount(0);
       await expect(buyer.getByTestId("excluded-modal")).toHaveCount(0);
+      // DEV-452: verify actual mobile buyer content, not a desktop context or off-screen CSS visibility.
+      const renderedSummary = buyer.getByTestId("source-module-summary").getByText(manual, { exact: true });
+      await renderedSummary.scrollIntoViewIfNeeded();
+      await expect(renderedSummary).toBeInViewport();
+      expect(await buyer.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
       await buyer.screenshot({ path: path.join(artifacts, `t12-${format}-consumer.png`), fullPage: true });
       // Public-media's GET/content-type pattern, extended to every actual private
       // source endpoint and both image variants, with a cookie-free client.
