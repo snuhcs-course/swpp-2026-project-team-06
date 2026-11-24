@@ -356,6 +356,9 @@ export function Sheet({
   instant?: boolean;
   children: ReactNode;
 }) {
+  // 앱에서 키보드가 떠 있으면 시트 아래 여백의 하단 안전 영역을 뺀다. 키보드가 그 자리를 덮어
+  // 남겨 두면 키보드 위에 빈 띠(28 + 인셋)가 생긴다(ChatThread 입력줄과 같은 규칙, DEV-477)
+  const keyboardShown = useKeyboardShown();
   return (
     <Modal
       visible={visible}
@@ -373,7 +376,12 @@ export function Sheet({
             onPress={onClose}
           />
           <View
-            style={[styles.sheet, sheetGlass, nativeApp && styles.sheetApp]}
+            style={[
+              styles.sheet,
+              sheetGlass,
+              nativeApp && styles.sheetApp,
+              keyboardShown && styles.sheetKeyboard,
+            ]}
             accessibilityViewIsModal
           >
             <View style={styles.handle} />
@@ -589,6 +597,7 @@ const styles = StyleSheet.create({
   // 앱: 키보드로 남은 높이가 시트보다 작으면 시트가 줄고 안이 스크롤된다(위쪽이 상태 표시줄 밑으로 넘치지 않게)
   overlayApp: { paddingTop: safe("top", 16) },
   sheetApp: { flexShrink: 1 },
+  sheetKeyboard: { paddingBottom: 16 },
   sheet: {
     width: "100%",
     maxWidth: tokens.maxWidth,
