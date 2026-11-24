@@ -125,7 +125,11 @@ test("DEV_473 consumer home (tab screen without a layout) dies → error with th
 test("DEV_473 consumer screen outside tabs (checkout) dies → root stack boundary, retry and support", async ({ page }) => {
   await consumerLogin(page);
   await page.goto(`${consumerUrl}/products/p-house`);
-  await page.getByRole("button", { name: "예약하기" }).click();
+  // 화면이 막 열린 직후의 누름은 시트를 열지 못할 때가 있어 시트가 보일 때까지 다시 누른다
+  await expect(async () => {
+    await page.getByRole("button", { name: "예약하기" }).click();
+    await expect(page.getByRole("button", { name: "주문서로" })).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 30_000 });
   const restore = await breakNames(page, /\/api\/products\/p-house(\?|$)/, (b) => [b]);
   await page.getByRole("button", { name: "주문서로" }).click();
   await expect(page).toHaveURL(/\/checkout\/p-house/);
@@ -140,7 +144,10 @@ test("DEV_473 consumer screen outside tabs (checkout) dies → root stack bounda
   await expect(page.getByText("주문서").first()).toBeVisible();
 
   await breakNames(page, /\/api\/products\/p-house(\?|$)/, (b) => [b]);
+  // 새로고침 뒤 세션(auth/me)이 서기 전에 누르면 탭 레이아웃이 사용자 키로 다시 만들어지며 첫 화면으로 돌아간다(기존 동작)
+  const me = page.waitForResponse(/\/api\/auth\/me(\?|$)/);
   await page.reload();
+  await me;
   await expect(page.getByText(TITLE)).toBeVisible();
   await page.getByRole("link", { name: "운영팀에 알리기" }).click();
   await expect(page).toHaveURL(/\/chats\/support/);
