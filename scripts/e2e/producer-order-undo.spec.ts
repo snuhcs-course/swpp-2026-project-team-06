@@ -181,3 +181,24 @@ test("DEV-466 AC-17-4: the order card status chip offers only the next server ac
   await expect.poll(async () => (await read()).status).toBe("AWAITING_DEPOSIT");
   expect((await read()).paidAt).toBeNull();
 });
+
+test("DEV-466 AC-17-2: with a search active, select-all and shipping cover only the visible orders", async ({ page, request }) => {
+  const first = await fixture(request);
+  const second = await fixture(request);
+  for (const o of [first, second]) {
+    const confirmed = await request.post(`${apiUrl}/api/orders/${o.order.orderId}/confirm-deposit`, {
+      headers: mutation(o.producer), data: {},
+    });
+    expect(confirmed.ok(), await confirmed.text()).toBeTruthy();
+  }
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/ship?status=PREPARING`);
+  await page.getByRole("textbox", { name: "주문 검색" }).fill(first.order.orderNo);
+  await expect(page.getByTestId(`order-card-${second.order.orderNo}`)).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "전체 선택", exact: true }).click();
+  await page.getByRole("button", { name: "1건 출하 처리", exact: true }).click();
+  await expect(sheet(page).getByText("1건을 출하 처리할까요?", { exact: true })).toBeVisible();
+  await sheet(page).getByRole("button", { name: "1건 출하 처리", exact: true }).click();
+  await expect.poll(async () => (await first.read()).status).toBe("SHIPPED");
+  expect((await second.read()).status).toBe("PREPARING");
+});

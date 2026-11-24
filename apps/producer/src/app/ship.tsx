@@ -129,6 +129,13 @@ export default function Ship() {
   const [undoFor, setUndoFor] = useState<ProducerOrder | null>(null);
   const [undoError, setUndoError] = useState<string | null>(null);
   const undoKeys = useRef(new Map<string, string>());
+  // 상태 칩 ‘출하로’는 그 주문만 골라 확인을 연다. 닫거나 출하한 뒤 이전 선택을 되살린다
+  const restorePick = useRef<string[] | null>(null);
+  const closeConfirm = () => {
+    setConfirm(false);
+    if (restorePick.current) setPicked(restorePick.current);
+    restorePick.current = null;
+  };
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -196,7 +203,20 @@ export default function Ship() {
           : tab === "REFUNDED"
             ? data.refunded
             : data.shipped;
-  const chosen = data.preparing.filter((o) => picked.includes(o.orderId));
+  // 검색: 주문 번호·이름·입금자명·송장 번호. 송장은 하이픈 없이 숫자만 넣어도 찾는다
+  const needle = query.trim().toLowerCase();
+  const digits = needle.replace(/[\s-]/g, "");
+  const matches = (o: ProducerOrder) => {
+    if (!needle) return true;
+    const fields = [o.orderNo, o.recipientName, o.depositCode, o.trackingNumber, invoices[o.orderId]?.no]
+      .filter((v): v is string => !!v)
+      .map((v) => v.toLowerCase());
+    return fields.some((v) => v.includes(needle) || (!!digits && v.replace(/[\s-]/g, "").includes(digits)));
+  };
+  const shown = list.filter(matches);
+  // 출하 대상은 지금 보이는(검색에 걸린) 배송 대기 주문 중 고른 것만. 검색에 가려진 선택은 출하하지 않는다
+  const chosen = data.preparing.filter((o) => picked.includes(o.orderId) && matches(o));
+  const hiddenPicked = data.preparing.filter((o) => picked.includes(o.orderId) && !matches(o)).length;
 
   // 직전 처리 되돌리기(DEV-455): 서버가 지금 상태와 기록이 맞는지 다시 확인한다. 409면 이유를 보여 주고 다시 그린다
   async function undoOne(o: ProducerOrder) {
@@ -273,7 +293,10 @@ export default function Ship() {
     // 안내는 한 번 보이므로 실패가 여러 건이어도 한 번만 센다(DEV-312)
     if (failedShown && !conflicted) shownError("other"); // 409 안내가 덮으면 보이지 않은 안내라 세지 않는다
     setConfirm(false);
-    setPicked(left);
+    const before = restorePick.current;
+    restorePick.current = null;
+    const shippedIds = chosen.map((o) => o.orderId).filter((id) => !left.includes(id));
+    setPicked(before ? [...new Set([...before.filter((id) => !shippedIds.includes(id)), ...left])] : left);
     if (conflicted)
       setNotice(
         `${conflicted}건은 이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.`,
@@ -575,23 +598,17 @@ export default function Ship() {
           : null;
   const pickTab = tab === "PREPARING";
   const pickedCount = chosen.length;
-  const allPicked = list.length > 0 && pickedCount === list.length;
+  const pickable = pickTab ? shown : [];
+  const allPicked = pickable.length > 0 && pickable.every((o) => picked.includes(o.orderId));
   const isPicked = (id: string) => picked.includes(id);
   const togglePick = (id: string) =>
     setPicked((ids) => ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id]);
-  const toggleAll = () => setPicked(allPicked ? [] : data.preparing.map((o) => o.orderId));
+  const toggleAll = () =>
+    setPicked((ids) => {
+      const visible = pickable.map((o) => o.orderId);
+      return allPicked ? ids.filter((id) => !visible.includes(id)) : [...new Set([...ids, ...visible])];
+    });
   const hasBar = pickTab && data.preparing.length > 0;
-  // 검색: 주문 번호·이름·입금자명·송장 번호. 송장은 하이픈 없이 숫자만 넣어도 찾는다
-  const needle = query.trim().toLowerCase();
-  const digits = needle.replace(/[\s-]/g, "");
-  const matches = (o: ProducerOrder) => {
-    if (!needle) return true;
-    const fields = [o.orderNo, o.recipientName, o.depositCode, o.trackingNumber, invoices[o.orderId]?.no]
-      .filter((v): v is string => !!v)
-      .map((v) => v.toLowerCase());
-    return fields.some((v) => v.includes(needle) || (!!digits && v.replace(/[\s-]/g, "").includes(digits)));
-  };
-  const shown = list.filter(matches);
   // 상태 칩 시트의 선택지: 서버가 받는 다음 처리와, 서버가 알려 준 직전 처리 되돌리기(DEV-455)만
   type StatusOption = { label: string; hint: string; onPress: () => void };
   function statusOptions(o: ProducerOrder): StatusOption[] {
@@ -609,6 +626,7 @@ export default function Ship() {
         hint: "송장을 확인하고 이 주문을 출하 처리해요",
         onPress: close(() => {
           if (tab !== "PREPARING") setTab("PREPARING");
+          restorePick.current = picked;
           setPicked([o.orderId]);
           setConfirm(true);
         }),
@@ -765,7 +783,8 @@ export default function Ship() {
                 <T>전체 선택</T>
               </Pressable>
               <T variant="caption" muted>
-                {list.length}건 중 {pickedCount}건
+                {shown.length}건 중 {pickedCount}건
+                {hiddenPicked ? ` · 검색에 가려진 ${hiddenPicked}건 제외` : ""}
               </T>
             </View>
           ) : null}
@@ -1234,7 +1253,7 @@ export default function Ship() {
       {/* 출하 확인 */}
       <Sheet
         visible={confirm}
-        onClose={() => { if (!busy) setConfirm(false); }}
+        onClose={() => { if (!busy) closeConfirm(); }}
       >
         <T variant="heading">{chosen.length}건을 출하 처리할까요?</T>
         <View>
@@ -1272,7 +1291,7 @@ export default function Ship() {
             variant="secondary"
             size="producer"
             style={{ flex: 1 }}
-            onPress={() => setConfirm(false)}
+            onPress={closeConfirm}
           />
           <Button
             label={`${chosen.length}건 출하 처리`}
