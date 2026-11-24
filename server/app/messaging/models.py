@@ -26,6 +26,8 @@ class Broadcast(Base):
 
     __tablename__ = "broadcasts"
 
+    emoticon_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     reply_to: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # 인용한 소비자 답장 id(DEV-297). 서버 전용: 응답·소비자에게 내보내지 않고
     # 팬 답장 시트의 '모두에게 답장함'에만 쓴다. 익명 스냅샷은 reply_to 그대로.
@@ -62,6 +64,8 @@ class RoomReply(Base):
     """소식방의 소비자 비공개 답장. 본인과 그 농가만 본다(M-19). AI는 답하지 않는다."""
 
     __tablename__ = "room_replies"
+
+    emoticon_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     edit_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -135,6 +139,8 @@ class ThreadMessage(Base):
     """
 
     __tablename__ = "thread_messages"
+
+    emoticon_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     edit_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

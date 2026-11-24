@@ -201,6 +201,7 @@ FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-edi
 ## DEV-33 EAS 네이티브 빌드 (ADR 0013)
 
 - 식별자 `kr.farmclub.producer`, 스킴 `farmclub-producer`, 설치 이름(`expo.name`) `farmclub 농가`(DEV-377), 복귀 주소 `https://farm.farmclub.kr/auth/kakao`(서버 값 그대로). 설정·흐름은 소비자 앱과 같다(`apps/consumer/spec.md` DEV-33 절). `lib/kakao.ts`(웹)는 state만 sessionStorage, `lib/kakao.native.ts`는 메모리. 복귀 화면은 농가 상태별 첫 화면으로 간다(DEV-108과 같음).
+- DEV-435: iPad 미지원, 막은 Android 권한·iOS 아이콘 규칙은 소비자 앱과 같다(`apps/consumer/spec.md` DEV-33 절).
 - 사진·영상: 웹 `lib/pick.ts`(`<input type="file">`, 600px 축소), 앱 `lib/pick.native.ts`(`expo-image-picker`, quality 0.8, `{uri,name,type}` 업로드). 원본 자료 첨부 `lib/sourceFiles.native.ts`는 사진만(PDF·텍스트는 웹 전용).
 - `beforeunload` 경고(상세 편집·상품 페이지·원본 작업실)는 웹에서만 건다. 복사는 `expo-clipboard`.
 
@@ -274,6 +275,15 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 판매 설정 → ‘기간·가격에서 박스 늘리기’는 `/products/:id/stages?from=sales`로 열고, 기간·가격의 ‘판매 한도 늘리기’는 `from=sales`이고 `router.canGoBack()`이면 `router.back()`(판매 설정→기간→판매 설정으로 스택이 쌓여 뒤로가 맴도는 것을 막음), 아니면 push. DEV-361 PR C부터 버튼은 ‘판매 조건에서 박스 늘리기’ → `/products/:id/detail?terms=1`(push)이고 기간·가격의 ‘판매 한도 늘리기’는 없다.
 - 판매 설정은 `useFocusEffect`로 읽는다(처음 열 때·돌아올 때). 다시 들어올 때는 지난 결과 안내(`error`·`note`·`at`·`capExceeded`)를 지우고, 판매 한도·한 주문 최대 칸은 마지막으로 불러온 값과 같을 때만 새 값으로 바꾼다(고친 입력 보존). 저장·중지 등 성공 뒤와 ‘최신 상태 확인’은 예전처럼 서버 값으로 덮는다.
 - 기간·가격 저장 뒤 상품을 다시 읽어 `PUBLISHED`이고 `TOTAL_SOLD_OUT`이면 머물렀다. 다시 고치거나 기간을 추가·삭제하면 그 안내를 지웠다(DEV-361 PR C에서 화면과 함께 없어짐).
+
+## DEV-455 생산자 마지막 작업 실행 취소
+주문 처리 결과에 마지막 실행 취소 토큰을 제공하고, 같은 농가의 해당 작업만 현재 주문·결제·환불 스냅샷이 같을 때 복구한다. 감사 기록과 역전 기록을 보존한다. 상세 동작은 FEAT-09/17 DEV-455 절을 따른다.
+
+## DEV-466 SCR-29 주문 카드
+- 카드 표시는 `src/lib/OrderCard.tsx`(표시 전용), 상태 변경·API 호출·시트는 `src/app/ship.tsx`가 맡는다. 동작·규칙은 FEAT-17 DEV-466 절.
+- 상품 사진은 `catalog.mine` 목록의 대표 사진을 `productId`로 맞춘다(홈 화면과 같은 방식). 주문 응답에 사진 필드를 더하지 않았고, 받지 못하면 기본 사진이다.
+- 상태 칩 선택지는 화면이 정한 다음 처리 API(`confirmDeposit`·`rejectDeposit`·`ship`·`refundSettled`·`refundIssue`)와 응답의 `undoAction`만 쓴다. 실행 취소 요청 키는 처리(`actionId`)마다 하나를 연결이 끊긴 재시도에 다시 쓴다.
+- 읽기 라벨은 기존 e2e가 쓰는 것을 유지한다(`<주문 번호> 입금 승인`, `<주문 번호> 송장 수정`, `<주문 번호> <누구> 송장 입력`, `<주문 번호> 채팅하기`, `<주문 번호> <누구> 고르기`). 새 라벨: `<주문 번호> 상태 <상태>, 변경`, 머리 `실행 취소`, 목록 `<주문 번호> <처리> 되돌리기`.
 
 ## DEV-477 앱에서 막히는 작은 곳 (2026-11-24)
 - 자료 칸(`lib/SourceAttachments.tsx`)은 썸네일 상태를 받는 중·받음·없음·실패로 나눈다. 받는 중은 면색 칸, 없음(쪽이 아직 없거나 404)은 아이콘 + 'PDF · n쪽'/'PDF'/'사진', 실패는 '미리보기를 불러오지 못했어요'. '준비 중' 문구는 쓰지 않는다. 앱에서 썸네일이 늘 실패하던 원인은 `packages/api/src/privatePhoto.ts`(React Native Blob, `packages/api/tasks/DEV-477.md`).
