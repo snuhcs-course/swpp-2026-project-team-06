@@ -228,3 +228,5 @@ AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달�
 - `ChatThread`·`NewsRoom`은 필수 prop `notice: { onSupport: (() => void) | null }`를 받아 루트 맨 위(스크롤 밖)에 띠를 그린다. 시트 셋째 줄은 `producer`로 고르고, `onSupport`가 null(운영팀 방)이면 넷째 줄과 ‘운영팀에 알리기’를 뺀다.
 - 띠는 `surface` 면 + 아래 테두리, 14/20 두 줄(높이 57, `minHeight` 48). 운영팀 방(`onSupport` null)은 늘, 다른 방은 키보드가 뜬 높이 720 미만 창이나 높이 500 미만 창에서 12/16 한 줄로 그린다(앱 높이 33 + hitSlop 8로 터치 48, 웹은 hitSlop이 없어 `minHeight` 48). 화면 읽기 이름은 늘 전체 문구 + ‘채팅 이용 안내 보기’.
 - `RoomMedia`의 앱 영상 포스터는 열 수 없는 주소(`https?:` 아님 — `data:` 영상)에 글자 띠 없이 흐린 재생 원만 두고 ‘영상을 열 수 없어요’로 읽힌다.
+## DEV-478 카톡 방식 작성창 도구
+`ComposerTools.useComposerTools`는 `tool`(‘+’ = 사진 고르기 바로 열기, `onPhoto` 없으면 없음), `trailing`(입력칸 안 웃는 얼굴), `above`(고른 이모티콘 큰 미리보기, 입력줄 바로 위 높이 176. Android 터치 때문에 절대 위치로 띄우지 않는다), `below`(키보드 자리 패널)를 돌려준다. `Composer`의 새 `trailing`이 있을 때만 입력칸과 버튼을 한 알약으로 감싸고, 없으면 예전 구조 그대로다. 이모티콘이 켜진 1:1(`ChatThread emoticons`)은 `usePhotoAttach`·`AttachedPhotoRow`로 사진을 바로 고르고, 이모티콘이 없는 대화(운영팀 문의 등)는 기존 `PrivatePhotos`를 유지한다. 테스트 라벨: ‘사진’(+), ‘이모티콘’(웃는 얼굴), ‘○○ 선택’, ‘○○ 보내기’, ‘이모티콘 선택 취소’, testID `emoticon-selection`.
