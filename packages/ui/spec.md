@@ -192,7 +192,7 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - `ConversationRow`의 `tag`/`tagLabel`(이름 옆 칩, 접근성 이름에 덧붙임). `Icon`에 `flag`.
 
 ## 소식별 읽음 수·팬 답장 시트 (DEV-297, 2026-11-10)
-- `NewsRoom` 생산자 반응 줄은 `BroadcastStats`(‘읽음 N · ♥ N · 답장 N ›’, 문구 계산은 순수 함수 `fanReplies.ts`의 `broadcastStats`). ‘답장 N ›’은 `fanReplies` prop이 있을 때만 버튼이 되고 `FanReplySheet`를 연다.
+- `NewsRoom` 생산자 반응 줄은 `BroadcastStats`(‘읽음 N · ♥ N · 답장 N ›’, 문구 계산은 순수 함수 `fanReplies.ts`의 `broadcastStats`). DEV-467부터 카드 반응 줄 `ProducerReactions`가 대신한다(아래 절). ‘답장 N ›’은 `fanReplies` prop이 있을 때만 버튼이 되고 `FanReplySheet`를 연다.
 - `FanReplySheet`는 API 주입형(`load`·`markRead`)이다. 열면 끝까지(최대 10쪽) 불러오고 `readThrough`까지 곧바로 읽음 처리한다. 점·칩은 처음 받은 목록을 쓰고 ‘안 읽음’은 `visibleReplies`로 거른다. ‘모두에게 답장’은 길게 누르기 ‘답장’과 같은 `replyTarget`(DEV-289 인용)으로, ‘1:1 채팅’은 `onPrivateReply`로 넘긴다.
 - 소비자 `NewsRoom`은 `markRead` prop이 있고 답장할 수 있는 방(팔로우 중)일 때, 맨 아래에 있으면 가장 최근 방송 id로 한 번씩 부른다(같은 id는 다시 부르지 않고 실패하면 다음 기회에). 화면은 바뀌지 않는다.
 
@@ -209,3 +209,15 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 
 ## DEV-454 UAT cycle 2
 자동 전달 질문의 replyRequested는 생산자 1:1에서 원래 소비자 질문 말풍선 하단의 답장 요청 글자 액션으로 표시하고, 누르면 그 질문을 인용·포커스한다. 성공/실패 처리와 메시지 메뉴는 기존 인용 작성 흐름을 따른다(FEAT-13 DEV-454).
+
+## 소식 카드 (DEV-467, 2026-11-24)
+- `NewsRoom`은 방송(`broadcastId` 있는 메시지)만 `NewsCard`로 그리고, 소비자 답장은 `ChatBubble` 그대로 둔다(비공개 답장이 카드 밑 공개 댓글처럼 보이지 않게). 카드도 바깥 `Pressable`의 길게 누르기·우클릭 메뉴를 그대로 쓴다.
+- 카드 폭·사진 배치는 순수 함수 `newsCard.ts`(`newsCardWidth` = min(창, 480) − 16×2, `newsPhotoRows`: 1장 4:3, 두 장씩 정사각형 줄(사이 2px), 홀수로 남은 마지막 한 장은 4:3, 2장 이상 ‘i/N’). 테스트 `scripts/test-news-cards.mjs`.
+- 반응 줄: 소비자 `ReactionHalf` 두 칸(‘좋아요’ 접근성 이름·`aria-pressed`는 예전 하트와 같음, ‘농가에 답장’은 입력칸 포커스 · 비로그인 `onLogin` · 답장할 수 없는 방은 비활성). 서버가 소비자 인용 답장을 막아 고른 소식을 인용하지 않는다. 생산자 `ProducerReactions`는 접근성 이름 ‘읽음 N, 좋아요 N’·‘답장 N 모아 보기’를 유지한다.
+- 그림자는 웹 `boxShadow`, 앱 `shadow*`·`elevation 1`. 아이콘은 새로 더하지 않았다(‘농가에 답장’은 `chat`).
+- (2단계) 소비자 ‘농가에 답장’은 `replyPost`로 그 소식을 고르고 입력칸 위 ‘소식에 답장 · 농가만 봐요’ 줄(testID `room-reply-post`, 취소 48)을 보인다. 보낼 때 `send`의 다섯째 인자 `{broadcastId, attachmentIds}`. 소비자 사진은 `Composer` `tool` ‘+’가 `usePhotoAttach`의 숨긴 파일 칸을 바로 열고 `AttachedPhotoRow`(72×72 한 줄, ×·‘1/3’)로 보인다(1:1 `PrivatePhotos`는 그대로), 말풍선·`FanReplySheet`은 `PrivatePhoto`(눌러 크게). 멱등 키는 글·고른 소식·사진 id가 같을 때만 다시 쓴다.
+
+
+## DEV-468 이모티콘
+
+AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달한다. 공통 카탈로그 ID 외 값과 혼합 메시지는 거부한다. UI는 공통 + 도구·160px 투명 그림·독립 전송 초안 보존을 사용한다. 이모티콘만 보낸 소비자 메시지는 AI를 호출하지 않고, 기존 권한·멱등성·비공개 답장을 유지한다. 상세는 tasks/DEV-468.md.

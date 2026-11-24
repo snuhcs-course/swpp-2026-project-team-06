@@ -226,6 +226,7 @@ export default function Chat() {
       </View>
       {ready && head && page ? (
         <ChatThread
+          emoticons
           key={`${head.lease.scope.generation}:${farmId}:${head.lease.threadId}:${head.epoch}`}
           active={active} initialPage={head.page} load={load}
           viewState={{ farmId, threadId: head.lease.threadId, snapshot: head.snapshot,
@@ -242,8 +243,8 @@ export default function Chat() {
             ? { orderId: selected.orderId } : { threadId: page.thread.threadId }))}
           edit={(id, text, version, key) => withVisit(() => messaging.editChatMessage(id, text, version, key))}
           replies
-          send={(text, ids, key, replyToMessageId) => withVisit(() => messaging.send(
-            farmId, text, ids, selected?.orderId, key, productId, replyToMessageId,
+          send={(text, ids, key, replyToMessageId, emoticonId) => withVisit(() => messaging.send(
+            farmId, text, ids, selected?.orderId, key, productId, replyToMessageId, emoticonId,
           ))}
           report={(id, key) => withVisit(() => messaging.reportAiAnswer(farmId, id, key))}
           forwardStatus={forwardStatus}

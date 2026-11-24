@@ -73,7 +73,7 @@ function TodoRow({
             paddingHorizontal: tokens.space.sm,
             paddingVertical: 2,
             borderRadius: 6,
-            backgroundColor: "#FDECE2",
+            backgroundColor: tokens.color.accentSoft,
           }}
         >
           <T variant="caption" weight="semibold" color={tokens.color.accent}>
@@ -177,8 +177,12 @@ export default function Home() {
     }, [dash.reload, farm.reload]),
   );
   const data = list.data;
+  // 돈 없이 취소됐지만 아직 되돌릴 수 있는 주문(DEV-455)은 현황 개수에 넣지 않는다(R-15).
+  // 생산자 목록의 CANCELED는 이 경우에만 undoAction을 가진다(입금 미승인 취소). SCR-29 ‘전체’ 탭은 되돌리기를 위해 보인다
   const count = (status?: string) =>
-    data ? data.filter((o) => !status || o.status === status).length : 0;
+    data
+      ? data.filter((o) => !(o.status === "CANCELED" && o.undoAction) && (!status || o.status === status)).length
+      : 0;
   const metrics = [
     { label: "전체", count: count(), tab: "all" },
     // 지금 손이 가야 하는 칸만 강조한다

@@ -1,3 +1,4 @@
+import { emoticonMessage } from "./emoticons";
 import { closeByReply, ensureThread, withCheckState } from "./conversations";
 // /api/messaging Mock (FEAT-12 소식·채팅, 13 AI 안내·질문함, 15 좋아요)
 import type { ChatSummary, Escalation, NewsInput } from "../types";
@@ -123,7 +124,8 @@ register({
     )
       fail(403, "FORBIDDEN", "승인된 내 농가에서만 올릴 수 있어요.");
     const b = ctx.body as unknown as NewsInput;
-    if (!b.body?.trim() && !(b.photos ?? []).length && !(b.videos ?? []).length)
+    const emoji = emoticonMessage(b.emoticonId, b.body ?? "", [...(b.photos ?? []), ...(b.videos ?? [])]);
+    if (!emoji.text.trim() && !(b.photos ?? []).length && !(b.videos ?? []).length)
       invalid({ body: "글이나 사진 중 하나는 넣어 주세요" });
     if ((b.body ?? "").length > 2000)
       invalid({ body: "2000자까지 입력해 주세요" });
@@ -133,12 +135,13 @@ register({
     if (videos > 1 || (b.photos ?? []).length > 5)
       fail(413, "PAYLOAD_TOO_LARGE", "사진은 5장까지 올릴 수 있어요.");
     return idempotent(ctx, "news", () => {
-      const m = mask(b.body ?? "");
+      const m = mask(emoji.text);
       const n = {
         broadcastId: nextId("n"),
         farmId: u.farmId!,
         createdAt: nowIso(),
         body: m.text,
+        emoticonId: emoji.emoticonId,
         photos: [...(b.photos ?? []), ...(b.videos ?? [])],
         visibility: b.visibility ?? "FOLLOWERS",
         baseReactions: 0,

@@ -1,3 +1,4 @@
+import { emoticonMessage } from "./emoticons";
 import { editMessageText, messagePage } from "./conversations";
 import type { FanReply, NewsRoomMessage, NewsRoomSummary } from "../types";
 import { nextId, nowIso, type DB, type RoomReplyRec } from "./db";
@@ -35,6 +36,12 @@ function access(ctx: Ctx, farmId: string) {
         (f) => f.userId === user.userId && f.farmId === farmId,
       ));
   return { user, farm, canReply };
+}
+/** 소식방 비공개 답장 사진 올리기(DEV-467): 그 농가를 팔로우한 소비자만(서버와 같음) */
+export function roomPhotoAccess(ctx: Ctx, farmId: string) {
+  const user = ctx.me();
+  if (user.role !== "CONSUMER") fail(403, "FORBIDDEN", "소비자 답장에만 사진을 붙일 수 있어요.");
+  if (!access(ctx, farmId).canReply) fail(403, "FORBIDDEN", "팔로우한 뒤 답장할 수 있어요.");
 }
 function authorize(ctx: Ctx, farmId: string) {
   ctx.me();
@@ -92,6 +99,7 @@ function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
         senderName: farm.name,
         senderRole: "PRODUCER",
         body: n.body,
+        emoticonId: n.emoticonId ?? null,
         photos: n.photos.filter(
           (uri) => !/^data:video|\.(mp4|webm)$/.test(uri),
         ),
@@ -143,7 +151,7 @@ function summary(ctx: Ctx, farmId: string): NewsRoomSummary {
     canReply,
     farmName: farm.name,
     farmPhoto: farm.photo,
-    lastMessage: last ? last.body || "사진·영상 소식" : null,
+    lastMessage: last ? last.body || (last.senderRole === "CONSUMER" ? "사진" : "사진·영상 소식") : null,
     lastAt: last?.createdAt ?? null,
   };
 }
@@ -199,12 +207,23 @@ register({
     const { user } = authorize(ctx, farmId);
     const text = String(ctx.body.text ?? "").trim();
     const max = user?.role === "PRODUCER" ? 2000 : 1000;
-    if (!text || text.length > max)
+    const photoIds: string[] = Array.isArray(ctx.body.attachmentIds) ? ctx.body.attachmentIds.map(String) : [];
+    const target = ctx.body.broadcastId == null ? null : String(ctx.body.broadcastId);
+    // 답한 소식·사진은 소비자 답장에만(DEV-467). 생산자 방송 계약은 그대로
+    if (user?.role === "PRODUCER" && (target != null || photoIds.length))
+      invalid({
+        ...(target != null ? { broadcastId: "소비자 답장에만 쓸 수 있어요." } : {}),
+        ...(photoIds.length ? { attachmentIds: "소비자 답장에만 쓸 수 있어요." } : {}),
+      });
+    const emoji = emoticonMessage(ctx.body.emoticonId, text, photoIds);
+    if ((!emoji.text && !photoIds.length) || text.length > max)
       invalid({ text: `1~${max}자로 적어 주세요.` });
+    if (photoIds.length > 3 || new Set(photoIds).size !== photoIds.length)
+      invalid({ attachmentIds: "사진은 서로 다른 3장까지 첨부해 주세요" });
     if (ctx.body.replyToVersion != null && (!Number.isInteger(ctx.body.replyToVersion) || Number(ctx.body.replyToVersion) < 0)) invalid({replyToVersion: "원문 버전을 확인해 주세요."});
     if (ctx.body.replyToMessageId != null && typeof ctx.body.replyToMessageId !== "string") invalid({replyToMessageId: "원문을 확인해 주세요."});
     return idempotent(ctx, `room:${farmId}`, () => {
-      let body = mask(text).text;
+      let body = mask(emoji.text).text;
       let replyTo = null;
       if (ctx.body.replyToMessageId != null) {
         if (user?.role !== "PRODUCER") fail(403, "FORBIDDEN", "농가만 소식방 인용 답장을 보낼 수 있어요.");
@@ -212,7 +231,7 @@ register({
         if (!target) notFound("이 소식방의 소비자 글에만 답장할 수 있어요.");
         if (ctx.body.replyToVersion != null && ctx.body.replyToVersion !== (target.editVersion ?? 0)) conflict("STALE_VERSION", "원문이 수정됐어요. 답장을 취소하고 다시 선택해 주세요.");
         replyTo = {senderType: "CONSUMER", body: maskBroadcastReply(target.body)};
-        body = maskBroadcastReply(text);
+        body = maskBroadcastReply(body);
         // 모두에게 답했으면 생산자가 읽은 답장이다(DEV-297)
         target.producerReadAt ??= nowIso();
       }
@@ -222,6 +241,7 @@ register({
           broadcastId: nextId("n"),
           farmId,
           body,
+          emoticonId: emoji.emoticonId,
           photos: [],
           videos: [],
           createdAt: nowIso(),
@@ -232,11 +252,24 @@ register({
         ctx.db.news.push(n);
         return visible(ctx, farmId).find((m) => m.messageId === n.broadcastId)!;
       }
-      const answersBroadcastId = latestBroadcast(ctx.db, farmId);
+      // 고른 소식(소식 카드 ‘농가에 답장’, DEV-467). 없으면 보낸 순간의 가장 최근 소식(AC-15-10)
+      if (target != null && !ctx.db.news.some((n) => n.broadcastId === target && n.farmId === farmId))
+        fail(404, "NOT_FOUND", "이 소식방의 소식에만 답장할 수 있어요.", { reason: "REPLY_TARGET_GONE" });
+      const answersBroadcastId = target ?? latestBroadcast(ctx.db, farmId);
+      const photos = photoIds.map((id) => {
+        const a = ctx.db.attachments[id];
+        if (!a || a.ownerId !== user.userId || a.bound || a.roomFarmId !== farmId || Date.now() - Date.parse(a.createdAt) > 86400000)
+          fail(404, "NOT_FOUND", "사용할 수 없는 첨부예요.", { reason: "ATTACHMENT_UNUSABLE" });
+        return a;
+      });
+      const messageId = nextId("reply");
+      for (const a of photos) Object.assign(a, { bound: true, roomReplyId: messageId });
       const message: RoomReplyRec = {
-        messageId: nextId("reply"),
+        attachmentIds: photoIds,
+        messageId,
         farmId,
         body,
+        emoticonId: emoji.emoticonId,
         photos: [],
         videos: [],
         createdAt: nowIso(),
@@ -297,17 +330,20 @@ register({
         // 탈퇴한 소비자(Mock 탈퇴는 tomb 사용자 deleted)는 publicName이 ‘탈퇴한 회원’을 준다(서버 public_name과 같음)
         senderName: u ? publicName(u) : `${r.senderName.slice(0, 1)}○○`,
         body: r.body,
+        emoticonId: r.emoticonId ?? null,
         createdAt: r.createdAt,
         editVersion: r.editVersion ?? 0,
         unread: !r.producerReadAt,
         // 탈퇴한 회원은 끝난 주문이 남아 있어도 예약 고객이 아니다(서버와 같음)
         reservedCustomer: !u?.deleted && reserved(r.senderId),
         quoted: quoted.has(r.messageId),
+        attachmentIds: r.attachmentIds ?? [],
       }));
     return {
       broadcast: {
         broadcastId: n.broadcastId,
         body: n.body,
+        emoticonId: n.emoticonId ?? null,
         mediaCount: n.photos.length,
         createdAt: n.createdAt,
       },
