@@ -86,12 +86,32 @@ def _latest(db: Session, order_id: str) -> ManagerEvent | None:
     )
 
 
+class _Preload:
+    """목록용 묶음 읽기: 취소 주문의 상품과 농가별 입금자명을 한 번씩만 읽는다."""
+
+    def __init__(self, db: Session, products: dict):
+        self.db, self.products, self._codes = db, products, {}
+
+    def code_owners(self, farm_id: str) -> dict[str, set[str]]:
+        from app.orders import service
+
+        if farm_id not in self._codes:
+            self._codes[farm_id] = service.deposit_code_owners(self.db, farm_id)
+        return self._codes[farm_id]
+
+
 def _restore_blocker(
-    db: Session, order: Order, farm_id: str, state: dict, *, lock: bool
+    db: Session,
+    order: Order,
+    farm_id: str,
+    state: dict,
+    *,
+    lock: bool,
+    preload: _Preload | None = None,
 ) -> str | None:
     """입금 대기로 되돌릴 수 없는 이유.
 
-    목록 표시(잠금 없음)와 실제 실행 취소(잠금)가 같은 규칙을 쓴다.
+    목록 표시(잠금 없음, 묶음 읽기)와 실제 실행 취소(잠금)가 같은 규칙을 쓴다.
     """
     from app.catalog import service as catalog
     from app.orders import service
@@ -101,7 +121,11 @@ def _restore_blocker(
     if order.status == "CANCELED":
         # 취소를 되돌리면 다시 물량을 잡고 입금을 받는다. 그사이 판매가 멈췄거나
         # 판매 기간이 바뀐 상품이면 되돌리지 않는다(입금 요청과 같은 판매 중 확인)
-        item = catalog.load_product(db, order.product_id)
+        item = (
+            preload.products.get(order.product_id)
+            if preload is not None
+            else catalog.load_product(db, order.product_id)
+        )
         current = catalog.current_stage(item) if item else None
         if (
             item is None
@@ -114,9 +138,15 @@ def _restore_blocker(
     due = _value("deposit_due_at", state["deposit_due_at"])
     if due is not None and due <= now() and state["deposit_reported_at"] is None:
         return "입금 기한이 지나 입금 대기로 되돌릴 수 없어요."
-    read = service.used_deposit_codes if lock else service.taken_deposit_codes
-    codes = read(db, order, farm_id)
-    if state["deposit_code"] and state["deposit_code"].casefold() in {c.casefold() for c in codes}:
+    code = state["deposit_code"]
+    if not code:
+        return None
+    if preload is not None and not lock:
+        taken = preload.code_owners(farm_id).get(code.casefold(), set()) - {order.id}
+    else:
+        read = service.used_deposit_codes if lock else service.taken_deposit_codes
+        taken = code.casefold() in {c.casefold() for c in read(db, order, farm_id)}
+    if taken:
         return "같은 입금자명을 쓰는 다른 주문이 있어 되돌릴 수 없어요."
     return None
 
@@ -152,9 +182,27 @@ def current_actions(db: Session, orders: list[Order]) -> dict[str, ProducerOrder
             select(Refund).where(Refund.order_id.in_(with_events)).order_by(Refund.id)
         ):
             refunds.setdefault(row.order_id, []).append(row)
+    from app.catalog import service as catalog
+    from app.catalog.models import Product
+
+    canceled = {
+        order.product_id
+        for order in orders
+        if order.id in events and order.status == "CANCELED"
+    }
+    products = {}
+    if canceled:
+        rows = list(db.scalars(select(Product).where(Product.id.in_(canceled))))
+        products = {item.product.id: item for item in catalog.load_products(db, rows)}
+    preload = _Preload(db, products)
     return {
         order.id: _offer(
-            db, order, events.get(order.id), payments.get(order.id), refunds.get(order.id, [])
+            db,
+            order,
+            events.get(order.id),
+            payments.get(order.id),
+            refunds.get(order.id, []),
+            preload=preload,
         )
         if order.id in events
         else None
@@ -163,13 +211,20 @@ def current_actions(db: Session, orders: list[Order]) -> dict[str, ProducerOrder
 
 
 def _offer(
-    db: Session, order: Order, event: ManagerEvent | None, payment=_UNREAD, refunds=_UNREAD
+    db: Session,
+    order: Order,
+    event: ManagerEvent | None,
+    payment=_UNREAD,
+    refunds=_UNREAD,
+    *,
+    preload: _Preload | None = None,
 ) -> ProducerOrderUndo | None:
     if event is None or event.result["after"] != _snapshot(db, order, payment, refunds):
         return None
     # 눌러도 409가 날 처리는 내주지 않는다(기한 지남·입금자명 겹침·판매 끝)
     farm_id = event.scope.removeprefix("producer-order:")
-    if _restore_blocker(db, order, farm_id, event.result["before"]["order"], lock=False):
+    before = event.result["before"]["order"]
+    if _restore_blocker(db, order, farm_id, before, lock=False, preload=preload):
         return None
     return ProducerOrderUndo(
         action_id=event.id,

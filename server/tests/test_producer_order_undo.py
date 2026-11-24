@@ -306,7 +306,7 @@ def test_AC_17_9_tracking_edit_invalidates_shipment_undo_atomically(client, logi
     assert persisted(oid) == snapshot
 
 
-def test_subsequent_action_and_consumer_cancellation_invalidate_old_tokens(client, login):
+def test_AC_09_8_subsequent_action_and_consumer_cancellation_invalidate_old_tokens(client, login):
     oid, consumer, producer = waiting(client, login)
     confirmed = action(client, producer, oid, "confirm-deposit")
     action(client, producer, oid, "ship", {"carrier": "CJ", "trackingNumber": "latest"})
@@ -343,7 +343,9 @@ def test_AC_17_7_AC_17_8_refund_issue_and_settlement_undo_retain_refunds_and_res
     assert financial(oid) == before
 
 
-def test_idempotent_replays_return_current_state_and_cannot_undo_a_later_action(client, login):
+def test_DEV_455_idempotent_replays_return_current_state_and_cannot_undo_a_later_action(
+    client, login
+):
     oid, _, producer = waiting(client, login)
     confirmed = action(client, producer, oid, "confirm-deposit")
     aid = token(confirmed, "AWAITING_DEPOSIT")
@@ -363,7 +365,9 @@ def test_idempotent_replays_return_current_state_and_cannot_undo_a_later_action(
     assert persisted(oid) == snapshot
 
 
-def test_authorization_is_rechecked_before_successful_replay(client, login, other_farm_headers):
+def test_DEV_455_authorization_is_rechecked_before_successful_replay(
+    client, login, other_farm_headers
+):
     oid, consumer, producer = waiting(client, login)
     confirmed = action(client, producer, oid, "confirm-deposit")
     aid = token(confirmed, "AWAITING_DEPOSIT")
@@ -410,7 +414,7 @@ def test_AC_17_13_delivery_blocks_undo_and_successful_replay_uses_current_privac
     assert persisted(oid) == snapshot
 
 
-def test_ordinary_orders_have_no_undo_and_missing_key_does_not_mutate(client, login):
+def test_DEV_455_ordinary_orders_have_no_undo_and_missing_key_does_not_mutate(client, login):
     producer = login("u-kang")
     assert not rows(client, producer)["o-40"].get("undoAction")
     oid, _, producer = waiting(client, login)

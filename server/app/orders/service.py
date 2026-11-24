@@ -764,6 +764,30 @@ def used_deposit_codes(db: Session, order: Order, farm_id: str) -> set[str]:
     return taken_deposit_codes(db, order, farm_id)
 
 
+def deposit_code_owners(db: Session, farm_id: str) -> dict[str, set[str]]:
+    """같은 농가에서 지금 쓰는 입금자명 → 그 주문 id들(잠금 없음, 소문자 비교).
+
+    목록의 실행 취소 표시가 주문마다 다시 읽지 않도록 농가당 한 번 모은다(DEV-455).
+    `taken_deposit_codes`와 같은 조건이다.
+    """
+    from app.catalog import service as catalog
+
+    product_ids = catalog.farm_product_ids(db, farm_id)
+    recently_canceled = (
+        (Order.status == "CANCELED")
+        & Order.paid_at.is_(None)
+        & (Order.deposit_due_at > now() - timedelta(days=DEPOSIT_CODE_HOLD_DAYS))
+    )
+    owners: dict[str, set[str]] = {}
+    for code, order_id in db.execute(select(Order.deposit_code, Order.id).where(
+        Order.product_id.in_(product_ids),
+        (Order.status == "AWAITING_DEPOSIT") | recently_canceled,
+        Order.deposit_code.is_not(None),
+    )):
+        owners.setdefault(code.casefold(), set()).add(order_id)
+    return owners
+
+
 def taken_deposit_codes(db: Session, order: Order, farm_id: str) -> set[str]:
     """같은 농가에서 지금 쓰는 입금자명(잠금 없음). 실행 취소 가능 표시용 미리보기에도 쓴다."""
     from app.catalog import service as catalog
