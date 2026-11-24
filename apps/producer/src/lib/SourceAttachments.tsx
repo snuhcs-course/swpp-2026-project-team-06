@@ -1,4 +1,5 @@
 import {
+  ApiError,
   isNativeFile,
   sourceAnalysis as api,
   uploadSource,
@@ -44,6 +45,10 @@ function Tile({
 }) {
   const [uri, setUri] = useState(""),
     [text, setText] = useState("");
+  // 썸네일 상태(DEV-477): 받는 중 · 받음 · 없음(아직 페이지가 없거나 서버에 그림이 없음) · 실패
+  const [thumb, setThumb] = useState<"loading" | "ready" | "none" | "failed">(
+    "none",
+  );
   const [focused, setFocused] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => {
@@ -60,15 +65,23 @@ function Tile({
           if (active) setText(r.text);
         })
         .catch(() => {});
-    else if (source.pageCount)
+    else if (source.pageCount) {
+      setThumb("loading");
       // DEV-341: 첨부 칸은 작은 사본(짧은 변 480px JPEG)만 받는다. 옮겨 온 사진은 자기 주소(DEV-346)
       sourcePhotoUrl({ id: batch, targets }, source, "thumb")
         .then((u) => {
           url = u;
-          if (active) setUri(u);
-          else URL.revokeObjectURL(u);
+          if (active) {
+            setUri(u);
+            setThumb("ready");
+          } else URL.revokeObjectURL(u);
         })
-        .catch(() => {});
+        .catch((e) => {
+          // 받기 실패와 '그림이 없음'(404)을 나눈다. 예전에는 조용히 넘어가 '준비 중'이 계속 남았다
+          if (active)
+            setThumb(e instanceof ApiError && e.status === 404 ? "none" : "failed");
+        });
+    } else setThumb("none");
     return () => {
       active = false;
       if (url) URL.revokeObjectURL(url);
@@ -173,6 +186,43 @@ function Tile({
               resizeMode="cover"
               style={{ width: "100%", height: "100%" }}
             />
+          ) : source.mime !== "text/plain" &&
+            !imageFailed &&
+            thumb === "loading" ? (
+            // 받는 동안은 면색 칸만(Skeleton과 같은 면). 글자로 '준비 중'을 쓰지 않는다(DEV-477)
+            <View
+              testID="attachment-loading"
+              accessibilityLabel="미리보기 불러오는 중"
+              style={{ flex: 1 }}
+            />
+          ) : source.mime !== "text/plain" &&
+            !imageFailed &&
+            thumb !== "failed" ? (
+            // 썸네일이 없는 자료는 종류와 쪽수만 사실대로(DEV-477). 쪽수는 AI 실행 때 자료를 읽은 뒤 생긴다
+            <View
+              testID="attachment-kind"
+              style={{
+                paddingLeft: 10,
+                paddingRight: 46,
+                paddingTop: 14,
+                paddingBottom: 10,
+                gap: 6,
+              }}
+            >
+              <Icon
+                name={source.mime === "application/pdf" ? "page" : "photo"}
+                size={24}
+                strokeWidth={1.5}
+                color={tokens.color.textMuted}
+              />
+              <T variant="caption">
+                {source.mime === "application/pdf"
+                  ? source.pageCount
+                    ? `PDF · ${source.pageCount}쪽`
+                    : "PDF"
+                  : "사진"}
+              </T>
+            </View>
           ) : (
             <T
               numberOfLines={5}
@@ -184,16 +234,11 @@ function Tile({
                 paddingBottom: 10,
               }}
             >
-              {imageFailed
+              {source.mime !== "text/plain"
                 ? "미리보기를 불러오지 못했어요"
                 : (preview
                     ? `[${preview.length > 48 ? preview.slice(0, 30) + "…" + preview.slice(-12) : preview}]`
-                    : "") ||
-                  (source.mime === "application/pdf"
-                    ? "PDF · 미리보기 준비 중"
-                    : source.mime === "text/plain"
-                      ? "텍스트"
-                      : "사진 · 준비 중")}
+                    : "") || "텍스트"}
             </T>
           )}
         </Pressable>
