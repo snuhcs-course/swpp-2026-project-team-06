@@ -443,3 +443,77 @@ def test_R_29_production_filters_even_with_seed_login_on(client, monkeypatch):
         client.get("/api/products/p-house", headers=bearer("u-minji", "CONSUMER")).status_code
         == 200
     )
+
+
+# ---- 상품별 숨김(DEV-479)과 테스트 농가 숨김(R-29)의 조합 ----
+
+
+def product_version(product_id: str) -> int:
+    from app.catalog.models import Product
+
+    with get_sessionmaker()() as session:
+        return session.get(Product, product_id).version
+
+
+def set_hidden(client, admin_headers, product_id: str, hidden: bool):
+    response = client.post(
+        f"/admin/products/{product_id}/visibility",
+        headers=admin_headers | key(),
+        json={"isHidden": hidden, "version": product_version(product_id), "reason": "조합 시험"},
+    )
+    assert response.status_code == 200, response.text
+
+
+def card_ids(client, headers):
+    body = client.get("/api/home", headers=headers).json()
+    products = {c["productId"] for c in body["recommended"]}
+    detail_products = set()
+    for farm_id in ("f-kang", "f-halla"):
+        page = client.get(f"/api/farms/{farm_id}", headers=headers)
+        if page.status_code == 200:
+            detail_products |= {p["productId"] for p in page.json()["products"]}
+    return products | detail_products
+
+
+@pytest.mark.parametrize("name", HIDDEN_TO + SHOWN_TO)
+def test_AC_07_12_product_hidden_by_operator_stays_hidden_for_every_viewer(
+    client, viewers, admin_headers, name
+):
+    """숨긴 상품은 누구에게도(테스트 계정 포함), 테스트 농가 상품은 테스트 계정에게만."""
+    set_hidden(client, admin_headers, "p-noji", True)  # 실사용자 농가(f-halla)의 상품
+    set_hidden(client, admin_headers, "p-house", True)  # 테스트 농가(f-kang)의 상품
+    headers = viewers[name]
+
+    for product_id in ("p-noji", "p-house"):
+        assert client.get(f"/api/products/{product_id}", headers=headers).status_code == 404
+    shown = card_ids(client, headers)
+    assert "p-noji" not in shown and "p-house" not in shown
+    if name != "anon":
+        for product_id in ("p-noji", "p-house"):
+            order = client.post(
+                "/api/orders", headers=headers | key(), json=order_body(productId=product_id)
+            )
+            assert order.status_code == 404, (product_id, order.text)
+    # 농가 자체는 상품 숨김과 무관하게 R-29대로 보인다
+    expected = 200 if name in SHOWN_TO else 404
+    assert client.get("/api/farms/f-kang", headers=headers).status_code == expected
+    assert client.get("/api/farms/f-halla", headers=headers).status_code == 200
+
+
+def test_AC_07_12_restoring_a_test_farm_product_keeps_it_hidden_from_regular_users(
+    client, viewers, admin_headers
+):
+    """운영자가 상품을 다시 공개해도 테스트 농가 상품은 테스트 계정에게만 돌아온다."""
+    set_hidden(client, admin_headers, "p-house", True)
+    set_hidden(client, admin_headers, "p-house", False)
+    for name in HIDDEN_TO:
+        assert client.get("/api/products/p-house", headers=viewers[name]).status_code == 404
+        assert "p-house" not in card_ids(client, viewers[name])
+    for name in SHOWN_TO:
+        assert client.get("/api/products/p-house", headers=viewers[name]).status_code == 200
+        assert "p-house" in card_ids(client, viewers[name])
+    # 테스트 농가가 아닌 상품을 숨겼다 다시 공개하면 누구에게나 돌아온다
+    set_hidden(client, admin_headers, "p-noji", True)
+    set_hidden(client, admin_headers, "p-noji", False)
+    for name in HIDDEN_TO + SHOWN_TO:
+        assert client.get("/api/products/p-noji", headers=viewers[name]).status_code == 200
