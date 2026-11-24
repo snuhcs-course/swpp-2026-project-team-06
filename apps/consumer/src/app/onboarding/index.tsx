@@ -330,7 +330,7 @@ export default function OnboardingProfile() {
           </Pressable>
         ) : null}
         <T variant="sub" muted>
-          {`버전 ${SIGNUP_CONSENT_VERSION} · 테스트 서비스`}
+          {`버전 ${SIGNUP_CONSENT_VERSION}`}
         </T>
         <Button
           label="확인"
