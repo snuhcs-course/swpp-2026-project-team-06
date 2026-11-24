@@ -1,5 +1,8 @@
 # apps/producer spec
 
+## DEV-473 화면 오류 경계
+`lib/ScreenBoundary.tsx`. 화면 한 장 경계는 레이아웃 prop `unstable_screenErrorBoundary`(루트 Stack = 탭 밖 화면 `StackScreenBoundary`, 탭 폴더 Stack = `TabScreenBoundary`)와 레이아웃 없는 탭 화면의 `export ErrorBoundary`. expo-router가 죽은 화면만 장면 안에서 감싸 스택·탭 바가 남고 ‘다시 시도’는 그 화면만 다시 그린다. 탭 폴더 `_layout`의 `export ErrorBoundary`는 Stack째 갈려 하위 상태가 지워지므로 쓰지 않는다. 루트 `_layout`의 `export ErrorBoundary`(`RootBoundary`)는 세션·탭 레이아웃이 죽을 때의 마지막 그물이라 세션·내비게이터 없이 움직인다(웹은 `location.replace`). ‘홈으로’는 죽은 화면이 든 스택을 첫 화면으로 되돌린 뒤 `router.replace`(뒤로 가기로 돌아오지 않음). 홈은 관문의 상태별 첫 화면, 운영팀은 승인 농가 `/chats/u-farmclub`·정지·반려 `/support`, 로그인 전·심사 중은 링크 없음. `scripts/e2e/screen-error-boundary.spec.ts`.
+
 ## DEV-367 평가 진입 폐기
 - FEAT-01 AC-01-34: release 실서버는 시드 계정을 요청·표시하지 않는다. 개발 빌드 또는 명시적 앱 Mock만 목록을 쓴다. 개발 실서버는 카카오 비활성·오류 시, 앱 Mock은 카카오와 함께 보인다.
 - 평가 query/storage/buildflag 로직을 제거한다. 저장된 표시를 읽거나 새로 저장하지 않는다. 카카오·아이디 인증과 기존 세션/복귀는 유지한다.

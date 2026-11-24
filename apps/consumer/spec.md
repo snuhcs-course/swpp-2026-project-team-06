@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-473 화면 오류 경계
+`lib/ScreenBoundary.tsx`. 화면 한 장 경계는 레이아웃 prop `unstable_screenErrorBoundary`(루트 Stack = 탭 밖 화면 `StackScreenBoundary`, 탭 폴더 Stack = `TabScreenBoundary`)와 레이아웃 없는 탭 화면의 `export ErrorBoundary`. expo-router가 죽은 화면만 장면 안에서 감싸 스택·탭 바가 남고 ‘다시 시도’는 그 화면만 다시 그린다. 탭 폴더 `_layout`의 `export ErrorBoundary`는 Stack째 갈려 하위 상태가 지워지므로 쓰지 않는다. 루트 `_layout`의 `export ErrorBoundary`(`RootBoundary`)는 세션·탭 레이아웃이 죽을 때의 마지막 그물이라 세션·내비게이터 없이 움직인다(웹은 `location.replace`). ‘홈으로’는 죽은 화면이 든 스택을 첫 화면으로 되돌린 뒤 `router.replace`(뒤로 가기로 돌아오지 않음). 홈 `/`, 운영팀 `/chats/support`(비로그인은 관문 시트). `scripts/e2e/screen-error-boundary.spec.ts`.
+
 ## DEV-440 내 정보 계정 출처
 - FEAT-01 AC-01-38: SCR-17의 계정 출처는 `lib/meSummary.ts`의 accountLabel에서 username 우선, 없을 때 isTestAccount로 결정한다. ID 발급 뒤 시드 테스트 분류를 유지하는 AC-01-37과 맞춘다. 역할 접미사·프로필·비밀번호 메뉴 조건은 바꾸지 않는다.
 
