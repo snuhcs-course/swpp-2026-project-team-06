@@ -19,7 +19,14 @@ from app.source_analysis import budget
 from app.source_analysis.final_eval import Calls
 from app.source_analysis.models import Spend
 from app.source_analysis.preprocess import scrub
-from app.source_analysis.source_design import compile_plan, make_tiles, prepare_raster
+from app.source_analysis.source_design import (
+    apply_comparison_review,
+    comparison_review_images,
+    compile_plan,
+    make_tiles,
+    prepare_raster,
+    validate_modules,
+)
 
 CAP_MICROS = 5_000_000
 
@@ -77,6 +84,51 @@ def safe_modules(modules):
     return result
 
 
+def review_diagrams(source, tiles, plan, calls, case_dir):
+    """Run the mandatory comparison gate with the same reserved run budget."""
+    if not any(region["kind"] == "comparison" for region in plan["regions"]):
+        return plan, None
+    review_info = {"version": ai.REVIEW_PROMPT_VERSION, "humanReview": "PENDING"}
+    try:
+        images = comparison_review_images(source, tiles, plan)
+        payload = ai.review_request_payload(images, plan)
+        write_json(case_dir / "review-request.json", payload)
+        write_json(case_dir / "review-images.json", images)
+        chunk = {
+            "completeReviewRequest": payload,
+            "systemPrompt": ai.REVIEW_PROMPT,
+            "responseFormatSchema": payload["schema"],
+        }
+        response = calls(
+            "automatic-diagram-review",
+            ai.MODEL,
+            chunk,
+            [],
+            [entry["image"] for entry in images],
+            lambda: ai.review_comparisons(images, plan),
+            output_tokens=ai.REVIEW_MAX_OUTPUT_TOKENS,
+        )
+        write_json(case_dir / "review-response.json", response.plan)
+        reviewed = apply_comparison_review(source, tiles, plan, response.plan)
+        review_info.update(
+            requestId=response.request_id, usage=response.usage, response=response.plan
+        )
+    except (ExtractionError, ValueError, KeyError, TypeError) as exc:
+        reviewed = copy.deepcopy(plan)
+        for region in reviewed["regions"]:
+            if region["kind"] == "comparison":
+                region["complete"] = False
+        review_info.update(
+            error=getattr(exc, "code", type(exc).__name__), status="REVIEW_FAILED_DIAGRAMS_WITHHELD"
+        )
+        write_json(
+            case_dir / "review-failure.json",
+            {**review_info, "details": getattr(exc, "details", str(exc))},
+        )
+    reviewed["warnings"] = reviewed["warnings"][-24:]
+    return reviewed, review_info
+
+
 def run(args):
     if not math.isfinite(args.max_usd) or not 0 < args.max_usd <= 1:
         raise ValueError("NEW_EXPERIMENT_LIMIT_MUST_BE_AT_MOST_ONE_USD")
@@ -101,11 +153,12 @@ def run(args):
         ):
             raise ValueError("DUPLICATE_OR_UNREVIEWED_SOURCE")
         ids.add(item["id"])
+        validate_modules(item["modules"])
         data = Path(item["path"]).read_bytes()
         if hashlib.sha256(data).hexdigest() != item["sha256"]:
             raise ValueError("SOURCE_HASH_MISMATCH")
         prepared = prepare_raster(data, item["id"])
-        tiles = make_tiles(prepared)
+        tiles = make_tiles(prepared, profile=getattr(args, "profile", "standard"))
         request_modules = safe_modules(item["modules"])
         payload = ai.request_payload(tiles, request_modules)
         inputs.append((item, prepared, tiles, request_modules, payload))
@@ -139,6 +192,8 @@ def run(args):
         "manualRegionHintsSupplied": False,
         "palette": "BOUNDED_CITRUS_WARM_NOT_AUTOMATIC_COLOR_GENERATION",
         "copyRewritten": False,
+        "preparationProfile": getattr(args, "profile", "standard"),
+        "providerTimeoutSeconds": getattr(ai, "TIMEOUT_SECONDS", 90),
         "cumulativeCapUsd": 5,
         "newRunCapUsd": limit,
         "execute": args.execute,
@@ -190,13 +245,18 @@ def run(args):
                 lambda ts=tiles, ms=request_modules: ai.analyze(ts, ms),
                 output_tokens=ai.MAX_OUTPUT_TOKENS,
             )
-            write_json(case_dir / "response.json", response.plan)
+            write_json(case_dir / "planning-response.json", response.plan)
+            final_plan, review_info = review_diagrams(
+                prepared, tiles, response.plan, calls, case_dir
+            )
+            write_json(case_dir / "response.json", final_plan)
             fixture = compile_plan(
-                prepared, tiles, item["modules"], response.plan, case_dir / "assets"
+                prepared, tiles, item["modules"], final_plan, case_dir / "assets"
             )
             fixture["provenance"].update(
                 requestId=response.request_id,
                 usage=response.usage,
+                diagramReview=review_info,
                 sourceInput="ORIGINAL_RASTER_NO_CURATED_COORDINATES_OR_LAYOUT",
             )
             write_json(case_dir / "fixture.json", fixture)
@@ -204,6 +264,8 @@ def run(args):
                 status="COMPILED_REQUIRES_TYPESCRIPT_VALIDATION",
                 media=len(fixture["design"]["media"]),
             )
+            if review_info and review_info.get("error") in {"REQUEST_UNCERTAIN", "BUDGET_EXCEEDED"}:
+                break
         except ExtractionError as exc:
             record.update(status="FAILED", error=exc.code, requestId=exc.request_id)
             write_json(
@@ -231,6 +293,7 @@ def main():
     parser.add_argument("--env-file", type=Path)
     parser.add_argument("--max-usd", type=float, default=1)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--profile", choices=["standard", "compact"], default="standard")
     run(parser.parse_args())
 
 
