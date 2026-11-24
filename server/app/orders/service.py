@@ -454,7 +454,7 @@ def _refund(
     payment = db.scalar(
         select(Payment).where(Payment.order_id == order.id).with_for_update()
     )
-    if payment is None:
+    if payment is None or payment.status == "REVERSED":
         raise conflict("INVALID_TRANSITION", "결제 내역이 없어 환불할 수 없어요.")
     refunded = db.scalar(
         select(func.coalesce(func.sum(Refund.amount), 0)).where(Refund.order_id == order.id)
@@ -756,17 +756,8 @@ def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
     return order_view(db, order)
 
 
-def _deposit_code(db: Session, order: Order, farm_id: str) -> str:
-    """입금자명(DEV-342, R-28): 닉네임 앞 3글자 + 숫자, 같은 농가 입금 대기 주문끼리 겹치지 않게.
-
-    이름은 농가에 이미 보이는 가림 이름(`public_name`: 닉네임, 없으면 이름 앞 글자)이다(PM 11/17).
-    계정 실명·받는 사람 이름은 쓰지 않는다. 남는 글자가 없으면 '주문'.
-    입금 기한이 끝난 지 3일이 안 된 돈 없이 취소된 주문의 코드도 쓰는 중으로 본다
-    (늦은 입금 혼동 방지).
-    같은 농가의 입금 안내는 서로 다른 상품이면 상품 잠금으로 직렬화되지 않으므로, 농가별
-    트랜잭션 advisory lock으로 '겹치는지 보고 정하기'를 한 번에 하나씩만 한다(커밋·롤백 때 풀린다).
-    """
-    from app.accounts import service as accounts
+def used_deposit_codes(db: Session, order: Order, farm_id: str) -> set[str]:
+    """같은 농가 코드 할당과 실행 취소 복구를 직렬화한다(DEV-342/455)."""
     from app.catalog import service as catalog
 
     db.execute(
@@ -778,16 +769,25 @@ def _deposit_code(db: Session, order: Order, farm_id: str) -> str:
         & Order.paid_at.is_(None)
         & (Order.deposit_due_at > now() - timedelta(days=DEPOSIT_CODE_HOLD_DAYS))
     )
-    taken = set(
-        db.scalars(
-            select(Order.deposit_code).where(
-                Order.product_id.in_(product_ids),
-                (Order.status == "AWAITING_DEPOSIT") | recently_canceled,
-                Order.deposit_code.is_not(None),
-                Order.id != order.id,
-            )
-        )
-    )
+    return set(db.scalars(select(Order.deposit_code).where(
+        Order.product_id.in_(product_ids),
+        (Order.status == "AWAITING_DEPOSIT") | recently_canceled,
+        Order.deposit_code.is_not(None), Order.id != order.id,
+    )))
+
+
+def _deposit_code(db: Session, order: Order, farm_id: str) -> str:
+    """입금자명(DEV-342, R-28): 닉네임 앞 3글자 + 숫자, 같은 농가 입금 대기 주문끼리 겹치지 않게.
+
+    이름은 농가에 이미 보이는 가림 이름(`public_name`: 닉네임, 없으면 이름 앞 글자)이다(PM 11/17).
+    계정 실명·받는 사람 이름은 쓰지 않는다. 남는 글자가 없으면 '주문'.
+    입금 기한이 끝난 지 3일이 안 된 돈 없이 취소된 주문의 코드도 쓰는 중으로 본다
+    (늦은 입금 혼동 방지).
+    같은 농가의 입금 안내는 서로 다른 상품이면 상품 잠금으로 직렬화되지 않으므로, 농가별
+    트랜잭션 advisory lock으로 '겹치는지 보고 정하기'를 한 번에 하나씩만 한다(커밋·롤백 때 풀린다).
+    """
+    from app.accounts import service as accounts
+    taken = used_deposit_codes(db, order, farm_id)
     user = accounts.get_user(db, order.consumer_id)
     code = pick_code(code_name(accounts.public_name(user)), taken)
     if code is None:
@@ -866,15 +866,20 @@ def confirm_deposit(
     order.paid_at = now()
     order.deposit_confirmed_by = confirmed_by
     order.deposit_issue = None
-    db.add(
-        Payment(
+    payment = db.scalar(select(Payment).where(Payment.order_id == order.id).with_for_update())
+    if payment is not None:
+        if payment.status != "REVERSED":
+            raise conflict("INVALID_TRANSITION", "기존 입금 기록을 먼저 확인해 주세요.")
+        payment.status = "APPROVED"
+        payment.approved_at = order.paid_at
+    else:
+        db.add(Payment(
             id=new_id("pay"),
             order_id=order.id,
             amount=order.total_amount,
             status="APPROVED",
             approved_at=order.paid_at,
-        )
-    )
+        ))
     db.flush()
     return order
 
@@ -1024,6 +1029,7 @@ def dashboard(db: Session, farm) -> Dashboard:
 
 def producer_order_view(db: Session, order: Order) -> ProducerOrder:
     from app.catalog import service as catalog
+    from app.orders.undo import current_action
 
     item = catalog.load_product(db, order.product_id)
     option = next((row for row in item.options if row.id == order.option_id), None)
@@ -1032,6 +1038,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
     delivered = order.delivered_at is not None or order.status in ("DELIVERED", "COMPLETED")
     hide = delivered or order.paid_at is None
     return ProducerOrder(
+        undo_action=current_action(db, order),
         order_id=order.id,
         order_no=order.order_no,
         deposit_code=order.deposit_code,
@@ -1080,14 +1087,21 @@ def producer_tracking_response(db: Session, farm_id: str, order_id: str, respons
 def producer_orders(
     db: Session, farm_id: str, status: str | None, product_id: str | None
 ) -> list[ProducerOrder]:
+    from app.admin.models import ManagerEvent
     from app.catalog import service as catalog
+    from app.orders.undo import EVENT
 
     if expire_overdue_deposits(db, farm_id=farm_id):
         db.commit()
     product_ids = [item.product.id for item in catalog.farm_products(db, farm_id)]
     if not product_ids:
         return []
-    query = select(Order).where(Order.product_id.in_(product_ids), PRODUCER_VISIBLE)
+    reversible = select(ManagerEvent.target_id).where(
+        ManagerEvent.event_type == EVENT, ManagerEvent.status == "SUCCEEDED",
+        ManagerEvent.scope == f"producer-order:{farm_id}",
+    )
+    query = select(Order).where(Order.product_id.in_(product_ids),
+                                PRODUCER_VISIBLE | Order.id.in_(reversible))
     if status:
         query = query.where(Order.status == status)
     if product_id:
@@ -1095,7 +1109,8 @@ def producer_orders(
             raise not_found("찾을 수 없는 상품이에요.")
         query = query.where(Order.product_id == product_id)
     rows = db.scalars(query.order_by(Order.created_at.desc(), Order.id.desc()))
-    return [producer_order_view(db, row) for row in rows]
+    result = [producer_order_view(db, row) for row in rows]
+    return [row for row in result if row.status != "CANCELED" or row.undo_action is not None]
 
 
 HARVESTED = ("PREPARING", "SHIPPED", "DELIVERED", "COMPLETED")

@@ -121,5 +121,7 @@ ChatMessage.sequence는 서버 삽입 순서다. 기존 API와 앱의 순차 배
 ## DEV-296 AI 답변 확인 요청 깃발
 `ChatMessage.checkState`, `ProducerChatSummary.aiCheckRequests`, `Dashboard.todo.aiCheckRequests`, `Escalation.resolution`은 선택 필드다(옛 서버와 순차 배포). `messaging.confirmAiAnswer`. Mock은 서버와 같은 규칙(`mock/conversations.ts`의 `checkState`·`withCheckState`·`closeByReply`·`aiCheckRequests`, 질문함 답의 AI 답변 자동 인용, 현황 `openQuestions`는 `needsReply(…, false)`). 테스트 `scripts/test-ai-answer-flag.mjs`.
 
-## DEV-454 자동 전달 답장 요청
-ChatMessage.replyRequested는 원래 소비자 질문의 OPEN 자동 전달 요청 여부이며 기본 false다. Mock도 기존 escalation 연결로 계산하고 인용 답장의 기존 종료 규칙을 따른다.
+## DEV-455 생산자 마지막 작업 실행 취소
+주문 처리 결과에 마지막 실행 취소 토큰을 제공하고, 같은 농가의 해당 작업만 현재 주문·결제·환불 스냅샷이 같을 때 복구한다. 감사 기록과 역전 기록을 보존한다. 상세 동작은 FEAT-09/17 DEV-455 절을 따른다.
+
+DEV-454: ChatMessage.replyRequested는 원래 소비자 질문의 OPEN 자동 전달 요청 여부이며 기본 false다. Mock도 기존 escalation 연결로 계산하고 인용 답장의 기존 종료 규칙을 따른다.

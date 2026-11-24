@@ -1,4 +1,5 @@
 import { holdsStock, salesState } from "./sales";
+import { availableOrderUndo } from "./orderUndo";
 // 저장 레코드 → API 응답 모양으로 바꾸는 함수들
 import type {
   ChatMessage,
@@ -271,6 +272,7 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
   const delivered = !!o.deliveredAt || o.status === "DELIVERED" || o.status === "COMPLETED";
   const hide = delivered || !o.paidAt;
   return {
+    undoAction: availableOrderUndo(o),
     orderId: o.orderId,
     orderNo: o.orderNo,
     depositCode: o.depositCode ?? null,

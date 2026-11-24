@@ -26,6 +26,7 @@ import {
 import { ADDRESS_LIMIT, publicName } from "./auth";
 import { ORDER_CONSENT_KEYS, allOrderConsents } from "../orderConsents";
 import { depositCodeName, pickDepositCode } from "../depositCode";
+import { availableOrderUndo, producerOrderState, recordOrderAction } from "./orderUndo";
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
 /** 도서산간(예시): 제주·울릉·옹진 등 우편번호 앞자리 */
@@ -292,12 +293,14 @@ register({
       conflict("INVALID_TRANSITION", "입금 대기 주문만 확인할 수 있어요.", {
         status: o.status,
       });
+    const before = producerOrderState(o);
     const p = ctx.db.products[o.productId];
     if (p && !hasActiveOrder(ctx, o.consumerId, p.productId))
       p.reservedCount += 1;
     o.status = "PREPARING";
     o.paidAt = nowIso();
     o.depositIssue = null;
+    recordOrderAction(o, "confirm_deposit", before);
     return producerOrder(ctx.db, o);
   },
 
@@ -312,6 +315,7 @@ register({
       conflict("INVALID_TRANSITION", "입금 대기 주문만 미승인할 수 있어요.", {
         status: o.status,
       });
+    const before = producerOrderState(o);
     if (ctx.body.cancel) {
       cancelAwaiting(ctx, o, `입금 미승인 · ${reason}`);
       o.depositIssue = null;
@@ -319,6 +323,7 @@ register({
       o.depositIssue = reason;
       o.depositReportedAt = null;
     }
+    recordOrderAction(o, ctx.body.cancel ? "cancel_deposit" : "reject_deposit", before);
     return producerOrder(ctx.db, o);
   },
 
@@ -332,7 +337,9 @@ register({
       conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.");
     if (o.refundSettledAt)
       conflict("INVALID_TRANSITION", "이미 환불을 마친 주문이에요.");
+    const before = producerOrderState(o);
     o.refundIssue = reason;
+    recordOrderAction(o, "refund_issue", before);
     return producerOrder(ctx.db, o);
   },
 
@@ -341,8 +348,53 @@ register({
     const o = farmOrder(ctx);
     if (o.status !== "REFUNDED")
       conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.");
+    const before = producerOrderState(o);
     o.refundSettledAt ??= nowIso();
     o.refundIssue = null;
+    recordOrderAction(o, "refund_settled", before);
+    return producerOrder(ctx.db, o);
+  },
+
+  "POST /api/orders/:orderId/undo": (ctx) => {
+    const o = farmOrder(ctx);
+    const actionId = ctx.body.actionId;
+    if (typeof actionId !== "string" || !actionId || actionId.length > 64)
+      invalid({ actionId: "되돌릴 처리를 확인해 주세요" });
+    idempotent(ctx, `order-undo:${o.orderId}`, () => {
+      const action = o.producerActionHistory?.find(a => a.actionId === actionId);
+      if (!action) notFound("되돌릴 처리를 찾을 수 없어요.");
+      if (action.status === "UNDONE") return { orderId: o.orderId, actionId };
+      if (availableOrderUndo(o)?.actionId !== actionId)
+        conflict("UNDO_CONFLICT", "다른 처리가 이어져 실행 취소할 수 없어요. 최신 주문을 확인해 주세요.");
+      const previous = action.before;
+      if (previous.status === "AWAITING_DEPOSIT") {
+        if (previous.depositDueAt && new Date(previous.depositDueAt).getTime() <= Date.now() && !previous.depositReportedAt)
+          conflict("UNDO_CONFLICT", "입금 기한이 지나 입금 대기로 되돌릴 수 없어요.");
+        const code = previous.depositCode?.toLocaleLowerCase();
+        if (code && Object.values(ctx.db.orders).some(x => x.orderId !== o.orderId &&
+          ctx.db.products[x.productId]?.farmId === ctx.me().farmId &&
+          x.depositCode?.toLocaleLowerCase() === code &&
+          (x.status === "AWAITING_DEPOSIT" || (x.status === "CANCELED" && !x.paidAt && x.depositDueAt &&
+            new Date(x.depositDueAt).getTime() > Date.now() - DEPOSIT_CODE_HOLD_DAYS * 86400_000))))
+          conflict("UNDO_CONFLICT", "같은 입금자명을 쓰는 다른 주문이 있어 되돌릴 수 없어요.");
+      }
+      const p = ctx.db.products[o.productId];
+      const reclaim = o.releasedQuantity - previous.releasedQuantity;
+      if (reclaim > 0) {
+        const allocation = p.stages.find(s => s.stageId === o.stageId)?.options[o.optionId];
+        if (!allocation || allocation.quantity - allocation.reservedCount < reclaim ||
+            salesState(ctx.db, p).remainingGrams < reclaim * o.unitWeightGrams)
+          conflict("UNDO_CONFLICT", "남은 물량이 부족해 주문 취소를 되돌릴 수 없어요.");
+        allocation.reservedCount += reclaim;
+      }
+      const wasActive = ACTIVE.has(o.status), version = o.trackingVersion ?? 1;
+      Object.assign(o, JSON.parse(JSON.stringify(previous)));
+      if (action.kind === "ship") o.trackingVersion = version + 1;
+      if (wasActive && !ACTIVE.has(o.status) && !hasActiveOrder(ctx, o.consumerId, o.productId))
+        p.reservedCount = Math.max(0, p.reservedCount - 1);
+      action.status = "UNDONE";
+      return { orderId: o.orderId, actionId };
+    });
     return producerOrder(ctx.db, o);
   },
 
@@ -452,7 +504,7 @@ register({
           ctx.db.products[o.productId]?.farmId === u.farmId &&
           o.status !== "PENDING_PAYMENT" &&
           // 돈을 낸 적 없이 끝난 취소는 생산자 목록에서 뺀다(R-15)
-          !(o.status === "CANCELED" && !o.paidAt),
+          (!(o.status === "CANCELED" && !o.paidAt) || !!availableOrderUndo(o)),
       )
       .filter((o) => !ctx.query.status || o.status === ctx.query.status)
       .filter(
@@ -552,10 +604,12 @@ register({
     const c = ctx.body.carrier ? String(ctx.body.carrier) : null;
     if (c && !CARRIERS.includes(c as Carrier))
       invalid({ carrier: "택배사를 골라 주세요" });
+    const before = producerOrderState(o);
     o.status = "SHIPPED";
     o.shippedAt = nowIso();
     o.trackingNumber = t || null;
     o.carrier = (c as Carrier | null) ?? null;
+    recordOrderAction(o, "ship", before);
     return producerOrder(ctx.db, o);
   },
 
