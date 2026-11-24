@@ -345,3 +345,7 @@ DEV-448 text-first opt-in evaluation follows docs/evaluation/i5-text-scoring/spe
 
 ### DEV-450 opt-in literal inventory writer
 FEAT-03/04/07, AC-SRC-2/3/5/10/11, M-11/18: explicit inventory_refinement request/response validator and ai.source_refine.refine_inventory adapter; default v11 path unchanged. Bind full rebuilt inventory/current revisions/target/writer/safety hash. Reject truncated accounting, arbitrary rewriting and changed numeric/qualifier spacing. Derive candidate citations then run existing final validate; missing KEEP is incomplete, EXCLUDE/REVIEW requires review. All-source exclusions are not a successful empty result. No producer persistence mutation or semantic proof from unit IDs. New development-only offline literal control never calls providers or silently drops failed sources.
+
+
+### DEV-450/451 passage classification
+FEAT-03/04/07 AC-SRC-2/3/5/10/11 M-11/18: passage_refinement preserves complete deterministic partitions and source order; explicit refine_passages adds assignment-only classification into existing text modules. Parent review blocks persist, recognized context stays whole, all IDs exactly once and final validation applies. Compact shared-context wire is fully derived from the hash-bound internal request; no truncation/default change. Primary/supplement comparisons remain separate; phase/global budget and unknown-send/cost stopping enforced by development runner.
