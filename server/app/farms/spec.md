@@ -52,7 +52,9 @@ DEV-38: `share.py`의 `/s/farms/{farm_id}`는 Jinja2 자동 이스케이프 HTML
 - `decision_history`(`GET /admin/producers/{id}/decisions`)는 승인·반려 행만 돌려준다. 정지·풀기·되돌림(`SUSPENDED`·`UNSUSPENDED`·`REVERTED`)은 같은 `producer_decisions`에 쌓이고 `GET /admin/farms/{id}/history`에서 본다.
 
 ## DEV-472 테스트 농가 공개 범위 (R-29)
-- 공개 경로는 `public_farm_clause(db, viewer)` 하나로 거른다. 조건은 `APPROVED`이고, 보는 사람이 테스트 계정(`accounts.account_kind`가 REAL이 아님)이 아니면 생산자가 테스트 계정(`accounts.test_account_clause`)인 농가를 뺀다. 한 농가는 `public_farm`, 여러 농가는 `public_farms`·`public_farm_names`로 같은 조건을 다시 조회한다. 승인 상태만 보는 `get_approved_farm`은 보는 사람이 없는 내부 확인(주문 생성)에만 남긴다.
-- `viewer`는 사용자 객체, 사용자 ID(messaging의 `consumer_id`), `None`(비로그인), `ANY_VIEWER`(인증 헤더 없는 공개 사진 `/api/source-media/{id}`) 중 하나다. 공개 GET(`/api/home`, `/api/farms`, `/api/products/{id}`)은 `OptionalUser`로 보는 사람을 받는다. 공유 페이지 `/s/farms/{id}`는 로그인이 없어 늘 비로그인으로 본다.
-- `MOCK_LOGIN_ENABLED`가 켜진 환경은 거르지 않는다. 데모 시드의 강씨네 귤밭 주인부터 시드 테스트 계정이라, 거르면 로컬·데모·CI(pytest, Playwright)의 비로그인 둘러보기가 비어 버린다. 운영은 README대로 이 값이 꺼져 있다.
-- 테스트 계정 판정은 accounts의 기존 정의(`is_test_account` 또는 `ops_tester`)를 그대로 쓴다. 모델·마이그레이션·accounts·admin·orders는 바꾸지 않았다. 그래서 `ops_tester`는 이제 '테스트 농가 숨기기 주문 검사'만이 아니라 공개 범위에도 쓰인다(`admin/spec.md`·`accounts/models.py` 주석은 그 전 설명이다).
+- 공개 경로와 주문 생성은 `public_farm_clause(db, viewer)` 하나로 거른다. 조건은 `APPROVED`이고, 보는 사람이 테스트 계정(`accounts.account_kind`가 REAL이 아님)이 아니면 생산자가 테스트 계정(`accounts.test_account_clause`)인 농가를 뺀다. 한 농가는 `public_farm`, 여러 농가는 `public_farms`·`public_farm_names`로 같은 조건을 다시 조회한다. 승인 상태만 보던 `get_approved_farm`·`approved_farm_names`는 지웠다(호출부가 모두 옮겨 갔다). 주문 생성(`orders.create_order`)도 `public_farm(db, farm_id, consumer)`를 쓴다. 기존 주문의 입금 안내는 승인 상태만 본다(`get_farm_shared`).
+- `viewer`(타입 `Viewer`)는 사용자 객체, 사용자 ID(messaging의 `consumer_id` — 이미 인증한 요청이라 세션에 있는 행을 다시 쓴다), `None`(비로그인), `ANY_VIEWER`(인증 헤더 없는 공개 사진 `/api/source-media/{id}`) 중 하나다. 공개 GET(`/api/home`, `/api/farms`, `/api/products/{id}`)은 `OptionalUser`로 보는 사람을 받는다. 공유 페이지 `/s/farms/{id}`는 로그인이 없어 늘 비로그인으로 본다.
+- `APP_ENV=local`이면서 `MOCK_LOGIN_ENABLED`가 켜진 환경(pytest, `make dev`, 데모, Playwright `run-integration.mjs`는 `APP_ENV`를 주지 않아 기본값 local)은 거르지 않는다. 데모 시드의 강씨네 귤밭 주인부터 시드 테스트 계정이라, 거르면 비로그인 둘러보기가 비어 버린다. 운영은 `APP_ENV=production`이라 UAT 때 `MOCK_LOGIN_ENABLED`를 켜도(DEV-305 절차) 거른다.
+- 홈 히어로 문구(`HERO.caption`)는 히어로 상품의 농가·상품 이름이라, 그 상품이 보는 사람에게 공개(`published_cards`)가 아니면 빈 문자열로 준다. 소비자 앱은 hero를 그리지 않는다.
+- 내 농가(`GET`·`PATCH /api/farms/me`)의 `shareUrl`은 비로그인에게 공개인 농가만 준다. 테스트 농가의 공유 페이지는 누구에게나 404라서다. 생산자 앱은 값이 없으면 링크 칸과 현황 공유 막대를 숨긴다(승인 전 농가와 같은 처리, 앱 변경 없음).
+- 테스트 계정 판정은 accounts의 기존 정의(`is_test_account` 또는 `ops_tester`)를 그대로 쓴다. `ops_tester`는 이제 '테스트 농가 숨기기 주문 검사'와 공개 범위 둘 다에 쓰인다(`admin/spec.md`, `accounts/models.py` 주석도 고침).

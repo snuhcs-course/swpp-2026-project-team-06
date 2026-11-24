@@ -37,7 +37,7 @@ Implementation reference for I4: [`77b2be33`](https://github.com/snuhcs-course/s
 | 3.0 | 2026-11-06 | Minsun Kim; existing Team 6 and owner contributions retained | DEV-158: I3 scope and status, paid-order entry and private reading-position criteria, current room permissions, source-workflow limits, and separate reproducible demo/evaluation references |
 | 3.1 | 2026-11-10 | Team 6 | DEV-300: producer dashboard, product cards and sales settings show each weight option's current box price and reserved+shipped boxes (farmer feedback and 11/10 producer interview: per-option price and boxes first, total kg secondary); the product list API returns these option rows, and sales limits remain in kg |
 | 4.0 | 2026-11-19 | Team 6 | I4 scope reconciled for login, orders, fulfillment, producer editing and known acceptance boundaries |
-| 4.1 | 2026-11-24 | Team 6 | DEV-472: farms owned by seed test or ops-tester accounts, with their products and news, only show to signed-in test accounts; everyone else gets the suspended-farm behaviour (R-29). Not applied where seed login is on (local, demo, CI) |
+| 4.1 | 2026-11-24 | Team 6 | DEV-472: farms owned by seed test or ops-tester accounts, with their products and news, only show to and can be ordered by signed-in test accounts; everyone else gets the suspended-farm behaviour (R-29). Not applied only when APP_ENV is local and seed login is on (local, demo, CI) |
 
 ## 1. Project Abstract
 
@@ -396,14 +396,14 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 **AC-06-10: Test-account farms stay out of public lists (DEV-472)**
 - **GIVEN** an approved farm whose owner is a seed test account or an account the operator marked as an ops tester
 - **WHEN** a signed-out visitor or a regular consumer opens home or the farm list, or searches for the farm or its product
-- **THEN** neither the farm nor its products appear
+- **THEN** neither the farm nor its products appear, and the home hero caption (the hero product's farm and name) is empty
 - **AND** a consumer signed in with a test or ops-tester account still sees them as before
 
 **AC-06-11: Test-account farms act like suspended farms for everyone else (DEV-472)**
 - **GIVEN** the same test farm
-- **WHEN** a signed-out visitor or a regular consumer opens its page, follows it or starts a chat
-- **THEN** they get the same 404 as for a farm that does not exist
-- **AND** a regular consumer who followed or chatted with it earlier no longer sees it in followed farms, chats, news rooms or followed news, but their orders stay visible
+- **WHEN** a signed-out visitor or a regular consumer opens its page, follows it, starts or continues a chat, replies in its news room or orders its product
+- **THEN** they get the same 404 as for a farm or product that does not exist (401 first where sign-in is required)
+- **AND** a regular consumer who followed or chatted with it earlier no longer sees it in followed farms, chats, news rooms or followed news, and chat photos and new order inquiries answer 404, but their orders and past inquiries stay visible
 - **AND** test accounts keep seeing, following, chatting with and ordering from each other, and the owner's producer app is unchanged
 
 ### FEAT-07: Product information
@@ -456,7 +456,7 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 **AC-07-11: Test-farm products are not found (DEV-472)**
 - **GIVEN** a product on sale from a test farm
 - **WHEN** a signed-out visitor or a regular consumer opens it, including from a deep link
-- **THEN** they get the same 404 as for a product that is not on sale; test accounts still see it
+- **THEN** they get the same 404 as for a product that is not on sale, and ordering it by ID gets the same 404; test accounts still see and order it
 
 ### FEAT-08: Checkout
 
@@ -865,6 +865,7 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 - **GIVEN** a test farm's share link
 - **WHEN** anyone opens it (the share page has no sign-in)
 - **THEN** it shows the same not-found page as a farm that is no longer approved, with no farm name or photo in the preview
+- **AND** the owner's producer app gets no share link for that farm, so the link row and share bar are hidden
 
 ### FEAT-32: AI settings
 
