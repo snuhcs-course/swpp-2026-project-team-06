@@ -294,9 +294,14 @@ export default function Ship() {
     if (failedShown && !conflicted) shownError("other"); // 409 안내가 덮으면 보이지 않은 안내라 세지 않는다
     setConfirm(false);
     const before = restorePick.current;
-    restorePick.current = null;
     const shippedIds = chosen.map((o) => o.orderId).filter((id) => !left.includes(id));
-    setPicked(before ? [...new Set([...before.filter((id) => !shippedIds.includes(id)), ...left])] : left);
+    if (lost) {
+      // 연결이 끊긴 건만 다시 시도한다. 이전 선택은 시트를 닫거나 출하를 마친 뒤 되살린다
+      setPicked(left);
+    } else {
+      restorePick.current = null;
+      setPicked(before ? [...new Set([...before.filter((id) => !shippedIds.includes(id)), ...left])] : left);
+    }
     if (conflicted)
       setNotice(
         `${conflicted}건은 이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.`,

@@ -174,8 +174,11 @@ export default function Home() {
     }, [dash.reload, farm.reload]),
   );
   const data = list.data;
+  // 돈 없이 취소됐지만 아직 되돌릴 수 있는 주문(DEV-455)은 현황 개수에 넣지 않는다(R-15)
   const count = (status?: string) =>
-    data ? data.filter((o) => !status || o.status === status).length : 0;
+    data
+      ? data.filter((o) => !(o.status === "CANCELED" && o.undoAction) && (!status || o.status === status)).length
+      : 0;
   const metrics = [
     { label: "전체", count: count(), tab: "all" },
     // 지금 손이 가야 하는 칸만 강조한다
