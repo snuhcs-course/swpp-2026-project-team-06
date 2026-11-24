@@ -88,6 +88,11 @@ test-source-design: ## Bounded automatic source visual/page-plan tests (DEV-463)
 	@$(LOCAL_DB_ONLY)
 	$(SERVER) uv run pytest tests/test_source_design.py tests/test_design_preview.py
 
+.PHONY: test-source-copy
+test-source-copy: ## Source-bound copy and option grouping regressions (DEV-450)
+	@$(LOCAL_DB_ONLY)
+	$(SERVER) uv run pytest tests/test_source_copy.py tests/test_copy_preview.py
+
 test-server: ## pytest + alembic check (CI server job; run make db first)
 	@$(LOCAL_DB_ONLY)
 	$(SERVER) uv run pytest
