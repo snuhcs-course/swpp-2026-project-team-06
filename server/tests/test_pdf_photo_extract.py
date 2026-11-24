@@ -558,3 +558,48 @@ def test_AC_SRC_5_v2_exact_image_budget_is_reported_partial(tmp_path):
     assert result["status"] == "PARTIAL"
     assert "IMAGE_OBJECT_LIMIT" in result["warnings"]
     assert type(result["limits"]["imageObjectCap"]) is int
+
+
+def test_AC_SRC_5_cli_rechecks_winner_output_after_acquiring_claim(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from app.source_analysis import pdf_photo_extract as extractor
+
+    source = tmp_path / "invented.pdf"
+    source.write_bytes(pdf_bytes())
+    output = tmp_path / "output"
+    claim = tmp_path / ".output.pdf-photo-cli.lock"
+    winner = b'{"status":"SUCCEEDED","owner":"winner"}\n'
+    original_touch = Path.touch
+
+    def winner_completes_before_claim(path, *args, **kwargs):
+        if path == claim:
+            assert not output.exists()
+            output.mkdir()
+            (output / "manifest.json").write_bytes(winner)
+        return original_touch(path, *args, **kwargs)
+
+    def forbidden_spawn(*args, **kwargs):
+        pytest.fail("A loser must not launch a worker or read the winner manifest")
+
+    monkeypatch.setattr(Path, "touch", winner_completes_before_claim)
+    monkeypatch.setattr(extractor.subprocess, "Popen", forbidden_spawn)
+    with pytest.raises(SystemExit) as rejected:
+        extractor.main([str(source), "--output", str(output)])
+    assert rejected.value.code == 2
+    assert (output / "manifest.json").read_bytes() == winner
+    assert not claim.exists()
+
+
+def test_AC_SRC_5_cli_rejects_regular_file_output_without_traceback(tmp_path, capsys):
+    from app.source_analysis.pdf_photo_extract import main
+
+    source = tmp_path / "invented.pdf"
+    source.write_bytes(pdf_bytes())
+    output = tmp_path / "output"
+    output.write_bytes(b"preserve")
+    with pytest.raises(SystemExit) as rejected:
+        main([str(source), "--output", str(output)])
+    assert rejected.value.code == 2
+    assert output.read_bytes() == b"preserve"
+    assert "OUTPUT_NOT_EMPTY" in capsys.readouterr().err

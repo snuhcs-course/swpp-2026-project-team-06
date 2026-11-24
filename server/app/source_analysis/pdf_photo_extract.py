@@ -424,7 +424,9 @@ def main(argv=None):
         parser.error("INVALID_SOURCE_ID")
     if not args.input.is_file():
         parser.error("INPUT_NOT_REGULAR_FILE")
-    if args.output.is_symlink() or (args.output.exists() and any(args.output.iterdir())):
+    if args.output.is_symlink() or (
+        args.output.exists() and (not args.output.is_dir() or any(args.output.iterdir()))
+    ):
         parser.error("OUTPUT_NOT_EMPTY")
     if args.worker:
         if args.input.stat().st_size > caps["maxInputBytes"]:
@@ -476,6 +478,12 @@ def main(argv=None):
     except FileExistsError:
         parser.error("OUTPUT_IN_USE")
     try:
+        # A different owner may have completed after our initial empty check but
+        # before this claim was acquired. Never read or rewrite that owner's output.
+        if args.output.is_symlink() or (
+            args.output.exists() and (not args.output.is_dir() or any(args.output.iterdir()))
+        ):
+            parser.error("OUTPUT_NOT_EMPTY")
         return _run_cli_worker(args, caps, argv)
     finally:
         claim.unlink()
