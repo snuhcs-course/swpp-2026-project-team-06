@@ -143,7 +143,8 @@ export function OrderCard({
               {item.name}
             </T>
           ) : null}
-          <T variant="sub" muted numberOfLines={1}>
+          {/* 옵션 × 수량은 줄이지 않는다(길면 다음 줄로, AC-17-10). 줄일 수 있는 건 상품명뿐 */}
+          <T variant="sub" muted>
             {item.tail}
           </T>
         </View>
