@@ -441,7 +441,8 @@ Build (cloud); JS changes ship with EAS Update and never need a store review. Id
 changes the fingerprint runtime version, so existing builds stop receiving updates until a new
 build is installed. The apps are iPhone-only (`ios.supportsTablet: false`) and block Android
 permissions they do not use with `android.blockedPermissions` (`SYSTEM_ALERT_WINDOW`, `VIBRATE`,
-`USE_BIOMETRIC`, `USE_FINGERPRINT`; DEV-435); these settings are part of the fingerprint too. `apps/<app>/eas.json` has four profiles:
+`USE_BIOMETRIC`, `USE_FINGERPRINT` and the Play install referrer
+`BIND_GET_INSTALL_REFERRER_SERVICE`; DEV-435); these settings are part of the fingerprint too. `apps/<app>/eas.json` has four profiles:
 `development` (dev client), `internal` (installable Android APK and iOS simulator build for team
 testing, channel `preview`), `preview` (channel `preview`, store-format build for TestFlight and
 Play internal testing) and `production` (channel `production`). Build numbers auto-increment;
