@@ -58,6 +58,14 @@ async function openProductReady(page: Page, productId: string) {
 
 const tabBar = (page: Page) => page.getByRole("tablist");
 
+/** 생산자 상품 목록의 하우스 감귤 카드(카드 머리 버튼 이름). 상품 이름 글자만으로 찾으면 현황 탭의 물량 카드와 겹친다
+ * (실서버 스택에서 두 탭이 함께 그려져 있음) */
+const HOUSE = "하우스 감귤 5kg / 10kg";
+const houseCard = (page: Page) => page.getByRole("button", { name: `${HOUSE} 상품 수정`, exact: true });
+/** 그 카드 안의 ‘물량·판매 설정’ 버튼(카드 머리 버튼의 부모가 카드) */
+const houseSettings = (page: Page) =>
+  houseCard(page).locator("xpath=..").getByRole("button", { name: "물량·판매 설정", exact: true });
+
 /** 탭 바의 탭을 누른다. 개발 서버(npm run dev)는 잡힌 오류도 화면 아래 LogBox 알림으로 띄워 탭 바 왼쪽을 덮으므로
  * (스토어·export 빌드에는 없음) 포인터 대신 키보드(초점 + Enter)로 누른다 */
 async function pressTab(page: Page, name: RegExp) {
@@ -80,17 +88,17 @@ test("DEV_473 producer tab screen dies → error inside the tab, tab bar stays, 
   await restore();
   await page.getByRole("button", { name: "다시 시도" }).click();
   await expect(shown(page)).toHaveCount(0);
-  await expect(page.getByText("하우스 감귤 5kg / 10kg")).toBeVisible();
+  await expect(houseCard(page)).toBeVisible();
   await expect(page).toHaveURL(/\/products(\?|$)/);
 });
 
 test("DEV_473 producer pushed screen dies → retry redraws that same screen, not the tab's first screen", async ({ page }) => {
   await producerLogin(page);
   await page.goto(`${producerUrl}/products`);
-  await expect(page.getByText("하우스 감귤 5kg / 10kg")).toBeVisible();
+  await expect(houseCard(page)).toBeVisible();
   const restore = await breakNames(page, /\/api\/products\/mine\/[^/?]+(\?|$)/, (b) => [b]);
   // 목록에서 연(스택에 쌓인) 하위 화면
-  await page.getByRole("button", { name: "물량·판매 설정" }).first().click();
+  await houseSettings(page).click();
   await expect(page).toHaveURL(/\/products\/[^/]+\/sales/);
   await expect(page.getByText(TITLE)).toBeVisible();
   await expect(tabBar(page)).toBeVisible();
@@ -105,9 +113,9 @@ test("DEV_473 producer pushed screen dies → retry redraws that same screen, no
 test("DEV_473 home leaves the dead screen: browser back and the tab do not reopen it", async ({ page }) => {
   await producerLogin(page);
   await page.goto(`${producerUrl}/products`);
-  await expect(page.getByText("하우스 감귤 5kg / 10kg")).toBeVisible();
+  await expect(houseCard(page)).toBeVisible();
   await breakNames(page, /\/api\/products\/mine\/[^/?]+(\?|$)/, (b) => [b]);
-  await page.getByRole("button", { name: "물량·판매 설정" }).first().click();
+  await houseSettings(page).click();
   await expect(page.getByText(TITLE)).toBeVisible();
 
   await page.getByRole("button", { name: "홈으로" }).click();
@@ -118,7 +126,7 @@ test("DEV_473 home leaves the dead screen: browser back and the tab do not reope
   // 페이지를 새로 부르지 않고 앱 안에서: 상품 탭을 다시 눌러도 죽은 화면이 아니라 탭 첫 화면(응답은 아직 깨진 채)
   await pressTab(page, /상품/);
   await expect(page).toHaveURL(/\/products(\?|$)/);
-  await expect(page.getByText("하우스 감귤 5kg / 10kg")).toBeVisible();
+  await expect(houseCard(page)).toBeVisible();
   await expect(shown(page)).toHaveCount(0);
   // 브라우저 뒤로 두 번: 어느 기록도 죽은 하위 화면이 아니다(죽은 화면 기록은 꺼낼 때 탭 첫 화면 주소로 바뀐다)
   for (const _ of [1, 2]) {
@@ -162,7 +170,7 @@ test("DEV_473 consumer screen outside tabs (checkout) dies → root stack bounda
   await page.getByRole("button", { name: "다시 시도" }).click();
   await expect(shown(page)).toHaveCount(0);
   await expect(page).toHaveURL(/\/checkout\/p-house/);
-  await expect(page.getByText("주문서").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "주문서", exact: true })).toBeVisible();
 
   await breakNames(page, /\/api\/products\/p-house(\?|$)/, (b) => [b]);
   await sessionSettled(page, () => page.reload());
