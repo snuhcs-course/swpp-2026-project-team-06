@@ -22,10 +22,11 @@ import psutil
 import pypdfium2 as pdfium
 from PIL import Image, ImageDraw
 
-VERSION = "pdf-photo-v1"
+VERSION = "pdf-photo-v2"
 DEFAULT_LIMITS = {
     "pageCap": 20,
-    "objectCap": 200,
+    "objectCap": 10_000,
+    "imageObjectCap": 200,
     "recursionDepth": 4,
     "candidateCap": 30,
     "maxInputBytes": 100 * 1024**2,
@@ -111,6 +112,7 @@ def _manifest(data, source_id, revision, sanitization, limits):
         "errors": [],
         "metrics": {
             "objectsVisited": 0,
+            "imageObjectsVisited": 0,
             "decodedImages": 0,
             "candidateCount": 0,
             "elapsedMs": 0,
@@ -198,6 +200,15 @@ def extract_pdf(
             manifest["warnings"].append(code)
         manifest["status"] = "PARTIAL"
 
+    def exhausted_budget():
+        if metrics["objectsVisited"] >= caps["objectCap"]:
+            return "OBJECT_LIMIT"
+        if metrics["imageObjectsVisited"] >= caps["imageObjectCap"]:
+            return "IMAGE_OBJECT_LIMIT"
+        if time.monotonic() - started >= caps["maxElapsedSeconds"]:
+            return "TIME_LIMIT"
+        return None
+
     checkpoint()
     document = None
     try:
@@ -213,15 +224,9 @@ def extract_pdf(
                 warn("PAGE_LIMIT")
                 manifest["skippedPages"].append(number)
                 continue
-            if (
-                metrics["objectsVisited"] >= caps["objectCap"]
-                or time.monotonic() - started >= caps["maxElapsedSeconds"]
-            ):
-                warn(
-                    "OBJECT_LIMIT"
-                    if metrics["objectsVisited"] >= caps["objectCap"]
-                    else "TIME_LIMIT"
-                )
+            budget = exhausted_budget()
+            if budget:
+                warn(budget)
                 manifest["skippedPages"].append(number)
                 continue
             page = document[page_index]
@@ -236,8 +241,9 @@ def extract_pdf(
                     scale *= 0.999
                     rw, rh = math.ceil(pw * scale), math.ceil(ph * scale)
                 for object_index, obj in enumerate(page.get_objects(max_depth=1)):
-                    if metrics["objectsVisited"] >= caps["objectCap"]:
-                        warn("OBJECT_LIMIT")
+                    budget = exhausted_budget()
+                    if budget:
+                        warn(budget)
                         break
                     metrics["objectsVisited"] += 1
                     if obj.type not in (
@@ -245,6 +251,7 @@ def extract_pdf(
                         pdfium.raw.FPDF_PAGEOBJ_FORM,
                     ):
                         continue
+                    metrics["imageObjectsVisited"] += 1
                     bounds = None
                     try:
                         bounds = _bounds(page, obj, rw, rh)
@@ -374,6 +381,12 @@ def extract_pdf(
                         warn("CANDIDATE_FAILED")
                     finally:
                         checkpoint()
+                # Reaching a declared cap is itself partial, even if the final
+                # inspected object happens to be the last one in this page.
+                if metrics["objectsVisited"] >= caps["objectCap"]:
+                    warn("OBJECT_LIMIT")
+                if metrics["imageObjectsVisited"] >= caps["imageObjectCap"]:
+                    warn("IMAGE_OBJECT_LIMIT")
                 manifest["processedPages"].append(number)
             except Exception:
                 manifest["skippedPages"].append(number)

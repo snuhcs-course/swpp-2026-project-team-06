@@ -26,6 +26,7 @@ def pdf_bytes(
     pages=1,
     offset=False,
     crop_box=False,
+    text_objects=0,
 ):
     size = 32 if tiny else 100
     pixels = bytes([255, 0, 0]) * size * size
@@ -41,6 +42,7 @@ def pdf_bytes(
         content += "0 0 0 rg 50 50 100 100 re f\n"
     if form:
         content = "q /Fm0 Do Q\n"
+    content = "BT /F1 8 Tf 1 0 0 1 1 1 Tm (x) Tj ET\n" * text_objects + content
     objects = [b"<< /Type /Catalog /Pages 2 0 R >>", b""]
     kids = []
     for _ in range(pages):
@@ -51,7 +53,8 @@ def pdf_bytes(
                 f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Rotate {rotation} "
                 + ("/CropBox [25 25 175 175] " if crop_box else "")
                 + f"/Resources << /XObject << /Im0 {3 + pages * 2} 0 R "
-                f"/Fm0 {4 + pages * 2} 0 R >> >> "
+                f"/Fm0 {4 + pages * 2} 0 R >> "
+                "/Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> "
                 f"/Contents {page_id + 1} 0 R "
                 + (f"/Annots [{5 + pages * 2} 0 R] " if annotation else "")
                 + ">>"
@@ -503,3 +506,55 @@ def test_AC_SRC_5_cli_never_removes_another_owners_claim(tmp_path):
         main([str(source), "--output", str(output)])
     assert claim.read_text() == "other owner"
     assert not output.exists()
+
+
+def test_AC_SRC_5_v2_text_traversal_does_not_exhaust_image_budget(tmp_path):
+    result = extract_pdf(pdf_bytes(text_objects=250, pages=2), tmp_path)
+    assert result["extractorVersion"] == "pdf-photo-v2"
+    assert result["limits"]["objectCap"] == 10_000
+    assert result["limits"]["imageObjectCap"] == 200
+    assert result["metrics"]["objectsVisited"] == 502
+    assert result["metrics"]["imageObjectsVisited"] == 2
+    assert result["processedPages"] == [1, 2] and result["skippedPages"] == []
+    assert result["status"] == "SUCCEEDED"
+    assert [entry["status"] for entry in result["occurrences"]] == ["REVIEW_REQUIRED"] * 2
+
+
+@pytest.mark.parametrize(
+    "kwargs,expected",
+    [
+        ({"tiny": True}, "FILTERED"),
+        ({"form": True}, "UNSUPPORTED"),
+        ({}, "REVIEW_REQUIRED"),
+    ],
+)
+def test_AC_SRC_5_v2_independent_image_cap_before_filters(tmp_path, kwargs, expected):
+    result = extract_pdf(
+        pdf_bytes(pages=2, duplicates=True, **kwargs), tmp_path, limits={"imageObjectCap": 1}
+    )
+    assert result["metrics"]["imageObjectsVisited"] == 1
+    assert result["metrics"]["objectsVisited"] == 1
+    assert result["status"] == "PARTIAL"
+    assert result["skippedPages"] == [2]
+    assert "IMAGE_OBJECT_LIMIT" in result["warnings"]
+    assert "OBJECT_LIMIT" not in result["warnings"]
+    assert len(result["occurrences"]) == 1
+    assert result["occurrences"][0]["status"] == expected
+
+
+def test_AC_SRC_5_v2_traversal_cap_distinct_from_image_cap(tmp_path):
+    result = extract_pdf(pdf_bytes(text_objects=250, pages=2), tmp_path, limits={"objectCap": 10})
+    assert result["status"] == "PARTIAL"
+    assert result["metrics"]["objectsVisited"] == 10
+    assert result["metrics"]["imageObjectsVisited"] == 0
+    assert result["skippedPages"] == [2]
+    assert "OBJECT_LIMIT" in result["warnings"]
+    assert "IMAGE_OBJECT_LIMIT" not in result["warnings"]
+    assert result["occurrences"] == []
+
+
+def test_AC_SRC_5_v2_exact_image_budget_is_reported_partial(tmp_path):
+    result = extract_pdf(pdf_bytes(), tmp_path, limits={"imageObjectCap": 1.0})
+    assert result["status"] == "PARTIAL"
+    assert "IMAGE_OBJECT_LIMIT" in result["warnings"]
+    assert type(result["limits"]["imageObjectCap"]) is int
