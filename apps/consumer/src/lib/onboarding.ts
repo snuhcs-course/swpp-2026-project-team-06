@@ -20,7 +20,7 @@ export const SIGNUP_CONSENTS: {
     required: true,
     fullText: "/terms",
     summary:
-      "farmclub은 농가가 올린 귤을 수확 전에 예약 판매해요. 예약은 수확 기간 안에 배송되고, 배송 전에는 취소할 수 있어요. 지금은 테스트 서비스라 실제 결제·배송은 일어나지 않아요.",
+      "farmclub은 농가가 올린 귤을 수확 전에 예약 판매해요. 예약은 수확 기간 안에 배송되고, 배송 전에는 취소할 수 있어요. 입금은 농가 계좌로 직접 하고, farmclub은 거래를 중개해요.",
   },
   {
     kind: "PRIVACY",
