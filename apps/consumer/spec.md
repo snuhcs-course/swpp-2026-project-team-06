@@ -213,3 +213,6 @@ Conversation headers use goBackOr with roomBackTarget as the direct-entry fallba
 
 ## DEV-454 UAT cycle 2
 The checkout uses a dedicated condition-change modal while preserving the existing submission and deposit-recovery path. Dismissal does not acknowledge a reservation; the footer reopens the prompt.
+
+## DEV-476 정식 서비스 전환 문구 (2026-11-24)
+주문서·입금 안내 머리 아래 ‘테스트 서비스’ 띠는 지웠고(`TestBand`는 `packages/ui`에서 뺐다), 가입 동의 시트는 ‘버전 ○’만, 로그인 하단 안내는 ‘· 테스트 서비스’ 꼬리 없이 둔다. 약관 요지는 ‘입금은 농가 계좌로 직접 하고, farmclub은 거래를 중개해요.’로 끝난다. `app.config.js`는 app.json을 그대로 돌려주고, EAS 빌드 서버의 `production`·`preview`·`internal` 프로필에서 사업자 정보 필수 값이 비면 던져서 빌드를 멈춘다. 생산자 앱과 글자까지 같은 파일이고, fingerprint가 바뀌지 않게 다른 파일을 require하지 않는다(`scripts/test-store-business-check.mjs`).
