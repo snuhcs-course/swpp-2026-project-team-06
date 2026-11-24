@@ -112,7 +112,6 @@ export default function Chat() {
         </>
       )}
       <ChatThread
-        emoticons={!support}
         key={consumerId}
         producer
         prefill={prefill}
@@ -137,7 +136,7 @@ export default function Chat() {
         peerReadMessageId={support ? undefined : page?.thread.consumerLastReadMessageId}
         copy={copyText}
         // 보낸 뒤 다시 불러오기는 ChatThread가 한다. 여기서 기다리면 재조회 실패가 전송 실패('다시 보내기')로 보인다(DEV-291)
-        send={async (text, ids, key, replyToMessageId, emoticonId) => {
+        send={async (text, ids, key, replyToMessageId) => {
           // 보내기 전 상태로 종류를 정한다(서버가 인용한 전달을 답장과 함께 닫으므로). 본문·소비자 ID는 보내지 않는다
           const kind = replyKind(
             replyToMessageId ? seen.current.get(replyToMessageId) : undefined,
@@ -150,7 +149,6 @@ export default function Chat() {
             [],
             key,
             replyToMessageId,
-            emoticonId,
           );
           // farmclub 문의방 답장은 소비자 문의 응대가 아니라 세지 않는다
           if (!support) track("producer_reply_sent", { kind });

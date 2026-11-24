@@ -162,7 +162,6 @@ def send_room(
             body.reply_to_version,
             broadcast_id=body.broadcast_id,
             attachment_ids=body.attachment_ids,
-            emoticon_id=body.emoticon_id,
         ),
     )
 

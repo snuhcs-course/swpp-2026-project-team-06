@@ -123,8 +123,3 @@ ChatMessage.sequence는 서버 삽입 순서다. 기존 API와 앱의 순차 배
 
 ## DEV-454 자동 전달 답장 요청
 ChatMessage.replyRequested는 원래 소비자 질문의 OPEN 자동 전달 요청 여부이며 기본 false다. Mock도 기존 escalation 연결로 계산하고 인용 답장의 기존 종료 규칙을 따른다.
-
-
-## DEV-468 이모티콘
-
-AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달한다. 공통 카탈로그 ID 외 값과 혼합 메시지는 거부한다. UI는 공통 + 도구·160px 투명 그림·독립 전송 초안 보존을 사용한다. 이모티콘만 보낸 소비자 메시지는 AI를 호출하지 않고, 기존 권한·멱등성·비공개 답장을 유지한다. 상세는 tasks/DEV-468.md.

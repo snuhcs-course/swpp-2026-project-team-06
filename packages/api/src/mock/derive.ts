@@ -131,7 +131,6 @@ export function newsItem(d: DB, n: NewsRec, userId: string | null): NewsItem {
     farmPhoto: f?.photo ?? null,
     createdAt: n.createdAt,
     body: n.body,
-    emoticonId: n.emoticonId ?? null,
     photos: n.photos,
     visibility: n.visibility,
     reactionCount: n.baseReactions + others,

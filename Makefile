@@ -89,7 +89,6 @@ test-server: ## pytest + alembic check (CI server job; run make db first)
 	$(SERVER) uv run alembic upgrade head && uv run alembic check
 
 test-apps: ## Mock contract tests + typecheck (CI apps job)
-	# DEV-468: test-emoticons.mjs is discovered by test:mock; pytest discovers test_emoticons.py.
 	npm run test:mock
 	npm run typecheck
 

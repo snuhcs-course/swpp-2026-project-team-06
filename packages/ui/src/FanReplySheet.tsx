@@ -1,5 +1,3 @@
-import type { EmoticonId } from "@farmclub/api";
-import { EmoticonMessage } from "./Emoticon";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { Sheet } from "./bars";
@@ -21,7 +19,6 @@ export type FanReplyRow = {
   consumerId: string;
   senderName: string;
   body: string;
-  emoticonId?: EmoticonId | null;
   createdAt: string;
   editVersion: number;
   unread: boolean;
@@ -246,7 +243,7 @@ function ReplyRow({
             {time(reply.createdAt)}
           </T>
         </View>
-        {reply.emoticonId ? <EmoticonMessage id={reply.emoticonId} /> : reply.body ? <T>{reply.body}</T> : null}
+        {reply.body ? <T>{reply.body}</T> : null}
         {/* 답장 비공개 사진(눌러 크게, DEV-467) */}
         {loadPhoto && reply.attachmentIds?.length ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>

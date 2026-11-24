@@ -151,25 +151,3 @@ DEV-289 이관: 기존 OPEN 주문 문제 문의와 운영팀 방의 직접응�
 `POST /api/messaging/rooms/{farmId}/messages`는 선택적 `replyToMessageId`를 받는다. 소유 생산자가 같은 농가 소비자 답장을 지정하면 마스킹한 익명 텍스트를 `replyTo: {senderType: "CONSUMER", body}`로 고정 저장한 FOLLOWERS 방송을 만든다. 소비자 지정은403, 없는/다른 농가/방송 target은404. 새 방송만 인용 스냅샷을 노출하고 원문 조회 권한은 바뀌지 않는다.
 
 인용 작성 UI는 원문의 editVersion을 replyToVersion으로 함께 보내며, 발송 시 원문이 수정되었으면409로 거부하여 재선택을 안내한다. 확인 미리보기의 이메일도 가린다.
-
-
-## DEV-468 이모티콘 메시지
-
-1:1 소비자/생산자 전송, 소식 작성, 소식방 전송 요청에 선택 emoticonId를 받는다. 응답 NewsItem/NewsRoomMessage/FanReply/ChatMessage에도 nullable emoticonId를 돌려준다. 미지정/null이면 기존 글·미디어 계약이다. 알 수 없는 ID 또는 글·첨부와 함께 보낸 ID는 4xx이며 저장하지 않는다. 이모티콘 본문 수정도 4xx다. 기존 권한·멱등성을 유지한다.
-
-| ID | 본문 캡션 |
-| --- | --- |
-| farmclub-reserved | 예약했어요 |
-| farmclub-paid | 입금했어요 |
-| farmclub-packing | 포장 중이에요 |
-| farmclub-shipping | 오늘 출하해요 |
-| farmclub-arrived | 잘 도착했어요 |
-| farmclub-delicious | 맛있어요 |
-| farmclub-wait | 잠시만요 |
-| farmclub-check | 확인 부탁해요 |
-| farmclub-thanks | 고마워요 |
-| farmclub-sorry | 미안해요 |
-
-ThreadMessage/Broadcast/RoomReply에 선택 ID를 저장한다. body는 고정 캡션이므로 기존 목록·인용·구형 클라이언트도 읽을 수 있고, 새 대화 UI는 ID가 있으면 그림을 렌더링하며 캡션 본문을 중복하지 않는다. 소비자 이모티콘은 AI 호출·답장 요청 없이 저장한다. 소식의 공개 범위·팔로우·비공개 답장 권한은 AC-12-6 그대로다.
-
-배포는 서버(0038 nullable 열3개 추가) 후 양쪽 앱 순서다. 서버 시작 명령이 alembic upgrade head를 실행한다. 이모티콘 원본과 표시 WebP는 앱 번들에 포함하고 별도 업로드·R2 설정은 없다.

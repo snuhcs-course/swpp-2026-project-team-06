@@ -336,7 +336,7 @@ export const messaging = {
     idempotencyKey: string,
     replyToMessageId?: string,
     replyToVersion?: number,
-    extra: { broadcastId?: string; attachmentIds?: string[]; emoticonId?: A.EmoticonId } = {},
+    extra: { broadcastId?: string; attachmentIds?: string[] } = {},
   ) =>
     request<A.NewsRoomMessage>(
       "POST",
@@ -346,7 +346,6 @@ export const messaging = {
           text,
           replyToMessageId,
           replyToVersion,
-          ...(extra.emoticonId ? { emoticonId: extra.emoticonId } : {}),
           ...(extra.broadcastId ? { broadcastId: extra.broadcastId } : {}),
           ...(extra.attachmentIds?.length ? { attachmentIds: extra.attachmentIds } : {}),
         },
@@ -439,12 +438,11 @@ export const messaging = {
     idempotencyKey: string = newIdempotencyKey(),
     productId?: string,
     replyToMessageId?: string,
-    emoticonId?: A.EmoticonId,
   ) =>
     request<A.SendMessageResult>(
       "POST",
       `/api/messaging/chats/${farmId}/messages`,
-      { body: { text, attachmentIds, orderId, productId, replyToMessageId, emoticonId }, idempotencyKey },
+      { body: { text, attachmentIds, orderId, productId, replyToMessageId }, idempotencyKey },
     ),
   read: (farmId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/chats/${farmId}/read`, {
@@ -516,12 +514,11 @@ export const messaging = {
     answerToEscalationIds: string[] = [],
     idempotencyKey: string = newIdempotencyKey(),
     replyToMessageId?: string,
-    emoticonId?: A.EmoticonId,
   ) =>
     request<{ message: A.ChatMessage; thread: A.Thread }>(
       "POST",
       `/api/messaging/producer/chats/${consumerId}/messages`,
-      { body: { text, attachmentIds, answerToEscalationIds, replyToMessageId, emoticonId }, idempotencyKey },
+      { body: { text, attachmentIds, answerToEscalationIds, replyToMessageId }, idempotencyKey },
     ),
   /** 확인 요청된 AI 답변에 '답이 맞아요'(DEV-296). 다시 눌러도 같은 결과 */
   confirmAiAnswer: (
