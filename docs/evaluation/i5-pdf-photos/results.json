@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "5ee91011b7037b5954300d8b5d2958bd75bfdcb67731a8104ebac4153b3e530a",
+  "scope": "Six existing development PDFs; not sealed holdout or unseen-user evaluation.",
+  "frozenReviewPages": 11,
+  "humanReferenceStatus": "PENDING",
+  "verifiedReferencePhotos": 0,
+  "photoAccuracyMetrics": null,
+  "adoptionDecision": "PENDING_HUMAN_REVIEW",
+  "engineeringDecision": "REVISE_V1_RESOURCE_BUDGET; V2_FEASIBILITY_ONLY",
+  "iterations": [
+    {
+      "iteration": "v1",
+      "extractorVersion": "pdf-photo-v1",
+      "codeCommit": "3c8faf58",
+      "sourceCount": 6,
+      "totalPages": 68,
+      "processedPages": 8,
+      "skippedPages": 60,
+      "sourceStatuses": {
+        "PARTIAL": 5,
+        "SUCCEEDED": 1
+      },
+      "imageOrFormOccurrences": 39,
+      "exportedOccurrences": 10,
+      "uniqueAssets": 9,
+      "reasonCounts": {
+        "UNKNOWN_GEOMETRY": 18,
+        "FORM_GEOMETRY": 6,
+        "COMPOSITE_PAGE": 1,
+        "PRIVACY_REVIEW_REQUIRED": 10,
+        "TINY": 4
+      },
+      "objectsVisited": 1001,
+      "uniqueAssetBytes": 257923,
+      "sumCliElapsedMs": 589,
+      "batchWallSeconds": 0.88,
+      "limits": {
+        "pageCap": 20,
+        "objectCap": 200,
+        "recursionDepth": 4,
+        "candidateCap": 30,
+        "maxInputBytes": 104857600,
+        "maxImagePixels": 40000000,
+        "maxPagePixels": 8000000,
+        "maxOutputBytes": 67108864,
+        "maxElapsedSeconds": 30,
+        "maxRssMiB": 512,
+        "renderScale": 2
+      },
+      "perPdf": [
+        {
+          "pdfIndex": 1,
+          "status": "PARTIAL",
+          "totalPages": 1,
+          "processedPages": 1,
+          "skippedPages": 0,
+          "exportedOccurrences": 0,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED",
+            "OBJECT_LIMIT"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 2,
+          "status": "PARTIAL",
+          "totalPages": 1,
+          "processedPages": 1,
+          "skippedPages": 0,
+          "exportedOccurrences": 0,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED",
+            "OBJECT_LIMIT"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 3,
+          "status": "SUCCEEDED",
+          "totalPages": 1,
+          "processedPages": 1,
+          "skippedPages": 0,
+          "exportedOccurrences": 0,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 4,
+          "status": "PARTIAL",
+          "totalPages": 22,
+          "processedPages": 2,
+          "skippedPages": 20,
+          "exportedOccurrences": 2,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED",
+            "OBJECT_LIMIT",
+            "PAGE_LIMIT"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 5,
+          "status": "PARTIAL",
+          "totalPages": 41,
+          "processedPages": 2,
+          "skippedPages": 39,
+          "exportedOccurrences": 7,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED",
+            "OBJECT_LIMIT",
+            "PAGE_LIMIT"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 6,
+          "status": "PARTIAL",
+          "totalPages": 2,
+          "processedPages": 1,
+          "skippedPages": 1,
+          "exportedOccurrences": 1,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED",
+            "OBJECT_LIMIT"
+          ],
+          "errors": []
+        }
+      ]
+    },
+    {
+      "iteration": "v2",
+      "extractorVersion": "pdf-photo-v2",
+      "codeCommit": "370fefa6aa53e2cbe7eb616d5d78f06d679dd9bb",
+      "sourceCount": 6,
+      "totalPages": 68,
+      "processedPages": 45,
+      "skippedPages": 23,
+      "sourceStatuses": {
+        "PARTIAL": 4,
+        "SUCCEEDED": 2
+      },
+      "imageOrFormOccurrences": 482,
+      "exportedOccurrences": 62,
+      "uniqueAssets": 58,
+      "reasonCounts": {
+        "UNKNOWN_GEOMETRY": 56,
+        "FORM_GEOMETRY": 344,
+        "PRIVACY_REVIEW_REQUIRED": 62,
+        "COMPOSITE_PAGE": 1,
+        "TINY": 17,
+        "CANDIDATE_LIMIT": 2
+      },
+      "objectsVisited": 10674,
+      "uniqueAssetBytes": 33313456,
+      "sumCliElapsedMs": 2111,
+      "batchWallSeconds": 2.42,
+      "limits": {
+        "pageCap": 20,
+        "objectCap": 10000,
+        "imageObjectCap": 200,
+        "recursionDepth": 4,
+        "candidateCap": 30,
+        "maxInputBytes": 104857600,
+        "maxImagePixels": 40000000,
+        "maxPagePixels": 8000000,
+        "maxOutputBytes": 67108864,
+        "maxElapsedSeconds": 30,
+        "maxRssMiB": 512,
+        "renderScale": 2
+      },
+      "perPdf": [
+        {
+          "pdfIndex": 1,
+          "status": "PARTIAL",
+          "totalPages": 1,
+          "processedPages": 1,
+          "skippedPages": 0,
+          "exportedOccurrences": 1,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED",
+            "IMAGE_OBJECT_LIMIT"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 2,
+          "status": "PARTIAL",
+          "totalPages": 1,
+          "processedPages": 1,
+          "skippedPages": 0,
+          "exportedOccurrences": 1,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED",
+            "IMAGE_OBJECT_LIMIT"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 3,
+          "status": "SUCCEEDED",
+          "totalPages": 1,
+          "processedPages": 1,
+          "skippedPages": 0,
+          "exportedOccurrences": 0,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 4,
+          "status": "PARTIAL",
+          "totalPages": 22,
+          "processedPages": 20,
+          "skippedPages": 2,
+          "exportedOccurrences": 30,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED",
+            "CANDIDATE_LIMIT",
+            "PAGE_LIMIT"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 5,
+          "status": "PARTIAL",
+          "totalPages": 41,
+          "processedPages": 20,
+          "skippedPages": 21,
+          "exportedOccurrences": 29,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED",
+            "PAGE_LIMIT"
+          ],
+          "errors": []
+        },
+        {
+          "pdfIndex": 6,
+          "status": "SUCCEEDED",
+          "totalPages": 2,
+          "processedPages": 2,
+          "skippedPages": 0,
+          "exportedOccurrences": 1,
+          "warnings": [
+            "DIAGNOSTIC_ONLY",
+            "PRIVACY_REVIEW_REQUIRED"
+          ],
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "libraries": {
+    "pypdfium2": "5.14.0",
+    "Pillow": "12.3.0",
+    "psutil": "7.2.2"
+  },
+  "motivatingPackagingPage": {
+    "v1": "SKIPPED_OBJECT_LIMIT",
+    "v2": {
+      "exportedOccurrences": 2,
+      "nativeResolution": [
+        400,
+        266
+      ],
+      "outputResolution": [
+        400,
+        266
+      ],
+      "reviewStatus": "PENDING"
+    }
+  },
+  "paidModelCalls": 0,
+  "productionIntegration": false,
+  "limitations": [
+    "No verified per-photo source-region labels/matching; no recovery/relevance/placement accuracy can be claimed.",
+    "Forms/nested geometry remain unsupported and were not removed from prospective reference denominators.",
+    "v2 has four partial sources: two image-object-capped, one candidate/page-capped, one page-capped.",
+    "maxOutputBytes/metrics.outputBytes cover unique PNG assets, excluding manifest/checkpoint metadata.",
+    "CLI child time/RSS monitor is sampled; parent bounded-input preflight hashing is outside child processing budget.",
+    "No measured peak RSS value recorded; 512MiB is enforced monitor threshold, not measured peak.",
+    "Private diagnostic contact sheet is not the product application renderer."
+  ]
+}

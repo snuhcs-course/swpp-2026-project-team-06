@@ -43,3 +43,7 @@ Unknown geometry uses bounds=null only on non-exporting UNSUPPORTED occurrences;
 ## DEV-458 predeclared v2 resource iteration
 
 After preserving the first actual v1 failure, implement VERSION=pdf-photo-v2 with objectCap=10_000 total objects plus imageObjectCap=200 (image or form objects, before filters) per document. Add metrics.imageObjectsVisited; every object still increments objectsVisited. Frozen v1 results keep old caps/version. All other caps/interfaces/filter/geometry/privacy behavior stay the same. Record IMAGE_OBJECT_LIMIT distinctly from OBJECT_LIMIT. Reaching either cap must retain attempted records and skip remaining work; never call a capped source empty/successful. Integer-valued numeric caps normalize to ints. No product integration and no accuracy-target changes.
+
+## Resource accounting clarification
+
+maxOutputBytes and metrics.outputBytes count unique exported PNG asset bytes only; manifest/checkpoint metadata is excluded. Do not advertise a total-filesystem-byte cap. CLI wall/RSS monitoring applies to child processing, sampled every20ms; parent preflight hashes at most maxInputBytes+1 before this child budget. All source/candidate metadata and raw source previews remain private.
