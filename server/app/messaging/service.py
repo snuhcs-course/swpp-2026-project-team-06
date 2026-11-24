@@ -349,6 +349,8 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
     # 읽음·답장 수는 소유 생산자에게만(DEV-297). _room_access가 남의 농가 생산자를 이미 막았다
     owner = user is not None and user.role == "PRODUCER"
     reads, replies = _broadcast_counts(db, broadcast_ids) if owner and broadcast_ids else ({}, {})
+    # 답장 사진은 그 답장을 볼 수 있는 사람(본인·그 농가 생산자)에게만 행과 함께 나간다(M-19)
+    reply_photos = _room_reply_photos(db, [r.id for r in rows if isinstance(r, RoomReply)])
     result = []
     for r in rows:
         if isinstance(r, Broadcast):
@@ -397,6 +399,7 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                     broadcast_id=None,
                     reaction_count=0,
                     my_reaction=False,
+                    attachment_ids=reply_photos.get(r.id, []),
                 )
             )
     return result
@@ -407,7 +410,7 @@ def _room_summary(db: Session, user, farm, can_reply: bool) -> NewsRoomSummary:
     last = last[0] if last else None
     preview = None
     if last is not None:
-        preview = last.body or "사진·영상 소식"
+        preview = last.body or ("사진" if isinstance(last, RoomReply) else "사진·영상 소식")
     return NewsRoomSummary(
         can_reply=can_reply,
         farm_id=farm.id,
@@ -487,18 +490,30 @@ def send_room(
     text: str,
     reply_to_message_id: str | None = None,
     reply_to_version: int | None = None,
+    *,
+    broadcast_id: str | None = None,
+    attachment_ids: list[str] | None = None,
 ) -> NewsRoomMessage:
-    """생산자는 팔로워 전용 방송, 소비자는 본인과 농가만 보는 텍스트 답장. AI는 답하지 않는다."""
+    """생산자는 팔로워 전용 방송, 소비자는 본인과 농가만 보는 답장(글·비공개 사진).
+
+    AI는 답하지 않는다.
+
+    소비자는 답한 소식(broadcast_id)을 고를 수 있다(DEV-467). 없으면 보낸 순간의 가장 최근 소식.
+    """
     from app.accounts import service as accounts
 
+    attachment_ids = attachment_ids or []
     if user.role == "CONSUMER" and accounts.needs_onboarding(db, user):
         raise forbidden("가입을 마치면 쓸 수 있어요.", reason="ONBOARDING_REQUIRED")
     farm, can_reply = _room_access(db, user, farm_id)
     if not can_reply:
         raise forbidden("팔로우한 뒤 답장할 수 있어요.")
+    if user.role == "PRODUCER" and (broadcast_id is not None or attachment_ids):
+        # 생산자 방송의 사진은 공개 소식 미디어로 올린다(기존 계약). 답한 소식은 소비자 답장에만
+        raise invalid({"broadcastId": "소비자 답장에만 쓸 수 있어요."})
     limit = 2000 if user.role == "PRODUCER" else 1000
     text = text.strip()
-    if not text or len(text) > limit:
+    if (not text and not attachment_ids) or len(text) > limit:
         raise invalid({"text": f"1~{limit:,}자로 적어 주세요."})
     body, _ = mask(text)
     quote = None
@@ -535,26 +550,91 @@ def send_room(
             created_at=now(),
         )
     else:
-        # 답한 소식 = 보낸 순간 그 농가의 가장 최근 지우지 않은 소식(DEV-297).
-        # 소비자 답장에는 인용이 없어(DEV-289 인용은 생산자 → 소비자 방향)
-        # 채팅에서 바로 위 농가 말풍선을 대상으로 본다
-        latest = db.scalar(
-            select(Broadcast.id)
-            .where(Broadcast.farm_id == farm.id, _LIVE)
-            .order_by(Broadcast.created_at.desc(), Broadcast.id.desc())
-            .limit(1)
-        )
+        if broadcast_id is not None:
+            # 소식 카드의 ‘농가에 답장’으로 고른 소식(DEV-467). 답장은 팔로워만 보내므로
+            # 그 농가의 지우지 않은 소식이면 공개·팔로워 전용 모두 보이는 소식이다
+            target_id = db.scalar(
+                select(Broadcast.id).where(
+                    Broadcast.id == broadcast_id, Broadcast.farm_id == farm.id, _LIVE
+                )
+            )
+            if target_id is None:
+                raise not_found("이 소식방의 소식에만 답장할 수 있어요.")
+        else:
+            # 답한 소식 = 보낸 순간 그 농가의 가장 최근 지우지 않은 소식(DEV-297).
+            # 고르지 않은 답장(옛 앱·입력칸에서 바로 보냄)의 기본값이다
+            target_id = db.scalar(
+                select(Broadcast.id)
+                .where(Broadcast.farm_id == farm.id, _LIVE)
+                .order_by(Broadcast.created_at.desc(), Broadcast.id.desc())
+                .limit(1)
+            )
+        photos = _bind_room_photos(db, user.id, attachment_ids, farm.id)
         row = RoomReply(
             id=new_id("reply"),
             farm_id=farm.id,
             consumer_id=user.id,
             body=body,
             created_at=now(),
-            broadcast_id=latest,
+            broadcast_id=target_id,
         )
+        for i, a in enumerate(photos):
+            a.thread_id = _ROOM_REPLY_SCOPE + row.id
+            # 묶인 뒤에는 24시간 검사가 없어 보낸 순서를 시각으로 남긴다(정렬용)
+            a.created_at = row.created_at + timedelta(microseconds=i)
     db.add(row)
     db.flush()
     return _room_messages(db, user, farm, [row])[0]
+
+
+# 소식방 답장 사진(DEV-467): 1:1과 같은 PrivateAttachment에 담고, 새 칸 없이 thread_id 문자열에
+# 자원 키를 둔다. 올릴 때는 그 농가 소식방, 답장에 묶이면 그 답장.
+_ROOM_SCOPE = "room:"
+_ROOM_REPLY_SCOPE = "roomreply:"
+
+
+def _bind_room_photos(
+    db: Session, uploader_id: str, ids: list[str], farm_id: str
+) -> list[PrivateAttachment]:
+    """업로더 본인의, 묶이지 않은, 같은 농가 소식방으로 올린 24시간 안의 사진만.
+
+    bind_attachments와 같은 규칙이다.
+    """
+    if len(ids) > 3 or len(set(ids)) != len(ids):
+        raise invalid({"attachmentIds": "사진은 서로 다른 3장까지 첨부해 주세요"})
+    found = []
+    for aid in ids:
+        a = db.scalar(
+            select(PrivateAttachment).where(PrivateAttachment.id == aid).with_for_update()
+        )
+        if (
+            a is None
+            or a.uploader_id != uploader_id
+            or a.bound
+            or now() - a.created_at > ATTACHMENT_TTL
+            or a.order_id is not None
+            or a.thread_id != _ROOM_SCOPE + farm_id
+        ):
+            raise not_found("사용할 수 없는 첨부예요.")
+        found.append(a)
+    for a in found:
+        a.bound = True
+    return found
+
+
+def _room_reply_photos(db: Session, reply_ids: list[str]) -> dict[str, list[str]]:
+    """답장 id → 비공개 사진 id(올린 순서)."""
+    if not reply_ids:
+        return {}
+    keys = [_ROOM_REPLY_SCOPE + rid for rid in reply_ids]
+    result: dict[str, list[str]] = {}
+    for aid, key in db.execute(
+        select(PrivateAttachment.id, PrivateAttachment.thread_id)
+        .where(PrivateAttachment.thread_id.in_(keys), PrivateAttachment.bound.is_(True))
+        .order_by(PrivateAttachment.created_at, PrivateAttachment.id)
+    ):
+        result.setdefault(key.removeprefix(_ROOM_REPLY_SCOPE), []).append(aid)
+    return result
 
 
 def read_room(db: Session, consumer, farm_id: str, broadcast_id: str) -> None:
@@ -666,6 +746,7 @@ def fan_replies(
     )
     # 탈퇴한 회원은 끝난 주문이 남아 있어도 예약 고객으로 표시하지 않는다
     withdrawn = {cid for cid, u in names.items() if u.deleted_at is not None}
+    photos = _room_reply_photos(db, [r.id for r in rows])
     return FanReplyPage(
         broadcast=FanReplyBroadcast(
             broadcast_id=b.id,
@@ -687,6 +768,7 @@ def fan_replies(
                 unread=r.producer_read_at is None,
                 reserved_customer=r.consumer_id in reserved and r.consumer_id not in withdrawn,
                 quoted=r.id in quoted,
+                attachment_ids=photos.get(r.id, []),
             )
             for r in rows
         ],
@@ -1903,11 +1985,23 @@ def upload_attachment(
     declared: str | None,
     order_id: str | None,
     thread_id: str | None,
+    room_farm_id: str | None = None,
 ) -> AttachmentView:
     """업로드한 사람만 보는 임시 파일. 실제 형식 확인·EXIF 제거, 24시간 지난 미연결 파일 정리."""
     if user.role not in ("CONSUMER", "PRODUCER"):
         raise forbidden()
-    _check_resource(db, user, order_id, thread_id)
+    if room_farm_id is not None:
+        # 소식방 비공개 답장 사진(DEV-467): 답장을 보낼 수 있는 소비자(팔로워)만
+        if order_id or thread_id:
+            raise invalid({"file": "주문 또는 대화를 하나 지정해 주세요"})
+        if user.role != "CONSUMER":
+            raise forbidden("소비자 답장에만 사진을 붙일 수 있어요.")
+        farm, can_reply = _room_access(db, user, room_farm_id)
+        if not can_reply:
+            raise forbidden("팔로우한 뒤 답장할 수 있어요.")
+        thread_id = _ROOM_SCOPE + farm.id
+    else:
+        _check_resource(db, user, order_id, thread_id)
     mime, cleaned = images.sanitize(data, declared)
     db.execute(
         delete(PrivateAttachment).where(
@@ -1931,6 +2025,20 @@ def upload_attachment(
     return _attachment_view(row)
 
 
+def _may_see_room_reply(db: Session, user, reply_id: str) -> bool:
+    from app.farms import service as farms
+
+    reply = db.get(RoomReply, reply_id)
+    if reply is None:
+        return False
+    if user.role == "CONSUMER":
+        return reply.consumer_id == user.id
+    if user.role == "PRODUCER":
+        own = farms.get_farm_of_producer(db, user.id)
+        return own is not None and own.id == reply.farm_id
+    return False
+
+
 def read_attachment(db: Session, user, attachment_id: str) -> PrivateAttachment:
     """묶인 파일은 그 주문·대화 참여자, 임시 파일은 업로더만. 아니면 404."""
     a = db.get(PrivateAttachment, attachment_id)
@@ -1938,6 +2046,11 @@ def read_attachment(db: Session, user, attachment_id: str) -> PrivateAttachment:
         raise not_found("찾을 수 없는 사진이에요.")
     if not a.bound:
         if a.uploader_id != user.id or now() - a.created_at > ATTACHMENT_TTL:
+            raise not_found("찾을 수 없는 사진이에요.")
+        return a
+    if a.order_id is None and (a.thread_id or "").startswith(_ROOM_REPLY_SCOPE):
+        # 소식방 답장 사진: 답장 쓴 소비자와 그 농가 생산자만(M-19, DEV-467)
+        if not _may_see_room_reply(db, user, a.thread_id.removeprefix(_ROOM_REPLY_SCOPE)):
             raise not_found("찾을 수 없는 사진이에요.")
         return a
     try:
