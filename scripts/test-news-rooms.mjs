@@ -376,7 +376,9 @@ test("AC-15-12 AC-15-13 shared Mock links replies to the tapped post and keeps r
     const sheet = await api("GET", `${room}/broadcasts/${older}/replies`, producer);
     assert.ok(sheet.body.items.some((r) => r.messageId === tapped.body.messageId));
     // 남의 농가 소식·없는 소식은 404, 생산자는 고를 수 없다
-    assert.equal((await api("POST", `${room}/messages`, minji, { text: "x", broadcastId: "n-missing" }, "tap-2")).status, 404);
+    const gone = await api("POST", `${room}/messages`, minji, { text: "x", broadcastId: "n-missing" }, "tap-2");
+    assert.equal(gone.status, 404);
+    assert.equal(gone.body.details.reason, "REPLY_TARGET_GONE");
     assert.equal((await api("POST", `${room}/messages`, producer, { text: "x", broadcastId: older }, "tap-3")).status, 400);
 
     // 비공개 사진: 팔로우한 소비자만 올리고, 답장 쓴 소비자와 그 농가 생산자만 본다
@@ -392,7 +394,9 @@ test("AC-15-12 AC-15-13 shared Mock links replies to the tapped post and keeps r
     assert.equal(await see(id, producer), 200);
     assert.equal(await see(id, seojun), 404);
     // 다시 쓰기·4장·글도 사진도 없음은 거부
-    assert.equal((await api("POST", `${room}/messages`, minji, { text: "again", attachmentIds: [id] }, "photo-2")).status, 404);
+    const reused = await api("POST", `${room}/messages`, minji, { text: "again", attachmentIds: [id] }, "photo-2");
+    assert.equal(reused.status, 404);
+    assert.equal(reused.body.details.reason, "ATTACHMENT_UNUSABLE");
     assert.equal((await api("POST", `${room}/messages`, minji, { text: "many", attachmentIds: ["a", "b", "c", "d"] }, "photo-3")).status, 400);
     assert.equal((await api("POST", `${room}/messages`, minji, { text: " " }, "photo-4")).status, 400);
     // 생산자 팬 답장 시트에도 사진 id

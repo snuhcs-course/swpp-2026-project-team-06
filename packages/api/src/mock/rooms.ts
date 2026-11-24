@@ -247,12 +247,12 @@ register({
       }
       // 고른 소식(소식 카드 ‘농가에 답장’, DEV-467). 없으면 보낸 순간의 가장 최근 소식(AC-15-10)
       if (target != null && !ctx.db.news.some((n) => n.broadcastId === target && n.farmId === farmId))
-        notFound("이 소식방의 소식에만 답장할 수 있어요.");
+        fail(404, "NOT_FOUND", "이 소식방의 소식에만 답장할 수 있어요.", { reason: "REPLY_TARGET_GONE" });
       const answersBroadcastId = target ?? latestBroadcast(ctx.db, farmId);
       const photos = photoIds.map((id) => {
         const a = ctx.db.attachments[id];
         if (!a || a.ownerId !== user.userId || a.bound || a.roomFarmId !== farmId || Date.now() - Date.parse(a.createdAt) > 86400000)
-          notFound("사용할 수 없는 첨부예요.");
+          fail(404, "NOT_FOUND", "사용할 수 없는 첨부예요.", { reason: "ATTACHMENT_UNUSABLE" });
         return a;
       });
       const messageId = nextId("reply");

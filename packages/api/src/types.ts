@@ -74,12 +74,14 @@ export type CurrentStageSnapshot = StageSnapshot & {
   endsAt: string;
 };
 
+/** 404에 붙는 이유(DEV-467): 소식방 답장의 고른 소식이 사라짐 · 쓸 수 없는 첨부 사진 */
+export type NotFoundReason = "REPLY_TARGET_GONE" | "ATTACHMENT_UNUSABLE";
 export type ErrorBody = {
   code: ErrorCode;
   message: string;
   details: {
     fields?: Record<string, string>;
-    reason?: ConflictReason | ForbiddenReason | UnauthenticatedReason;
+    reason?: ConflictReason | ForbiddenReason | UnauthenticatedReason | NotFoundReason;
     /** STAGE_CHANGED·SOLD_OUT: 고른 옵션 */
     optionId?: string | null;
     previous?: StageSnapshot;
