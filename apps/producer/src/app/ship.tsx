@@ -643,7 +643,8 @@ export default function Ship() {
     if (o.undoAction) {
       const action = o.undoAction;
       out.push({
-        label: `${ORDER_STATUS[action.previousStatus]}로 되돌리기`,
+        // 환불 미승인·송금 완료 표시처럼 상태가 그대로인 처리는 처리 이름으로 적는다
+        label: action.previousStatus === o.status ? `‘${action.label}’ 되돌리기` : `${ORDER_STATUS[action.previousStatus]}로 되돌리기`,
         hint: `방금 한 ‘${action.label}’ 전으로 돌아가요`,
         onPress: close(() => {
           setUndoError(null);
@@ -960,7 +961,7 @@ export default function Ship() {
                 order={o}
                 photo={photos[o.productId]}
                 busy={busy}
-                statusLabel={refunded && o.refundSettledAt ? "환불 완료" : undefined}
+                statusLabel={statusText(o)}
                 onStatus={statusOptions(o).length ? () => setStatusFor(o) : undefined}
                 select={
                   pickTab ? (
@@ -1117,7 +1118,7 @@ export default function Ship() {
           <>
             <OrderIdentity o={statusFor} />
             <T variant="sub" muted>
-              지금 상태 · {ORDER_STATUS[statusFor.status]}
+              지금 상태 · {statusText(statusFor)}
             </T>
             <View accessibilityRole="list" style={{ gap: tokens.space.sm }}>
               {statusOptions(statusFor).map((opt) => (
@@ -1231,10 +1232,12 @@ export default function Ship() {
                 borderColor: tokens.color.border,
               }}
             >
-              <T muted>{ORDER_STATUS[undoFor.status]}</T>
+              <T muted>{statusText(undoFor)}</T>
               <Icon name="forward" size={18} color={tokens.color.textMuted} />
               <T weight="semibold" color={tokens.color.accent}>
-                {ORDER_STATUS[undoFor.undoAction.previousStatus]}
+                {undoFor.undoAction.previousStatus === undoFor.status
+                  ? `‘${undoFor.undoAction.label}’ 전`
+                  : ORDER_STATUS[undoFor.undoAction.previousStatus]}
               </T>
             </View>
             <T variant="sub" muted>
@@ -1351,4 +1354,9 @@ function OrderIdentity({ o }: { o: ProducerOrder }) {
       </View>
     </View>
   );
+}
+
+/** 카드 칩·되돌리기 확인에 같이 쓰는 상태 표시. 송금을 마친 환불은 ‘환불 완료’ */
+function statusText(o: ProducerOrder) {
+  return o.status === "REFUNDED" && o.refundSettledAt ? "환불 완료" : ORDER_STATUS[o.status];
 }
