@@ -21,15 +21,20 @@ const files = (dir) =>
 const hasNativePair = (rel) =>
   [".native.ts", ".native.tsx"].some((ext) => existsSync(path.join(root, rel.replace(/\.tsx?$/, ext))));
 // 주석·문자열 안의 단어는 보지 않는다(줄 위치는 유지).
-const strip = (s) =>
+const stripComments = (s) =>
   s
     .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
     .replace(/\/\/.*$/gm, (m) => " ".repeat(m.length))
-    .replace(/`[^`]*`/g, (m) => m.replace(/[^\n]/g, " "))
-    .replace(/"[^"\n]*"/g, (m) => `"${" ".repeat(m.length - 2)}"`);
+    .replace(/`[^`]*`/g, (m) => m.replace(/[^\n]/g, " "));
+const strip = (s) => stripComments(s).replace(/"[^"\n]*"/g, (m) => `"${" ".repeat(m.length - 2)}"`);
 
 // 웹에만 있는 것: window·document의 이벤트 구독, document의 DOM 접근, window의 창 크기.
 const WEB_ONLY = /(?<![\w.$])(?:(window|document)\s*\.\s*(?:add|remove)EventListener|(document)\s*\.\s*\w+|(window)\s*\.\s*inner(?:Width|Height))/g;
+// 웹에만 있는 DOM 요소(react-native-web만 그린다). 앱에서 그리면 "View config getter callback for component `input`"
+// 오류로 화면 전체가 지워진다(DEV-471: 판매 조건 고치기의 DateInput <input type="date">).
+const DOM_TAGS = "input|div|span|img|select|option|textarea|button|label|video|audio|iframe|canvas|form|style";
+const DOM_JSX = new RegExp(`<(${DOM_TAGS})[\\s/>]`, "g");
+const DOM_CREATE = new RegExp(`createElement\\(\\s*"(${DOM_TAGS})"`, "g");
 // 가장 가까운 effect·함수 시작부터 그 줄까지를 분기 범위로 본다.
 const SCOPE = /(?:useEffect|useLayoutEffect|useCallback|useMemo)\s*\(|function\s+\w*\s*\(/g;
 
@@ -37,7 +42,12 @@ const SCOPE = /(?:useEffect|useLayoutEffect|useCallback|useMemo)\s*\(|function\s
 export function unguardedWebGlobals(rel, source) {
   const code = strip(source);
   const hits = [];
-  for (const m of code.matchAll(WEB_ONLY)) {
+  const found = [
+    ...code.matchAll(WEB_ONLY),
+    ...(rel.endsWith(".tsx") ? [...code.matchAll(DOM_JSX)] : []),
+    ...stripComments(source).matchAll(DOM_CREATE),
+  ];
+  for (const m of found) {
     const global = m[1] ?? m[2] ?? m[3];
     let start = 0;
     for (const s of code.slice(0, m.index).matchAll(SCOPE)) start = s.index;
@@ -51,9 +61,9 @@ export function unguardedWebGlobals(rel, source) {
   return hits;
 }
 
-test("앱 화면 코드의 웹 전용 전역(window·document 이벤트, DOM)은 Platform 분기 안에서만 쓴다", () => {
+test("앱 화면 코드의 웹 전용 전역(window·document 이벤트, DOM 요소)은 Platform 분기 안에서만 쓴다", () => {
   const hits = [];
-  for (const app of ["apps/consumer/src", "apps/producer/src"])
+  for (const app of ["apps/consumer/src", "apps/producer/src", "packages/ui/src"])
     for (const f of files(app)) if (!hasNativePair(f)) hits.push(...unguardedWebGlobals(f, read(f)));
   assert.deepEqual(hits, []);
 });
@@ -73,6 +83,17 @@ test("검사 자체: typeof window 검사만으로는 앱에서 통과하지 못
   assert.deepEqual(unguardedWebGlobals("x.tsx", good), []);
   // document는 RN에 없으므로 typeof document 검사도 분기로 친다
   assert.deepEqual(unguardedWebGlobals("x.tsx", `function f() { if (typeof document === "undefined") return; document.querySelectorAll("a"); }`), []);
+  // DOM 요소: 분기 없이 그리면 걸리고, Platform 분기가 같은 함수 안에 있으면 통과
+  assert.equal(unguardedWebGlobals("x.tsx", `function DateInput() { return <View><input type="date" /></View>; }`).length, 1);
+  assert.equal(unguardedWebGlobals("x.tsx", `function V() { return createElement("video", { src }); }`).length, 1);
+  assert.deepEqual(unguardedWebGlobals("x.tsx", `function DateInput() { if (Platform.OS !== "web") return <Pressable />; return <input type="date" />; }`), []);
+});
+
+test("생산자 날짜 칸(DateInput)은 앱에서 DOM <input>을 그리지 않는다(판매 조건 고치기)", () => {
+  const code = read("apps/producer/src/lib/fields.tsx");
+  const fn = code.slice(code.indexOf("export function DateInput("), code.indexOf(`type="date"`));
+  assert.match(fn, /if \(Platform\.OS !== "web"\)\s*return/);
+  assert.match(fn, /<DateSheet/);
 });
 
 test("판매페이지 화면(새 상품·상품 수정)의 beforeunload는 웹에서만 구독한다", () => {
