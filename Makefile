@@ -86,7 +86,7 @@ test-source-final: ## Offline stage-2 evaluator and final-text scorer tests (DEV
 .PHONY: test-text-scoring
 test-text-scoring: ## Opt-in text evaluator and legacy scoring regressions (DEV-448)
 	@$(LOCAL_DB_ONLY)
-	$(SERVER) uv run pytest tests/test_text_score.py tests/test_text_score_compare.py tests/test_source_inventory.py tests/test_final_score.py tests/test_final_eval.py
+	$(SERVER) uv run pytest tests/test_text_score.py tests/test_text_score_compare.py tests/test_source_inventory.py tests/test_inventory_refinement.py tests/test_inventory_compare.py tests/test_source_refine.py tests/test_final_score.py tests/test_final_eval.py
 
 test-server: ## pytest + alembic check (CI server job; run make db first)
 	@$(LOCAL_DB_ONLY)

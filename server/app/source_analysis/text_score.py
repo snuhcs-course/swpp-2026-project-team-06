@@ -111,17 +111,60 @@ def _qualifiers(text):
     return {label for pattern, label in QUALIFIERS if re.search(pattern, value)}
 
 
-def _conflict(output, evidence):
+def _source_alternative(output, safe):
+    """Recognize exact complete source alternatives only to abstain from conflict.
+
+    OCR option headings can occupy a numbered line without sentence punctuation.
+    Treating such a line as an alternative never awards SUPPORT; preceding scope
+    headings still use the existing conservative context check.
+    """
+    if _source_bound(output, safe):
+        return True
+    raw_lines = [line for line in safe.splitlines() if line.strip()]
+    # A literal inventory output retains its original ordinal. Compare that full
+    # line first; stripping only the source ordinal would manufacture a mismatch.
+    # Never erase an ordinal from the output or equate different ordinal/value pairs.
+    if any(_equivalent(output, line) for line in raw_lines) and _source_bound(
+        output, ". ".join(raw_lines)
+    ):
+        return True
+    lines = [re.sub(r"^\s*(?:\d{1,2}[.)]|0[1-9])\s+", "", line) for line in raw_lines]
+    return any(_equivalent(output, line) for line in lines) and _source_bound(
+        output, ". ".join(lines)
+    )
+
+
+def _presence_relations(text):
+    """Only explicit same-subject presence properties have bounded polarity here.
+
+    A negator about season, cosmetic appearance or another property cannot negate
+    peelability or seeds. Unrecognized relations remain outside this envelope.
+    """
+    result = set()
+    for clause in _clauses(text):
+        for match in re.finditer(r"(씨|점|흠)(?:이|가|은|는)?(없|있)", clause):
+            subject = re.sub(r"(?:에는|에서는|은|는|에|의|이|가)$", "", clause[:match.start()])
+            result.add((subject, match[1], match[2]))
+    return result
+
+
+def _conflict(output, evidence, *, safe=None, source_alternative=None):
     """Detect only bounded relation/modifier changes, never global number unions."""
     out = mechanical(output)
+    alternative = (
+        safe is not None and _source_alternative(output, safe)
+        if source_alternative is None else source_alternative
+    )
     for reference in evidence:
         ref = mechanical(reference)
-        if _skeleton(out) == _skeleton(ref) and _quantities(out) != _quantities(ref):
+        if (not alternative and _skeleton(out) == _skeleton(ref)
+                and _quantities(out) != _quantities(ref)):
             return "QUANTITY_RELATION_CHANGED"
         # Compare each typed subject/value clause, preserving option/product labels.
         for oc in _clauses(output):
             for rc in _clauses(reference):
-                if _skeleton(oc) == _skeleton(rc) and _quantities(oc) != _quantities(rc):
+                if (not alternative and _skeleton(oc) == _skeleton(rc)
+                        and _quantities(oc) != _quantities(rc)):
                     return "QUANTITY_RELATION_CHANGED"
         output_measurements = tuple(
             q for q in _quantities(output) if not re.fullmatch(r"\d{4}년", q)
@@ -153,9 +196,11 @@ def _conflict(output, evidence):
         ):
             if left in rq and right in oq:
                 return "QUALIFIER_CHANGED"
-        if "NEGATION" in rq and "NEGATION" not in oq and "있" in out:
-            return "NEGATION_CHANGED"
-        if "NEGATION" not in rq and "NEGATION" in oq and "있" in ref:
+        if any(
+            os == rs and op == rp and polarity != reference_polarity
+            for os, op, polarity in _presence_relations(output)
+            for rs, rp, reference_polarity in _presence_relations(reference)
+        ):
             return "NEGATION_CHANGED"
     return None
 
@@ -374,6 +419,9 @@ def _score(
         )
         sentence_rows = []
         evidence = legacy.split_sentences(safe)
+        # Reuse only within this source/run. Never retain private source strings
+        # in a global cache or repeat the full-source scan for every gold fact.
+        alternatives = {s: _source_alternative(s, safe) for s in sentences}
         for i, (_, sentence) in enumerate(output):
             reason = None
             if _unsafe(sentence, source):
@@ -384,8 +432,10 @@ def _score(
                 _equivalent(sentence, reference.text) for reference in source.sentences
             ):
                 state, reason = "SUPPORTED", "SOURCE_MECHANICAL"
-            elif _conflict(sentence, evidence):
-                state, reason = "UNSUPPORTED", _conflict(sentence, evidence)
+            elif conflict_reason := _conflict(
+                sentence, evidence, source_alternative=alternatives[sentence]
+            ):
+                state, reason = "UNSUPPORTED", conflict_reason
             elif any(
                 legacy.unsupported_tokens(
                     legacy.sensitive_tokens(sentence, cultivar_words),
@@ -494,7 +544,9 @@ def _score(
                 and bool(reference_clauses)
                 and all(clause in output_clauses for clause in reference_clauses)
             )
-            conflict = any(_conflict(s, [target]) for _, s in output)
+            conflict = any(
+                _conflict(s, [target], source_alternative=alternatives[s]) for _, s in output
+            )
             judgment = fj.get(fid)
             if judgment is not None:
                 matched = judgment["outputSentenceIndices"] if judgment["preserved"] else []

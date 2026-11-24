@@ -5,3 +5,10 @@ FEAT-03/04/07 · AC-SRC-2/3/5/10/11 · M-11/18. 기존 strict scorer/gold는 변
 가격·개인정보·효능·정책 경계는 현재 source-analysis.md 계약을 따른다. 정상 빈 결과는 명시된 빈 gold 계약에서만 구분한다. source/product/option/measurement/sample/time 조건이 다른 값은 같은 근거로 쓰지 않는다. support false를 token 일치로 덮지 않는다. 전체 출력의 추가 주장도 별도 검사한다. historical criticalGate는 95% 전체/형식별 recall 통과가 아니다. 미해결 의미와 처리 불완전은 새 acceptance에서 드러낸다.
 
 이번 범위는 텍스트 출력과 점수다. 이미지/PDF의 글 읽기는 유지하되 사진 선택·크롭·시각 디자인 평가를 포함하지 않는다. 생산자 직접 수정·비공개 저장·명시 적용/권한은 그대로다. 실제 제품 채택/운영 배포는 별도이며 source/editor 계약 변경을 암묵적으로 수행하지 않는다.
+
+
+## DEV-450 명시적 inventory writer 실험
+기본 v11 worker/큐/캐시는 유지한다. 별도 refine_inventory 호출만 전체 승인 후보 inventory와 target·자료 revision·안전 규칙·writer version의 해시에 결합된 응답을 처리한다. KEEP 문구는 인용한 unit 원문을 순서대로 그대로 유지해야 하며, 공백 연속/NFC 정규화만 허용한다. 자유로운 의역·단위 변환·수식어 제거는 거절한다. 모든 unit은 KEEP/EXCLUDE/REVIEW 중 하나이며, EXCLUDE/REVIEW는 검토 필요 상태다. 기존 최종 안전 검증이 KEEP를 거절하면 INCOMPLETE이고 원문으로 복구하지 않는다. 전체 입력 한도를 넘으면 잘라내지 않고 실패한다. 비 mock 호출은 요청의 개인정보가 가려져 있지 않으면 전송 전에 거절한다.
+이 경로는 텍스트 조립 실험이며 일반 생산자 흐름에 자동 적용되지 않는다. 보존된 unit의 수는 원자료 추출 recall·의미 정확도·검증된 전체 gold 점수가 아니다. offline literal control은 모델 개선 증거가 아니며 검토/실패 예시도 분모에 남긴다. 비공개 저장·명시 적용·생산자 수정 보호 계약은 변경하지 않는다.
+
+모든 결과는 requiresContentReview=true, statusScope=ASSEMBLY_ACCOUNTING_ONLY를 포함한다. COMPLETE/EMPTY도 내용 승인·공개 가능 상태가 아니며 기존 안전 휴리스틱의 상품/서비스 구분 한계를 해결했다고 주장하지 않는다.

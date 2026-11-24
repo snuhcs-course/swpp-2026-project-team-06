@@ -341,3 +341,7 @@ FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
 | 2026-11-17 | 감수한 점: 미리보기는 그 브라우저에 최대 하루 남는다(자료를 지우거나 상품 연결을 바꿔도 이미 받은 사본은 `max-age` 동안 그 생산자 브라우저에만 남음, 다른 로그인은 `Vary: Authorization`으로 재검증). 앱 메모리 공유본은 로그인이 바뀌거나 로그아웃하면 지운다. 상품사진 업로드는 미리보기 두 장을 더 만들어 12MP 기준 서버 처리 0.64초→0.79초(로컬 측정) | 여는 시간 49.6초→2.1초(10Mbps)에 비해 작은 비용. 원본·가림 전 이미지는 계속 `no-store` | AC-SRC-5/6 |
 
 DEV-448 text-first opt-in evaluation follows docs/evaluation/i5-text-scoring/spec.md; legacy scorer immutable.
+
+
+### DEV-450 opt-in literal inventory writer
+FEAT-03/04/07, AC-SRC-2/3/5/10/11, M-11/18: explicit inventory_refinement request/response validator and ai.source_refine.refine_inventory adapter; default v11 path unchanged. Bind full rebuilt inventory/current revisions/target/writer/safety hash. Reject truncated accounting, arbitrary rewriting and changed numeric/qualifier spacing. Derive candidate citations then run existing final validate; missing KEEP is incomplete, EXCLUDE/REVIEW requires review. All-source exclusions are not a successful empty result. No producer persistence mutation or semantic proof from unit IDs. New development-only offline literal control never calls providers or silently drops failed sources.

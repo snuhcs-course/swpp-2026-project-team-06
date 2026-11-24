@@ -439,3 +439,73 @@ def test_AC_SRC_10_invalid_input_errors_never_expose_private_payload():
     with pytest.raises(ValueError, match="Invalid text-score input") as error:
         text_score.score(gold, records, safe)
     assert sentinel not in str(error.value)
+
+
+@pytest.mark.parametrize("weight", ["2kg", "3kg", "5kg", "9kg"])
+def test_AC_SRC_3_exact_alternative_option_not_conflict_or_automatic_support(weight):
+    safe = "\n".join(f"0{i} 실속형 감귤 {w}" for i, w in
+                     enumerate(["2kg", "3kg", "5kg", "9kg"], 1))
+    output = f"실속형 감귤 {weight}"
+    report = run(reference="실속형 감귤 2kg입니다.", safe=safe, output=[output])
+    row = report["sources"][0]
+    assert row["sentences"][0]["status"] == "UNKNOWN"
+    assert row["facts"][0]["status"] == "UNKNOWN"
+    assert report["acceptance"] == "UNKNOWN"
+    assert report["overall"]["unsupported"] == 0
+    assert report["overall"]["correctness"]["hit"] == 0
+
+
+def test_AC_SRC_3_complete_supported_options_do_not_contradict_each_other():
+    gold, records, safe = inputs(reference="감귤 2kg 한 상자입니다.")
+    second = copy.deepcopy(gold["sources"][0]["sentences"][0])
+    second["text"] = "감귤 3kg 한 상자입니다."
+    second["facts"][0].update(id="f2", statement=second["text"])
+    gold["sources"][0]["sentences"].append(second)
+    records[0]["modules"][0]["texts"].append(second["text"])
+    safe["example"] += " " + second["text"]
+    report = text_score.score(gold, records, safe)
+    assert report["overall"]["semanticPreservation"]["hit"] == 2
+    assert report["acceptance"] == "PASS"
+
+
+@pytest.mark.parametrize("output", [
+    "껍질을 벗기고 먹다 보면 간혹 씨가 있는 경우도 있습니다.",
+    "외모가 울퉁불퉁 덜 예쁠 수 있으나 껍질을 쉽게 벗길 수 있습니다.",
+])
+def test_AC_SRC_3_unrelated_negative_season_or_appearance_cannot_reverse_property(output):
+    safe = "감귤이 없는 시즌입니다. 껍질이 예쁘지 않습니다."
+    report = run(reference="감귤 4kg 한 상자입니다.", safe=safe, output=[output])
+    assert report["sources"][0]["sentences"][0]["status"] == "UNKNOWN"
+    assert report["overall"]["unsupported"] == 0
+    assert report["acceptance"] == "UNKNOWN"
+
+
+def test_AC_SRC_3_exact_option_fragment_cannot_bypass_preceding_scope_heading():
+    safe = "작년 A상품 정보입니다.\n01 감귤 2kg입니다.\n02 감귤 3kg입니다."
+    report = run(reference="감귤 2kg입니다.", safe=safe, output=["감귤 2kg입니다."])
+    assert report["overall"]["correctness"]["hit"] == 0
+    assert report["acceptance"] != "PASS"
+
+
+@pytest.mark.parametrize(
+    "ordinal,weight", [("01", "2kg"), ("02", "3kg"), ("03", "5kg"), ("04", "9kg")]
+)
+def test_AC_SRC_3_literal_numbered_option_keeps_ordinal_without_cross_option_conflict(
+    ordinal, weight
+):
+    safe = "\n".join(f"0{i} 실속형 감귤 {w}" for i, w in
+                     enumerate(["2kg", "3kg", "5kg", "9kg"], 1))
+    output = f"{ordinal} 실속형 감귤 {weight}"
+    report = run(reference="감귤 2kg 한 상자입니다.", safe=safe, output=[output])
+    assert report["sources"][0]["sentences"][0]["status"] == "UNKNOWN"
+    assert report["overall"]["unsupported"] == 0
+    assert report["overall"]["correctness"]["hit"] == 0
+    assert report["acceptance"] == "UNKNOWN"
+
+
+@pytest.mark.parametrize("output", ["01 감귤 3kg", "02 감귤 2kg", "1번 감귤 3kg"])
+def test_AC_SRC_3_option_ordinals_are_not_globally_removed_to_rescue_swapped_values(output):
+    safe = "01 감귤 2kg\n02 감귤 3kg\n1번 감귤 2kg"
+    report = run(reference="감귤 2kg 한 상자입니다.", safe=safe, output=[output])
+    assert report["sources"][0]["sentences"][0]["status"] == "UNSUPPORTED"
+    assert report["acceptance"] == "FAIL"
