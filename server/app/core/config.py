@@ -14,6 +14,7 @@ SOURCE_OPENROUTER_PRICES = {
     "google/gemini-3.1-flash-lite": (0.25, 1.5),
     "google/gemini-3-flash-preview": (0.5, 3.0),
     "openai/gpt-6.1-sol": (2.0, 10.0),
+    "openai/gpt-6.2-astra": (8.0, 40.0),
 }
 
 
@@ -103,6 +104,7 @@ class Settings(BaseSettings):
             if self.source_analysis_provider == "openrouter" and (
                 not self.openrouter_api_key
                 or self.source_analysis_model not in SOURCE_OPENROUTER_PRICES
+                or self.source_analysis_model == "openai/gpt-6.2-astra"
             ):
                 raise ValueError("OpenRouter key and budget-qualified model are required")
             if self.source_analysis_provider == "openai" and not self.openai_api_key:

@@ -25,3 +25,7 @@ The same four-source original94-fact diagnostic now reaches87/94 and35/38critica
 
 ## Prose layout follow-up
 Single poster line wraps flow as spaces in generated prose. Blank paragraphs, option/property/table/list boundaries and explicit owner formatting remain intact. Exact source evidence and per-item review bindings stay unchanged; a separate layout version updates the assembled plan. Publication detects removed/replaced source wording despite whitespace reflow or option grouping. This is layout repair, not general grammar correction or recovery of missing facts.
+
+
+## Block-first capability experiment (DEV-453)
+All models receive the same saved OCR; OCR is not rerun. Models group related whole source spans and label blocks. Related passages may be nonadjacent; independent exact evidence locations and paragraph boundaries are retained. The server materializes exact wording from those references, preserving qualifiers, prices and historical wording. Uncertain field/target assignments remain in a private review ledger. Every source span needs a block or justified exclusion. Exclusion claims are independently checked; unexplained omissions, repeated/invalid references, conversion limits and downstream rejections remain explicit. Model explanations are self-reports, not verified internal reasoning. Missing original PDF-page metadata is represented as synthetic transcript positions. This opt-in development comparison does not change the deployed worker/default policy or establish release accuracy. Original gold/scorer and prior failures stay fixed.
