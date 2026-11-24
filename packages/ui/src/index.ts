@@ -51,7 +51,6 @@ export {
   Toast,
   FollowButton,
   Notice,
-  TestBand,
   type ProductRowProps,
   type StageCell,
 } from "./content";

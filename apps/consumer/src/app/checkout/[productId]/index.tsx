@@ -32,7 +32,6 @@ import {
   Sheet,
   useSheetLeave,
   T,
-  TestBand,
   md,
   period,
   tokens,
@@ -483,7 +482,6 @@ export default function Checkout() {
           goBackOr(router, `/products/${params.productId}`)
         }
       />
-      <TestBand text="테스트 서비스예요 · 실제 입금·배송은 없어요" />
       <Scroll bottom={170}>
         {!view && p && unit > 0 && params.seenUnitPrice &&
           Number.isSafeInteger(Number(params.seenUnitPrice)) &&
