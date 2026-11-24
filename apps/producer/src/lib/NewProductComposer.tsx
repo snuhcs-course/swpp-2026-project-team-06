@@ -66,7 +66,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, Pressable, TextInput, View, type ScrollView } from "react-native";
+import { ActivityIndicator, Platform, Pressable, TextInput, View, type ScrollView } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { toPageData } from "./BuyerPreview";
 import { useHideTabBar, useSession } from "./session";
@@ -863,7 +863,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         event.returnValue = "";
       }
     };
-    if (typeof window === "undefined") return;
+    // 웹 전용: 탭을 닫을 때 경고. 앱(React Native)은 window가 전역 객체라 있지만 addEventListener가 없어서
+    // typeof window 검사만으로는 막지 못하고 TypeError로 화면 전체가 지워졌다(DEV-471 원스토어 반려, DetailEditor와 같은 분기).
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty, busy]);
