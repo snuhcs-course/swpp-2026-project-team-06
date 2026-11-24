@@ -1,3 +1,6 @@
+import type { EmoticonId } from "@farmclub/api";
+import { EmoticonMessage } from "./Emoticon";
+import { useComposerTools } from "./ComposerTools";
 import { MessageEditSheet } from "./MessageEditSheet";
 import { MessageMenu, type MenuPoint } from "./MessageMenu";
 import { mergeChatMessages } from "./chatOrder";
@@ -34,6 +37,7 @@ type Message = {
   messageId: string;
   senderType: string;
   body: string;
+  emoticonId?: EmoticonId | null;
   createdAt: string;
   sourceSummary: string | null;
   attachmentIds?: string[];
@@ -62,10 +66,11 @@ type Props = {
   onBusyChange?: (busy: boolean) => void;
   edit?: (id: string, text: string, version: number, key: string) => Promise<Message>;
   replies?: boolean;
+  emoticons?: boolean;
   producer?: boolean;
   active: boolean;
   load: (cursor?: string) => Promise<Page>;
-  send: (text: string, ids: string[], key: string, replyToMessageId?: string) => Promise<unknown>;
+  send: (text: string, ids: string[], key: string, replyToMessageId?: string, emoticonId?: EmoticonId) => Promise<unknown>;
   report?: (messageId: string, key: string) => Promise<unknown>;
   /** 생산자: 확인 요청된 AI 답변에 '답이 맞아요'(DEV-296). 주면 깃발 답변 아래 확인 카드를 그린다 */
   confirmCheck?: (messageId: string, key: string) => Promise<unknown>;
@@ -100,6 +105,7 @@ export function ChatThread({
   onBusyChange,
   edit,
   replies = false,
+  emoticons = false,
   producer = false,
   active,
   load,
@@ -148,6 +154,7 @@ export function ChatThread({
     [older, setOlder] = useState(false),
     [retryCount, setRetryCount] = useState(0),
     [retrySend, setRetrySend] = useState(false);
+  const [selectedEmoticon, setSelectedEmoticon] = useState<EmoticonId>();
   const scroll = useRef<ScrollView>(null),
     known = useRef(new Set<string>(initialPage?.items.map(m => m.messageId))),
     initialized = useRef(Boolean(initialPage)),
@@ -206,6 +213,7 @@ export function ChatThread({
     setUploading(false);
     setIds([]);
     setPhotos(false);
+    setSelectedEmoticon(undefined);
     setRetrySend(false);
     setError(ids.length ? "문의할 주문이 바뀌었어요. 사진을 다시 첨부해 주세요." : "");
   }, [sendScope]);
@@ -460,16 +468,18 @@ export function ChatThread({
     if (prefillId !== undefined && prefillText.current) setText(prefillText.current);
   }, [prefillId]);
   async function submit() {
-    if (!sameRoom() || !ready || !composerEnabled || lock.current || uploading || (!text.trim() && !ids.length)) return;
+    if (!sameRoom() || !ready || !composerEnabled || lock.current || uploading || (!text.trim() && !ids.length && !selectedEmoticon)) return;
     const submittedScope = context.current, run = epoch.current;
     lock.current = true;
     setBusy(true);
-    const body = JSON.stringify({ scope: submittedScope, text: text.trim(), ids, replyTo: replyTo?.messageId });
+    const emoji = selectedEmoticon;
+    const outgoingText = emoji ? "" : text.trim(), outgoingIds = emoji ? [] : ids;
+    const body = JSON.stringify({ scope: submittedScope, text: outgoingText, ids: outgoingIds, replyTo: replyTo?.messageId, emoji });
     if (pending.current?.body !== body)
       pending.current = { body, key: makeKey() };
     let committed = false;
     try {
-      await callbacks.current.send(text.trim(), ids, pending.current.key, replyTo?.messageId);
+      await callbacks.current.send(outgoingText, outgoingIds, pending.current.key, replyTo?.messageId, emoji);
       if (!current(run) || submittedScope !== context.current) return;
       committed = true;
       if (producer && replyTo?.replyRequested) {
@@ -477,10 +487,8 @@ export function ChatThread({
           ? { ...m, replyRequested: false } : m));
       }
       setRetrySend(false);
-      setReplyTo(null);
-      setText("");
-      setIds([]);
-      setPhotos(false);
+      if (emoji) setSelectedEmoticon(undefined);
+      else { setText(""); setIds([]); setPhotos(false); setReplyTo(null); }
       pending.current = null;
       latest(false);
       const p = await load();
@@ -504,6 +512,11 @@ export function ChatThread({
       }
     }
   }
+  const tools = useComposerTools({
+    selected: selectedEmoticon, onSelect: setSelectedEmoticon, onSend: () => void submit(),
+    disabled: !active || !ready || !composerEnabled || busy || uploading,
+    onPhoto: upload ? () => setPhotos(true) : undefined,
+  });
   async function previous() {
     const requested = cursorRef.current, run = epoch.current;
     if (!requested || older || !sameRoom() ||
@@ -702,7 +715,7 @@ export function ChatThread({
               check={check === "REQUESTED" ? "flagged" : check === "CORRECTED" ? "struck" : undefined}
               labelSide={chipBeside ? checkChip ?? undefined : undefined}
               edited={!!m.editedAt}
-              text={m.body}
+              text={m.emoticonId ? "" : m.body}
               avatar={kind === "farm" ? peerAvatar : undefined}
               sender={mine ? undefined : senderName(m.senderType, peer?.name)}
               time={time(m.createdAt)}
@@ -774,6 +787,7 @@ export function ChatThread({
                 </Pressable>
               ) : undefined}
             >
+              {m.emoticonId ? <EmoticonMessage id={m.emoticonId} /> : null}
               {m.attachmentIds?.map((id) => (
                 <PrivatePhoto key={id} id={id} load={loadPhoto} onLongPress={busy ? undefined : () => menuFor(m)} />
               ))}
@@ -824,7 +838,7 @@ export function ChatThread({
             const body = menuMessage.body;
             void copyToClipboard(body, copy).then(ok => { if (ok && alive.current) setCopied(true); });
           } }] : []),
-          ...(edit && menuMessage?.senderType === mineType ? [{label: "수정", onPress: () => setEditTarget(menuMessage)}] : [])]} />
+          ...(edit && !menuMessage?.emoticonId && menuMessage?.senderType === mineType ? [{label: "수정", onPress: () => setEditTarget(menuMessage)}] : [])]} />
       {editTarget && edit ? <MessageEditSheet key={editTarget.messageId} body={editTarget.body} limit={1000} makeKey={makeKey}
         onClose={() => setEditTarget(null)} onSave={async (text, key) => {
           const run = epoch.current;
@@ -853,9 +867,9 @@ export function ChatThread({
           editable={!busy && composerEnabled}
           maxLength={1000}
           onSend={() => void submit()}
-          canSend={ready && composerEnabled && !uploading && (!!text.trim() || ids.length > 0)}
+          canSend={ready && composerEnabled && !uploading && (!!selectedEmoticon || !!text.trim() || ids.length > 0)}
           busy={busy}
-          tool={upload ? {
+          tool={emoticons ? tools.tool : upload ? {
             icon: photos ? "close" : "plus",
             label: photos ? "사진 첨부 닫기" : "사진 첨부",
             expanded: photos,
@@ -863,6 +877,7 @@ export function ChatThread({
             disabled: busy || !ready || !composerEnabled,
           } : undefined}
           above={<>
+            {emoticons ? tools.above : null}
             {copied ? <T variant="caption" muted center accessibilityRole="text">메시지를 복사했어요</T> : null}
             {replyTo ? <View style={{ paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent, flexDirection: "row", alignItems: "center" }}>
               <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>{producer && replyTo.senderType === "AI" && aiCheckState(messages.find(x => x.messageId === replyTo.messageId) ?? replyTo) === "REQUESTED" ? "AI 안내를 바로잡아요" : "선택한 메시지에 답장"}</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
@@ -885,6 +900,7 @@ export function ChatThread({
             ) : null}
           </>}
         />
+        {emoticons ? tools.below : null}
       </View>
     </View>
   );

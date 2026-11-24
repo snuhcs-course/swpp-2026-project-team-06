@@ -44,6 +44,8 @@ export const tokens = {
     border: "#E8E8E6",
     accent: "#C94F0C",
     accentPressed: "#A8420A",
+    /** 손이 가야 하는 상태 칩·현황 칸의 연한 강조 바탕(DEV-466에서 흩어진 값을 모음) */
+    accentSoft: "#FDECE2",
     onAccent: "#FFFFFF",
     error: "#B42318",
     overlay: "rgba(0,0,0,0.4)",

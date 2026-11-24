@@ -180,7 +180,19 @@ class TrackingInput(CamelModel):
     tracking_number: str | None = Field(default=None, max_length=50)
 
 
+class ProducerOrderUndo(CamelModel):
+    action_id: str
+    label: str
+    previous_status: OrderStatus
+    created_at: datetime
+
+
+class UndoOrderInput(CamelModel):
+    action_id: str = Field(min_length=1, max_length=64)
+
+
 class ProducerOrder(CamelModel):
+    undo_action: ProducerOrderUndo | None = None
     tracking_version: int
     order_id: str
     order_no: str
