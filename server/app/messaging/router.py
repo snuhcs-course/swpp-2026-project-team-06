@@ -154,7 +154,14 @@ def send_room(
         key,
         body,
         lambda: service.send_room(
-            db, user, farm_id, body.text, body.reply_to_message_id, body.reply_to_version
+            db,
+            user,
+            farm_id,
+            body.text,
+            body.reply_to_message_id,
+            body.reply_to_version,
+            broadcast_id=body.broadcast_id,
+            attachment_ids=body.attachment_ids,
         ),
     )
 
@@ -493,10 +500,16 @@ async def upload_attachment(
     file: Annotated[UploadFile, File()],
     order_id: Annotated[str | None, Form(alias="orderId")] = None,
     thread_id: Annotated[str | None, Form(alias="threadId")] = None,
+    room_farm_id: Annotated[str | None, Form(alias="roomFarmId")] = None,
 ):
-    """multipart(file, orderId 또는 threadId). JPEG·PNG·WebP 10MB, EXIF는 지워서 저장한다."""
+    """multipart(file, orderId·threadId·roomFarmId 중 하나). JPEG·PNG·WebP 10MB, EXIF 지움.
+
+    roomFarmId는 그 농가 소식방 비공개 답장 사진이다(DEV-467, 팔로우한 소비자만).
+    """
     data = await file.read(images.MAX_BYTES + 1)
-    view = service.upload_attachment(db, user, data, file.content_type, order_id, thread_id)
+    view = service.upload_attachment(
+        db, user, data, file.content_type, order_id, thread_id, room_farm_id
+    )
     db.commit()
     return view
 

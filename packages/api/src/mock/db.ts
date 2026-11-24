@@ -266,6 +266,9 @@ export type DB = {
       ownerId: string;
       orderId?: string;
       threadId?: string;
+      /** 소식방 비공개 답장 사진(DEV-467): 올린 농가 소식방, 묶이면 그 답장 */
+      roomFarmId?: string;
+      roomReplyId?: string;
       bound: boolean;
       createdAt: string;
       dataUrl: string;
