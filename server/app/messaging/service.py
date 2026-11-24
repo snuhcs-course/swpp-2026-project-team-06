@@ -2010,6 +2010,10 @@ def upload_attachment(
             raise invalid({"file": "주문 또는 대화를 하나 지정해 주세요"})
         if user.role != "CONSUMER":
             raise forbidden("소비자 답장에만 사진을 붙일 수 있어요.")
+        from app.accounts import service as accounts
+
+        if accounts.needs_onboarding(db, user):
+            raise forbidden("가입을 마치면 쓸 수 있어요.", reason="ONBOARDING_REQUIRED")
         farm, can_reply = _room_access(db, user, room_farm_id)
         if not can_reply:
             raise forbidden("팔로우한 뒤 답장할 수 있어요.")

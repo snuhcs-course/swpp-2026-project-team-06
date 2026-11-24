@@ -234,3 +234,17 @@ def test_AC_15_12_AC_15_13_producer_field_errors_name_the_field_sent(client, log
     assert target_only.status_code == 400, target_only.text
     fields = target_only.json()["details"]["fields"]
     assert "broadcastId" in fields and "attachmentIds" not in fields
+
+
+def test_AC_15_13_photo_upload_needs_finished_signup(client, login):
+    """가입을 마치지 않은 소비자는 답장 사진도 올리지 못한다(보내기와 같은 관문, 재스캔 지적)."""
+    from app.accounts.models import User
+    from app.core.db import get_sessionmaker
+
+    minji = login("u-minji")
+    with get_sessionmaker()() as db, db.begin():
+        db.get(User, "u-minji").nickname = None
+        db.get(User, "u-minji").is_test_account = False
+    response = _upload(client, minji, roomFarmId="f-kang")
+    assert response.status_code == 403, response.text
+    assert response.json()["details"]["reason"] == "ONBOARDING_REQUIRED"

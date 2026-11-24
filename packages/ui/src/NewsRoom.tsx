@@ -233,11 +233,18 @@ export function NewsRoom({
   const [photoIds, setPhotoIds] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   // ‘+’가 숨긴 파일 칸을 바로 연다(DEV-467). 고른 사진은 입력줄 위 72×72 한 줄
+  // 올리는 사이 화면이 꺼지거나 접근이 바뀌면(accessEpoch) 끝난 업로드를 입력칸에 다시 넣지 않는다
+  const uploadEpoch = useRef(0);
   const attach = usePhotoAttach({
     count: photoIds.length,
     upload: upload ?? (() => Promise.reject(new Error("사진을 붙일 수 없어요"))),
-    onAdd: (id) => { if (alive.current) setPhotoIds((prev) => [...prev, id]); },
-    onBusy: (next) => { if (alive.current) setUploading(next); },
+    onAdd: (id) => {
+      if (alive.current && uploadEpoch.current === accessEpoch.current) setPhotoIds((prev) => [...prev, id]);
+    },
+    onBusy: (next) => {
+      if (next) uploadEpoch.current = accessEpoch.current;
+      if (alive.current) setUploading(next);
+    },
   });
   const [editTarget, setEditTarget] = useState<Message | null>(null);
   const [menuTarget, setMenuTarget] = useState<Message | null>(null);
