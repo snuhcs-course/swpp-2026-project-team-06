@@ -1,0 +1,38 @@
+{
+  "status": "FOCUSED_FIRST_PASS_PENDING_HUMAN_REVIEW",
+  "requiredSources": 3,
+  "optionalSources": 1,
+  "formats": [
+    "image",
+    "pdf",
+    "text",
+    "long_image"
+  ],
+  "targetedQuestions": 6,
+  "savedOutputTextAndModuleOrderVerified": 4,
+  "originalSourceAssetsHashVerified": 4,
+  "relativeLinksVerified": 37,
+  "archiveFiles": 15,
+  "archiveBytes": 16012729,
+  "archiveSha256": "3497750f181e9d25e8076f3c418714f6e85c230795cd1133ad3978f55dd639e8",
+  "builderSha256": "02c7ac26b59de00466238de78415d98c27fb5d577480e0332510c5b3d2bb7672",
+  "zipCrcAndManifestHashesVerified": true,
+  "newModelCalls": 0,
+  "humanJudgmentsChanged": 0,
+  "fullOriginalPacketUnchanged": true,
+  "sentOrShared": false,
+  "productionUiScreenshot": false,
+  "runtimeTests": "NOT_RUN_DOCUMENT_AND_PRIVATE_ARTIFACT_ONLY",
+  "browserVerification": {
+    "passed": 12,
+    "failed": 0,
+    "widths": [
+      1440,
+      390
+    ],
+    "pages": 6,
+    "brokenImages": 0,
+    "horizontalOverflow": false,
+    "visualInspection": "entry, desktop PDF case and mobile image case checked; section labels corrected and rechecked"
+  }
+}

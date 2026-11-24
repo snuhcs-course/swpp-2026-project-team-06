@@ -28,13 +28,19 @@ These are inventory counts pooled across **24 public-development and 23 syntheti
 
 The priority queue starts with the 51 prior audited critical misses and retains the other 303 facts. Its questions cover source spelling/unit/range equivalence, policy conflicts, temporal/product applicability, criticality, useful alternative placement, historical labeling and rejected evidence. Prior agent verification remains distinct from Jinwoo's human verification. Unresolved cases cannot be silently removed from the denominator.
 
-## Jinwoo's next steps
+## Current request: a focused first review
 
-1. Open the private entry page and priority queue. The local file links require access on the author's machine; they are not a working cross-machine share. Zahra must arrange an approved private handoff before remote review. No message or raw attachment was sent to Jinwoo by this task.
-2. Inspect original text/image/PDF locations and the unchanged old labels. Review the 51 priority claims, then all remaining facts and the four empty cases. Verify source context rather than relying on OCR, selector matches or agent comments.
-3. Fill the proposal and actual human-review fields. Every original ID needs a disposition; merged claims retain all old-ID mappings and sources. Keep conditions/product/time distinctions. Do not make policy/criticality changes simply because they improve current scores.
-4. Resolve contract questions with Zahra and the proposed DEV-446 standards. Before audited-gold acceptance, approve/freeze the policy and record decisions, reviewer identity, source revision/location, full old-to-new mapping and a new gold version/digest. Preserve original files and historical results.
-5. Only then does DEV-448 validate a revised evaluator and rescore saved baseline/candidate outputs symmetrically. Original-source ambiguity stays unresolved rather than becoming an extraction-failure label. DEV-452/412/413 separately govern producer acceptance and release.
+The immediate request is now **three saved generated-page previews**, with one long-image example optional, and **six focused fact questions**. Jinwoo reported seeing only the criteria and could not find actual generated pages. The original 47-source packet was preparation inventory, not an appropriate immediate review assignment. This focused packet supersedes the earlier request to inspect all 51 priority claims followed by the remaining facts.
+
+1. Open the private focused entry HTML: each required image/PDF/text example shows the actual saved baseline v11 trial-1 output alongside its source. Long-image content is optional. No regeneration, account or API key is required.
+2. Comment on wording, organization and repetition; answer only the two fact/policy questions per required source, or state uncertainty. A short plain-text reply template is included. Code fixes are reviewed separately through PRs.
+3. The text case optionally shows the existing saved-output validation replay after the narrow default fix. It is clearly separated from the saved baseline and is not a new model generation. The previews reproduce generated text and module order in review HTML, not production UI screenshots or product-photo placement.
+
+Selection is purposive across formats and known failure types, with the baseline arm and trial fixed rather than choosing a winning experimental writer/trial. It is useful for initial human feedback, **not** statistical representativeness, a full gold audit/freeze, a validated LLM judge, producer acceptance or release approval. All human decisions remain PENDING. No judgment is inferred from the informal acknowledgment of the criteria.
+
+The separate full-dataset audit remains deferred work: an audited-gold claim still needs source verification, original-to-new ID dispositions, resolved policy/criticality/module decisions and a new version/digest. Unreviewed facts cannot be silently excluded or treated as approved. DEV-448 re-scoring and DEV-412/413 release decisions remain separate. Full private inventory and previous review artifacts are preserved unchanged; they are not required reading for this first pass.
+
+See [focused-results.json](focused-results.json) for private artifact verification and fingerprints. The portable ZIP includes the four selected original sources, six HTML pages (entry/four cases/one optional replay), saved-output provenance, source excerpts and a reply template. Delivery is a private handoff for Zahra to arrange; nothing was sent to Jinwoo.
 
 ## Executed verification
 
@@ -53,4 +59,4 @@ Two private scripts ran offline: packet construction and independent completion/
 
 The verification record and artifact hashes describe this **initial prepared packet**, not later human edits. Revised worksheets require new hashes/version metadata. Input immutability/link checks do not establish semantic correctness, label quality or model improvement. No runtime code changed; pytest/npm were not run under the documentation-only exception. Public Markdown links, diff scope and PR table are checked separately before finalizing the draft PR.
 
-Provenance: repository baseline ef390bde; reused offline diagnostics from the DEV-445 worktree at 1e2b114c. Private scripts pin known development inputs explicitly rather than discovering/reading sealed files. Existing $5 shared model budget is unchanged: $1.322573 settled plus $0.061929 uncertain reservation previously accounted for. Schedule reconciliation, actual human review and policy/gate approval remain open. No merge or deployment.
+Provenance: repository baseline ef390bde; reused offline diagnostics from the DEV-445 worktree at 1e2b114c. Private scripts pin known development inputs explicitly rather than discovering/reading sealed files. Existing $5 shared model budget is unchanged: $1.322573 settled plus $0.061929 uncertain reservation previously accounted for. Schedule was subsequently reconciled in DEV-452; actual human review and policy/gate approval remain open. No merge or deployment.
