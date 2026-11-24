@@ -662,13 +662,13 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 - **AND** this order is not made a linked order of the chat, so following after it was opened, or unfollowing after, keeps it a normal chat that stays visible while the deposit is awaited; if the order is canceled without payment a non-follower no longer sees it; once the deposit is confirmed it stays visible. Buyers still cannot start an order chat themselves from an unpaid order
 - **AND** a chat I only opened from the order without any message (and with no order chat or inquiry the buyer opened) is not listed for a buyer who does not follow my farm; it appears once any message exists. A follower's list and my own chat list do not change (DEV-362)
 
-**Chat safety notice (DEV-475, rule M-25).** ONE store notice 29889 requires chat apps to keep a warning about sanctions, personal information and payment information permanently visible, or the app is rejected. All six chat rooms (consumer farm chat, news room and support room; producer buyer chat, own news room and support room) show a fixed band under the header. Tapping it opens a "chat guide" sheet that cites Terms Article 13, explains that phone and account numbers are masked (M-16), adds a side-specific line, and offers "Tell the team" (opens the support room; absent in the support rooms themselves). Per-message report and block are recommended, not required, and are left to a separate issue.
+**Chat safety notice (DEV-475, rule M-25).** ONE store notice 29889 requires chat apps to keep a warning about sanctions, personal information and payment information permanently visible, or the app is rejected. All six chat rooms (consumer farm chat, news room and support room; producer buyer chat, own news room and support room) show a fixed band under the header. Tapping it opens a "chat guide" sheet that cites Terms Article 13, explains that phone and account numbers are masked (M-16), adds a side-specific line, and offers "Tell the team" (opens the support room; absent in the support rooms themselves). Per-message report and block are recommended, not required, and are left to a separate issue. The producer "post news" composer (SCR-27) is a writing screen, not a chat room, so it has no band.
 
 **AC-12-19: The warning stays in every chat room**
 - **GIVEN** I open any of the six chat rooms
 - **WHEN** I scroll back through history or the keyboard opens
 - **THEN** the band "욕설·비방·음란·광고는 제재돼요. 결제·개인정보는 채팅으로 알리지 마세요." stays under the header (below any existing status line)
-- **AND** on screens shorter than 720 with the keyboard open it folds to one line that still names sanctions, payment and personal information, while screen readers always read the full text
+- **AND** the three support rooms always show it as one line under their intro, and other rooms fold to that line on screens shorter than 720 with the keyboard open; the line still names sanctions, payment and personal information, screen readers always read the full text, and the touch target is at least 48
 
 **AC-12-20: The chat guide sheet**
 - **GIVEN** the band is visible
