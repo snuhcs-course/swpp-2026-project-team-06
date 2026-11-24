@@ -97,11 +97,14 @@ export default function Settings() {
               onPress={() => router.push("/password")}
             />
           ) : null}
-          {/* 공유 링크(shareUrl)가 없는 농가는 소비자 앱에서 열리지 않는다(승인 전·숨긴 농가, DEV-477) */}
-          {farmId && farm.data?.shareUrl ? (
+          {/* 공유 링크(shareUrl)가 없는 농가는 소비자 앱에서 열리지 않는다(승인 전·숨긴 농가, DEV-477).
+              농가 정보를 받는 동안은 줄 자리를 유지해 '로그아웃'이 밀리지 않게 한다(누르면 아무 일도 없음) */}
+          {(farm.data ? !!farm.data.shareUrl : !farm.error) ? (
             <ListRow
               label="소비자 앱에서 내 농가 보기"
-              onPress={() => void openConsumerFarm(farmId)}
+              onPress={() => {
+                if (farmId && farm.data?.shareUrl) void openConsumerFarm(farmId);
+              }}
             />
           ) : null}
           <ListRow label="로그아웃" onPress={() => auth.logout()} last={!!user?.isTestAccount} />
