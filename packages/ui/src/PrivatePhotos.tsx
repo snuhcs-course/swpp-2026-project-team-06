@@ -6,16 +6,8 @@ import { safe } from "./web";
 import { T } from "./Text";
 import { pickPhoto, type PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
-export function PrivatePhoto({
-  id,
-  load,
-  onLongPress,
-}: {
-  id: string;
-  load: (id: string) => Promise<string>;
-  /** 사진을 길게 눌렀을 때(메시지 메뉴). 겹친 누르는 칸이 터치를 가져가므로 넘겨 받는다 */
-  onLongPress?: () => void;
-}) {
+/** 비공개 사진 주소를 불러오고, 바뀌거나 사라질 때 blob 주소를 놓는다(PrivatePhoto·소식방 썸네일 공용) */
+function usePrivateImage(id: string, load: (id: string) => Promise<string>) {
   const [uri, setUri] = useState<string | null>(null),
     [error, setError] = useState(false);
   useEffect(() => {
@@ -35,11 +27,27 @@ export function PrivatePhoto({
       if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
     };
   }, [id, load]);
+  return { uri, error };
+}
+export function PrivatePhoto({
+  id,
+  load,
+  onLongPress,
+  label = "비공개 문의 사진",
+}: {
+  id: string;
+  load: (id: string) => Promise<string>;
+  /** 사진을 길게 눌렀을 때(메시지 메뉴). 겹친 누르는 칸이 터치를 가져가므로 넘겨 받는다 */
+  onLongPress?: () => void;
+  /** 접근성 이름. 소식방 답장은 ‘답장 사진’(DEV-467) */
+  label?: string;
+}) {
+  const { uri, error } = usePrivateImage(id, load);
   return uri ? (
     <ViewablePhoto uri={uri} onLongPress={onLongPress}>
       <Image
         source={{ uri }}
-        accessibilityLabel="비공개 문의 사진"
+        accessibilityLabel={label}
         style={{ width: 220, height: 160, borderRadius: 14 }}
         resizeMode="cover"
       />
@@ -347,22 +355,7 @@ export function AttachedPhotoRow({
 }
 
 function Thumb({ id, load, label }: { id: string; load: (id: string) => Promise<string>; label: string }) {
-  const [uri, setUri] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true,
-      url: string | undefined;
-    load(id)
-      .then((u) => {
-        url = u;
-        if (alive) setUri(u);
-        else if (u.startsWith("blob:")) URL.revokeObjectURL(u);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-      if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
-    };
-  }, [id, load]);
+  const { uri } = usePrivateImage(id, load);
   return uri ? (
     <Image source={{ uri }} accessibilityLabel={label} style={{ width: 72, height: 72, borderRadius: tokens.radius.sm }} resizeMode="cover" />
   ) : (

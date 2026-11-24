@@ -74,7 +74,7 @@ test("AC-15-13 a consumer attaches a private photo to a reply and the farm sees 
   const mine = page.getByText(reply, { exact: true });
   await expect(mine).toBeVisible();
   await expect(page.getByRole("button", { name: "사진 첨부", exact: true })).toBeVisible();
-  const photo = page.getByRole("img", { name: "비공개 문의 사진", exact: true }).last();
+  const photo = page.getByRole("img", { name: "답장 사진", exact: true }).last();
   await expect(photo).toBeVisible();
   await page.getByRole("button", { name: "사진 크게 보기" }).last().click();
   await expect(page.getByLabel("크게 본 사진")).toBeVisible();
@@ -86,5 +86,51 @@ test("AC-15-13 a consumer attaches a private photo to a reply and the farm sees 
   const sheet = await openSheet(page, N1);
   const row = sheet.getByTestId("fan-reply-row").filter({ hasText: reply });
   await expect(row).toBeVisible();
-  await expect(row.getByRole("img", { name: "비공개 문의 사진", exact: true })).toBeVisible();
+  await expect(row.getByRole("img", { name: "답장 사진", exact: true })).toBeVisible();
+});
+
+// 고른 소식이 지워졌거나 사진을 쓸 수 없게 되면 고른 소식·사진만 풀고 쓴 글은 남긴다(DEV-467)
+test("AC-15-12 AC-15-13 a deleted target post or unusable photo is cleared with a notice and the text stays", async ({ page }) => {
+  test.setTimeout(120_000);
+  const draft = `지워진 소식에 쓴 글 ${stamp()}`;
+  await loginConsumer(page, "김민지");
+  await page.goto(`${consumerUrl}/news/f-kang`);
+  await card(page, N2).getByRole("button", { name: "농가에 답장", exact: true }).click();
+  await expect(page.getByTestId("room-reply-post")).toBeVisible();
+  const box = page.getByRole("textbox", { name: "농가에 답장", exact: true });
+  await box.fill(draft);
+  // 보내는 사이 농가가 그 소식을 지웠다(서버 응답 404 + reason)
+  await page.route("**/api/messaging/rooms/f-kang/messages", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ code: "NOT_FOUND", message: "이 소식방의 소식에만 답장할 수 있어요.", details: { reason: "REPLY_TARGET_GONE" } }),
+    });
+  }, { times: 1 });
+  await page.getByRole("button", { name: "전송", exact: true }).click();
+  await expect(page.getByText("삭제된 소식이에요. 최신 소식에 답장해 주세요")).toBeVisible();
+  await expect(page.getByTestId("room-reply-post")).toHaveCount(0);
+  await expect(box).toHaveValue(draft);
+
+  // 사진이 24시간이 지나 쓸 수 없게 됐다
+  await page.getByLabel("비공개 사진 첨부", { exact: true }).setInputFiles(
+    path.join(process.cwd(), "packages/ui/assets/source/icons/send.png"),
+  );
+  await expect(page.getByRole("img", { name: "첨부 사진 1", exact: true })).toBeVisible();
+  await page.route("**/api/messaging/rooms/f-kang/messages", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ code: "NOT_FOUND", message: "사용할 수 없는 첨부예요.", details: { reason: "ATTACHMENT_UNUSABLE" } }),
+    });
+  }, { times: 1 });
+  await page.getByRole("button", { name: "전송", exact: true }).click();
+  await expect(page.getByText("보낼 수 없는 사진을 뺐어요. 사진을 다시 골라 주세요")).toBeVisible();
+  await expect(page.getByTestId("attached-photo-row")).toHaveCount(0);
+  await expect(box).toHaveValue(draft);
+  // 다시 보내면 최신 소식으로 간다(고른 소식 없음)
+  await page.getByRole("button", { name: "전송", exact: true }).click();
+  await expect(page.getByText(draft, { exact: true })).toBeVisible();
 });

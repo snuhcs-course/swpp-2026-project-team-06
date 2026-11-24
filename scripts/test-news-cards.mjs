@@ -83,3 +83,14 @@ test("AC-15-13 consumer photo replies reuse the private photo picker and render 
   const sheet = readFileSync(new URL("../packages/ui/src/FanReplySheet.tsx", import.meta.url), "utf8");
   assert.match(sheet, /reply\.attachmentIds\.map\(\(id\) => <PrivatePhoto /);
 });
+
+test("AC-15-12 AC-15-13 a gone target post or unusable photo is released while the draft stays", () => {
+  const catchBlock = src.slice(src.indexOf("const reason = reasonOf(e);"), src.indexOf("} finally {", src.indexOf("const reason = reasonOf(e);")));
+  assert.match(catchBlock, /reason === "REPLY_TARGET_GONE"[^]*?setReplyPost\(null\)[^]*?setError\(POST_GONE\)/);
+  assert.match(catchBlock, /reason === "ATTACHMENT_UNUSABLE"[^]*?setPhotoIds\(\[\]\)/);
+  assert.doesNotMatch(catchBlock, /setBody\(/);
+  // 목록에서 사라진 고른 소식도 푼다
+  assert.match(src, /replyPost && !messages\.some\(\(m\) => m\.messageId === replyPost\.messageId\)/);
+  // 소식방 답장 사진의 접근성 이름
+  assert.match(src, /<PrivatePhoto key=\{id\} id=\{id\} load=\{loadPhoto\} label="답장 사진"/);
+});

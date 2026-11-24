@@ -112,6 +112,11 @@ type Props = {
   readFanReplies?: (broadcastId: string, lastReadMessageId: string) => Promise<unknown>;
 };
 const VIDEO = /^data:video|\.(mp4|webm)$/;
+const reasonOf = (e: unknown) =>
+  e && typeof e === "object" && "details" in e
+    ? (e as { details?: { reason?: string } }).details?.reason
+    : undefined;
+const POST_GONE = "삭제된 소식이에요. 최신 소식에 답장해 주세요";
 const statusOf = (e: unknown) =>
   e && typeof e === "object" && "status" in e ? Number(e.status) : 0;
 export function RoomMedia({ uri }: { uri: string }) {
@@ -446,12 +451,26 @@ export function NewsRoom({
       }
     } catch (e) {
       if (alive.current) {
-        const message =
-          e instanceof Error
-            ? e.message
-            : "전송하지 못했어요. 다시 전송해 주세요";
-        if (producer) setSheetError(message);
-        else setError(message);
+        const reason = reasonOf(e);
+        if (!producer && reason === "REPLY_TARGET_GONE") {
+          // 고른 소식이 지워졌다(DEV-467): 고른 소식을 풀고 글은 남긴다
+          if (replyPost) drop(replyPost.messageId);
+          setReplyPost(null);
+          pending.current = null;
+          setError(POST_GONE);
+        } else if (!producer && reason === "ATTACHMENT_UNUSABLE") {
+          // 쓸 수 없는 사진(24시간 지남 등): 사진만 빼고 글은 남긴다
+          setPhotoIds([]);
+          pending.current = null;
+          setError("보낼 수 없는 사진을 뺐어요. 사진을 다시 골라 주세요");
+        } else {
+          const message =
+            e instanceof Error
+              ? e.message
+              : "전송하지 못했어요. 다시 전송해 주세요";
+          if (producer) setSheetError(message);
+          else setError(message);
+        }
       }
     } finally {
       sending.current = false;
@@ -523,6 +542,13 @@ export function NewsRoom({
       setTimeout(() => input.current?.focus(), 0);
     } else notify?.("소식을 삭제했어요");
   }
+  // 고른 소식이 목록에서 사라지면(농가가 삭제) 고른 소식을 풀고 알린다(DEV-467). 글은 그대로
+  useEffect(() => {
+    if (replyPost && !messages.some((m) => m.messageId === replyPost.messageId)) {
+      setReplyPost(null);
+      setError(POST_GONE);
+    }
+  }, [messages, replyPost]);
   // 팔로우를 끊은 소비자: 서버가 공개 소식과 본인 답장만 준다(AC-15-8). 본인 답장이 있으면 예전 팔로워로 본다(DEV-230)
   const lapsed =
     !producer &&
@@ -723,7 +749,7 @@ export function NewsRoom({
               )}
               {/* 소비자 답장의 비공개 사진(눌러 크게, DEV-467). 답장 쓴 소비자와 그 농가 생산자만 받는다 */}
               {loadPhoto ? m.attachmentIds?.map((id) => (
-                <PrivatePhoto key={id} id={id} load={loadPhoto}
+                <PrivatePhoto key={id} id={id} load={loadPhoto} label="답장 사진"
                   onLongPress={hasMenu(m) ? () => { setMenuPoint(null); setMenuTarget(m); } : undefined} />
               )) : null}
             </ChatBubble>

@@ -247,7 +247,7 @@ function ReplyRow({
         {/* 답장 비공개 사진(눌러 크게, DEV-467) */}
         {loadPhoto && reply.attachmentIds?.length ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {reply.attachmentIds.map((id) => <PrivatePhoto key={id} id={id} load={loadPhoto} />)}
+            {reply.attachmentIds.map((id) => <PrivatePhoto key={id} id={id} load={loadPhoto} label="답장 사진" />)}
           </View>
         ) : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
