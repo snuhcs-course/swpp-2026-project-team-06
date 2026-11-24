@@ -17,6 +17,7 @@ import { AiCheckCard, AiCheckChip } from "./AiCheckCard";
 import { aiCheckFollowUp, aiCheckLabel, aiCheckState, correctionQuoteLabel, type AiCheckState } from "./aiCheck";
 import { Composer, copyToClipboard, FloatingPill } from "./composer";
 import { inBackground } from "./foreground";
+import { ChatNotice, type ChatNoticeConfig } from "./ChatNotice";
 import { useKeyboardShown } from "./keyboard";
 import { safe } from "./web";
 import {
@@ -89,6 +90,8 @@ type Props = {
   peerReadMessageId?: string | null;
   /** 길게 누르기 메뉴의 '복사'. 앱은 expo-clipboard 도우미를 넘긴다. 없으면 웹 클립보드만 */
   copy?: (text: string) => Promise<unknown>;
+  /** 머리 아래 주의·제재 안내 띠(DEV-475, AC-12-19). 모든 방이 넘긴다. 운영팀 방은 onSupport: null */
+  notice: ChatNoticeConfig;
   children?: ReactNode;
 };
 export function ChatThread({
@@ -117,6 +120,7 @@ export function ChatThread({
   systemLine,
   peerReadMessageId,
   copy,
+  notice,
   children,
 }: Props) {
   const saved = useRef((() => {
@@ -555,6 +559,7 @@ export function ChatThread({
       {...PRIVATE_AREA}
       style={{ flex: 1, minHeight: 0, backgroundColor: "#FAF9F6" }}
     >
+      <ChatNotice side={producer ? "producer" : "consumer"} onSupport={notice.onSupport} />
       {error ? (
         <View
           accessibilityRole="alert"

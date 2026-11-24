@@ -33,6 +33,7 @@ import { ViewablePhoto } from "./PrivatePhotos";
 import { Price, type ShelfProduct } from "./Storefront";
 import { FanReplySheet, type FanReplyPageData, type FanReplyRow } from "./FanReplySheet";
 import { broadcastStats } from "./fanReplies";
+import { ChatNotice, type ChatNoticeConfig } from "./ChatNotice";
 
 const quotePreview = (body: string) => body.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[이메일 가림]");
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
@@ -95,6 +96,8 @@ type Props = {
   fanReplies?: (broadcastId: string, cursor?: string) => Promise<FanReplyPageData>;
   /** 생산자: 시트에서 본 답장을 읽음으로(DEV-297) */
   readFanReplies?: (broadcastId: string, lastReadMessageId: string) => Promise<unknown>;
+  /** 머리 아래 주의·제재 안내 띠(DEV-475, AC-12-19). onSupport는 운영팀 대화방을 연다 */
+  notice: ChatNoticeConfig;
 };
 const VIDEO = /^data:video|\.(mp4|webm)$/;
 const statusOf = (e: unknown) =>
@@ -187,6 +190,7 @@ export function NewsRoom({
   markRead,
   fanReplies,
   readFanReplies,
+  notice,
 }: Props) {
   const [canReply, setCanReply] = useState(producer);
   const access = useRef<boolean | null>(null);
@@ -526,6 +530,7 @@ export function NewsRoom({
       {...PRIVATE_AREA}
       style={{ flex: 1, minHeight: 0, backgroundColor: tokens.color.surface }}
     >
+      <ChatNotice side={producer ? "producer" : "consumer"} onSupport={notice.onSupport} />
       {lapsed ? (
         <View
           testID="room-lapsed-banner"

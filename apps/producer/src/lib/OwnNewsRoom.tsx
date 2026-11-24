@@ -3,6 +3,7 @@ import {
   messaging,
   newIdempotencyKey,
   productPrices,
+  SUPPORT_ID,
 } from "@farmclub/api";
 import { Button, NewsRoom, RoomShelf, T, useAsync } from "@farmclub/ui";
 import { useRouter } from "expo-router";
@@ -70,6 +71,8 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
           remove={(id) => messaging.deleteNews(id)}
           copy={copyText}
           notify={toast}
+          // 주의·제재 안내 띠(DEV-475). ‘운영팀에 알리기’는 1:1 목록의 farmclub 운영팀 방
+          notice={{ onSupport: () => router.push(`/chats/${SUPPORT_ID}`) }}
           react={(id, liked) =>
             liked ? messaging.unreact(id) : messaging.react(id)
           }

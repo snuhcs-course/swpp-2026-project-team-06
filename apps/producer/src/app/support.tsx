@@ -83,6 +83,7 @@ export default function Support() {
         upload={(f) => uploadAttachment(f, { threadId })}
         send={(text, ids, key) => messaging.producerSupportSend(text, ids, key)}
         placeholder="운영팀에 문의 남기기"
+        notice={{ onSupport: null }}
       />
     </Screen>
   );
