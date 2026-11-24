@@ -646,12 +646,12 @@ register({
       o.proposedDeliveryWindow = null;
     } else if (ctx.body.choice === "refund") {
       o.proposedDeliveryWindow = null;
-      refund(ctx, o, "받는 시기 변경에 동의하지 않아 전액 환불");
+      refund(ctx, o, "받는 시기 변경에 동의하지 않아 예약 취소");
     } else
       fail(
         400,
         "VALIDATION_ERROR",
-        "새 기간 동의나 전액 환불 중에 골라 주세요.",
+        "새 기간으로 받거나 예약을 취소해 주세요.",
       );
     return order(ctx.db, o);
   },

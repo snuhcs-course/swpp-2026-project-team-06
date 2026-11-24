@@ -562,7 +562,7 @@ def admin_refund(
 
     order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
     if order.status not in ("RESERVED", "PREPARING", "SHIPPED", "DELIVERED"):
-        raise conflict("INVALID_TRANSITION", "전액 환불할 수 없는 주문 상태예요.")
+        raise conflict("INVALID_TRANSITION", "입금액을 모두 돌려드릴 수 없는 주문 상태예요.")
     _refund(
         db,
         order,
@@ -597,7 +597,7 @@ def respond_delivery_window(
         _refund(
             db,
             order,
-            "받는 시기 변경에 동의하지 않아 전액 환불",
+            "받는 시기 변경에 동의하지 않아 예약 취소",
             actor="CONSUMER",
             actor_user_id=consumer_id,
         )

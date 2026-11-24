@@ -103,7 +103,7 @@ const DRAFT_LABELS: Record<string, string> = {
   "info.storage": "보관 방법",
   options: "중량 옵션",
   deliveryWindow: "받는 시기",
-  maxDelayUntil: "전액 환불 날짜",
+  maxDelayUntil: "최종 출하일",
   shippingFeeType: "배송비",
   shippingFee: "배송비",
   remoteAreaFee: "도서산간 추가 운임",
@@ -316,7 +316,7 @@ function diffRows(p: MyProduct, form: ProductForm, terms: Terms | null, reserved
   });
   row(newOrders, "배송비", feeText(was), feeText(terms));
   row(newOrders, "도서산간 추가 운임", won(was.remoteAreaFee ?? 0), won(terms.remoteAreaFee ?? 0));
-  row(newOrders, "전액 환불 날짜", md(was.maxDelayUntil) || null, md(terms.maxDelayUntil) || null);
+  row(newOrders, "최종 출하일", md(was.maxDelayUntil) || null, md(terms.maxDelayUntil) || null);
   row(reserved > 0 ? consent : newOrders, "받는 시기", rangeText(was.deliveryWindow), rangeText(terms.deliveryWindow));
   return { now, newOrders, consent };
 }
@@ -2618,7 +2618,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                   tag="예약자 동의 필요"
                   tone="consent"
                   rows={plan.changes.consent}
-                  note={`예약한 ${plan.reservedCount}명에게 동의를 물어요. 동의하지 않은 분께는 전액 환불돼요.`}
+                  note={`예약한 ${plan.reservedCount}명에게 동의를 물어요. 동의하지 않은 분께는 입금액을 모두 돌려드려요.`}
                 />
                 <FieldFeedbackContext.Provider value={{ fields: consentInvalid ? { consent: "받는 시기 변경 안내에 동의해 주세요." } : {}, clear: () => {} }}>
                   <FieldFeedback field="consent">

@@ -275,11 +275,11 @@ export default function Checkout() {
     const text: Record<OrderConsentKey, { title: string; body: string }> = {
       deliveryWindow: {
         title: "받는 시기",
-        body: `이 상품은 수확 전 예약 상품이에요. ${fullPeriod(p.deliveryWindow.start, p.deliveryWindow.end)} 사이에 받아요. 농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수 있어요.`,
+        body: `이 상품은 수확 전 예약 상품이에요. ${fullPeriod(p.deliveryWindow.start, p.deliveryWindow.end)} 사이에 받아요. 농가 사정으로 바뀌면 새 기간으로 받거나 예약을 취소하고 입금액을 모두 돌려받을 수 있어요.`,
       },
       delayRefund: {
         title: "지연 시 환불",
-        body: `${md(p.maxDelayUntil)}까지 출하되지 않으면 자동으로 전액 환불해 드려요.`,
+        body: `${md(p.maxDelayUntil)}까지 출하되지 않으면 예약이 자동 취소되고, 농가가 입금액을 모두 돌려드려요.`,
       },
       shortage: {
         title: "흉작·수량 부족",
@@ -287,7 +287,7 @@ export default function Checkout() {
       },
       cancelPolicy: {
         title: "취소·반품 조건",
-        body: "출하 전에는 언제든 취소하고 전액 환불받을 수 있어요. 신선식품이라 출하 후에는 단순 변심 취소·반품이 안 되고, 받은 상품에 문제가 있을 때만 환불·교환해 드려요.",
+        body: "출하 전에는 언제든 예약을 취소하고 입금액을 모두 돌려받을 수 있어요. 신선식품이라 출하 후에는 단순 변심 취소·반품이 안 되고, 받은 상품에 문제가 있을 때만 환불·교환해 드려요.",
       },
       // 개인정보 제3자 제공 동의(DEV-120, 개인정보보호법 제17조 ②의 고지 5가지)
       thirdParty: {

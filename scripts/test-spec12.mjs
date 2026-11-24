@@ -520,7 +520,7 @@ test("DEV-186 DEV-188 AC-SRC-11: modal groups by reason including return fees an
     price: { label: "💰 금액", explanation: "가격·배송비는 다음 단계(판매·가격)에서 직접 정해 주세요.", accent: true },
     period: { label: "📅 기간", explanation: "판매 기간이나 받는 날은 다음 단계(판매·가격)에서 정해요.", accent: true },
     platform: { label: "🛡️ 팜클럽 정책", explanation: "교환·환불·문의는 팜클럽이 같은 기준으로 안내해 드려요.",
-      detail: "출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.", accent: true },
+      detail: "출하 전 취소하면 입금액을 모두 돌려받고, 배송 후 상품에 문제가 있으면 교환·환불할 수 있어요.", accent: true },
     health: { label: "🚫 건강 효능", explanation: "건강 효능은 상세 페이지에 넣을 수 없어요.", accent: true },
     pii: { label: "🔒 개인정보", explanation: "개인정보가 있어 상세에 넣지 않았어요", accent: false },
     other_product: { label: "📦 다른 상품", explanation: "다른 상품의 내용이라 넣지 않았어요", accent: false },

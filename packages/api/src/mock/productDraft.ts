@@ -73,7 +73,7 @@ const LABELS: Record<string, string> = {
   shippingFeeType: "배송비 방식",
   shippingFee: "배송비",
   remoteAreaFee: "도서산간 추가 운임",
-  maxDelayUntil: "전액 환불 날짜",
+  maxDelayUntil: "최종 출하일",
   deliveryWindow: "받는 시기",
 };
 // 옵션 이름은 기존 주문도 지금 값을 읽어(중량은 잠김) 옵션은 '바로 보임'이다(서버와 같음)

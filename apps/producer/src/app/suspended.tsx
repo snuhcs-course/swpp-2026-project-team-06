@@ -31,7 +31,7 @@ export default function Suspended() {
             계정이 정지됐어요
           </T>
           <T variant="body">
-            판매 중이던 상품은 내려졌고, 출하 전 주문은 소비자에게 전액 환불돼요.
+            판매 중이던 상품은 내려졌고, 출하 전 주문은 취소돼요. 소비자에게는 입금액을 모두 돌려드려요.
           </T>
         </View>
         {user?.suspendReason ? (

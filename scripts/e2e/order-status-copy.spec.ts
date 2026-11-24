@@ -63,7 +63,7 @@ test("DEV-207 AC-09-7/11-1: deposit-notice and refund copy follow who acts next"
   await expect(page.getByText(/입금해 주세요/)).toHaveCount(0);
   await expect(page.getByText("입금 기한", { exact: true })).toHaveCount(0);
   await expect(page.getByText("입금 알림", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "예약 취소하기" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^예약 취소/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "농가에 물어보기", exact: true })).toBeVisible();
 
   await page.goto(`${consumerUrl}/orders?filter=pending`);

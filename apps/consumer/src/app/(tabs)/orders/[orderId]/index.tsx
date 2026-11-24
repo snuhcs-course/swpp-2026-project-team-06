@@ -113,7 +113,7 @@ export default function OrderDetail() {
   const sentence = !o
     ? ""
     : changing && o.proposedDeliveryWindow
-      ? `농가 사정으로 받는 시기가 ${period(o.proposedDeliveryWindow.start, o.proposedDeliveryWindow.end)}로 바뀌었어요. 새 기간으로 받거나 전액 환불받을 수 있어요.`
+      ? `농가 사정으로 받는 시기가 ${period(o.proposedDeliveryWindow.start, o.proposedDeliveryWindow.end)}로 바뀌었어요. 새 기간으로 받거나 예약을 취소하고 입금액을 모두 돌려받을 수 있어요.`
       : o.status === "PREPARING"
         ? `입금이 확인됐어요. ${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
         : o.status === "SHIPPED"
@@ -396,7 +396,7 @@ export default function OrderDetail() {
         </View>
       </Sheet>
       <Sheet visible={refundSheet} onClose={() => setRefundSheet(false)}>
-        <T variant="heading">전액 환불받을까요?</T>
+        <T variant="heading">예약을 취소할까요?</T>
         {/* DEV-293(Figma 11:133 ①): 본문 한 줄 + 보조 한 줄, 왼쪽 ‘닫기’ */}
         <T variant="body">
           {won(o?.totalAmount)}을 수수료 없이 전부 돌려받아요. 예약은 취소돼요.
@@ -412,7 +412,7 @@ export default function OrderDetail() {
             style={{ flex: 1 }}
           />
           <Button
-            label="전액 환불받기"
+            label="취소하고 돌려받기"
             loading={busy}
             onPress={() => {
               setRefundSheet(false);
@@ -452,7 +452,7 @@ function Bar({
       <BottomBar summary="고르기 전까지 주문은 그대로 있어요.">
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Button
-            label="전액 환불"
+            label="예약 취소"
             variant="secondary"
             disabled={busy}
             onPress={onRefund}
@@ -480,7 +480,7 @@ function Bar({
       <BottomBar
         summary={
           bottomSummary(o, fmt) ??
-          "보내기 전에는 언제든 취소할 수 있고 전액 환불돼요."
+          "보내기 전에는 언제든 취소할 수 있고 입금액을 모두 돌려드려요."
         }
       >
         <Button
