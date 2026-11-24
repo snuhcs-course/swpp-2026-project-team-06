@@ -12,7 +12,7 @@ const image = (page: Page, caption: string) => page.getByRole("img", { name: `${
 const card = (page: Page, text: string) => page.getByTestId("news-card").filter({ hasText: text });
 
 async function choose(page: Page, caption: string, producerNews = false) {
-  await page.getByRole("button", { name: "사진·이모티콘", exact: true }).click();
+  // DEV-478: ‘+’는 사진 고르기, 이모티콘은 입력칸 안 웃는 얼굴로 바로 연다
   await expect(page.getByRole("button", { name: producerNews ? "사진·영상" : "사진", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "이모티콘", exact: true }).click();
   await page.getByRole("button", { name: `${caption} 선택`, exact: true }).click();
@@ -50,7 +50,6 @@ test("AC-12-21 AC-12-22 consumer sends an emoticon alone, retains text/photo dra
   await page.goto(`${consumerUrl}/chats/f-kang`);
   const box = page.getByRole("textbox", { name: "메시지", exact: true });
   await box.fill(draft);
-  await page.getByRole("button", { name: "사진·이모티콘", exact: true }).click();
   await page.getByRole("button", { name: "사진", exact: true }).click();
   const upload = page.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/messaging/attachments");
   await page.locator('input[type="file"]').setInputFiles(photoPath());
