@@ -57,6 +57,21 @@ test("AC-15-9 AC-15-11 producer reaction row keeps the read/like label and the f
 
 test("DEV-467 consumer replies stay private bubbles, not comments under the card", () => {
   assert.match(src, /mine && !producer \? \(\s*<View[^]*?농가만 봐요/);
-  // 소비자 답장 보내기는 인용 없이 보낸다(서버가 소비자 인용 답장을 막는다)
-  assert.match(src, /onReply=\{!userId \? onLogin : canReply \? \(\) => input\.current\?\.focus\(\) : undefined\}/);
+});
+
+test("AC-15-12 the card's reply action picks that post and the send passes its broadcastId", () => {
+  // ‘농가에 답장’ = 그 소식을 고르고 입력칸으로(비로그인은 로그인, 답장할 수 없는 방은 비활성)
+  assert.match(src, /onReply=\{!userId \? onLogin : canReply \? \(\) => \{ setReplyPost\(m\);/);
+  assert.match(src, /broadcastId: replyPost\?\.broadcastId \?\? undefined, attachmentIds: ids/);
+  // 생산자 방송은 고른 소식·사진을 보내지 않는다
+  assert.match(src, /producer \? undefined : \{ broadcastId/);
+  assert.match(src, /소식에 답장 · 농가만 봐요/);
+});
+
+test("AC-15-13 consumer photo replies reuse the private photo picker and render with tap-to-zoom", () => {
+  assert.match(src, /tool=\{!producer && upload \?/);
+  assert.match(src, /<PrivatePhotos[^]*?upload=\{upload\}/);
+  assert.match(src, /m\.attachmentIds\?\.map\(\(id\) => \(\s*<PrivatePhoto /);
+  const sheet = readFileSync(new URL("../packages/ui/src/FanReplySheet.tsx", import.meta.url), "utf8");
+  assert.match(sheet, /reply\.attachmentIds\.map\(\(id\) => <PrivatePhoto /);
 });

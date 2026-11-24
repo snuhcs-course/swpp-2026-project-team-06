@@ -29,7 +29,8 @@ import { chatDay, seoulDay, time, won } from "./format";
 import { chatGroups } from "./chatGroups";
 import { ProfileAvatar } from "./Messenger";
 import { Composer, copyToClipboard, FloatingPill, ToolChip } from "./composer";
-import { ViewablePhoto } from "./PrivatePhotos";
+import { PrivatePhoto, PrivatePhotos, ViewablePhoto } from "./PrivatePhotos";
+import type { PickedPhoto } from "./pickPhoto";
 import { Price, type ShelfProduct } from "./Storefront";
 import { FanReplySheet, type FanReplyPageData, type FanReplyRow } from "./FanReplySheet";
 import { broadcastStats } from "./fanReplies";
@@ -56,6 +57,8 @@ type Message = {
   /** 소유 생산자의 방송에만(DEV-297) */
   readCount?: number | null;
   replyCount?: number | null;
+  /** 소비자 답장의 비공개 사진(DEV-467). 답장 쓴 소비자와 그 농가 생산자만 받는다 */
+  attachmentIds?: string[];
 };
 type Page = {
   items: Message[];
@@ -72,7 +75,18 @@ type Props = {
   onAttach?: () => void;
   onPrivateReply?: (consumerId: string, replyId: string) => void;
   load: (cursor?: string) => Promise<Page>;
-  send: (body: string, key: string, replyToMessageId?: string, replyToVersion?: number) => Promise<Message>;
+  /** extra: 소비자 답장이 답한 소식(소식 카드 ‘농가에 답장’)과 비공개 사진 id(DEV-467) */
+  send: (
+    body: string,
+    key: string,
+    replyToMessageId?: string,
+    replyToVersion?: number,
+    extra?: { broadcastId?: string; attachmentIds?: string[] },
+  ) => Promise<Message>;
+  /** 소비자: 답장 사진 올리기(1:1과 같은 비공개 사진, DEV-467). 있으면 입력칸 왼쪽 ‘+’ */
+  upload?: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
+  /** 비공개 사진 열기(답장 말풍선·팬 답장 시트, DEV-467) */
+  loadPhoto?: (id: string) => Promise<string>;
   makeKey: () => string;
   react: (
     id: string,
@@ -188,6 +202,8 @@ export function NewsRoom({
   markRead,
   fanReplies,
   readFanReplies,
+  upload,
+  loadPhoto,
 }: Props) {
   const [canReply, setCanReply] = useState(producer);
   const access = useRef<boolean | null>(null);
@@ -207,6 +223,11 @@ export function NewsRoom({
   const [confirming, setConfirming] = useState(false);
   const [sheetError, setSheetError] = useState("");
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+  // 소비자: 소식 카드 ‘농가에 답장’으로 고른 소식과 붙인 비공개 사진(DEV-467)
+  const [replyPost, setReplyPost] = useState<Message | null>(null);
+  const [photoIds, setPhotoIds] = useState<string[]>([]);
+  const [photosOpen, setPhotosOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [editTarget, setEditTarget] = useState<Message | null>(null);
   const [menuTarget, setMenuTarget] = useState<Message | null>(null);
   const [menuPoint, setMenuPoint] = useState<MenuPoint | null>(null);
@@ -240,7 +261,7 @@ export function NewsRoom({
       alive.current = false;
     };
   }, []);
-  useEffect(() => { if (!active) { accessEpoch.current++; setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplySheet(null); } }, [active]);
+  useEffect(() => { if (!active) { accessEpoch.current++; setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setReplySheet(null); } }, [active]);
   /** 새로고침 응답이 덮는 범위(가장 오래된 항목 이후, complete면 전부)에서 응답에 없는 방송은 지워진 것이다(M-23).
    * 답장은 지우지 않는다. 내가 막 보내 아직 응답에 나온 적 없는 소식(fresh)은 늦게 온 응답이 지우지 않게 남긴다 */
   const reconcile = (items: Message[], complete: boolean) => {
@@ -293,7 +314,7 @@ export function NewsRoom({
         if (cancelled) return;
         if (access.current !== page.room.canReply) {
           accessEpoch.current++;
-          setEditTarget(null); setMenuTarget(null); setReplyTarget(null);
+          setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null);
           access.current = page.room.canReply;
           setCanReply(page.room.canReply);
           setMessages([]);
@@ -338,7 +359,7 @@ export function NewsRoom({
             [401, 403, 404].includes(Number(e.status))
           ) {
             accessEpoch.current++;
-            setEditTarget(null); setMenuTarget(null); setReplyTarget(null);
+            setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null);
             access.current = null;
             setCanReply(false);
             setMessages([]);
@@ -376,7 +397,7 @@ export function NewsRoom({
     }
   }
   function submit() {
-    if (!body.trim() || sending.current) return;
+    if ((!body.trim() && !photoIds.length) || uploading || sending.current) return;
     if (producer) {
       setSheetError("");
       setConfirming(true);
@@ -386,22 +407,29 @@ export function NewsRoom({
   }
   async function deliver() {
     const text = body.trim();
-    if (!text || sending.current) return;
+    const ids = producer ? [] : photoIds;
+    if ((!text && !ids.length) || sending.current) return;
     const epoch = accessEpoch.current;
     sending.current = true;
     setBusy(true);
     setError("");
     const replyVersion = replyTarget ? replyTarget.editVersion ?? 0 : undefined;
-    if (pending.current?.body !== text || pending.current?.replyId !== replyTarget?.messageId || pending.current?.replyVersion !== replyVersion)
-      pending.current = { body: text, replyId: replyTarget?.messageId, replyVersion, key: makeKey() };
+    // 같은 글·인용·고른 소식·사진이면 같은 멱등 키로 다시 보낸다
+    const scope = JSON.stringify({ text, post: replyPost?.broadcastId ?? null, ids });
+    if (pending.current?.body !== scope || pending.current?.replyId !== replyTarget?.messageId || pending.current?.replyVersion !== replyVersion)
+      pending.current = { body: scope, replyId: replyTarget?.messageId, replyVersion, key: makeKey() };
     try {
-      const message = await send(text, pending.current.key, pending.current.replyId, pending.current.replyVersion);
+      const message = await send(text, pending.current.key, pending.current.replyId, pending.current.replyVersion,
+        producer ? undefined : { broadcastId: replyPost?.broadcastId ?? undefined, attachmentIds: ids });
       if (!alive.current || epoch !== accessEpoch.current) return;
       nearBottom.current = true;
       if (message.broadcastId) fresh.current.add(message.messageId);
       merge([message]);
       setBody("");
       setReplyTarget(null);
+      setReplyPost(null);
+      setPhotoIds([]);
+      setPhotosOpen(false);
       pending.current = null;
       if (producer) {
         setConfirming(false);
@@ -648,7 +676,7 @@ export function NewsRoom({
                 authorPhoto={farmPhoto}
                 width={cardWidth}
                 onLike={() => void like(m)}
-                onReply={!userId ? onLogin : canReply ? () => input.current?.focus() : undefined}
+                onReply={!userId ? onLogin : canReply ? () => { setReplyPost(m); setTimeout(() => input.current?.focus(), 0); } : undefined}
                 onReplies={fanReplies ? () => setReplySheet(m.broadcastId) : undefined}
                 onMediaLongPress={hasMenu(m) ? () => { setMenuPoint(null); setMenuTarget(m); } : undefined}
               />
@@ -688,6 +716,11 @@ export function NewsRoom({
                   </ViewablePhoto>
                 ),
               )}
+              {/* 소비자 답장의 비공개 사진(눌러 크게, DEV-467). 답장 쓴 소비자와 그 농가 생산자만 받는다 */}
+              {loadPhoto ? m.attachmentIds?.map((id) => (
+                <PrivatePhoto key={id} id={id} load={loadPhoto}
+                  onLongPress={hasMenu(m) ? () => { setMenuPoint(null); setMenuTarget(m); } : undefined} />
+              )) : null}
             </ChatBubble>
             )}
             </Pressable>
@@ -734,9 +767,37 @@ export function NewsRoom({
             editable={ready && !busy}
             maxLength={producer ? 2000 : 1000}
             onSend={submit}
-            canSend={ready && !!body.trim()}
+            canSend={ready && !uploading && (!!body.trim() || (!producer && photoIds.length > 0))}
             busy={busy}
+            // 소비자 답장 사진(1:1과 같은 ‘+’ 도구, DEV-467). 생산자는 아래 ‘사진·영상’ 칩
+            tool={!producer && upload ? {
+              icon: photosOpen ? "close" : "plus",
+              label: photosOpen ? "사진 첨부 닫기" : "사진 첨부",
+              expanded: photosOpen,
+              onPress: () => setPhotosOpen(!photosOpen),
+              disabled: !ready || busy,
+            } : undefined}
             above={<>
+              {replyPost ? (
+                // 고른 소식(DEV-467). 답장은 그 소식에 붙고 농가만 본다
+                <View testID="room-reply-post" style={{flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent}}>
+                  <View style={{flex: 1, minWidth: 0}}>
+                    <T variant="caption" muted>소식에 답장 · 농가만 봐요</T>
+                    <T variant="sub" numberOfLines={1}>{replyPost.body || "사진·영상 소식"}</T>
+                  </View>
+                  <Pressable accessibilityRole="button" accessibilityLabel="소식 선택 취소" disabled={busy} onPress={() => setReplyPost(null)} style={{width: 48, height: 48, alignItems: "center", justifyContent: "center"}}><Icon name="close" size={18} /></Pressable>
+                </View>
+              ) : null}
+              {!producer && upload && loadPhoto && photosOpen ? (
+                <PrivatePhotos
+                  ids={photoIds}
+                  onChange={(next) => { if (alive.current) setPhotoIds(next); }}
+                  upload={upload}
+                  load={loadPhoto}
+                  disabled={busy || !ready}
+                  onBusy={(next) => { if (alive.current) setUploading(next); }}
+                />
+              ) : null}
               {copied ? <T variant="caption" muted center>메시지를 복사했어요</T> : null}
               {replyTarget ? <View style={{flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent}}>
                 <View style={{flex: 1}}><T variant="caption" muted>소비자에게 답장 · 모든 팔로워에게 보여요</T><T numberOfLines={2}>{quotePreview(replyTarget.body)}</T></View>
@@ -808,6 +869,7 @@ export function NewsRoom({
         <FanReplySheet
           broadcastId={replySheet}
           load={fanReplies}
+          loadPhoto={loadPhoto}
           markRead={readFanReplies}
           onClose={() => setReplySheet(null)}
           onQuote={(r: FanReplyRow) => {
