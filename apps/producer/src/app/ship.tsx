@@ -2,18 +2,19 @@ import { TrackingNumberInput } from "../lib/TrackingNumberInput";
 // SCR-29 주문·출하 처리 (FEAT-17, FEAT-09 AC-09-8 입금 확인·AC-09-9 미승인, AC-17-7 환불 송금·AC-17-8 미승인, R-07·15·19·28, DEV-68) — design: p-scr-29, DEV-68 보드
 // 입금 승인은 확인 시트 후 처리하고 환불 완료는 줄에서 처리한다. 미승인은 줄 안에 사유(필수) 칸이 펼쳐진다.
 // 받는 사람 실명·전체 주소는 이 화면에서만 보인다(배송 목적, R-15). 입금 대기 줄에는 배송지가 없다. 여러 건 출하는 주문마다 ship API를 반복 호출한다.
+// DEV-466: 주문 한 건을 카드 하나로 보인다(OrderCard). 상태 칩은 서버가 허용하는 다음 처리와 직전 처리 되돌리기(DEV-455)만 연다.
 import {
   ApiError,
   CARRIERS,
   carrierLabel,
   formatTrackingNumber,
   allPages,
+  catalog,
   messaging,
   orders,
   newIdempotencyKey,
   serverNow,
   type Carrier,
-  type OrderStatus,
   type ProducerOrder,
 } from "@farmclub/api";
 import {
@@ -41,9 +42,10 @@ import { Pressable, ScrollView, View } from "react-native";
 
 import { isConnectionError, useSession } from "../lib/session";
 import { LoadError, ORDER_STATUS, errMsg } from "../lib/views";
-import { depositCheckMessage, depositorName, orderItemParts, orderWho } from "../lib/orderWho";
+import { depositCheckMessage, depositorName, orderItem, orderWho } from "../lib/orderWho";
 import { goBackOr } from "../lib/nav";
 import { setChatDraft } from "../lib/chatDraft";
+import { OrderCard, orderTime, type CardAction } from "../lib/OrderCard";
 import { track, type FormErrorCode } from "@farmclub/analytics";
 
 /** 출하 처리 화면의 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312) */
@@ -117,6 +119,16 @@ export default function Ship() {
   const [reason, setReason] = useState("");
   const [cancelOrder, setCancelOrder] = useState(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
+  // DEV-466 카드: 검색어(주문 번호·이름·입금자명·송장), 펼친 상세, 상품 사진, 상태 변경 시트
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<Record<string, string | null>>({});
+  const [statusFor, setStatusFor] = useState<ProducerOrder | null>(null);
+  // DEV-455 실행 취소: 최근 처리 목록 → 확인 → 되돌리기. 같은 처리의 재시도는 같은 Idempotency-Key
+  const [undoList, setUndoList] = useState(false);
+  const [undoFor, setUndoFor] = useState<ProducerOrder | null>(null);
+  const [undoError, setUndoError] = useState<string | null>(null);
+  const undoKeys = useRef(new Map<string, string>());
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -142,6 +154,19 @@ export default function Ship() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 카드의 상품 사진은 내 상품 목록의 대표 사진을 쓴다(홈 화면과 같은 방식). 못 받으면 기본 사진
+  useEffect(() => {
+    let alive = true;
+    allPages((cursor) => catalog.mine({ limit: 50, cursor }))
+      .then((items) => {
+        if (alive) setPhotos(Object.fromEntries(items.map((p) => [p.productId, p.photo])));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const back = () => (goBackOr(router, "/"));
 
@@ -172,8 +197,46 @@ export default function Ship() {
             ? data.refunded
             : data.shipped;
   const chosen = data.preparing.filter((o) => picked.includes(o.orderId));
-  const has = (id: string) => !!(invoices[id]?.carrier || invoices[id]?.no);
-  const withInvoice = chosen.filter((o) => has(o.orderId)).length;
+
+  // 직전 처리 되돌리기(DEV-455): 서버가 지금 상태와 기록이 맞는지 다시 확인한다. 409면 이유를 보여 주고 다시 그린다
+  async function undoOne(o: ProducerOrder) {
+    const action = o.undoAction;
+    if (busy || !action) return;
+    let key = undoKeys.current.get(action.actionId);
+    if (!key) {
+      key = newIdempotencyKey();
+      undoKeys.current.set(action.actionId, key);
+    }
+    setBusy(true);
+    setUndoError(null);
+    try {
+      await orders.undoProducerAction(o.orderId, action.actionId, key);
+      undoKeys.current.delete(action.actionId);
+      setInvoices((old) => {
+        const next = { ...old };
+        delete next[o.orderId];
+        return next;
+      });
+      setUndoFor(null);
+      toast(`${o.orderNo} ‘${action.label}’ 전으로 되돌렸어요 · ${ORDER_STATUS[action.previousStatus]}`);
+      await load();
+    } catch (e) {
+      // 연결이 끊기면 같은 키로 다시 시도한다(서버가 이미 처리했어도 한 번만 되돌린다)
+      if (isConnectionError(e)) failToast(e, () => void undoOne(o));
+      else if (e instanceof ApiError && (e.status === 409 || e.status === 404)) {
+        // 그사이 다른 처리가 이어졌으면 시트를 닫고 이유와 최신 상태를 보인다
+        undoKeys.current.delete(action.actionId);
+        setUndoFor(null);
+        setNotice(errMsg(e));
+        await load();
+      } else {
+        undoKeys.current.delete(action.actionId);
+        setUndoError(errMsg(e));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function shipAll() {
     if (busy || !chosen.length) return;
@@ -518,13 +581,91 @@ export default function Ship() {
     setPicked((ids) => ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id]);
   const toggleAll = () => setPicked(allPicked ? [] : data.preparing.map((o) => o.orderId));
   const hasBar = pickTab && data.preparing.length > 0;
+  // 검색: 주문 번호·이름·입금자명·송장 번호. 송장은 하이픈 없이 숫자만 넣어도 찾는다
+  const needle = query.trim().toLowerCase();
+  const digits = needle.replace(/[\s-]/g, "");
+  const matches = (o: ProducerOrder) => {
+    if (!needle) return true;
+    const fields = [o.orderNo, o.recipientName, o.depositCode, o.trackingNumber, invoices[o.orderId]?.no]
+      .filter((v): v is string => !!v)
+      .map((v) => v.toLowerCase());
+    return fields.some((v) => v.includes(needle) || (!!digits && v.replace(/[\s-]/g, "").includes(digits)));
+  };
+  const shown = list.filter(matches);
+  // 상태 칩 시트의 선택지: 서버가 받는 다음 처리와, 서버가 알려 준 직전 처리 되돌리기(DEV-455)만
+  type StatusOption = { label: string; hint: string; onPress: () => void };
+  function statusOptions(o: ProducerOrder): StatusOption[] {
+    const close = (next: () => void) => () => {
+      setStatusFor(null);
+      next();
+    };
+    const out: StatusOption[] = [];
+    if (o.status === "AWAITING_DEPOSIT") {
+      out.push({ label: "배송 대기로", hint: "입금자명·금액을 확인했어요 · 입금 승인", onPress: close(() => setDepositFor(o)) });
+      out.push({ label: "미승인", hint: "입금 대기로 두거나 주문을 취소해요", onPress: close(() => openReject(o)) });
+    } else if (o.status === "PREPARING") {
+      out.push({
+        label: "출하로",
+        hint: "송장을 확인하고 이 주문을 출하 처리해요",
+        onPress: close(() => {
+          if (tab !== "PREPARING") setTab("PREPARING");
+          setPicked([o.orderId]);
+          setConfirm(true);
+        }),
+      });
+    } else if (o.status === "REFUNDED" && !o.refundSettledAt) {
+      out.push({ label: "환불 완료로", hint: "입금했던 계좌로 송금을 마쳤어요", onPress: close(() => void approve(o)) });
+      out.push({ label: "미승인", hint: "아직 송금하지 못한 사유를 알려요", onPress: close(() => openReject(o)) });
+    }
+    if (o.undoAction) {
+      const action = o.undoAction;
+      out.push({
+        label: `${ORDER_STATUS[action.previousStatus]}로 되돌리기`,
+        hint: `방금 한 ‘${action.label}’ 전으로 돌아가요`,
+        onPress: close(() => {
+          setUndoError(null);
+          setUndoFor(o);
+        }),
+      });
+    }
+    return out;
+  }
+  const undoable = data.all
+    .filter((o) => o.undoAction)
+    .sort((a, b) => b.undoAction!.createdAt.localeCompare(a.undoAction!.createdAt));
 
   return (
     <Screen>
       <HeaderBar
         title={SHIP_TABS.has(tab) ? "배송 현황" : "주문 현황"}
         onBack={back}
+        rightWidth={104}
+        right={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="실행 취소"
+            disabled={busy}
+            onPress={() => setUndoList(true)}
+            style={(st) =>
+              [
+                { minHeight: tokens.touchTarget.min, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8 },
+                (st as { focused?: boolean }).focused && focusRing,
+              ] as never
+            }
+          >
+            <Icon name="refund" size={18} color={tokens.color.text} />
+            <T variant="sub">실행 취소</T>
+          </Pressable>
+        }
       />
+      <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: tokens.space.sm }}>
+        <Input
+          accessibilityLabel="주문 검색"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="주문번호 · 이름 · 송장 검색"
+        />
+      </View>
       {/* 밑줄 탭: 가로로 넘겨 보고, 글자가 잘리지 않는다(DEV-294) */}
       <View style={{ borderBottomWidth: 1, borderBottomColor: tokens.color.border }}>
         <ScrollView
@@ -573,6 +714,7 @@ export default function Ship() {
           })}
         </ScrollView>
       </View>
+      <View style={{ flex: 1, backgroundColor: tokens.color.surface }}>
       <Scroll bottom={hasBar ? 120 : 60}>
         {error ? <LoadError error={error} onRetry={load} /> : null}
         {notice ? (
@@ -590,14 +732,15 @@ export default function Ship() {
             {helper}
           </T>
         ) : null}
-        <View style={{ paddingHorizontal: tokens.space.gutter }}>
-          {pickTab && list.length ? (
+        <View style={{ paddingHorizontal: tokens.space.gutter, gap: 12, paddingTop: helper || (pickTab && shown.length) ? 0 : 12 }}>
+          {pickTab && shown.length ? (
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
                 minHeight: tokens.height.listRowProducer,
+                marginBottom: -4,
               }}
             >
               <Pressable
@@ -626,18 +769,20 @@ export default function Ship() {
               </T>
             </View>
           ) : null}
-          {list.length === 0 ? (
+          {shown.length === 0 ? (
             <T variant="sub" muted style={{ paddingVertical: tokens.space.lg }}>
-              {tab === "PREPARING"
-                ? "배송 대기 주문이 없어요"
-                : tab === "AWAITING_DEPOSIT"
-                  ? "입금을 기다리는 주문이 없어요"
-                  : tab === "REFUNDED"
-                    ? "환불할 주문이 없어요"
-                    : "해당 상태의 주문이 없어요"}
+              {query.trim()
+                ? "찾는 주문이 없어요. 주문 번호·이름·송장 번호를 다시 확인해 주세요"
+                : tab === "PREPARING"
+                  ? "배송 대기 주문이 없어요"
+                  : tab === "AWAITING_DEPOSIT"
+                    ? "입금을 기다리는 주문이 없어요"
+                    : tab === "REFUNDED"
+                      ? "환불할 주문이 없어요"
+                      : "해당 상태의 주문이 없어요"}
             </T>
           ) : null}
-          {list.map((o, i) => {
+          {shown.map((o) => {
             const sel = isPicked(o.orderId);
             const inv =
               o.status === "PREPARING"
@@ -647,8 +792,7 @@ export default function Ship() {
             const awaiting = o.status === "AWAITING_DEPOSIT";
             const refunded = o.status === "REFUNDED";
             const canceled = o.status === "CANCELED";
-            const checkable = pickTab;
-            const item = orderItemParts(o);
+            const open = expanded.includes(o.orderId);
             // 배송 대기 줄의 송장은 그 탭의 고르기·출하 바와 묶여 있어, 전체 탭에서는 그 탭으로 옮긴 뒤 연다(DEV-291)
             const editInvoice = () => {
               if (o.status === "PREPARING" && tab !== "PREPARING") setTab("PREPARING");
@@ -657,217 +801,173 @@ export default function Ship() {
             const showInvoice =
               (o.status === "PREPARING" || o.status === "SHIPPED") &&
               (tab === "all" || tab === "PREPARING" || tab === "SHIPPED");
-            const info = (
-              <View style={{ flex: 1, minWidth: 0, gap: 2, opacity: canceled ? 0.5 : 1 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space.sm }}>
-                  {tab === "all" ? (
-                    <StatusChip status={o.status} settled={!!o.refundSettledAt} />
-                  ) : null}
-                  <T weight="semibold" numberOfLines={1} masked style={{ flexShrink: 1 }}>
-                    {o.recipientName}
+            const decide = (awaiting || refunded) && !o.refundSettledAt;
+            const task = awaiting ? (
+              // 입금 전에는 배송지 대신 입금자명(R-15, DEV-68). 통장과 대조할 짧은 코드(DEV-342)
+              <>
+                <T variant="sub" muted>
+                  입금자명{"  "}
+                  {/* 닉네임이 들어 있어 녹화에서 값을 가린다(N-05) */}
+                  <T variant="sub" weight="semibold" masked>
+                    {depositorName(o)}
                   </T>
-                  <T
-                    variant="caption"
-                    muted
-                    numberOfLines={1}
-                    style={{ flex: 1, textAlign: "right" }}
-                  >
-                    {o.orderNo}
-                    {awaiting
-                      ? o.depositDueAt && Date.parse(o.depositDueAt) <= serverNow()
-                        ? " · 기한 지남"
-                        : ` · 기한 ${deadline(o.depositDueAt)}`
-                      : ""}
-                  </T>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "baseline", gap: tokens.space.sm }}>
-                  {/* 길면 상품명만 줄이고 ‘옵션 × 수량’은 끝까지(AC-17-10) */}
-                  <View style={{ flex: 1, minWidth: 0, flexDirection: "row" }}>
-                    {item.name ? (
-                      <T numberOfLines={1} style={{ flexShrink: 1 }}>
-                        {item.name}
-                      </T>
+                </T>
+                {/* 기한 지남은 기기 시계가 아니라 서버 시각으로 판단한다(DEV-229, R-28) */}
+                <T variant="caption" muted>
+                  {o.depositDueAt && Date.parse(o.depositDueAt) <= serverNow()
+                    ? "입금 기한 지남"
+                    : `입금 기한 ${deadline(o.depositDueAt)}`}
+                </T>
+                {o.depositReportedAt ? (
+                  <T variant="caption" muted>소비자가 입금했다고 알렸어요</T>
+                ) : null}
+                {o.depositIssue ? (
+                  <T variant="caption" muted>미승인 사유: {o.depositIssue}</T>
+                ) : null}
+              </>
+            ) : o.status === "PREPARING" || o.status === "SHIPPED" ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space.sm }}>
+                <Icon name="truck" size={18} color={tokens.color.textMuted} />
+                {filled ? (
+                  <T variant="sub" numberOfLines={1} style={{ flexShrink: 1 }}>
+                    <T variant="sub" muted>{carrierLabel(inv?.carrier)}</T>
+                    {inv?.no ? (
+                      <T variant="sub" weight="semibold">{`  ${inv.no}`}</T>
                     ) : null}
-                    {/* 줄인 조각 끝 공백은 웹에서 사라져 띄어쓰기를 옵션 쪽에 둔다 */}
-                    <T style={{ flexShrink: 0 }}>
-                      {item.name ? ` ${item.tail}` : item.tail}
-                    </T>
-                  </View>
-                  <T weight="semibold" style={{ flexShrink: 0 }}>
-                    {won(o.totalAmount)}
                   </T>
-                </View>
-                {awaiting ? (
-                  // 입금 전에는 배송지 대신 입금자명(R-15, DEV-68). 통장과 대조할 짧은 코드(DEV-342)
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space.sm }}>
-                    <T variant="sub" muted style={{ flex: 1 }}>
-                      입금자명{" "}
-                      {/* 닉네임이 들어 있어 녹화에서 값을 가린다(N-05) */}
-                      <T variant="sub" weight="bold" masked>
-                        {depositorName(o)}
-                      </T>
-                    </T>
-                    <SmallButton
-                      label="채팅하기"
-                      accessibilityLabel={`${o.orderNo} 채팅하기`}
-                      disabled={busy}
-                      onPress={() => void chatAbout(o)}
-                    />
-                  </View>
-                ) : refunded ? (
-                  <T variant="sub" muted>
-                    입금했던 계좌로 돌려보내요
-                  </T>
-                ) : canceled ? null : (
-                  <T variant="sub" muted numberOfLines={1} masked>
-                    {[o.address, o.addressDetail].filter(Boolean).join(" ")}
-                  </T>
+                ) : (
+                  <T variant="sub" muted>송장 미등록</T>
                 )}
-                {awaiting && o.depositReportedAt ? (
-                  <T variant="sub" muted>
-                    소비자가 입금했다고 알렸어요
-                  </T>
-                ) : null}
-                {o.status === "PREPARING" && o.deliveryWindow ? (
-                  <T variant="sub" muted>배송 예정 {o.deliveryWindow.start} ~ {o.deliveryWindow.end}</T>
-                ) : null}
-                {o.deliveryNote && !awaiting ? (
-                  <T variant="sub" muted numberOfLines={1}>
-                    메모: {o.deliveryNote}
-                  </T>
-                ) : null}
-                {awaiting && o.depositIssue ? (
-                  <T variant="sub" muted>
-                    미승인 사유: {o.depositIssue}
-                  </T>
-                ) : null}
-                {refunded && o.refundIssue ? (
-                  <T variant="sub" muted>
-                    미승인 사유: {o.refundIssue}
-                  </T>
-                ) : null}
-                {refunded && o.refundSettledAt ? (
-                  <T variant="sub" weight="semibold" muted>
-                    {md(o.refundSettledAt)} 송금 완료
-                  </T>
-                ) : awaiting || refunded ? (
-                  // 확인 창 없이 줄에서 바로 승인·미승인(DEV-68)
-                  reject?.orderId === o.orderId ? (
-                    rejectForm(o)
-                  ) : (
-                    <View style={{ flexDirection: "row", gap: 8, paddingTop: 8 }}>
-                      <Button
-                        label="미승인"
-                        variant="secondary"
-                        size="producer"
-                        disabled={busy}
-                        style={{ flex: 1 }}
-                        accessibilityLabel={`${o.orderNo} ${awaiting ? "입금" : "환불"} 미승인`}
-                        onPress={() => openReject(o)}
-                      />
-                      <Button
-                        label="승인"
-                        size="producer"
-                        disabled={busy}
-                        style={{ flex: 2 }}
-                        accessibilityLabel={`${o.orderNo} ${awaiting ? "입금 승인" : "환불 완료"}`}
-                        onPress={() => awaiting ? setDepositFor(o) : void approve(o)}
-                      />
-                    </View>
-                  )
-                ) : null}
-                {showInvoice ? (
-                  <View style={{ flexDirection: "row", paddingTop: tokens.space.sm }}>
-                    {filled ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${o.orderNo} 송장 수정`}
-                        disabled={busy}
-                        onPress={editInvoice}
-                        hitSlop={8}
-                        style={(st) =>
-                          [
-                            {
-                              minHeight: 32,
-                              maxWidth: "100%",
-                              paddingHorizontal: 12,
-                              borderRadius: tokens.radius.sm,
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 6,
-                              backgroundColor: tokens.color.surface,
-                            },
-                            (st as { focused?: boolean }).focused && focusRing,
-                          ] as never
-                        }
-                      >
-                        <T variant="caption" numberOfLines={1} style={{ flexShrink: 1 }}>
-                          {invoiceText(inv?.carrier, inv?.no)}
-                        </T>
-                        <T variant="caption" weight="semibold" color={tokens.color.accent}>
-                          수정
-                        </T>
-                      </Pressable>
-                    ) : (
-                      <SmallButton
-                        label="송장 입력"
-                        accessibilityLabel={`${o.orderNo} ${who(o)} 송장 입력`}
-                        disabled={busy}
-                        onPress={editInvoice}
-                      />
-                    )}
-                  </View>
-                ) : null}
               </View>
-            );
-            return (
-              <View
-                key={o.orderId}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                  paddingVertical: tokens.space.md,
-                  // 전체 탭은 탭 밑줄 바로 아래에서 시작해 첫 줄 선을 겹치지 않는다
-                  borderTopWidth: i === 0 && tab === "all" ? 0 : 1,
-                  borderTopColor: tokens.color.border,
-                  minHeight: tokens.height.listRowProducer,
-                }}
-              >
-                {checkable ? (
-                  // 체크 칸: 보이는 24, 누르는 영역 48, 줄 가운데(DEV-294)
-                  <Pressable
-                    accessibilityRole="checkbox"
+            ) : refunded ? (
+              <>
+                <T variant="sub" muted={!o.refundSettledAt} weight={o.refundSettledAt ? "semibold" : "regular"}>
+                  {o.refundSettledAt ? `${md(o.refundSettledAt)} 송금 완료` : "입금했던 계좌로 돌려보내요"}
+                </T>
+                {o.refundIssue ? (
+                  <T variant="caption" muted>미승인 사유: {o.refundIssue}</T>
+                ) : null}
+              </>
+            ) : canceled ? (
+              <T variant="sub" muted>취소된 주문이에요</T>
+            ) : null;
+            const body = decide ? (
+              reject?.orderId === o.orderId ? (
+                rejectForm(o)
+              ) : (
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <Button
+                    label="미승인"
+                    variant="secondary"
+                    size="producer"
                     disabled={busy}
-                    aria-checked={sel}
-                    accessibilityLabel={`${o.orderNo} ${who(o)} 고르기`}
-                    onPress={() => togglePick(o.orderId)}
-                    style={(st) =>
-                      [
-                        {
-                          width: 48,
-                          minHeight: 48,
-                          alignSelf: "stretch",
-                          justifyContent: "center",
-                        },
-                        (st as { focused?: boolean }).focused && focusRing,
-                      ] as never
-                    }
-                  >
-                    <Box on={sel} />
-                  </Pressable>
+                    style={{ flex: 1 }}
+                    accessibilityLabel={`${o.orderNo} ${awaiting ? "입금" : "환불"} 미승인`}
+                    onPress={() => openReject(o)}
+                  />
+                  <Button
+                    label="승인"
+                    size="producer"
+                    disabled={busy}
+                    style={{ flex: 2 }}
+                    accessibilityLabel={`${o.orderNo} ${awaiting ? "입금 승인" : "환불 완료"}`}
+                    onPress={() => awaiting ? setDepositFor(o) : void approve(o)}
+                  />
+                </View>
+              )
+            ) : o.status === "PREPARING" ? (
+              // 배송 대기 목록: 받는 곳·배송 예정 기간(AC-17-3). 연락처·메모는 주문 상세
+              <View style={{ gap: 2 }}>
+                <T variant="sub" muted numberOfLines={1} masked>
+                  {[o.address, o.addressDetail].filter(Boolean).join(" ")}
+                </T>
+                {o.deliveryWindow ? (
+                  <T variant="caption" muted>배송 예정 {o.deliveryWindow.start} ~ {o.deliveryWindow.end}</T>
                 ) : null}
-                {info}
               </View>
+            ) : null;
+            const hidden = awaiting || !o.address;
+            const detail = open ? (
+              hidden ? (
+                <T variant="sub" muted>
+                  {awaiting ? "입금을 확인하면 배송 정보가 보여요" : "배송 정보는 보호돼요"}
+                </T>
+              ) : (
+                <>
+                  <T variant="caption" muted>배송지</T>
+                  <T variant="sub" masked>
+                    {o.recipientName} · {o.recipientPhone}
+                  </T>
+                  <T variant="sub" masked>
+                    {[o.postalCode && `(${o.postalCode})`, o.address, o.addressDetail].filter(Boolean).join(" ")}
+                  </T>
+                  {o.deliveryNote ? (
+                    <T variant="sub" muted>메모: {o.deliveryNote}</T>
+                  ) : null}
+                </>
+              )
+            ) : null;
+            const actions: CardAction[] = [
+              {
+                label: open ? "상세 접기" : "주문 상세",
+                accessibilityLabel: `${o.orderNo} ${open ? "상세 접기" : "주문 상세"}`,
+                chevron: open ? "up" : "down",
+                onPress: () =>
+                  setExpanded((ids) =>
+                    ids.includes(o.orderId) ? ids.filter((id) => id !== o.orderId) : [...ids, o.orderId],
+                  ),
+              },
+            ];
+            if (awaiting)
+              actions.push({
+                label: "채팅하기",
+                accessibilityLabel: `${o.orderNo} 채팅하기`,
+                onPress: () => void chatAbout(o),
+              });
+            if (showInvoice)
+              actions.push(
+                filled
+                  ? { label: "송장 수정", accessibilityLabel: `${o.orderNo} 송장 수정`, onPress: editInvoice }
+                  : { label: "송장 입력", accessibilityLabel: `${o.orderNo} ${who(o)} 송장 입력`, onPress: editInvoice },
+              );
+            return (
+              <OrderCard
+                key={o.orderId}
+                order={o}
+                photo={photos[o.productId]}
+                busy={busy}
+                statusLabel={refunded && o.refundSettledAt ? "환불 완료" : undefined}
+                onStatus={statusOptions(o).length ? () => setStatusFor(o) : undefined}
+                select={
+                  pickTab ? (
+                    // 체크 칸: 보이는 24, 누르는 영역 48(DEV-294)
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      disabled={busy}
+                      aria-checked={sel}
+                      accessibilityLabel={`${o.orderNo} ${who(o)} 고르기`}
+                      onPress={() => togglePick(o.orderId)}
+                      style={(st) =>
+                        [
+                          { width: 48, height: 48, marginLeft: -12, alignItems: "center", justifyContent: "center" },
+                          (st as { focused?: boolean }).focused && focusRing,
+                        ] as never
+                      }
+                    >
+                      <Box on={sel} />
+                    </Pressable>
+                  ) : undefined
+                }
+                task={task}
+                body={body}
+                detail={detail}
+                actions={actions}
+              />
             );
           })}
-          {list.length ? (
-            <View
-              style={{ borderTopWidth: 1, borderTopColor: tokens.color.border }}
-            />
-          ) : null}
         </View>
       </Scroll>
+      </View>
 
       {tab === "PREPARING" && data.preparing.length ? (
         <BottomBar>
@@ -986,6 +1086,151 @@ export default function Ship() {
         </View>
       </Sheet>
 
+      {/* 상태 칩 → 상태 변경(DEV-466). 어떤 주문인지 다시 보여 준 뒤 다음 처리를 고른다 */}
+      <Sheet visible={!!statusFor} onClose={() => { if (!busy) setStatusFor(null); }}>
+        <T variant="heading">주문 상태 변경</T>
+        {statusFor ? (
+          <>
+            <OrderIdentity o={statusFor} />
+            <T variant="sub" muted>
+              지금 상태 · {ORDER_STATUS[statusFor.status]}
+            </T>
+            <View accessibilityRole="list" style={{ gap: tokens.space.sm }}>
+              {statusOptions(statusFor).map((opt) => (
+                <Pressable
+                  key={opt.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={opt.label}
+                  disabled={busy}
+                  onPress={opt.onPress}
+                  style={(st) =>
+                    [
+                      {
+                        minHeight: tokens.height.button,
+                        paddingHorizontal: tokens.space.md,
+                        paddingVertical: 12,
+                        borderRadius: tokens.radius.sm,
+                        borderWidth: 1,
+                        borderColor: tokens.color.border,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: tokens.space.sm,
+                      },
+                      (st as { focused?: boolean }).focused && focusRing,
+                    ] as never
+                  }
+                >
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <T weight="semibold">{opt.label}</T>
+                    <T variant="caption" muted>{opt.hint}</T>
+                  </View>
+                  <Icon name="chevron" size={18} color={tokens.color.textMuted} />
+                </Pressable>
+              ))}
+            </View>
+            <T variant="caption" muted>배송 완료는 farmclub이 배송 결과를 확인해서 바꿔요</T>
+          </>
+        ) : null}
+        <Button label="닫기" variant="secondary" disabled={busy} onPress={() => setStatusFor(null)} />
+      </Sheet>
+
+      {/* 실행 취소(DEV-455): 서버가 되돌릴 수 있다고 알려 준 최근 처리만 */}
+      <Sheet visible={undoList} onClose={() => { if (!busy) setUndoList(false); }}>
+        <T variant="heading">최근 처리 되돌리기</T>
+        {undoable.length ? (
+          <>
+            <T variant="sub" muted>되돌릴 처리를 고른 뒤 내용을 확인해 주세요</T>
+            <View>
+              {undoable.slice(0, 10).map((o, i) => (
+                <Pressable
+                  key={o.orderId}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${o.orderNo} ${o.undoAction!.label} 되돌리기`}
+                  disabled={busy}
+                  onPress={() => {
+                    setUndoList(false);
+                    setUndoError(null);
+                    setUndoFor(o);
+                  }}
+                  style={(st) =>
+                    [
+                      {
+                        minHeight: tokens.height.rowTwoLine,
+                        paddingVertical: 12,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        borderTopWidth: i ? 1 : 0,
+                        borderTopColor: tokens.color.border,
+                      },
+                      (st as { focused?: boolean }).focused && focusRing,
+                    ] as never
+                  }
+                >
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <T weight="semibold">{o.undoAction!.label}</T>
+                    <T variant="sub" muted numberOfLines={1} masked>
+                      {o.recipientName} · {orderItem(o)}
+                    </T>
+                    <T variant="caption" muted>
+                      {o.orderNo} · {orderTime(o.undoAction!.createdAt)}
+                    </T>
+                  </View>
+                  <Icon name="chevron" size={18} color={tokens.color.textMuted} />
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : (
+          <T variant="sub" muted>
+            되돌릴 수 있는 처리가 없어요. 입금 승인·미승인·출하·환불 표시를 하면 그 직후에 여기서 되돌릴 수 있어요.
+          </T>
+        )}
+        <Button label="닫기" variant="secondary" disabled={busy} onPress={() => setUndoList(false)} />
+      </Sheet>
+
+      <Sheet visible={!!undoFor} onClose={() => { if (!busy) setUndoFor(null); }}>
+        <T variant="heading">이 처리를 되돌릴까요?</T>
+        {undoFor?.undoAction ? (
+          <>
+            <OrderIdentity o={undoFor} />
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                minHeight: tokens.height.button,
+                paddingHorizontal: tokens.space.md,
+                borderRadius: tokens.radius.sm,
+                borderWidth: 1,
+                borderColor: tokens.color.border,
+              }}
+            >
+              <T muted>{ORDER_STATUS[undoFor.status]}</T>
+              <Icon name="forward" size={18} color={tokens.color.textMuted} />
+              <T weight="semibold" color={tokens.color.accent}>
+                {ORDER_STATUS[undoFor.undoAction.previousStatus]}
+              </T>
+            </View>
+            <T variant="sub" muted>
+              ‘{undoFor.undoAction.label}’ 전으로 앱의 처리 기록만 되돌려요. 실제 입금·송금이나 택배 발송은 취소되지 않아요.
+            </T>
+          </>
+        ) : null}
+        {undoError ? <T variant="sub" color={tokens.color.error}>{undoError}</T> : null}
+        <View style={{ flexDirection: "row", gap: tokens.space.sm }}>
+          <Button label="닫기" variant="secondary" style={{ flex: 1 }} disabled={busy} onPress={() => setUndoFor(null)} />
+          <Button
+            label="되돌리기"
+            style={{ flex: 2 }}
+            disabled={busy || !undoFor?.undoAction}
+            loading={busy}
+            onPress={() => undoFor && void undoOne(undoFor)}
+          />
+        </View>
+      </Sheet>
+
       {/* 출하 확인 */}
       <Sheet
         visible={confirm}
@@ -1064,69 +1309,22 @@ function Box({ on }: { on: boolean }) {
   );
 }
 
-/** 작은 버튼: 높이 32, hitSlop으로 누르는 영역 48(기준표) */
-function SmallButton({
-  label,
-  accessibilityLabel,
-  disabled,
-  onPress,
-}: {
-  label: string;
-  accessibilityLabel: string;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
+/** 시트 맨 위의 대상 주문: 이름 · 주문 번호 · 상품 · 금액(같은 이름의 다른 주문과 헷갈리지 않게) */
+function OrderIdentity({ o }: { o: ProducerOrder }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      disabled={disabled}
-      onPress={onPress}
-      hitSlop={8}
-      style={(st) =>
-        [
-          {
-            minHeight: 32,
-            paddingHorizontal: 12,
-            borderRadius: tokens.radius.sm,
-            borderWidth: 1,
-            borderColor: tokens.color.border,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: tokens.color.background,
-          },
-          (st as { focused?: boolean }).focused && focusRing,
-        ] as never
-      }
-    >
-      <T variant="caption" weight="semibold">
-        {label}
+    <View style={{ padding: tokens.space.md, borderRadius: tokens.radius.sm, backgroundColor: tokens.color.surface, gap: 2 }}>
+      <T variant="heading" weight="semibold" masked numberOfLines={1}>
+        {o.recipientName}
       </T>
-    </Pressable>
-  );
-}
-
-// 전체 탭 상태 칩(Figma PR542 ⑤): 손이 가야 하는 상태만 강조색
-const ACTION_STATUS = new Set<OrderStatus>(["AWAITING_DEPOSIT", "PREPARING", "REFUNDED"]);
-function StatusChip({ status, settled }: { status: OrderStatus; settled: boolean }) {
-  // 환불은 송금을 마치면 더 할 일이 없다
-  const strong = ACTION_STATUS.has(status) && !(status === "REFUNDED" && settled);
-  return (
-    <View
-      style={{
-        paddingHorizontal: 6,
-        paddingVertical: 1,
-        borderRadius: 4,
-        backgroundColor: strong ? "#FDECE2" : tokens.color.surface,
-      }}
-    >
-      <T
-        variant="caption"
-        weight="semibold"
-        color={strong ? tokens.color.accent : tokens.color.textMuted}
-      >
-        {ORDER_STATUS[status]}
+      <T variant="caption" muted>
+        {o.orderNo} · {orderTime(o.createdAt)}
       </T>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space.sm, marginTop: tokens.space.sm }}>
+        <T variant="sub" numberOfLines={1} style={{ flex: 1 }}>
+          {orderItem(o)}
+        </T>
+        <T weight="bold">{won(o.totalAmount)}</T>
+      </View>
     </View>
   );
 }
