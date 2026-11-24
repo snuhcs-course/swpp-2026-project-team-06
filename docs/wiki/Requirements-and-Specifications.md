@@ -1244,3 +1244,9 @@ UAT participants and store reviewers now use private operator-created ID/passwor
 ### Post-UAT ordering and chat
 
 Deposit confirmation moves the order directly to the producer’s shipping queue. Customers may reserve up to the remaining option stock and approved sales weight. The farm’s AI reply appears on the right for producers and the left for consumers, with its AI label. Operators can retire identified UAT farms and disable tester access while retaining their order and conversation history.
+
+### Per-product visibility in admin (DEV-479)
+
+Admin → Users → Producer detail includes an independent visibility badge and Hide / Show again action for each published or hidden product. An inline confirmation identifies the product, explains the effect, and requires a reason. Cancellation does not mutate data; failed requests preserve the input. The authenticated, audited endpoint requires an idempotency key and the current product version. Stale edits return 409.
+
+Hiding removes only that product from public discovery, detail, and general AI product context, and rejects new orders. Product and farm approval, sibling products, stock, prices, and all existing orders remain unchanged. Existing order lookup, payment instructions, fulfillment, refunds, and order inquiries continue. Restoring visibility never bypasses approval or sales eligibility. If a general AI reply is in progress when its product is hidden, the reply is discarded and the consumer question remains available for human response. Paid-order context is preserved. This flag is independent of test-account visibility (DEV-472).

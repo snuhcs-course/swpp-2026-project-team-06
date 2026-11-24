@@ -104,13 +104,37 @@ function productCard(p) {
   if (p.currentStageLabel) lines.push(["판매 기간", esc(p.currentStageLabel)]);
   if (p.rejectReason) lines.push(["반려 사유", esc(p.rejectReason)]);
   lines.push(["수정", when(p.updatedAt)]);
-  return `<article class="card app">
+  return `<article class="card app" data-product-id="${esc(p.productId)}">
     <div class="row" style="justify-content: space-between">
       <h2>${esc(p.name || "이름 없음")}</h2>
-      <span class="badge ${PRODUCT_TONE[p.status] || ""}">${esc(PRODUCT[p.status] || p.status)}${avail}</span>
+      <div class="row"><span class="badge ${PRODUCT_TONE[p.status] || ""}">${esc(PRODUCT[p.status] || p.status)}${avail}</span>
+      ${p.status === "PUBLISHED" || p.isHidden ? `<span class="badge ${p.isHidden ? "s-WITHDRAWN" : "s-APPROVED"}">${p.isHidden ? "숨김" : "공개"}</span>` : ""}</div>
     </div>
     <dl class="meta">${lines.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+    ${p.status === "PUBLISHED" || p.isHidden ? `<div class="row"><button data-act="visibility-form">${p.isHidden ? "다시 공개" : "숨기기"}</button></div>` : ""}
+    <div class="slot"></div>
   </article>`;
+}
+
+// 승인 상태는 그대로 두고 이 상품의 소비자 노출만 바꾼다(DEV-479).
+function visibilityForm(p) {
+  const verb = p.isHidden ? "다시 공개" : "숨기기";
+  const note = p.isHidden
+    ? "상품과 농가가 승인된 경우 소비자에게 다시 보여요."
+    : "소비자 목록·검색·상세에서 숨겨요. 기존 주문은 계속 처리할 수 있어요.";
+  return `<div class="reject-box">
+    <strong>${esc(p.name || "이름 없음")} · ${verb}</strong>
+    <div class="hint">${note}</div>
+    <div class="field"><label for="visibility-reason-${esc(p.productId)}">변경 사유</label>
+      <input id="visibility-reason-${esc(p.productId)}" data-f="visibility-reason" maxlength="500" placeholder="예: 테스트 상품 정리" required>
+    </div>
+    <div class="error" data-visibility-error role="alert"></div>
+    <div class="row">
+      <button class="primary" data-act="visibility-save">${verb} 확인</button>
+      <button data-act="cancel">취소</button>
+      <button data-act="visibility-reload" hidden>새로고침</button>
+    </div>
+  </div>`;
 }
 
 // AI 상품 초안(product_drafts). 상품과 이어 둔 열이 없어 상품이 됐는지는 알 수 없다
@@ -200,6 +224,29 @@ const CONFIRM = {
 $("#view").onclick = async (e) => {
   const b = e.target.closest("button[data-act]"); if (!b || busy) return;
   const el = b.closest("article"), id = el.dataset.id, act = b.dataset.act, slot = el.querySelector(".slot");
+  if (el.dataset.productId) {
+    const p = detail.products.find((x) => x.productId === el.dataset.productId);
+    if (!p) return;
+    if (act === "visibility-form") { slot.innerHTML = visibilityForm(p); slot.querySelector("input").focus(); return; }
+    if (act === "cancel") { slot.innerHTML = ""; return; }
+    if (act === "visibility-reload") { await load(detail.userId); return; }
+    if (act !== "visibility-save") return;
+    const reason = slot.querySelector('[data-f="visibility-reason"]').value.trim();
+    const error = slot.querySelector("[data-visibility-error]");
+    if (!reason) { error.textContent = "변경 사유를 적어 주세요."; return; }
+    busy = true; b.disabled = true;
+    try {
+      await call(`/admin/products/${encodeURIComponent(p.productId)}/visibility`, "POST", {
+        isHidden: !p.isHidden, version: p.version, reason,
+      });
+      toast(p.isHidden ? "상품 숨김을 해제했어요." : "상품을 숨겼어요.");
+      await load(detail.userId);
+    } catch (err) {
+      error.textContent = err.message;
+      slot.querySelector('[data-act="visibility-reload"]').hidden = false;
+    } finally { busy = false; b.disabled = false; }
+    return;
+  }
   const o = detail.orders.find((x) => x.orderId === id);
   if (act === "refund-form") { slot.innerHTML = refundForm(o); return; }
   if (act === "cancel") { slot.innerHTML = ""; return; }

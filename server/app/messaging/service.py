@@ -1509,7 +1509,12 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     if body.product_id:
         # 판매 중인 그 농가 상품만 근거로 쓴다(DEV-97). 주문이 함께 오면 주문이 먼저다
         item = catalog.load_product(db, body.product_id)
-        if item is None or item.product.farm_id != farm_id or item.product.status != "PUBLISHED":
+        if (
+            item is None
+            or item.product.farm_id != farm_id
+            or item.product.status != "PUBLISHED"
+            or (item.product.is_hidden and not body.order_id)
+        ):
             raise not_found("찾을 수 없는 상품이에요.")
     attachments = bind_attachments(db, consumer.id, body.attachment_ids, thread, body.order_id)
     reply_target = _reply_target(db, thread, body.reply_to_message_id)
@@ -1519,9 +1524,18 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     created = now()
     answer = None
     if _effective_mode(thread) == "AUTO" and settings.enabled and text:
-        answer = ai.answer_question(
-            text, _evidence(db, farm_id, body.order_id, settings, body.product_id)
-        )
+        evidence = _evidence(db, farm_id, body.order_id, settings, body.product_id)
+        answer = ai.answer_question(text, evidence)
+        if not body.order_id and evidence.product_id:
+            # AI 호출 중 숨김이 확정됐으면 답을 버린다. 명시 지정·자동 선택 모두 검사한다.
+            # 상품 → 대화 순서로 잠가, 최종 저장 뒤까지 공개 제어와 순서를 보장한다.
+            latest_product = catalog.load_product(db, evidence.product_id, for_update=True)
+            if (
+                latest_product is None
+                or latest_product.product.is_hidden
+                or latest_product.product.status != "PUBLISHED"
+            ):
+                answer = None
     # 저장 직전: 대화 행을 잠그고 최신 모드·버전·설정을 다시 읽는다(직접 답변·모드 변경과 직렬화)
     thread = _consumer_thread(db, consumer.id, farm_id, lock=True)
     latest = farms.ai_settings(db, farm_id, fresh=True)

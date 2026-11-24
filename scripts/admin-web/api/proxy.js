@@ -11,6 +11,7 @@ const ID = "[A-Za-z0-9_-]+";
 // 주문 찾기 값: ID·주문 번호, 또는 퍼센트 인코딩한 한글 입금자명(DEV-342). %80~%FF(UTF-8 바이트)만 받아
 // %2F(/)·%2E(.)·%20 같은 경로 문자를 몰래 넣지 못한다
 const REF = "(?:[A-Za-z0-9_-]|%[89A-Fa-f][0-9A-Fa-f])+";
+const PRODUCT_VISIBILITY = new RegExp(`^/admin/products/${ID}/visibility$`);
 const ALLOWED = [
   // 반려 되돌리기(revert)는 DEV-307
   new RegExp(`^/admin/producers(/${ID}/(approve|reject|decisions|revert))?${QUERY}$`),
@@ -20,6 +21,7 @@ const ALLOWED = [
   new RegExp(`^/admin/capacity-requests${QUERY}$`),
   new RegExp(`^/admin/products/${ID}/capacity-requests/${ID}/(approve|reject)$`),
   new RegExp(`^/admin/products/${ID}/changes${QUERY}$`), // 상품 변경 기록(DEV-361, 조회만)
+  PRODUCT_VISIBILITY, // 상품별 공개 제어(DEV-479)
   // 정지 미리보기·정지·정지 풀기·결정 이력(DEV-307)
   new RegExp(`^/admin/farms(/${ID}/(preview|retire|restore|suspend-preview|suspend|unsuspend|history))?$`),
   // 사용자 검색어는 한글이라 퍼센트 인코딩(%·+·.)까지 받는다(DEV-107)
@@ -47,7 +49,8 @@ const send = (res, status, code, message) => sendJson(res, status, { code, messa
 export default async function handler(req, res) {
   const url = new URL(req.url, "http://local");
   const path = url.searchParams.get("path") || "";
-  if (!ALLOWED.some((re) => re.test(path)) || !["GET", "POST"].includes(req.method)) {
+  if (!ALLOWED.some((re) => re.test(path)) || !["GET", "POST"].includes(req.method)
+      || (PRODUCT_VISIBILITY.test(path) && req.method !== "POST")) {
     return send(res, 400, "BAD_PROXY_PATH", "허용하지 않는 경로예요.");
   }
   if (!configured()) {
