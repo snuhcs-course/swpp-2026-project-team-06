@@ -717,3 +717,16 @@ def test_AC_ENG_6_existing_purge_preview_and_commit_handle_engagement_rows(clien
         assert db.scalar(select(func.count()).select_from(CustomerReview)) == 0
         assert db.scalar(select(func.count()).select_from(FarmReport)) == 0
         assert db.scalar(select(func.count()).select_from(FollowReceipt)) == 0
+
+
+def test_AC_ENG_1_locked_follow_refreshes_preloaded_farm_after_other_commit():
+    with get_sessionmaker()() as cached:
+        stale = farms.get_farm(cached, "f-namwon")
+        original_count = stale.follower_count
+        with get_sessionmaker()() as other, other.begin():
+            first = farms.set_follow(other, "u-seojun", "f-namwon", True)
+            assert first.follower_count == original_count + 1
+        second = farms.set_follow(cached, "u-minji", "f-namwon", True)
+        cached.commit()
+        assert second.follower_count == original_count + 2
+        assert second.fan_number == 2

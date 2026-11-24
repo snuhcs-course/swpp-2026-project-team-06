@@ -56,3 +56,4 @@ DEV-38: `share.py`의 `/s/farms/{farm_id}`는 Jinja2 자동 이스케이프 HTML
 - AC-ENG-2: /farms/{id}/temperature는 engagement 공개 라우터에서 승인 농가의 집계만 제공한다. 전체 기준은 docs/spec/customer-engagement.md.
 
 - AC-ENG-2: Follow.farm_id has a dedicated index in0038 so real-follow temperature aggregation does not scan all consumers.
+- AC-ENG-1: the locking follow read refreshes any existing ORM Farm object before counting, preventing a cached earlier read from overwriting another committed follow.
