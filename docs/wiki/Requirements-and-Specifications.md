@@ -1110,6 +1110,7 @@ Rules that apply on every screen:
 - Buttons lock while a request is being processed, and an order or payment is never processed twice even if the user taps again or the connection drops.
 - When a save fails (network, validation or conflict), what the user typed and the photos they picked are kept, including after a detour to login.
 - If the user is not allowed to see a screen, it shows "You can't view this screen" with a link to the first screen.
+- If a screen crashes while drawing, the app shows "We couldn't open this screen" instead of a blank page, says saved data is kept, and offers Retry (redraws the same screen), Home and a link to the farmclub support chat. Inside a tab only that screen is replaced and the tab bar stays; error names and stack traces are never shown. This covers errors thrown while drawing a screen or in its effects; errors inside button handlers or asynchronous callbacks are not caught (DEV-473).
 - Network errors show "Your connection is unstable" with Retry. Success messages appear as a short toast.
 
 ### 7.6 Operator screens (I2)
@@ -1264,3 +1265,9 @@ UAT participants and store reviewers now use private operator-created ID/passwor
 ### Post-UAT ordering and chat
 
 Deposit confirmation moves the order directly to the producer’s shipping queue. Customers may reserve up to the remaining option stock and approved sales weight. The farm’s AI reply appears on the right for producers and the left for consumers, with its AI label. Operators can retire identified UAT farms and disable tester access while retaining their order and conversation history.
+
+### Per-product visibility in admin (DEV-479)
+
+Admin → Users → Producer detail includes an independent visibility badge and Hide / Show again action for each published or hidden product. An inline confirmation identifies the product, explains the effect, and requires a reason. Cancellation does not mutate data; failed requests preserve the input. The authenticated, audited endpoint requires an idempotency key and the current product version. Stale edits return 409.
+
+Hiding removes only that product from public discovery, detail, and general AI product context, and rejects new orders. Product and farm approval, sibling products, stock, prices, and all existing orders remain unchanged. Existing order lookup, payment instructions, fulfillment, refunds, and order inquiries continue. Restoring visibility never bypasses approval or sales eligibility. If a general AI reply is in progress when its product is hidden, the reply is discarded and the consumer question remains available for human response. Paid-order context is preserved. This flag is independent of test-account visibility (DEV-472).

@@ -1,5 +1,8 @@
 # packages/ui spec
 
+## DEV-473 화면 오류 안내
+`ScreenError({error, retry, home, support, aboveTabs})`는 expo-router 오류 경계가 그리는 화면이다(screens.md 3장 ‘화면 오류’). 모양은 `EmptyState`·`LoadError`와 같은 결(아이콘 `alert` 32, 제목 18 굵게, 보조 14)이고 하단에 ‘다시 시도’(주요, 강조색 하나)·‘홈으로’(테두리 48), 본문 아래 글자 링크 ‘운영팀에 알리기’(`support`가 없으면 숨김). 문구와 개발 한 줄은 순수 모듈 `screenErrorText.ts`(`ScreenError.tsx`와 대소문자만 달라 이름을 달리함): `__DEV__`에서만 `error.message` 첫 줄 120자, 이름·스택은 그리지 않는다. `aboveTabs`면 하단 여백을 탭 바 높이만큼 올린다. 안내 묶음은 `accessibilityRole="alert"`·live region, 앱은 처음 그릴 때 `announceForAccessibility`로 제목을 읽히고, 본문은 ScrollView라 큰 글자에서도 버튼과 겹치지 않는다. 경로를 모르는 부품이라 이동은 앱의 `lib/ScreenBoundary.tsx`가 넘긴다. `scripts/test-screen-error.mjs`.
+
 ## DEV-379 알아 둘 세 줄 '이미 예약했어요'
 `ProductPageBody`의 선택 값 `myReservation`(`MyReservation`)이 `TrustRows` 첫 줄 보조 줄을 바꾼다. 없으면 'n번째'(생산자 미리보기 그대로), `checking`이면 글 없이 보조 줄 높이만, `reserved`면 '이미 예약했어요 · 내 예약 보기' + › 로 줄 전체가 링크(FEAT-07 AC-07-10). 품절이면 보조 줄 없음은 그대로.
 

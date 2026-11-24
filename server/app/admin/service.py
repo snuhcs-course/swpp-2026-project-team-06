@@ -33,7 +33,7 @@ DONE_STATUSES = ("SUCCEEDED", "RECOVERED", "RESOLVED")
 
 def _summary(body: dict[str, Any]) -> dict[str, Any]:
     summary: dict[str, Any] = {}
-    for key in ("amount", "version", "productId", "requestId"):
+    for key in ("amount", "version", "productId", "requestId", "isHidden"):
         if key in body:
             summary[key] = body[key]
     if "reason" in body:
@@ -49,6 +49,8 @@ def _result_summary(result: Any) -> dict[str, Any]:
         "farmId",
         "orderId",
         "productId",
+        "isHidden",
+        "version",
         "requestId",
         "status",
         "decidedAt",
