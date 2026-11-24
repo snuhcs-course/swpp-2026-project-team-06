@@ -190,3 +190,34 @@ def test_AC_15_13_room_photos_cannot_be_reused_in_private_chat(client, login):
         json={"text": "사진", "attachmentIds": [room_photo]},
     )
     assert response.status_code == 404
+
+
+def test_AC_15_13_photo_reply_can_be_edited_to_empty_text_but_text_reply_cannot(client, login):
+    minji = login("u-minji")
+    photo = _photo(client, minji)
+    with_photo = _ok(_post(client, minji, text="사진 설명", attachmentIds=[photo]))
+    edited = client.patch(
+        f"{ROOM}/messages/{with_photo['messageId']}",
+        headers=minji | _key(),
+        json={"text": "  ", "version": with_photo["editVersion"]},
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["body"] == "" and edited.json()["attachmentIds"] == [photo]
+    text_only = _ok(_post(client, minji, text="글만"))
+    empty = client.patch(
+        f"{ROOM}/messages/{text_only['messageId']}",
+        headers=minji | _key(),
+        json={"text": "", "version": text_only["editVersion"]},
+    )
+    assert empty.status_code == 400
+
+
+def test_AC_15_12_AC_15_13_send_errors_carry_reasons_for_the_app(client, login):
+    minji, producer = login("u-minji"), login("u-kang")
+    assert client.delete("/api/messaging/news/n-2", headers=producer).status_code == 204
+    gone = _post(client, minji, text="답장", broadcastId="n-2")
+    assert gone.status_code == 404
+    assert gone.json()["details"]["reason"] == "REPLY_TARGET_GONE"
+    unusable = _post(client, minji, text="사진", attachmentIds=["att-missing"])
+    assert unusable.status_code == 404
+    assert unusable.json()["details"]["reason"] == "ATTACHMENT_UNUSABLE"

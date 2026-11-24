@@ -559,7 +559,13 @@ def send_room(
                 )
             )
             if target_id is None:
-                raise not_found("이 소식방의 소식에만 답장할 수 있어요.")
+                # reason으로 앱이 고른 소식을 풀고 안내한다(삭제된 소식, DEV-467)
+                raise ApiError(
+                    404,
+                    "NOT_FOUND",
+                    "이 소식방의 소식에만 답장할 수 있어요.",
+                    {"reason": "REPLY_TARGET_GONE"},
+                )
         else:
             # 답한 소식 = 보낸 순간 그 농가의 가장 최근 지우지 않은 소식(DEV-297).
             # 고르지 않은 답장(옛 앱·입력칸에서 바로 보냄)의 기본값이다
@@ -615,7 +621,10 @@ def _bind_room_photos(
             or a.order_id is not None
             or a.thread_id != _ROOM_SCOPE + farm_id
         ):
-            raise not_found("사용할 수 없는 첨부예요.")
+            # reason으로 앱이 쓸 수 없는 사진을 빼고 안내한다(24시간 지남 등, DEV-467)
+            raise ApiError(
+                404, "NOT_FOUND", "사용할 수 없는 첨부예요.", {"reason": "ATTACHMENT_UNUSABLE"}
+            )
         found.append(a)
     for a in found:
         a.bound = True
@@ -2197,12 +2206,13 @@ def _require_message_editor(db: Session, user) -> None:
         raise forbidden("약관에 동의하면 쓸 수 있어요.", reason="CONSENT_REQUIRED")
 
 
-def _edit_text(row, body, limit: int):
+def _edit_text(row, body, limit: int, has_photos: bool = False):
     if row.edit_version != body.version:
         raise conflict("STALE_VERSION", "다른 곳에서 수정됐어요. 닫고 다시 열어 주세요.")
     value = body.text.strip()
     has_media = bool(
-        getattr(row, "photos", [])
+        has_photos
+        or getattr(row, "photos", [])
         or getattr(row, "videos", [])
         or getattr(row, "attachment_ids", [])
     )
@@ -2269,6 +2279,8 @@ def edit_room_message(db: Session, user, farm_id: str, message_id: str, body) ->
             raise not_found("본인이 보낸 답장만 수정할 수 있어요.")
     else:
         raise not_found("수정할 수 없는 메시지예요.")
-    _edit_text(row, body, 2000 if user.role == "PRODUCER" else 1000)
+    # 사진 답장은 글을 비워도 된다(AC-15-13). 답장 사진은 칸이 아니라 비공개 사진 키로 찾는다
+    photos = isinstance(row, RoomReply) and bool(_room_reply_photos(db, [row.id]))
+    _edit_text(row, body, 2000 if user.role == "PRODUCER" else 1000, photos)
     db.flush()
     return _room_messages(db, user, farm, [row])[0]
