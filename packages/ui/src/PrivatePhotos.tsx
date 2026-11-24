@@ -254,7 +254,10 @@ export function usePhotoAttach({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  // 대화가 바뀐 뒤 끝난 예전 업로드는 새 대화에 진행 표시·오류를 남기지 않는다
+  const generation = useRef(0);
   useEffect(() => {
+    generation.current++;
     setBusy(false);
     setError("");
   }, [scope]);
@@ -263,15 +266,16 @@ export function usePhotoAttach({
       setError("사진 한 장은 10MB까지예요");
       return;
     }
+    const mine = generation.current;
     setBusy(true);
     onBusy?.(true);
     setError("");
     try {
       onAdd((await upload(file)).attachmentId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "사진을 올리지 못했어요");
+      if (generation.current === mine) setError(e instanceof Error ? e.message : "사진을 올리지 못했어요");
     } finally {
-      setBusy(false);
+      if (generation.current === mine) setBusy(false);
       onBusy?.(false);
     }
   }

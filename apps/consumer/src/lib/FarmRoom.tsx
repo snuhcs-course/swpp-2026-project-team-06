@@ -194,6 +194,13 @@ export default function FarmRoom() {
           onRefollow={join}
           onLapsedChange={setLapsed}
           copy={copyText}
+          // 주의·제재 안내 띠(DEV-475). 운영팀 방은 로그인해야 열려서 로그인 전이면 로그인 뒤 그 방으로
+          notice={{
+            onSupport: () =>
+              user
+                ? router.push("/chats/support")
+                : router.push({ pathname: "/login", params: { next: "/chats/support" } }),
+          }}
           onLogin={() =>
             router.push({ pathname: "/login", params: { next: here } })
           }

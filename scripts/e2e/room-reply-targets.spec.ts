@@ -59,7 +59,7 @@ test("AC-15-13 a consumer attaches a private photo to a reply and the farm sees 
   // 다른 spec이 더 최근 소식을 올렸을 수 있어 n-1 카드에서 답장한다(고른 소식 + 사진)
   await card(page, N1).getByRole("button", { name: "농가에 답장", exact: true }).click();
   await expect(page.getByTestId("room-reply-post")).toContainText(N1.slice(0, 10));
-  // DEV-468: + 메뉴의 사진 동작이 숨긴 파일 칸을 연다. 고른 사진은 기존72px 썸네일.
+  // DEV-478: +가 숨긴 파일 칸을 바로 연다. 고른 사진은 기존72px 썸네일.
   await expect(page.getByRole("button", { name: "사진", exact: true })).toBeVisible();
   await expect(page.getByLabel("비공개 사진 첨부", { exact: true })).toBeHidden();
   await page.getByLabel("비공개 사진 첨부", { exact: true }).setInputFiles(

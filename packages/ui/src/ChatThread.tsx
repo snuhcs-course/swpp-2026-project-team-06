@@ -20,6 +20,7 @@ import { AiCheckCard, AiCheckChip } from "./AiCheckCard";
 import { aiCheckFollowUp, aiCheckLabel, aiCheckState, correctionQuoteLabel, type AiCheckState } from "./aiCheck";
 import { Composer, copyToClipboard, FloatingPill } from "./composer";
 import { inBackground } from "./foreground";
+import { ChatNotice, type ChatNoticeConfig } from "./ChatNotice";
 import { useKeyboardShown } from "./keyboard";
 import { safe } from "./web";
 import {
@@ -94,6 +95,8 @@ type Props = {
   peerReadMessageId?: string | null;
   /** 길게 누르기 메뉴의 '복사'. 앱은 expo-clipboard 도우미를 넘긴다. 없으면 웹 클립보드만 */
   copy?: (text: string) => Promise<unknown>;
+  /** 머리 아래 주의·제재 안내 띠(DEV-475, AC-12-19). 모든 방이 넘긴다. 운영팀 방은 onSupport: null */
+  notice: ChatNoticeConfig;
   children?: ReactNode;
 };
 export function ChatThread({
@@ -123,6 +126,7 @@ export function ChatThread({
   systemLine,
   peerReadMessageId,
   copy,
+  notice,
   children,
 }: Props) {
   const saved = useRef((() => {
@@ -581,6 +585,7 @@ export function ChatThread({
       {...PRIVATE_AREA}
       style={{ flex: 1, minHeight: 0, backgroundColor: "#FAF9F6" }}
     >
+      <ChatNotice side={producer ? "producer" : "consumer"} onSupport={notice.onSupport} />
       {error ? (
         <View
           accessibilityRole="alert"
@@ -892,7 +897,6 @@ export function ChatThread({
           trailing={emoticons ? tools.trailing : undefined}
           onFocus={emoticons ? tools.close : undefined}
           above={<>
-            {emoticons ? tools.above : null}
             {copied ? <T variant="caption" muted center accessibilityRole="text">메시지를 복사했어요</T> : null}
             {replyTo ? <View style={{ paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent, flexDirection: "row", alignItems: "center" }}>
               <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>{producer && replyTo.senderType === "AI" && aiCheckState(messages.find(x => x.messageId === replyTo.messageId) ?? replyTo) === "REQUESTED" ? "AI 안내를 바로잡아요" : "선택한 메시지에 답장"}</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
@@ -926,6 +930,8 @@ export function ChatThread({
                 onBusy={(next) => { if (alive.current && context.current === sendScope) setUploading(next); }}
               />
             ) : null}
+            {/* 고른 이모티콘 큰 미리보기는 입력줄 바로 위(DEV-478) */}
+            {emoticons ? tools.above : null}
           </>}
         />
         {emoticons ? tools.below : null}

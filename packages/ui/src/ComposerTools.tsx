@@ -65,7 +65,7 @@ export function useComposerTools({ selected, onSelect, onSend, disabled, onPhoto
     /** 고른 이모티콘: 입력줄 바로 위 큰 미리보기. 실제 높이를 차지해 대화 영역 끝에 붙는다
      * (작성창 밖에 띄우면 Android에서 그 영역의 터치를 받지 못한다) */
     above: selected ? <View testID="emoticon-selection"
-      style={{ marginHorizontal: -tokens.space.md, marginTop: -tokens.space.sm, height: PREVIEW + 40,
+      style={{ marginHorizontal: -tokens.space.md, height: PREVIEW + 40,
         alignItems: "center", justifyContent: "flex-end", paddingBottom: 6,
         backgroundColor: tokens.color.surface }}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${label ?? "이모티콘"} 보내기`} disabled={disabled}
