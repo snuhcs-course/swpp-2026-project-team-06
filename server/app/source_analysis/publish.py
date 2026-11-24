@@ -13,6 +13,7 @@ from app.catalog.schemas import MAX_PRODUCT_PHOTOS
 from app.core.db import get_db
 from app.core.errors import conflict, invalid, not_found
 from app.core.images import sniff
+from app.farms import service as farms
 from app.source_analysis import service as s
 from app.source_analysis.caching import not_modified, tag_for
 from app.source_analysis.models import Draft, ProductWorkspace, PublicPhoto
@@ -187,7 +188,9 @@ def public_photo(
     photo = db.get(PublicPhoto, photo_id)
     if photo is None:
         raise not_found()
-    detail = catalog.product_detail(db, photo.product_id)
+    # <img>는 인증 헤더를 보내지 않아 보는 사람을 모른다. 승인만 본다(DEV-472). 사진 ID는 목록에
+    # 나오지 않고, 테스트 농가 상품의 상세·목록은 일반 사용자에게 404·제외다
+    detail = catalog.product_detail(db, photo.product_id, viewer=farms.ANY_VIEWER)
     referenced = detail is not None and (
         f"/api/source-media/{photo_id}" == detail.photo
         or any(
