@@ -97,7 +97,8 @@ export default function Settings() {
               onPress={() => router.push("/password")}
             />
           ) : null}
-          {farmId ? (
+          {/* 공유 링크(shareUrl)가 없는 농가는 소비자 앱에서 열리지 않는다(승인 전·숨긴 농가, DEV-477) */}
+          {farmId && farm.data?.shareUrl ? (
             <ListRow
               label="소비자 앱에서 내 농가 보기"
               onPress={() => void openConsumerFarm(farmId)}

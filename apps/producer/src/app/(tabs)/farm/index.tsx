@@ -261,11 +261,14 @@ export default function Farm() {
                 variant="outline"
                 onPress={() => router.push("/farm/detail")}
               />
-              <Button
-                label="소비자 앱에서 내 농가 보기"
-                variant="outline"
-                onPress={() => void openConsumerFarm(data.farmId)}
-              />
+              {/* 공유 링크가 없는 농가(승인 전, 테스트·심사용으로 숨긴 농가 DEV-472)는 소비자 앱에서 열리지 않아 버튼을 두지 않는다(DEV-477) */}
+              {link ? (
+                <Button
+                  label="소비자 앱에서 내 농가 보기"
+                  variant="outline"
+                  onPress={() => void openConsumerFarm(data.farmId)}
+                />
+              ) : null}
             </View>
           </>
         ) : null}
