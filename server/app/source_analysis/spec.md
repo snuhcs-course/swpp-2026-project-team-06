@@ -349,3 +349,7 @@ FEAT-03/04/07, AC-SRC-2/3/5/10/11, M-11/18: explicit inventory_refinement reques
 
 ### DEV-450/451 passage classification
 FEAT-03/04/07 AC-SRC-2/3/5/10/11 M-11/18: passage_refinement preserves complete deterministic partitions and source order; explicit refine_passages adds assignment-only classification into existing text modules. Parent review blocks persist, recognized context stays whole, all IDs exactly once and final validation applies. Compact shared-context wire is fully derived from the hash-bound internal request; no truncation/default change. Primary/supplement comparisons remain separate; phase/global budget and unknown-send/cost stopping enforced by development runner.
+
+
+### DEV-450 voice-polishing experiment
+FEAT-03/04/07 AC-SRC-2/3/5/10/11 M-11/18: voice_polish freezes exact reviewed baseline modules/texts/citations and safe style excerpts; source_polish provides isolated writer/critic adapters. Per-text guards and existing final validation expose incomplete output; separate critic bindings are rebuilt from source and writer result. No default generator, persistence or editor changes. Model critique never equals human acceptance.

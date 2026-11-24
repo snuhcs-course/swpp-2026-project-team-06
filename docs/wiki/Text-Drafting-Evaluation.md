@@ -18,3 +18,6 @@ The full internal inventory, offsets and revisions remain hash-bound. A compact 
 
 
 Partial human feedback binds only the actual reviewed source/output version and answered dimensions. Editorial tolerance does not establish global quantity equivalence; blank answers are not approval. Producer voice and text flow remain separate qualitative feedback. The offline calibration utility reports agreement only on explicitly reviewed dimensions, retains unknowns/failures/abstentions and never edits gold or approves unreviewed outputs. A small subset does not establish general judge accuracy.
+
+
+A separate wording-only experiment uses the exact four originally reviewed v11 outputs. Module/text/citation identities remain fixed; bounded source excerpts guide register rather than authorize new facts. Deterministic quantity, option, explicit polarity/context and safety guards retain partial failures without baseline rescue. An independent model critic remains uncalibrated and cannot approve semantic accuracy or deployment. Default generation and editor behavior remain unchanged.
