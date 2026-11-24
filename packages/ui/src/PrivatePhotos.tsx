@@ -241,16 +241,23 @@ export function usePhotoAttach({
   upload,
   onAdd,
   onBusy,
+  scope,
 }: {
   count: number;
   max?: number;
   upload: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
   onAdd: (id: string) => void;
   onBusy?: (busy: boolean) => void;
+  /** 대화(받는 사람)가 바뀌면 진행 중 표시·오류를 비운다(DEV-478, 예전 PrivatePhotos의 key와 같은 역할) */
+  scope?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  useEffect(() => {
+    setBusy(false);
+    setError("");
+  }, [scope]);
   async function send(file: File | PickedPhoto) {
     if (file.size > 10 * 1024 * 1024) {
       setError("사진 한 장은 10MB까지예요");

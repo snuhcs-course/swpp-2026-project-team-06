@@ -52,6 +52,7 @@ export function Composer({
   inputRef,
   above,
   trailing,
+  onFocus,
   sendOnEnter = false,
 }: {
   value: string;
@@ -79,6 +80,8 @@ export function Composer({
   sendOnEnter?: boolean;
   /** 입력칸 안 오른쪽 버튼(예: 이모티콘 웃는 얼굴, DEV-478). 있으면 입력칸과 한 알약 안에 놓는다 */
   trailing?: ReactNode;
+  /** 입력칸에 포커스가 가면(예: 이모티콘 패널 닫기, DEV-478) */
+  onFocus?: () => void;
 }) {
   const auto = useWebAutoHeight(value);
   const composing = useRef(false), allowNewline = useRef(false), imeEnter = useRef(false);
@@ -135,6 +138,7 @@ export function Composer({
       value={value}
       onChangeText={onChangeText}
       editable={editable}
+      onFocus={onFocus}
       multiline
       returnKeyType={sendOnEnter ? "send" : "default"}
       submitBehavior={sendOnEnter && Platform.OS !== "web" ? "submit" : "newline"}

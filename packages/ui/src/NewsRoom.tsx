@@ -821,6 +821,7 @@ export function NewsRoom({
             busy={busy}
             tool={tools.tool}
             trailing={tools.trailing}
+            onFocus={tools.close}
             above={<>
               {tools.above}
               {replyPost ? (

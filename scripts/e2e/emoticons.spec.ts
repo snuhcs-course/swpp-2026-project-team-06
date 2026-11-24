@@ -55,7 +55,8 @@ test("AC-12-21 AC-12-22 consumer sends an emoticon alone, retains text/photo dra
   await page.locator('input[type="file"]').setInputFiles(photoPath());
   const uploaded = await upload;
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
-  await expect(page.getByRole("img", { name: "비공개 문의 사진", exact: true }).first()).toBeVisible();
+  // DEV-478: 작성창의 고른 사진(초안)은 72px 썸네일 ‘첨부 사진 1’. 보낸 사진 라벨과 섞이지 않게 초안을 직접 본다
+  await expect(page.getByRole("img", { name: "첨부 사진 1", exact: true })).toBeVisible();
 
   const attempts: { key: string; body: Record<string, unknown> }[] = [];
   await page.route(`**${chatRoute}`, async (route) => {
@@ -87,7 +88,8 @@ test("AC-12-21 AC-12-22 consumer sends an emoticon alone, retains text/photo dra
   await expect(row.getByRole("img", { name: "예약했어요 이모티콘", exact: true })).toBeVisible();
   await expect(page.getByTestId("emoticon-selection")).toHaveCount(0);
   await expect(box).toHaveValue(draft);
-  await expect(page.getByRole("img", { name: "비공개 문의 사진", exact: true }).first()).toBeVisible();
+  // DEV-478: 작성창의 고른 사진(초안)은 72px 썸네일 ‘첨부 사진 1’. 보낸 사진 라벨과 섞이지 않게 초안을 직접 본다
+  await expect(page.getByRole("img", { name: "첨부 사진 1", exact: true })).toBeVisible();
   await page.reload();
   await expect(row.getByRole("img", { name: "예약했어요 이모티콘", exact: true })).toBeVisible();
 });
@@ -215,4 +217,26 @@ test("AC-15-14 AC-12-22 producer news waits for follower confirmation and render
   const stored = (await roomItems(request, producer)).find((m) => m.messageId === (sent.broadcastId ?? sent.messageId));
   expect(stored?.emoticonId).toBe("farmclub-shipping");
   expect(stored?.body).toBe("오늘 출하해요");
+});
+
+test("AC-12-22 DEV-478 the large preview sends on tap and the round close cancels without sending", async ({ page }) => {
+  await loginConsumer(page, "김민지");
+  await page.goto(`${consumerUrl}/chats/f-kang`);
+  const posts: Record<string, unknown>[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && new URL(r.url()).pathname === chatRoute) posts.push(r.postDataJSON());
+  });
+  await choose(page, "고마워요");
+  await page.getByRole("button", { name: "이모티콘 선택 취소", exact: true }).click();
+  await expect(page.getByTestId("emoticon-selection")).toHaveCount(0);
+  expect(posts).toHaveLength(0);
+  await page.getByRole("button", { name: "고마워요 선택", exact: true }).click();
+  await expect(page.getByTestId("emoticon-selection")).toBeVisible();
+  const sent = page.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname === chatRoute && r.ok());
+  await page.getByRole("button", { name: "고마워요 보내기", exact: true }).click();
+  const result = await (await sent).json();
+  expect(posts).toHaveLength(1);
+  standalone(posts[0], "farmclub-thanks");
+  await expect(page.getByTestId(`chat-message-${result.message.messageId}`).getByRole("img", { name: "고마워요 이모티콘", exact: true })).toBeVisible();
+  await expect(page.getByTestId("emoticon-selection")).toHaveCount(0);
 });

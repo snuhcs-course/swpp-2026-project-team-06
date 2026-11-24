@@ -214,6 +214,7 @@ export function ChatThread({
     setIds([]);
     setPhotos(false);
     setSelectedEmoticon(undefined);
+    tools.close();
     setRetrySend(false);
     setError(ids.length ? "문의할 주문이 바뀌었어요. 사진을 다시 첨부해 주세요." : "");
   }, [sendScope]);
@@ -521,6 +522,7 @@ export function ChatThread({
     },
     onAdd: (id) => { if (alive.current && context.current === sendScope) setIds((prev) => [...prev, id]); },
     onBusy: (next) => { if (alive.current && context.current === sendScope) setUploading(next); },
+    scope: sendScope,
   });
   const tools = useComposerTools({
     selected: selectedEmoticon, onSelect: setSelectedEmoticon, onSend: () => void submit(),
@@ -888,6 +890,7 @@ export function ChatThread({
             disabled: busy || !ready || !composerEnabled,
           } : undefined}
           trailing={emoticons ? tools.trailing : undefined}
+          onFocus={emoticons ? tools.close : undefined}
           above={<>
             {emoticons ? tools.above : null}
             {copied ? <T variant="caption" muted center accessibilityRole="text">메시지를 복사했어요</T> : null}

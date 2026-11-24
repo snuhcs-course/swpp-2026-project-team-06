@@ -3,7 +3,7 @@
 // 패널은 키보드 자리(입력줄 아래)에 칸 바탕·테두리 없이 그림만 4열로 놓는다.
 // 고른 이모티콘은 입력줄 바로 위 대화 영역에 크게 띄워 한 번 더 누르면 보내고, 원형 ✕로 취소한다.
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Keyboard, Platform, Pressable, ScrollView, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { EMOTICONS, emoticonLabel, type EmoticonId } from "@farmclub/api";
 import { EmoticonImage } from "./Emoticon";
@@ -53,16 +53,21 @@ export function useComposerTools({ selected, onSelect, onSend, disabled, onPhoto
     /** 입력칸 안 오른쪽 웃는 얼굴 */
     trailing: <Pressable accessibilityRole="button" accessibilityLabel="이모티콘" aria-expanded={open}
       accessibilityState={{ expanded: open, disabled }} disabled={disabled}
-      onPress={() => setOpen(!open)} hitSlop={4}
+      onPress={() => {
+        // 앱에서는 키보드를 내리고 그 자리에 패널을 띄운다(카톡처럼)
+        if (!open && Platform.OS !== "web") Keyboard.dismiss();
+        setOpen(!open);
+      }} hitSlop={4}
       style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center",
         opacity: disabled ? 0.35 : 1 }}>
       <FaceIcon active={open} />
     </Pressable>,
-    /** 고른 이모티콘: 입력줄 바로 위 대화 영역에 떠 있는 큰 미리보기(자리를 차지하지 않는다) */
-    above: selected ? <View testID="emoticon-selection" pointerEvents="box-none"
-      style={{ position: "absolute", left: -tokens.space.md, right: -tokens.space.md, bottom: "100%",
-        height: PREVIEW + 40, alignItems: "center", justifyContent: "flex-end", paddingBottom: 6,
-        backgroundColor: "rgba(245,245,243,0.94)", zIndex: 2 }}>
+    /** 고른 이모티콘: 입력줄 바로 위 큰 미리보기. 실제 높이를 차지해 대화 영역 끝에 붙는다
+     * (작성창 밖에 띄우면 Android에서 그 영역의 터치를 받지 못한다) */
+    above: selected ? <View testID="emoticon-selection"
+      style={{ marginHorizontal: -tokens.space.md, marginTop: -tokens.space.sm, height: PREVIEW + 40,
+        alignItems: "center", justifyContent: "flex-end", paddingBottom: 6,
+        backgroundColor: tokens.color.surface }}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${label ?? "이모티콘"} 보내기`} disabled={disabled}
         onPress={onSend}
         style={({ pressed }) => ({ width: PREVIEW, height: PREVIEW, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
@@ -73,7 +78,7 @@ export function useComposerTools({ selected, onSelect, onSend, disabled, onPhoto
         onPress={() => onSelect(undefined)}
         style={{ position: "absolute", right: tokens.space.sm, top: 0, width: 48, height: 48,
           alignItems: "center", justifyContent: "center" }}>
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(17,17,17,0.55)",
+        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: tokens.color.photoOverlay,
           alignItems: "center", justifyContent: "center" }}>
           <Icon name="close" size={14} color={tokens.color.onAccent} />
         </View>
