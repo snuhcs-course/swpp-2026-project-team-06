@@ -339,3 +339,9 @@ FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
 | 2026-11-17 | 작업 사진 업로드는 잠금 없이 소유·작업 공간을 먼저 확인하고 읽기 트랜잭션을 닫은 뒤(`db.rollback()`, 변환 동안 idle in transaction 방지) JPEG 변환·저장을 하고, `workspace.owned`(advisory lock + FOR UPDATE)로 다시 확인하고 행만 넣는다. 잠금 확인이 실패하면 저장한 파일은 고아 정리가 지운다 | 큰 사진 변환 동안 같은 상품의 저장·반영·다른 업로드가 기다리지 않게 | AC-SRC-11 |
 | 2026-11-17 | 공개 반영(`copy_photo`)은 `page_variant(display)`를 써서 이미 만든 미리보기 바이트를 새 키로 복사한다(같은 변환이라 결과 동일) | 반영 때 12MP PNG를 다시 디코딩하지 않음 | AC-SRC-9 |
 | 2026-11-17 | 감수한 점: 미리보기는 그 브라우저에 최대 하루 남는다(자료를 지우거나 상품 연결을 바꿔도 이미 받은 사본은 `max-age` 동안 그 생산자 브라우저에만 남음, 다른 로그인은 `Vary: Authorization`으로 재검증). 앱 메모리 공유본은 로그인이 바뀌거나 로그아웃하면 지운다. 상품사진 업로드는 미리보기 두 장을 더 만들어 12MP 기준 서버 처리 0.64초→0.79초(로컬 측정) | 여는 시간 49.6초→2.1초(10Mbps)에 비해 작은 비용. 원본·가림 전 이미지는 계속 `no-store` | AC-SRC-5/6 |
+
+## DEV-463 automatic source-design experiment
+Contract and allowed paths: docs/evaluation/i5-automatic-source-design/spec.md. Offline raster-first, strict bounded vision plan, exact pixel crops, frozen copy, cumulative existing budget. No production route/exposure.
+
+## DEV-450 source-grounded copy experiment
+Contract: docs/evaluation/i5-source-copy/spec.md. Typed source-bound option tuples + guarded narrative editing, separate private evidence, unchanged automatic images/design, no default/product integration.

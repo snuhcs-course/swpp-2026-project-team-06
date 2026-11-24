@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState, type ReactNode } from "react";
+import { createElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Modal, Platform, Pressable, View } from "react-native";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
@@ -83,8 +83,13 @@ export function ViewablePhoto({
 
 /** 전체 화면 사진 보기. 바깥·닫기·뒤로(Android)·Escape(웹)로 닫는다 */
 export function PhotoViewer({ uri, onClose }: { uri: string | null; onClose: () => void }) {
+  const closeButton = useRef<View>(null);
   return (
-    <Modal visible={!!uri} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={!!uri} transparent animationType="fade" onRequestClose={onClose}
+      onShow={() => {
+        // Put web keyboard focus inside the modal so Escape reaches its local listener.
+        if (Platform.OS === "web") closeButton.current?.focus();
+      }}>
       <View
         accessibilityViewIsModal
         style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center" }}
@@ -106,6 +111,7 @@ export function PhotoViewer({ uri, onClose }: { uri: string | null; onClose: () 
           />
         ) : null}
         <Pressable
+          ref={closeButton}
           accessibilityRole="button"
           accessibilityLabel="닫기"
           onPress={onClose}
