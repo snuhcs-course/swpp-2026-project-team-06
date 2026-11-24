@@ -63,6 +63,7 @@ import { placedView } from "../../../lib/placedNotice";
 import { productLine } from "../../../lib/reserveSummary";
 import { LoadError, OptionSheet } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
+import { CheckoutChangeModal } from "../../../lib/CheckoutChangeModal";
 
 // 예약 전 확인 문구 버전(R-03). DEV-120에서 개인정보 제3자 제공 동의를 더해 올렸다
 const CONSENT_VERSION = "policy-2026-10-23";
@@ -122,6 +123,7 @@ export default function Checkout() {
   const [conflict, setConflict] = useState<CheckoutConflict | null>(() =>
     params.changed ? { reason: "EXPIRED", details: {} } : null,
   );
+  const [dismissedChange, setDismissedChange] = useState<CheckoutConflict | null>(null);
   // 마지막으로 보낸 '본 값'(다시 확인하기 뒤 가격도 바뀌었는지 비교)
   const sentRef = useRef<ReturnType<typeof seenValues>>(null);
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
@@ -251,6 +253,10 @@ export default function Checkout() {
     : null;
   const stockBlocked = focused && !!user && !placed && !recovering && !control.placed && !control.recovery &&
     !!shown && ["SOLD_OUT", "TOTAL_LIMIT_REACHED"].includes(shown.reason);
+  const changedConditions = focused && !!user && !placed && !recovering && !control.placed && !control.recovery &&
+    shown?.reason === "STAGE_CHANGED" && !!view?.primary.enabled && !view.hideAmount;
+  const changePromptOpen = changedConditions && dismissedChange !== shown;
+  const latestConditionsReady = !product.loading && !product.error;
 
   const leaving = view?.primary.action === "backToProduct";
   const canPay =
@@ -330,6 +336,7 @@ export default function Checkout() {
       return;
     }
     if (!recovery && leaving) return backToProduct();
+    if (!recovery && changedConditions && !latestConditionsReady) return;
     if (!recovery && (!p || !opt || !recipient)) return;
     control.submitting = true;
     setBusy(true);
@@ -488,7 +495,7 @@ export default function Checkout() {
             body={`${won(Number(params.seenUnitPrice))} → ${won(unit)} · 아래 총 입금액을 확인해 주세요.`}
           />
         ) : null}
-        {view && !stockBlocked ? (
+        {view && !stockBlocked && !changePromptOpen ? (
           <Notice
             style={{ margin: tokens.space.gutter, marginBottom: 0 }}
             title={view.title}
@@ -886,6 +893,7 @@ export default function Checkout() {
           <Button
             label={
               recovering ? "예약 결과 확인하기"
+                : changedConditions ? "바뀐 금액 확인하기"
                 : view && view.primary.label !== "예약하기"
                 ? view.primary.label
                 : view?.hideAmount || !p
@@ -895,7 +903,7 @@ export default function Checkout() {
             disabled={!canPay}
             accessibilityHint={canPay ? undefined : disabledHint}
             loading={busy}
-            onPress={() => void submit()}
+            onPress={() => changedConditions ? setDismissedChange(null) : void submit()}
           />
         )}
       </BottomBar>
@@ -909,7 +917,7 @@ export default function Checkout() {
           setOptionId(o);
           setQty(q);
           // 품절·물량·수량 안내는 옵션·수량을 바꾸면 사라지고 버튼이 다시 켜진다
-          if (clearsOnSelection(conflict)) setConflict(null);
+          if (clearsOnSelection(conflict) || (conflict?.reason === "STAGE_CHANGED" && o !== optionId)) setConflict(null);
         }}
         onClose={() => setSheet(null)}
         onSubmit={() => setSheet(null)}
@@ -924,6 +932,19 @@ export default function Checkout() {
           </View>
         </View>
       </Modal>
+      {view && changedConditions ? <CheckoutChangeModal
+        visible={changePromptOpen && !busy}
+        title={view?.title ?? "예약 조건이 바뀌었어요"}
+        body={view?.body ?? ""}
+        previousTotal={view?.firstTotal ?? null}
+        total={latestConditionsReady ? total : null}
+        busy={busy}
+        canReserve={canPay && latestConditionsReady}
+        refreshing={product.loading}
+        onReload={() => void product.reload()}
+        onClose={() => setDismissedChange(shown)}
+        onReserve={() => { setDismissedChange(shown); void submit(); }}
+      /> : null}
       {toast.node}
       <Sheet
         visible={sheet === "address"}

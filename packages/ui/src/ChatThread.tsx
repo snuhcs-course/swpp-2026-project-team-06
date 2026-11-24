@@ -44,6 +44,7 @@ type Message = {
   checkState?: AiCheckState | null;
   handoffStatus?: string | null;
   needsHuman?: boolean;
+  replyRequested?: boolean;
 };
 type Page = { items: Message[]; nextCursor: string | null };
 type Props = {
@@ -173,6 +174,7 @@ export function ChatThread({
   const [menuMessage, setMenuMessage] = useState<Message | null>(null);
   const [menuPoint, setMenuPoint] = useState<MenuPoint | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const composerInput = useRef<TextInput>(null);
   useEffect(() => { if (!active) { setMenuMessage(null); setEditTarget(null); } }, [active]);
   const [reporting, setReporting] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -470,6 +472,10 @@ export function ChatThread({
       await callbacks.current.send(text.trim(), ids, pending.current.key, replyTo?.messageId);
       if (!current(run) || submittedScope !== context.current) return;
       committed = true;
+      if (producer && replyTo?.replyRequested) {
+        commitMessages(messageRef.current.map(m => m.messageId === replyTo.messageId
+          ? { ...m, replyRequested: false } : m));
+      }
       setRetrySend(false);
       setReplyTo(null);
       setText("");
@@ -712,7 +718,21 @@ export function ChatThread({
                     ? "주문에 연결된 대화"
                     : undefined
               }
-              footer={checkChip && !chipBeside ? (
+              footer={producer && replies && m.senderType === "CONSUMER" && m.replyRequested ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="답장 요청에 답장"
+                  testID={`reply-request-${m.messageId}`}
+                  disabled={busy}
+                  hitSlop={8}
+                  onPress={() => { setReplyTo(m); composerInput.current?.focus(); }}
+                  style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, minHeight: 32, opacity: busy ? 0.5 : pressed ? 0.7 : 1 })}
+                >
+                  <Icon name="flag" size={12} color={tokens.color.error} />
+                  <T variant="caption" weight="semibold" color={tokens.color.accent}>답장 요청</T>
+                  <Icon name="chevron" size={14} color={tokens.color.accent} />
+                </Pressable>
+              ) : checkChip && !chipBeside ? (
                 // 소비자: 요청함은 빨간 깃발 + '농가가 확인하면 알려 드려요', 확인함은 초록 칩(Figma 10:116)
                 <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
                   {checkChip}
@@ -824,6 +844,7 @@ export function ChatThread({
         }}
       >
         <Composer
+          inputRef={composerInput}
           sendOnEnter
           value={text}
           onChangeText={setText}

@@ -203,3 +203,6 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 
 ## DEV-378 아이디 로그인 접기
 `IdLoginSection`(`AuthForms.tsx`)은 `PasswordLoginForm`을 고치지 않고 감싼다. `collapsible`(카카오 켜짐)이면 '아이디로 로그인' 글자 링크(누르는 영역 48, `aria-expanded`, 꺾쇠는 `chevronDown`을 펼치면 180° 회전)로 접고 펼친다. 접힘은 `display: none`이라 적은 아이디가 남는다. `PasswordLoginForm`의 선택 콜백 `onErrorChange`로 실패 문구가 보이는 동안 접기를 막고 링크를 disabled·투명도 0.4로 둔다(오류 줄이 숨지 않게). 펼칠 때 웹에서만 누른 순간 아이디 칸에 포커스(iOS Safari 키보드), 스크롤은 다음 프레임. 로그인 화면의 카카오 설정 조회는 `withTimeout`(`timeout.ts`, 5초)으로 감싸 넘으면 설정 못 읽음으로 본다. `placement="footer"`는 사업자 정보 칸 바로 위(아래 간격 접힘 8·펼침 24)이고, 앱은 `Scroll`의 `footerGap`(기본 40)을 16으로 줄여 링크를 footer 안에 넣는다(FEAT-01 AC-01-35).
+
+## DEV-454 UAT cycle 2
+자동 전달 질문의 replyRequested는 생산자 1:1에서 원래 소비자 질문 말풍선 하단의 답장 요청 글자 액션으로 표시하고, 누르면 그 질문을 인용·포커스한다. 성공/실패 처리와 메시지 메뉴는 기존 인용 작성 흐름을 따른다(FEAT-13 DEV-454).
