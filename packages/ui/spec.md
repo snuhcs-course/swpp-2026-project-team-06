@@ -212,3 +212,4 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - 카드 폭·사진 배치는 순수 함수 `newsCard.ts`(`newsCardWidth` = min(창, 480) − 16×2, `newsPhotoRows`: 1장 4:3, 두 장씩 정사각형 줄(사이 2px), 홀수로 남은 마지막 한 장은 4:3, 2장 이상 ‘i/N’). 테스트 `scripts/test-news-cards.mjs`.
 - 반응 줄: 소비자 `ReactionHalf` 두 칸(‘좋아요’ 접근성 이름·`aria-pressed`는 예전 하트와 같음, ‘농가에 답장’은 입력칸 포커스 · 비로그인 `onLogin` · 답장할 수 없는 방은 비활성). 서버가 소비자 인용 답장을 막아 고른 소식을 인용하지 않는다. 생산자 `ProducerReactions`는 접근성 이름 ‘읽음 N, 좋아요 N’·‘답장 N 모아 보기’를 유지한다.
 - 그림자는 웹 `boxShadow`, 앱 `shadow*`·`elevation 1`. 아이콘은 새로 더하지 않았다(‘농가에 답장’은 `chat`).
+- (2단계) 소비자 ‘농가에 답장’은 `replyPost`로 그 소식을 고르고 입력칸 위 ‘소식에 답장 · 농가만 봐요’ 줄(testID `room-reply-post`, 취소 48)을 보인다. 보낼 때 `send`의 다섯째 인자 `{broadcastId, attachmentIds}`. 소비자 사진은 1:1과 같은 `Composer` `tool` ‘+’ + `PrivatePhotos`(3장), 말풍선·`FanReplySheet`은 `PrivatePhoto`(눌러 크게). 멱등 키는 글·고른 소식·사진 id가 같을 때만 다시 쓴다.
