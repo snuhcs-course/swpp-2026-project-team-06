@@ -347,3 +347,5 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/7/10/11 · M-11/13/18. 원문 보존은 명시�
 2026-11-25 DEV-452: 사용자 지시로 검토 대기 문구도 비공개 초안에 보존한다. 포함 상태와 확인 상태를 분리하고 설명을 표시하며 공개 반영 전에 확인한다. source-preserving-drafts.md와 DEV-452 최신 결정이 종전 보류 정책을 대체한다.
 
 2026-11-25 DEV-452/453: source-preserving-v4-source-blocks는 과도한 홍보만 경고하고 순서 검증 인접 문장/동일 제목 span 옵션을 조립한다. 원래 passage/ID/문구·owner 배치를 보존하며 다른 추출 항목 간 연결은 문맥 확인을 유지한다. historical non-story TEXT 허용은 trusted sourcecopy batch에 한정하고 모든 다른 검증과 policy-sensitive cache/write fence를 유지한다. 기존 run 자동 backfill 없음.
+
+- DEV-452 prose layout: source_reflow applies whitespace-only narrative wrapping at module assembly, preserving exact evidence and owner formatting. Separate layout version affects planHash, not per-passage review binding. Publication wording checks normalize declared layout transforms and scope option properties to their exact heading.

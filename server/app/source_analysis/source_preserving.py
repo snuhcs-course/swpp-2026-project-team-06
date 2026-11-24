@@ -13,6 +13,7 @@ from collections import Counter
 from app.ai.source_refine import TEXT_MODULE_FIELDS, farm_common_allowed
 from app.source_analysis.preprocess import scrub
 from app.source_analysis.source_options import assemble_options
+from app.source_analysis.source_reflow import reflow_prose
 from app.source_analysis.text_safety import (
     SAFETY_LISTS_HASH,
     has_health_claim,
@@ -25,6 +26,7 @@ from app.source_analysis.text_safety import (
 )
 
 VERSION = "source-preserving-v4-source-blocks"
+LAYOUT_VERSION = "source-prose-layout-v1"
 _KINDS = ("COPY_EDIT", "OWNER_CONFIRMATION", "PLACEMENT", "SAFETY")
 _RESTRICTED = {"PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"}
 _EXPLANATIONS = {
@@ -323,6 +325,7 @@ def _build(target, candidates, versions, target_count, decisions):
     fingerprint = _hash(
         {
             "version": VERSION,
+            "layoutVersion": LAYOUT_VERSION,
             "safety": SAFETY_LISTS_HASH,
             "target": scope,
             "targetCount": target_count,
@@ -544,6 +547,19 @@ def _build(target, candidates, versions, target_count, decisions):
         texts = []
         for unit in selected:
             parts, text = unit["parts"], unit["text"]
+            original_layout = text["value"]
+            preserve_layout = text.get("assembly", {}).get("type") == "SOURCE_OPTION_BLOCK" or any(
+                p.get("decision") and p["decision"]["action"] in {"EDIT", "ACCEPT_REPAIR"}
+                for p in parts
+            )
+            text["value"] = reflow_prose(original_layout, preserve_layout=preserve_layout)
+            if text["value"] != original_layout:
+                text["layout"] = {
+                    "version": LAYOUT_VERSION,
+                    "operation": "PROSE_REFLOW",
+                    "sourceTextSha256": _sha(original_layout),
+                    "resultTextSha256": _sha(text["value"]),
+                }
             proposed_ids = ids | set(text["candidateIds"])
             proposed_total = total + len(text["value"]) + (2 if texts else 0)
             if proposed_total > 3000 or len(proposed_ids) > 100:
@@ -585,6 +601,7 @@ def _build(target, candidates, versions, target_count, decisions):
             )
     return {
         "version": VERSION,
+        "layoutVersion": LAYOUT_VERSION,
         "planHash": fingerprint,
         "targetId": target["id"],
         "passages": passages,

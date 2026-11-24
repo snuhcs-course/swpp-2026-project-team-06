@@ -285,15 +285,19 @@ def validate_publication(db, batch, target_id, texts):
             "SOURCE_REVIEW_PENDING",
             "공개 전 원문 검토가 필요해요. 표시된 항목을 확인·수정하거나 제외해 주세요.",
         )
+    from app.source_analysis.source_reflow import contains_source_wording
+
     for passage in current["passages"]:
         decision = passage.get("decision")
         if not decision:
             continue
         removed = decision["action"] in {"OMIT", "TRANSFER_TO_SETTINGS"}
         changed = decision["action"] in {"EDIT", "ACCEPT_REPAIR"} and (
-            passage["originalValue"] not in passage["value"]
+            not contains_source_wording(passage["originalValue"], passage["value"])
         )
-        if (removed or changed) and any(passage["originalValue"] in value for value in texts):
+        if (removed or changed) and any(
+            contains_source_wording(passage["originalValue"], value) for value in texts
+        ):
             raise conflict(
                 "SOURCE_REVIEW_CHANGED",
                 "수정·제외한 원문이 상세에 남아 있어요. 저장된 문구를 확인해 주세요.",

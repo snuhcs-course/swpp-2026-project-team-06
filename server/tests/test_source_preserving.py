@@ -360,7 +360,9 @@ def test_AC_SRC_2_7_10_full_flagged_text_is_in_private_modules(quote):
     passage = result["passages"][0]
     assert passage["includedInDraft"] is True
     assert passage["reviewPending"] is True
-    assert result["modules"][0]["texts"][0]["value"] == quote
+    expected = "당도는 좋습니다." if quote == "당도는 좋습니\n다." else quote
+    assert result["modules"][0]["texts"][0]["value"] == expected
+    assert passage["value"] == passage["originalValue"] == quote
     assert result["summary"]["includedInDraft"] == 1
     assert result["summary"]["reviewPending"] == 1
 
@@ -600,7 +602,9 @@ def test_AC_SRC_10_cross_candidate_module_continuation_preserves_original_proven
     assert module["module"] == "appearanceFaq"
     assert len(module["texts"]) == 1
     row = module["texts"][0]
-    assert row["value"] == left["evidence"][0]["quote"] + " " + right["evidence"][0]["quote"]
+    assert row["value"] == (
+        "쉽게 상자를 열 수 있습니다. 겉면이 고르지 않지만 6~7월에만 만날 수 있는 산뜻한 과일입니다!"
+    )
     assert row["candidateIds"] == ["appearance", "taste"]
     by_cid = {p["candidateIds"][0]: p for p in result["passages"]}
     assert by_cid["taste"]["module"] == "taste"
@@ -736,3 +740,52 @@ def test_AC_SRC_11_option_group_never_overrides_explicit_owner_placement():
         for m in decided["modules"]
         for t in m["texts"]
     )
+
+
+def test_AC_SRC_2_source_layout_wraps_reflow_without_changing_evidence():
+    original = "겉면이 고르지 않지만 6~7월에만 만날 수 있는\n산뜻한 과일입니다!"
+    result = plan([candidate("one", original, field="appearanceFaq")])
+    text = result["modules"][0]["texts"][0]
+    assert text["value"] == original.replace("\n", " ")
+    assert text["layout"]["operation"] == "PROSE_REFLOW"
+    passage = result["passages"][0]
+    assert (
+        passage["value"] == passage["originalValue"] == passage["evidence"][0]["quote"] == original
+    )
+    assert passage["reviewPending"]
+
+
+def test_AC_SRC_11_layout_version_change_keeps_source_review_bindings(monkeypatch):
+    from app.source_analysis import source_preserving as engine
+
+    rows = [candidate("one", "올해\n판매합니다.")]
+    before = plan(rows)
+    decision = {
+        "bindingHash": before["passages"][0]["bindingHash"],
+        "action": "KEEP",
+        "note": "Owner checked the current year.",
+    }
+    monkeypatch.setattr(engine, "LAYOUT_VERSION", "next-layout")
+    after = plan(rows, decisions=[decision])
+    assert before["planHash"] != after["planHash"]
+    assert before["passages"][0]["bindingHash"] == after["passages"][0]["bindingHash"]
+    assert not after["passages"][0]["reviewPending"]
+
+
+def test_AC_SRC_11_owner_edited_line_layout_remains_authoritative():
+    rows = [candidate("one", "처음 문장입니다.")]
+    original = plan(rows)["passages"][0]
+    value = "직접 작성한 첫 줄입니다.\n직접 작성한 둘째 줄입니다."
+    result = plan(
+        rows,
+        decisions=[
+            {
+                "bindingHash": original["bindingHash"],
+                "action": "EDIT",
+                "value": value,
+                "note": "Owner chose this layout.",
+            }
+        ],
+    )
+    assert result["modules"][0]["texts"][0]["value"] == value
+    assert "layout" not in result["modules"][0]["texts"][0]

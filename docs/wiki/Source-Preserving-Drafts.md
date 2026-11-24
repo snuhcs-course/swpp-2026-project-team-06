@@ -21,3 +21,7 @@ Option weight, size, count and packaging now share one source-anchored compositi
 Trusted source-copy extraction can retain historical text fields for private owner review while preserving all other evidence/privacy/numeric/target guards. Legacy validation remains unchanged. Both text/vision paths and policy-sensitive cache/result writes are covered. Existing stored runs are not silently rewritten. The six-row review recovery uses saved extraction, not a fresh OCR/model run.
 
 The same four-source original94-fact diagnostic now reaches87/94 and35/38critical, versus the previous complete draft81/94 and29/38. This is a six-row validation recovery plus source assembly, not proof of new writer accuracy. Seven unmatched historical selectors represent six distinct missing text groups (one producer name is counted twice). Remaining upstream omissions, historical/currentness questions, visual-only size labels and release acceptance stay explicit.
+
+
+## Prose layout follow-up
+Single poster line wraps flow as spaces in generated prose. Blank paragraphs, option/property/table/list boundaries and explicit owner formatting remain intact. Exact source evidence and per-item review bindings stay unchanged; a separate layout version updates the assembled plan. Publication detects removed/replaced source wording despite whitespace reflow or option grouping. This is layout repair, not general grammar correction or recovery of missing facts.
