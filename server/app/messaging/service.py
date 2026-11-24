@@ -2135,7 +2135,7 @@ def edit_chat_message(db: Session, user, message_id: str, body) -> ChatMessage:
     if previous != message.edit_version:
         thread.version += 1  # invalidate an AI answer generated from stale question text
     db.flush()
-    return _message_view(message)
+    return _message_views(db, [message])[0]
 
 
 def edit_room_message(db: Session, user, farm_id: str, message_id: str, body) -> NewsRoomMessage:

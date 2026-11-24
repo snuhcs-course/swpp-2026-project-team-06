@@ -715,7 +715,7 @@ register({
       const old = message.editVersion ?? 0;
       editMessageText(ctx, message, 1000);
       if (old !== (message.editVersion ?? 0)) t.version++;
-      return {...message, editedAt: message.editedAt ?? null, editVersion: message.editVersion ?? 0};
+      return {...withCheckState(ctx.db, message), editedAt: message.editedAt ?? null, editVersion: message.editVersion ?? 0};
     });
   },
   "GET /api/messaging/chats": (ctx) => {
