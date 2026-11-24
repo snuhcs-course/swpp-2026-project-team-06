@@ -27,6 +27,7 @@ export type ConflictReason =
   | "SOLD_OUT"
   | "QUANTITY_LIMIT"
   | "INVALID_TRANSITION"
+  | "UNDO_CONFLICT"
   | "IDEMPOTENCY_MISMATCH"
   | "SALES_PAUSED"
   | "TOTAL_LIMIT_REACHED"
@@ -736,7 +737,16 @@ export type Dashboard = {
   }[];
 };
 
+export type ProducerOrderUndo = {
+  actionId: string;
+  label: string;
+  previousStatus: OrderStatus;
+  createdAt: ISODate;
+};
+
 export type ProducerOrder = Recipient & {
+  /** 서버가 확인한 마지막 처리. 이전 서버 응답에는 없을 수 있다. */
+  undoAction?: ProducerOrderUndo | null;
   deliveryWindow: { start: ISODate; end: ISODate };
   trackingVersion: number;
   orderId: string;
