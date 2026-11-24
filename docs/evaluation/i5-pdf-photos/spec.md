@@ -39,3 +39,7 @@ Reference PENDING or absent reviewer/date yields status='PROVISIONAL', decision=
 ## Explicit failure representation (DEV-458 integration review)
 
 Unknown geometry uses bounds=null only on non-exporting UNSUPPORTED occurrences; never guess a crop. CLI oversized/unreadable input may use source.sha256=null with an explicit input/preflight failure diagnostic, rather than hashing empty placeholder bytes. Accepted ordinary inputs retain their exact precomputed hash even after worker time/RSS termination. Forms are conservatively retained as unsupported composite occurrences; their contained native photos remain unrecovered in evaluation rather than being removed from reference denominators.
+
+## DEV-458 predeclared v2 resource iteration
+
+After preserving the first actual v1 failure, implement VERSION=pdf-photo-v2 with objectCap=10_000 total objects plus imageObjectCap=200 (image or form objects, before filters) per document. Add metrics.imageObjectsVisited; every object still increments objectsVisited. Frozen v1 results keep old caps/version. All other caps/interfaces/filter/geometry/privacy behavior stay the same. Record IMAGE_OBJECT_LIMIT distinctly from OBJECT_LIMIT. Reaching either cap must retain attempted records and skip remaining work; never call a capped source empty/successful. Integer-valued numeric caps normalize to ints. No product integration and no accuracy-target changes.

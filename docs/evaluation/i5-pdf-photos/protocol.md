@@ -19,7 +19,7 @@ PDF 그림을 복구해 사람이 고를 수 있는지부터 확인한다. raw i
 
 ## 고정 자원 한도
 
-함수·CLI 계약은 [spec.md](spec.md). 20쪽/PDF, 이미지객체200/document, recursion4, 후보30/document, 입력100MiB, native40MP, page render8MP, 출력64MiB,30초, CLI child RSS512MiB, scale<=2다. caller는 상한을 낮출 수만 있다. tiny는 native 한 변64px 미만, full visible page coverage>=0.85는 composite/manual로 보수처리한다. 이 threshold가 놓친 useful 영역도 recovery miss/unsupported로 보존한다. raw native dimensions를 기록하고 업스케일하지 않는다. 잘못된 transform/nested geometry는 추측하지 않고 UNSUPPORTED로 남긴다.
+함수·CLI 계약은 [spec.md](spec.md). 20쪽/PDF, 전체 page object200/document (text 포함), recursion4, 후보30/document, 입력100MiB, native40MP, page render8MP, 출력64MiB,30초, CLI child RSS512MiB, scale<=2다. caller는 상한을 낮출 수만 있다. tiny는 native 한 변64px 미만, full visible page coverage>=0.85는 composite/manual로 보수처리한다. 이 threshold가 놓친 useful 영역도 recovery miss/unsupported로 보존한다. raw native dimensions를 기록하고 업스케일하지 않는다. 잘못된 transform/nested geometry는 추측하지 않고 UNSUPPORTED로 남긴다.
 
 기존 서비스의 source30개/100MB·product strip10장 한도는 바꾸지 않는다. 현재 도구는 production imports/storage quota에 연결되지 않으며 DEV-460에서 선택한 private derivative의 버전/쿼터/cleanup API를 구현한다.
 
@@ -33,3 +33,7 @@ PDF 그림을 복구해 사람이 고를 수 있는지부터 확인한다. raw i
 ## Frozen sample provenance
 
 Before any candidate extraction, the path-free sample lock was frozen at SHA-256 `5ee91011b7037b5954300d8b5d2958bd75bfdcb67731a8104ebac4153b3e530a` (6 source PDFs, 11 selected review pages, 45 inspected pages, 23 pages outside the frozen page cap). Private source IDs, page selections and input hashes are retained in the restricted review packet. No real per-photo labels are verified yet; the empty pending reference is a template, not evidence that the PDFs contain zero useful photos.
+
+## Development iteration v2 — resource budget revision
+
+The frozen v1 run exhausted the 200 total-object budget on early text-heavy pages before reaching the motivating later packaging-photo page. Preserve every v1 outcome. Before the second run, declare extractor `pdf-photo-v2`: total object traversal cap10,000/document plus independent image/form object cap200/document. Keep page20, candidate30, time30s, child RSS512MiB, input100MiB, output64MiB and all pixel/filter/review thresholds unchanged. This revises resource feasibility only; it does not change sample, usefulness labels or accuracy targets. Report v1 and v2 separately. A v2 source hitting either traversal/image limit remains partial and its missing photos stay unrecovered. No accuracy/adoption decision is authorized by a higher asset count.
