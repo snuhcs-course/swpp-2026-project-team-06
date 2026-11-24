@@ -33,6 +33,7 @@ import { ViewablePhoto } from "./PrivatePhotos";
 import { Price, type ShelfProduct } from "./Storefront";
 import { FanReplySheet, type FanReplyPageData, type FanReplyRow } from "./FanReplySheet";
 import { broadcastStats } from "./fanReplies";
+import { NEWS_CARD_GAP, NEWS_PHOTO_GAP, newsCardWidth, newsPhotoRows } from "./newsCard";
 
 const quotePreview = (body: string) => body.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[이메일 가림]");
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
@@ -508,9 +509,10 @@ export function NewsRoom({
   const groups = chatGroups(messages.map((m) => ({
     sender: m.senderId, day: seoulDay(m.createdAt), minute: time(m.createdAt),
   })));
-  // 소식 사진은 정사각형 최대 232(Figma 7:78). 좁은 화면에서는 아바타·시각 칸을 빼고 남는 폭에 맞춘다
+  // 소식 카드는 방 폭에서 좌우 16을 뺀 폭, 사진은 카드 폭 그대로(DEV-467). 답장 말풍선 사진은 정사각형 최대 232(Figma 7:78)
   const { width: windowWidth } = useWindowDimensions();
   const roomWidth = Math.min(windowWidth, tokens.maxWidth);
+  const cardWidth = newsCardWidth(windowWidth, tokens.maxWidth, tokens.space.gutter);
   const photoWidth = (mine: boolean) =>
     Math.max(160, Math.min(232, roomWidth - tokens.space.gutter * 2 - (mine ? 0 : BUBBLE_AVATAR + tokens.space.sm) - 64));
   const days = messages.map((m, i) =>
@@ -562,7 +564,7 @@ export function NewsRoom({
       <ScrollView
         ref={scroll}
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingVertical: 20, paddingHorizontal: tokens.space.gutter }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 24, paddingHorizontal: tokens.space.gutter }}
         onScroll={(event) => {
           const n = event.nativeEvent;
           offset.current = n.contentOffset.y;
@@ -613,8 +615,10 @@ export function NewsRoom({
           const { first, last } = groups[i];
           const day = days[i];
           const dimmed = lapsed && mine;
+          const card = !!m.broadcastId;
+          const afterCard = i > 0 && !!messages[i - 1].broadcastId;
           return (
-          <View key={m.messageId} style={{ paddingTop: i === 0 ? 0 : day || first ? 16 : 4, gap: 8 }}>
+          <View key={m.messageId} style={{ paddingTop: i === 0 ? 0 : day ? 16 : card || afterCard ? NEWS_CARD_GAP : first ? 16 : 4, gap: 8 }}>
             {/* 날짜 구분은 기기 시간대가 아니라 한국 날짜로 묶는다(ChatThread와 같음, DEV-223). DEV-291. '10월 7일 수요일' 알약(DEV-295) */}
             {day ? <DayPill label={day} /> : null}
             <Pressable
@@ -635,6 +639,20 @@ export function NewsRoom({
               style={dimmed ? { opacity: 0.45 } : undefined}
               testID={dimmed ? "room-dimmed-reply" : undefined}
             >
+            {card ? (
+              // 방송 = 소식 카드(DEV-467): 작성자 줄 → 인용 → 사진 → 본문 → 반응 줄
+              <NewsCard
+                message={m}
+                producer={producer}
+                author={m.senderName || farmName}
+                authorPhoto={farmPhoto}
+                width={cardWidth}
+                onLike={() => void like(m)}
+                onReply={!userId ? onLogin : canReply ? () => input.current?.focus() : undefined}
+                onReplies={fanReplies ? () => setReplySheet(m.broadcastId) : undefined}
+                onMediaLongPress={hasMenu(m) ? () => { setMenuPoint(null); setMenuTarget(m); } : undefined}
+              />
+            ) : (
             <ChatBubble
               kind={mine ? "me" : "farm"}
               first={first || !!day}
@@ -651,35 +669,12 @@ export function NewsRoom({
               sender={mine ? undefined : m.senderName}
               time={time(m.createdAt)}
               side={
-                m.broadcastId && !producer ? (
-                  // 좋아요는 반응 그대로(FEAT-15). 소비자에게는 숫자 없이 말풍선 옆 작은 하트만(DEV-295)
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={m.myReaction ? "좋아요 취소" : "좋아요"}
-                    aria-pressed={m.myReaction}
-                    onPress={() => void like(m)}
-                    hitSlop={14}
-                    style={{ width: 20, height: 20, alignItems: "center", justifyContent: "center" }}
-                  >
-                    <Icon
-                      name={m.myReaction ? "heartFill" : "heart"}
-                      size={18}
-                      color={m.myReaction ? tokens.color.accent : tokens.color.textMuted}
-                    />
-                  </Pressable>
-                ) : mine && !producer ? (
+                // 내 답장 옆 🔒 ‘농가만 봐요’(비공개 응답, DEV-295). 방송은 위 소식 카드가 그린다(DEV-467)
+                mine && !producer ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
                     <Icon name="lock" size={12} color={tokens.color.textMuted} />
                     <T variant="caption" muted>농가만 봐요</T>
                   </View>
-                ) : undefined
-              }
-              footer={
-                m.broadcastId && producer ? (
-                  <BroadcastStats
-                    message={m}
-                    onReplies={fanReplies ? () => setReplySheet(m.broadcastId) : undefined}
-                  />
                 ) : undefined
               }
             >
@@ -694,6 +689,7 @@ export function NewsRoom({
                 ),
               )}
             </ChatBubble>
+            )}
             </Pressable>
           </View>
           );
@@ -972,49 +968,202 @@ export function NewsRoom({
   );
 }
 
-/** 내 소식 바로 아래 오른쪽 한 줄 ‘읽음 N · ♥ N · 답장 N ›’(DEV-297, Figma 7:90). 숫자는 농가만 본다.
- * ‘답장 N ›’은 답장이 있을 때만이고 누르면 팬 답장 시트를 연다 */
-function BroadcastStats({ message, onReplies }: { message: Message; onReplies?: () => void }) {
+/** 카드 그림자: 테두리 없이 아주 옅게(시안 0 1px 2px rgba(17,17,17,.04)) */
+const CARD_SHADOW = (Platform.OS === "web"
+  ? { boxShadow: "0 1px 2px rgba(17,17,17,0.04)" }
+  : { shadowColor: tokens.color.text, shadowOpacity: 0.04, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 }) as object;
+
+/**
+ * 소식 카드(DEV-467, 시안 ‘다듬은 A’). 작성자 줄(40 사진 · 이름 16/24 굵게 · 시각 12/16) → 인용(모두에게 답장) →
+ * 카드 폭 사진(1장 4:3, 2장 정사각형 두 칸, i/N) → 영상 → 본문 16/24 → 위 선이 있는 반응 줄.
+ * 소비자 반응 줄은 ‘좋아요 | 농가에 답장’ 같은 폭 두 칸(숫자 없음, AC-15-3). 답장은 지금처럼 농가만 보는 비공개 답장이다.
+ * 생산자 반응 줄은 ‘읽음 N · 좋아요 N’ 왼쪽, ‘답장 N ›’ 오른쪽(팬 답장 시트, AC-15-9·11). 숫자는 농가만 본다.
+ */
+function NewsCard({
+  message: m,
+  producer,
+  author,
+  authorPhoto,
+  width,
+  onLike,
+  onReply,
+  onReplies,
+  onMediaLongPress,
+}: {
+  message: Message;
+  producer: boolean;
+  author: string;
+  authorPhoto: string | null;
+  width: number;
+  onLike: () => void;
+  /** 소비자 ‘농가에 답장’: 입력칸으로(비로그인은 로그인). 없으면 비활성 */
+  onReply?: () => void;
+  onReplies?: () => void;
+  onMediaLongPress?: () => void;
+}) {
+  const photos = m.photos.filter((uri) => !VIDEO.test(uri));
+  const videos = [...m.photos.filter((uri) => VIDEO.test(uri)), ...m.videos];
+  const rows = newsPhotoRows(photos.length, width);
+  const media = photos.length > 0 || videos.length > 0;
+  return (
+    <View
+      testID="news-card"
+      style={{
+        width,
+        maxWidth: "100%",
+        alignSelf: "center",
+        backgroundColor: tokens.color.background,
+        borderRadius: tokens.radius.md,
+        overflow: "hidden",
+        ...CARD_SHADOW,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 16, paddingBottom: 12, paddingHorizontal: 16 }}>
+        <ProfileAvatar uri={authorPhoto} name={author} size={tokens.thumb.avatar} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T variant="body" weight="semibold" numberOfLines={1}>{author}</T>
+          <T variant="caption" muted numberOfLines={1}>
+            {m.editedAt ? `${time(m.createdAt)} · 수정됨` : time(m.createdAt)}
+          </T>
+        </View>
+      </View>
+      {m.replyTo ? (
+        <View
+          testID="bubble-quote"
+          style={{ marginHorizontal: 16, marginBottom: 12, borderLeftWidth: 2, borderLeftColor: tokens.color.accent, paddingLeft: tokens.space.sm, gap: 2 }}
+        >
+          <T variant="caption" muted weight="semibold">
+            {m.replyTo.senderType === "CONSUMER"
+              ? producer ? "팔로워의 답장 · 이름은 가려져요" : "팔로워의 답장"
+              : "농가에게 답장"}
+          </T>
+          <T variant="sub" muted numberOfLines={3}>{m.replyTo.body || "사진"}</T>
+        </View>
+      ) : null}
+      {rows.length ? (
+        <View style={{ gap: NEWS_PHOTO_GAP }}>
+          {rows.map((row) => (
+            <View key={row[0].index} style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              {row.map((cell) => (
+                <ViewablePhoto key={photos[cell.index] + cell.index} uri={photos[cell.index]} onLongPress={onMediaLongPress}>
+                  <Photo uri={photos[cell.index]} width={cell.width} height={cell.height} radius={0} alt="소식 사진" productFallback={false} />
+                  {cell.badge ? (
+                    <View
+                      pointerEvents="none"
+                      style={{ position: "absolute", right: 12, bottom: 12, paddingHorizontal: 8, paddingVertical: 2, borderRadius: tokens.radius.full, backgroundColor: tokens.color.photoOverlay }}
+                    >
+                      <T variant="caption" color={tokens.color.onAccent}>{cell.badge}</T>
+                    </View>
+                  ) : null}
+                </ViewablePhoto>
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {videos.length ? (
+        <View style={{ paddingHorizontal: 16, paddingTop: rows.length ? 12 : 0, gap: 8 }}>
+          {videos.map((uri) => <RoomMedia key={uri} uri={uri} />)}
+        </View>
+      ) : null}
+      {m.body ? (
+        <View style={{ paddingHorizontal: 16, paddingTop: media ? 12 : 0 }}>
+          <T variant="body">{m.body}</T>
+        </View>
+      ) : null}
+      <View
+        style={{
+          marginTop: 16,
+          minHeight: tokens.touchTarget.min,
+          borderTopWidth: 1,
+          borderTopColor: tokens.color.border,
+          flexDirection: "row",
+          alignItems: "stretch",
+          ...(producer ? { justifyContent: "space-between", paddingLeft: 16, paddingRight: 8 } : null),
+        }}
+      >
+        {producer ? <ProducerReactions message={m} onReplies={onReplies} /> : (
+          <>
+            <ReactionHalf
+              label={m.myReaction ? "좋아요 취소" : "좋아요"}
+              pressed={m.myReaction}
+              onPress={onLike}
+              icon={<Icon name={m.myReaction ? "heartFill" : "heart"} size={20} color={m.myReaction ? tokens.color.accent : tokens.color.textMuted} />}
+              text="좋아요"
+              color={m.myReaction ? tokens.color.accent : tokens.color.text}
+            />
+            <View style={{ width: 1, backgroundColor: tokens.color.border }} />
+            <ReactionHalf
+              label="농가에 답장"
+              onPress={onReply}
+              icon={<Icon name="chat" size={20} color={tokens.color.textMuted} />}
+              text="농가에 답장"
+              color={onReply ? tokens.color.text : tokens.color.textMuted}
+            />
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+/** 소비자 반응 줄의 한 칸(같은 폭, 높이 48) */
+function ReactionHalf({ label, pressed, onPress, icon, text, color }: {
+  label: string; pressed?: boolean; onPress?: () => void; icon: ReactNode; text: string; color: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !onPress }}
+      {...(pressed !== undefined ? { "aria-pressed": pressed } : {})}
+      disabled={!onPress}
+      onPress={onPress}
+      style={{ flex: 1, minWidth: 0, minHeight: tokens.touchTarget.min, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 8 }}
+    >
+      {icon}
+      <T variant="sub" weight="semibold" color={color} numberOfLines={1}>{text}</T>
+    </Pressable>
+  );
+}
+
+/** 생산자 반응 줄: 왼쪽 ‘읽음 N · 좋아요 N’(보조 14 회색), 오른쪽 ‘답장 N ›’(주황 굵게, 답장이 있을 때만, DEV-297).
+ * 접근성 이름은 기존 그대로(‘읽음 N, 좋아요 N’, ‘답장 N 모아 보기’) */
+function ProducerReactions({ message, onReplies }: { message: Message; onReplies?: () => void }) {
   const stats = broadcastStats(message);
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-end" }}>
+    <>
       <View
         accessible
         accessibilityLabel={stats.replies && onReplies ? stats.countsLabel : stats.label}
-        style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+        style={{ flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 1, minWidth: 0 }}
       >
         {stats.read ? (
           <>
-            <T variant="caption" muted>{stats.read}</T>
-            <T variant="caption" muted>·</T>
+            <T variant="sub" muted numberOfLines={1}>{stats.read}</T>
+            <T variant="sub" muted>·</T>
           </>
         ) : null}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-          <Icon name="heartFill" size={14} color={tokens.color.textMuted} />
-          <T variant="caption" muted>{stats.likes}</T>
-        </View>
+        <T variant="sub" muted numberOfLines={1}>{`좋아요 ${stats.likes}`}</T>
         {stats.replies && !onReplies ? (
           <>
-            <T variant="caption" muted>·</T>
-            <T variant="caption" muted>{stats.replies}</T>
+            <T variant="sub" muted>·</T>
+            <T variant="sub" muted numberOfLines={1}>{stats.replies}</T>
           </>
         ) : null}
       </View>
       {stats.replies && onReplies ? (
-        <>
-          <T variant="caption" muted>·</T>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${stats.replies} 모아 보기`}
-            onPress={onReplies}
-            // caption 16 + 위아래 16 = 터치 48
-            hitSlop={{ top: 16, bottom: 16, left: 8, right: 8 }}
-          >
-            <T variant="caption" weight="semibold" color={tokens.color.accent}>{`${stats.replies} ›`}</T>
-          </Pressable>
-        </>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${stats.replies} 모아 보기`}
+          onPress={onReplies}
+          style={{ minHeight: tokens.touchTarget.min, flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 8, flexShrink: 0 }}
+        >
+          {/* 글자 ‘답장 N ›’ 한 덩어리(시트 제목 ‘답장 N’과 구별된다) */}
+          <T variant="sub" weight="semibold" color={tokens.color.accent}>{`${stats.replies} ›`}</T>
+        </Pressable>
       ) : null}
-    </View>
+    </>
   );
 }
 
