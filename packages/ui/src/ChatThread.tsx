@@ -10,7 +10,7 @@ import { Icon } from "./Icon";
 import { Button } from "./Button";
 import { BUBBLE_AVATAR, ChatBubble, DayPill, SystemLine } from "./ChatBubble";
 import { T } from "./Text";
-import { PrivatePhoto, PrivatePhotos } from "./PrivatePhotos";
+import { AttachedPhotoRow, PrivatePhoto, PrivatePhotos, usePhotoAttach } from "./PrivatePhotos";
 import type { PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
 import { chatDay, daySeparator, seoulDay, time } from "./format";
@@ -512,10 +512,21 @@ export function ChatThread({
       }
     }
   }
+  // 이모티콘이 있는 대화는 ‘+’가 사진 고르기를 바로 열고, 고른 사진은 입력줄 위 72px 한 줄(DEV-478, 카톡 방식)
+  const attach = usePhotoAttach({
+    count: ids.length,
+    upload: (f) => {
+      if (context.current !== sendScope) return Promise.reject(new Error("대화가 바뀌었어요."));
+      return callbacks.current.upload!(f);
+    },
+    onAdd: (id) => { if (alive.current && context.current === sendScope) setIds((prev) => [...prev, id]); },
+    onBusy: (next) => { if (alive.current && context.current === sendScope) setUploading(next); },
+  });
   const tools = useComposerTools({
     selected: selectedEmoticon, onSelect: setSelectedEmoticon, onSend: () => void submit(),
     disabled: !active || !ready || !composerEnabled || busy || uploading,
-    onPhoto: upload ? () => setPhotos(true) : undefined,
+    onPhoto: upload ? attach.open : undefined,
+    photoDisabled: ids.length >= 3,
   });
   async function previous() {
     const requested = cursorRef.current, run = epoch.current;
@@ -876,6 +887,7 @@ export function ChatThread({
             onPress: () => setPhotos(!photos),
             disabled: busy || !ready || !composerEnabled,
           } : undefined}
+          trailing={emoticons ? tools.trailing : undefined}
           above={<>
             {emoticons ? tools.above : null}
             {copied ? <T variant="caption" muted center accessibilityRole="text">메시지를 복사했어요</T> : null}
@@ -884,7 +896,20 @@ export function ChatThread({
               <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTo(null)}
                 style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Icon name="close" size={18} /></Pressable>
             </View> : null}
-            {photos && upload ? (
+            {emoticons && upload ? (
+              <>
+                {attach.input}
+                <AttachedPhotoRow
+                  ids={ids}
+                  load={loadPhoto}
+                  busy={attach.busy}
+                  error={attach.error}
+                  disabled={busy || !ready || !composerEnabled}
+                  onRemove={(id) => setIds((prev) => prev.filter((v) => v !== id))}
+                />
+              </>
+            ) : null}
+            {!emoticons && photos && upload ? (
               <PrivatePhotos
                 key={sendScope}
                 ids={ids}

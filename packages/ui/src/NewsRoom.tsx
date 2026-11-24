@@ -820,6 +820,7 @@ export function NewsRoom({
             canSend={ready && !uploading && (!!selectedEmoticon || !!body.trim() || (!producer && photoIds.length > 0))}
             busy={busy}
             tool={tools.tool}
+            trailing={tools.trailing}
             above={<>
               {tools.above}
               {replyPost ? (

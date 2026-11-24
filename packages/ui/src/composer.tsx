@@ -51,6 +51,7 @@ export function Composer({
   tool,
   inputRef,
   above,
+  trailing,
   sendOnEnter = false,
 }: {
   value: string;
@@ -76,6 +77,8 @@ export function Composer({
   above?: ReactNode;
   /** 1:1 채팅에서 Enter 전송을 사용한다. 소식 작성은 줄바꿈을 유지한다. */
   sendOnEnter?: boolean;
+  /** 입력칸 안 오른쪽 버튼(예: 이모티콘 웃는 얼굴, DEV-478). 있으면 입력칸과 한 알약 안에 놓는다 */
+  trailing?: ReactNode;
 }) {
   const auto = useWebAutoHeight(value);
   const composing = useRef(false), allowNewline = useRef(false), imeEnter = useRef(false);
@@ -123,6 +126,54 @@ export function Composer({
     },
     [inputRef, auto.node],
   );
+  const field = (
+    <TextInput
+      ref={setRef}
+      accessibilityLabel={accessibilityLabel}
+      placeholder={sendOnEnter && !value ? `${placeholder} · Enter로 전송` : placeholder}
+      placeholderTextColor={tokens.color.textMuted}
+      value={value}
+      onChangeText={onChangeText}
+      editable={editable}
+      multiline
+      returnKeyType={sendOnEnter ? "send" : "default"}
+      submitBehavior={sendOnEnter && Platform.OS !== "web" ? "submit" : "newline"}
+      onSubmitEditing={sendOnEnter && Platform.OS !== "web" ? submit : undefined}
+      {...(sendOnEnter && Platform.OS === "web" ? {
+        enterKeyHint: "send",
+        onKeyPress: (e: { key: string; shiftKey: boolean; keyCode?: number; nativeEvent?: { isComposing?: boolean; keyCode?: number }; isComposing?: boolean; preventDefault: () => void }) => {
+          imeEnter.current = e.key === "Enter" && Boolean(composing.current || e.isComposing ||
+            e.nativeEvent?.isComposing || e.keyCode === 229 || e.nativeEvent?.keyCode === 229);
+          allowNewline.current = e.key === "Enter" && e.shiftKey;
+          if (e.key !== "Enter" || e.shiftKey || composing.current || e.isComposing ||
+              e.nativeEvent?.isComposing || e.keyCode === 229 || e.nativeEvent?.keyCode === 229) return;
+          e.preventDefault();
+          submit();
+        },
+      } as object : {})}
+      // 웹 textarea는 기본 2줄 높이라 한 줄(40)로 시작하게 하고, 글이 길어지면 6줄까지 늘린다(DEV-342). 그 뒤는 스크롤
+      {...(Platform.OS === "web" ? { numberOfLines: 1, onLayout: auto.measure } : null)}
+      maxLength={maxLength}
+      textAlignVertical="center"
+      style={{
+        flex: 1,
+        minWidth: 0,
+        minHeight: COMPOSER_ROW,
+        maxHeight: COMPOSER_MAX_HEIGHT,
+        ...(Platform.OS === "web" && auto.height ? { height: auto.height } : null),
+        paddingHorizontal: tokens.space.md,
+        paddingVertical: INPUT_PAD,
+        borderRadius: COMPOSER_ROW / 2,
+        backgroundColor: trailing ? "transparent" : tokens.color.surface,
+        ...(trailing ? { paddingRight: 0 } : null),
+        fontSize: tokens.fontSize.input,
+        lineHeight: INPUT_LINE,
+        fontFamily: tokens.fontFamily,
+        color: tokens.color.text,
+        ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : null),
+      }}
+    />
+  );
   return (
     <View style={{ gap: tokens.space.sm }}>
       {above}
@@ -148,51 +199,15 @@ export function Composer({
             <Icon name={tool.icon} size={22} />
           </Pressable>
         ) : null}
-        <TextInput
-          ref={setRef}
-          accessibilityLabel={accessibilityLabel}
-          placeholder={sendOnEnter && !value ? `${placeholder} · Enter로 전송` : placeholder}
-          placeholderTextColor={tokens.color.textMuted}
-          value={value}
-          onChangeText={onChangeText}
-          editable={editable}
-          multiline
-          returnKeyType={sendOnEnter ? "send" : "default"}
-          submitBehavior={sendOnEnter && Platform.OS !== "web" ? "submit" : "newline"}
-          onSubmitEditing={sendOnEnter && Platform.OS !== "web" ? submit : undefined}
-          {...(sendOnEnter && Platform.OS === "web" ? {
-            enterKeyHint: "send",
-            onKeyPress: (e: { key: string; shiftKey: boolean; keyCode?: number; nativeEvent?: { isComposing?: boolean; keyCode?: number }; isComposing?: boolean; preventDefault: () => void }) => {
-              imeEnter.current = e.key === "Enter" && Boolean(composing.current || e.isComposing ||
-                e.nativeEvent?.isComposing || e.keyCode === 229 || e.nativeEvent?.keyCode === 229);
-              allowNewline.current = e.key === "Enter" && e.shiftKey;
-              if (e.key !== "Enter" || e.shiftKey || composing.current || e.isComposing ||
-                  e.nativeEvent?.isComposing || e.keyCode === 229 || e.nativeEvent?.keyCode === 229) return;
-              e.preventDefault();
-              submit();
-            },
-          } as object : {})}
-          // 웹 textarea는 기본 2줄 높이라 한 줄(40)로 시작하게 하고, 글이 길어지면 6줄까지 늘린다(DEV-342). 그 뒤는 스크롤
-          {...(Platform.OS === "web" ? { numberOfLines: 1, onLayout: auto.measure } : null)}
-          maxLength={maxLength}
-          textAlignVertical="center"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            minHeight: COMPOSER_ROW,
-            maxHeight: COMPOSER_MAX_HEIGHT,
-            ...(Platform.OS === "web" && auto.height ? { height: auto.height } : null),
-            paddingHorizontal: tokens.space.md,
-            paddingVertical: INPUT_PAD,
-            borderRadius: COMPOSER_ROW / 2,
-            backgroundColor: tokens.color.surface,
-            fontSize: tokens.fontSize.input,
-            lineHeight: INPUT_LINE,
-            fontFamily: tokens.fontFamily,
-            color: tokens.color.text,
-            ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : null),
-          }}
-        />
+        {trailing ? (
+          <View style={{
+            flex: 1, minWidth: 0, flexDirection: "row", alignItems: "flex-end",
+            borderRadius: COMPOSER_ROW / 2, backgroundColor: tokens.color.surface,
+          }}>
+            {field}
+            {trailing}
+          </View>
+        ) : field}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="전송"
