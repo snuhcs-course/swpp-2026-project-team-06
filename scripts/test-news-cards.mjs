@@ -70,7 +70,7 @@ test("AC-15-12 the card's reply action picks that post and the send passes its b
 
 test("AC-15-13 consumer photo replies reuse the private photo picker and render with tap-to-zoom", () => {
   // 왼쪽 ‘+’는 늘 첨부(토글 × 아님)이고 숨긴 파일 칸을 바로 연다. 1:1의 PrivatePhotos(보이는 파일 칸·큰 미리보기)는 쓰지 않는다
-  assert.match(src, /tool=\{!producer && upload \? \{\s*icon: "plus",\s*label: "사진 첨부",\s*onPress: attach\.open/);
+  assert.match(src, /tool=\{!producer && upload && loadPhoto \? \{\s*icon: "plus",\s*label: "사진 첨부",\s*onPress: attach\.open/);
   assert.doesNotMatch(src, /<PrivatePhotos/);
   assert.match(src, /<AttachedPhotoRow/);
   const photos = readFileSync(new URL("../packages/ui/src/PrivatePhotos.tsx", import.meta.url), "utf8");

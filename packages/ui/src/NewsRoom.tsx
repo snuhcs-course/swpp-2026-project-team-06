@@ -808,7 +808,7 @@ export function NewsRoom({
             canSend={ready && !uploading && (!!body.trim() || (!producer && photoIds.length > 0))}
             busy={busy}
             // 소비자 답장 사진(1:1과 같은 ‘+’ 도구, DEV-467). 생산자는 아래 ‘사진·영상’ 칩
-            tool={!producer && upload ? {
+            tool={!producer && upload && loadPhoto ? {
               icon: "plus",
               label: "사진 첨부",
               onPress: attach.open,
