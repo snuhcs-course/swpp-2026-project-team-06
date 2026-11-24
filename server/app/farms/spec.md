@@ -50,3 +50,9 @@ DEV-38: `share.py`의 `/s/farms/{farm_id}`는 Jinja2 자동 이스케이프 HTML
 ## DEV-307 운영자 정지
 - `get_farm_shared`(FOR SHARE)는 orders 입금 안내가 쓴다. 운영자 정지(`admin/farm_status.py`)의 FOR UPDATE와 겹치면 기다린다.
 - `decision_history`(`GET /admin/producers/{id}/decisions`)는 승인·반려 행만 돌려준다. 정지·풀기·되돌림(`SUSPENDED`·`UNSUSPENDED`·`REVERTED`)은 같은 `producer_decisions`에 쌓이고 `GET /admin/farms/{id}/history`에서 본다.
+
+## DEV-465 참여 계약
+- AC-ENG-1: set_follow는 Farm 행 잠금 안에서 engagement FollowReceipt를 생성/조회하고 firstFollow·fanNumber를 반환한다. 언팔은 receipt를 지우지 않는다. 기존 팔로워 수 계약은 유지한다.
+- AC-ENG-2: /farms/{id}/temperature는 engagement 공개 라우터에서 승인 농가의 집계만 제공한다. 전체 기준은 docs/spec/customer-engagement.md.
+
+- AC-ENG-2: Follow.farm_id has a dedicated index in0038 so real-follow temperature aggregation does not scan all consumers.

@@ -26,6 +26,7 @@ import { useSession, useHideTabBar } from "./session";
 import { useToast } from "./toast";
 import { LoadError, copyText, isStatus } from "./views";
 import { goBackOr } from "./nav";
+import { useFollowWelcome } from "./FollowWelcome";
 
 /** Canonical farm URLs and the existing news URL share one room, not a redirect loop. */
 export default function FarmRoom() {
@@ -34,17 +35,17 @@ export default function FarmRoom() {
   const { user, ready, requireLogin, resume, clearResume } = useSession();
   const [active, setActive] = useState(false);
   const [revision, setRevision] = useState(0);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   // 팔로우를 끊었지만 내 답장이 남은 방(NewsRoom이 알려 줌): 헤더 ‘팔로우’를 테두리로 낮춘다(DEV-230)
   const [lapsed, setLapsed] = useState(false);
   const toast = useToast(88);
+  const welcome = useFollowWelcome(farmId);
+  const busy = welcome.busy;
   const identity = `${farmId}:${user?.userId ?? "public"}`;
   const currentIdentity = useRef(identity);
   currentIdentity.current = identity;
   const alive = useRef(true);
   useEffect(() => {
-    setBusy(false);
     setError("");
     setLapsed(false);
   }, [identity]);
@@ -89,13 +90,11 @@ export default function FarmRoom() {
     const requestIdentity = identity;
     const valid = () =>
       alive.current && currentIdentity.current === requestIdentity;
-    setBusy(true);
     setError("");
     try {
-      const result = target
-        ? await farms.follow(farmId)
-        : await farms.unfollow(farmId);
-      if (!valid()) return;
+      if (!farm.data) return;
+      const result = await welcome.change(farm.data, target);
+      if (!result || !valid()) return;
       farm.setData((p) =>
         p
           ? {
@@ -112,8 +111,6 @@ export default function FarmRoom() {
     } catch (e) {
       if (valid())
         setError(e instanceof Error ? e.message : "팔로우를 변경하지 못했어요");
-    } finally {
-      if (valid()) setBusy(false);
     }
   }
   useEffect(() => {
@@ -202,6 +199,7 @@ export default function FarmRoom() {
         />
       ) : null}
       {toast.node}
+      {welcome.node}
     </Screen>
   );
 }

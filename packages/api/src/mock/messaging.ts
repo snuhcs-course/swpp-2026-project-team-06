@@ -77,7 +77,7 @@ register({
         (r) => r.broadcastId === n.broadcastId && r.userId === uid,
       )
     )
-      ctx.db.reactions.push({ broadcastId: n.broadcastId, userId: uid });
+      ctx.db.reactions.push({ broadcastId: n.broadcastId, userId: uid, createdAt: nowIso() });
     const v = newsItem(ctx.db, n, uid);
     return { reactionCount: v.reactionCount, myReaction: true };
   },

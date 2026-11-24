@@ -69,6 +69,7 @@ from app.core.clock import now
 from app.core.config import get_settings
 from app.core.db import Base, get_sessionmaker
 from app.core.ids import new_id
+from app.engagement import models as _engagement_models  # noqa: F401
 from app.farms import models as _farms_models  # noqa: F401
 from app.media import models as _media_models  # noqa: F401
 from app.messaging import models as _messaging_models  # noqa: F401
@@ -172,6 +173,11 @@ RULES: dict[str, Rule] = {
     "follows": lambda k: (
         _in(_t("follows").c.farm_id, k.farms) & _in(_t("follows").c.consumer_id, k.users)
     ),
+    # DEV-465: this command retains producers/admins only and deletes all
+    # consumers and orders; their engagement evidence must be deleted together.
+    "follow_receipts": lambda k: false(),
+    "farm_reports": lambda k: false(),
+    "customer_reviews": lambda k: false(),
     "public_media": lambda k: (
         _in(_t("public_media").c.farm_id, k.farms) & _in(_t("public_media").c.uploader_id, k.users)
     ),

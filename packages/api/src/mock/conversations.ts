@@ -1,3 +1,4 @@
+import { setFollow } from "./followState";
 import type {
   AiCheckState,
   AiPreview,
@@ -799,8 +800,7 @@ register({
       }
       const autoFollowed = !following(ctx.db, f, u.userId);
       if (autoFollowed) {
-        ctx.db.follows.push({ farmId: f, userId: u.userId });
-        ctx.db.farms[f].followerCount++;
+        setFollow(ctx.db, u.userId, f, true);
       }
       ensureThread(ctx.db, f, u.userId);
       return { farmId: f, autoFollowed };

@@ -27,15 +27,16 @@
 |R|해당 농가 COMPLETED·completed_at 있음·refunded_at 없음 주문당 검증별점1개. stars4/5:+1,3:0,1/2:-1. 수정 대체·환불이면0|
 |M|운영자 CONFIRMED 농가 신고 incident distinct 수. PENDING/REJECTED/OVERTURNED=0. 같은 incident 중복 차감 금지|
 
-- 유효 소비자=User.role CONSUMER·deleted_at 없음. 로컬 테스트 계정도 실제 저장 행동만 반영.
+- F/L/H/R의 유효 소비자=User.role CONSUMER·deleted_at 없음. 운영자가 확정한 M은 별도 검토 근거이므로 신고자 탈퇴로 사라지지 않고 판정 반전으로만 제거한다. 로컬 테스트 계정도 실제 저장 행동만 반영.
 - 창: now-28days <= created_at <= now, UTC 비교. 날짜·주 cap만 Asia/Seoul. 무활동으로 창 밖 P/L/H 제거, F/R/M은 현 근거 유지.
 - GET /api/farms/{id}/temperature: 승인 농가 공개, temperatureTenths·contributions(F/P/L/H/R/M)·calculatedAt·policyVersion=1. 개인정보/신고 이유/대화 미노출.
 - 소개 상단 “농가 온도 36.5°C” 누름 카드→산식·기간·별점·신고 설명 시트. 로딩/실패·재시도 구분, 실패에 임의36.5 표시 금지.
 
 ## AC-ENG-3 검증 별점·신고
-- GET /api/engagement/reviews/{orderId}: 같은 소유권·완료 주문 검증 뒤 {orderId,stars:number|null}로 기존 별점을 조회한다.
+- GET /api/engagement/reviews/{orderId}: 본인 주문만 조회하고 {orderId,stars:number|null}로 기존 별점을 반환한다. 미완료·환불 주문은 stars=null이며 쓰기는 거절한다.
 - PUT /api/engagement/reviews/{orderId}: OnboardedConsumer 본인 주문, 위 R 조건. stars strict integer1..5. order PK upsert·수정 대체. 남의 주문404, 미완료/환불409. 완료 주문 상세에 별점 입력 UI.
 - POST /api/engagement/farms/{farmId}/reports: OnboardedConsumer·승인 농가, trim reason10..1000자, 실제 PENDING 저장. pair당1개, 중복은 기존 기록 반환(첫 내용 유지). 제출만으로 차감 없음. 소개의 “농가 신고” UI와 제출 결과·에러.
+- GET /api/engagement/reports?status=PENDING: Admin 전용, 기본20·최대50·cursor 페이지로 {items:[{reportId,farmId,reason,status,incidentKey,createdAt,reviewedAt}],nextCursor} 반환. 소비자 식별자는 노출하지 않으며 다른 역할은 차단한다. 검토자가 실제 접수 내용을 찾고 판정하도록 제공한다.
 - PATCH /api/engagement/reports/{reportId}: Admin만 status CONFIRMED/REJECTED/OVERTURNED, incidentKey trim1..100(CONFIRMED 필수). 같은 farm·incidentKey 여러 신고는1회 차감. 판정/반전 원자 저장·재계산. 기존 관리자 인증 API/Swagger로 운영, 별도 관리자 UI 범위 밖.
 - AI 답변 확인요청은 농가 신고가 아니다.
 
@@ -50,7 +51,7 @@ GET /api/engagement/achievements: Consumer 자기 레코드만. task id/title/de
 |first_purchase|첫 상품 구매|자기 COMPLETED·completed_at 있음·refunded_at 없음 Order>=1|
 |first_review|첫 구매 후기|위 유효 주문에 자기 별점>=1|
 
-언팔/반응 취소/환불로 근거가 사라지면 미완료 복귀. “현재 저장된 활동 기준” 표시. 주문서·입금신고·미확인 입금은 구매 달성 아님. CTA는 탐색/소식/채팅/주문 실제 화면 이동만 한다. /me/achievements와 내 정보 링크. focus마다 서버 재조회, 계정 전환 이전 데이터 노출 금지, 로딩/오류·재시도 구분.
+언팔/반응 취소/환불로 근거가 사라지면 미완료 복귀. “현재 저장된 활동 기준” 표시. 주문서·입금신고·미확인 입금은 구매 달성 아님. CTA는 탐색 /farms, 소식 /chats?view=news, 채팅 /chats, 구매·후기 /orders 실제 화면 이동만 한다. /me/achievements와 내 정보 링크. focus마다 서버 재조회, 계정 전환 이전 데이터 노출 금지, 로딩/오류·재시도 구분.
 
 ## AC-ENG-5 테스트·CI
 - pytest: 신호별 양수/음수/0/1/cap, stars0/1/2/3/4/5/6/소수/bool, 중복·동시 팔로우·재팔로우, KST 일/주 및28일 양끝, 삭제/환불, 신고 판정·중복·반전, 상하한 overflow 반전, 권한/계정 격리, 실제 과제 완료/취소.
@@ -58,3 +59,6 @@ GET /api/engagement/achievements: Consumer 자기 레코드만. task id/title/de
 - scripts/e2e/customer-engagement.spec.ts: 실제 스택 팔로우→환영 번호→소개, 온도 설명, 실제 행동 전후 과제·새로고침, 별점·신고. 실패 시 불변.
 - 기존 CI pytest·mock/typecheck·Playwright 자동포함 및 경로분류 검증. make test-engagement 추가. migration upgrade/check·단일 head 검증.
 - 실행 결과로만 완료 기록. 독립 AI 리뷰 후 PR, 병합/배포 금지. Figma 반영 불가 시 PR에 추적 후속 이슈.
+
+## AC-ENG-6 기존 데이터 수명주기 통합
+관리자 purge_except의 명시 테이블 보존 목록에 신규3개를 등록한다. 기존 정리는 모든 소비자·주문을 지우므로 소비자 소유 영수증·신고·별점3개 테이블도 명시 false 규칙으로 정리한다. 기존 미리보기·백업·대상 일치·거부 가드는 유지한다. 이는 기존 정리 도구 호환성만이며 이 작업에서 운영 정리를 실행하지 않는다. 일반 탈퇴의 익명 User 행은 유지되므로 영수증/운영 확정 M의 일반 수명주기와 구별한다.

@@ -26,6 +26,7 @@ import { depositRefundSentence, statusTitle } from "../../../../lib/orderText";
 import { useHideTabBar } from "../../../../lib/session";
 import { useToast } from "../../../../lib/toast";
 import { Avatar, copyText } from "../../../../lib/views";
+import { useFollowWelcome } from "../../../../lib/FollowWelcome";
 
 export default function Done() {
   useHideTabBar();
@@ -40,8 +41,8 @@ export default function Done() {
     () => (o ? farms.get(o.farmId) : Promise.resolve(null)),
     [o?.farmId],
   );
-  const [busy, setBusy] = useState(false);
   const toast = useToast(40);
+  const welcome = useFollowWelcome(o?.farmId ?? orderId);
   // 팔로우 권유 카드는 처음부터 팔로우 중이면 숨긴다(D-01). 여기서 팔로우하면 카드는 남기고 ‘팔로잉’으로 바꾼다
   const [showFollow, setShowFollow] = useState<boolean | null>(null);
   const [following, setFollowing] = useState(false);
@@ -55,19 +56,15 @@ export default function Done() {
   async function setFollow(on: boolean) {
     const f = farm.data;
     if (!f) return;
-    setBusy(true);
     try {
-      const r = on
-        ? await farms.follow(f.farmId)
-        : await farms.unfollow(f.farmId);
+      const r = await welcome.change(f, on);
+      if (!r) return;
       setFollowing(r.following);
       // 확인 없이 끊고 되돌리기를 준다(FEAT-06 4, DEV-230 HE-X4)
       if (!on)
         toast.act("팔로우를 끊었어요", "되돌리기", () => void setFollow(true));
     } catch (e) {
       toast.fail(e, () => void setFollow(on));
-    } finally {
-      setBusy(false);
     }
   }
   const toggleFollow = () => setFollow(!following);
@@ -212,7 +209,7 @@ export default function Done() {
             </View>
             <FollowButton
               following={following}
-              loading={busy}
+              loading={welcome.busy}
               onPress={() => void toggleFollow()}
               // 세로 카드 안: 높이 52 유지, 팔로잉 면색이 카드 면색과 겹치지 않게 흰 바탕
               style={[
@@ -280,6 +277,7 @@ export default function Done() {
         </View>
       </Scroll>
       {toast.node}
+      {welcome.node}
     </Screen>
   );
 }

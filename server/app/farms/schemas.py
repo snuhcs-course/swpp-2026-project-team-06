@@ -116,6 +116,8 @@ class FarmPatch(CamelModel):
 class FollowState(CamelModel):
     following: bool
     follower_count: int
+    first_follow: bool = False
+    fan_number: int | None = None
 
 
 class FaqItem(CamelModel):

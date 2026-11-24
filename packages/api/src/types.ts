@@ -26,6 +26,7 @@ export type ConflictReason =
   | "SOLD_OUT"
   | "QUANTITY_LIMIT"
   | "INVALID_TRANSITION"
+  | "REVIEW_NOT_AVAILABLE"
   | "IDEMPOTENCY_MISMATCH"
   | "SALES_PAUSED"
   | "TOTAL_LIMIT_REACHED"
@@ -365,7 +366,42 @@ export type MyFarm = FarmSummary & {
   shareUrl: string | null;
 };
 
-export type FollowState = { following: boolean; followerCount: number };
+export type FollowState = {
+  following: boolean;
+  followerCount: number;
+  firstFollow: boolean;
+  fanNumber: number | null;
+};
+
+/** DEV-465: server-derived engagement; no client completion or temperature setters. */
+export type FarmTemperature = {
+  temperatureTenths: number;
+  contributions: { F: number; P: number; L: number; H: number; R: number; M: number };
+  calculatedAt: ISODate;
+  policyVersion: 1;
+};
+export type AchievementId = "first_follow" | "first_reaction" | "first_message" | "first_purchase" | "first_review";
+export type Achievement = {
+  id: AchievementId;
+  title: string;
+  description: string;
+  completed: boolean;
+  progress: 0 | 1;
+  target: 1;
+  action: string;
+};
+export type Achievements = { tasks: Achievement[]; completedCount: number; total: 5 };
+export type VerifiedReview = { orderId: string; stars: number };
+export type ReviewState = { orderId: string; stars: number | null };
+export type FarmReportStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "OVERTURNED";
+export type FarmReport = { reportId: string; status: FarmReportStatus };
+export type FarmReportRecord = FarmReport & {
+  farmId: string;
+  reason: string;
+  incidentKey: string | null;
+  createdAt: ISODate;
+  reviewedAt: ISODate | null;
+};
 
 /* ---------------- catalog ---------------- */
 

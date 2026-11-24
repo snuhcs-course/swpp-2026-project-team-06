@@ -39,7 +39,7 @@ class Follow(Base):
     __tablename__ = "follows"
 
     consumer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
-    farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), primary_key=True)
+    farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), primary_key=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 

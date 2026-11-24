@@ -4,6 +4,7 @@ from app.accounts import models as _accounts  # noqa: F401
 from app.admin import models as _admin  # noqa: F401
 from app.catalog import models as _catalog  # noqa: F401
 from app.core import models as _core  # noqa: F401
+from app.engagement import models as _engagement  # noqa: F401
 from app.farms import models as _farms  # noqa: F401
 from app.media import models as _media  # noqa: F401
 from app.messaging import models as _messaging  # noqa: F401

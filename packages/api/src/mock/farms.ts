@@ -4,6 +4,7 @@ import type { FollowState, Home, MyFarm } from "../types";
 import { farmCard, farmSummary, listedCards, productCard } from "./derive";
 import type { Ctx } from "./router";
 import { fail, notFound, paginate, register } from "./router";
+import { setFollow } from "./followState";
 
 // Mock에는 /s 미리보기 서버가 없으니 배포된 소비자 앱의 농가 주소로 공유한다
 declare const process: { env: { EXPO_PUBLIC_CONSUMER_URL?: string } };
@@ -37,20 +38,7 @@ function follow(ctx: Ctx, on: boolean): FollowState {
   const u = ctx.me();
   const f = ctx.db.farms[ctx.params.farmId];
   if (!f || f.status !== "APPROVED") notFound("찾을 수 없는 농가예요.");
-  const has = ctx.db.follows.some(
-    (x) => x.userId === u.userId && x.farmId === f.farmId,
-  );
-  if (on && !has) {
-    ctx.db.follows.push({ userId: u.userId, farmId: f.farmId });
-    f.followerCount += 1;
-  }
-  if (!on && has) {
-    ctx.db.follows = ctx.db.follows.filter(
-      (x) => !(x.userId === u.userId && x.farmId === f.farmId),
-    );
-    f.followerCount -= 1;
-  }
-  return { following: on, followerCount: f.followerCount };
+  return setFollow(ctx.db, u.userId, f.farmId, on);
 }
 
 register({

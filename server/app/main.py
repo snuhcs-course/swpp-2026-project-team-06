@@ -28,6 +28,8 @@ from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.core.server_time import HEADER as SERVER_TIME_HEADER
 from app.core.server_time import ServerTimeMiddleware
+from app.engagement.router import public_router as engagement_public_router
+from app.engagement.router import router as engagement_router
 from app.farms.router import home_router
 from app.farms.router import router as farms_router
 from app.farms.share import router as farm_share_router
@@ -77,6 +79,8 @@ def health() -> dict[str, str]:
 for module_router in (
     accounts_router,
     home_router,
+    engagement_router,
+    engagement_public_router,
     farms_router,
     catalog_router,
     orders_router,

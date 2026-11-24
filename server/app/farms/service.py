@@ -392,7 +392,12 @@ def set_follow(db: Session, consumer_id: str, farm_id: str, on: bool) -> FollowS
     farm = db.scalar(select(Farm).where(Farm.id == farm_id).with_for_update())
     if farm is None or farm.approval_status != "APPROVED":
         raise not_found("찾을 수 없는 농가예요.")
+    from app.engagement.service import follow_receipt
+
     existing = db.get(Follow, (consumer_id, farm_id))
+    receipt, first = follow_receipt(
+        db, consumer_id, farm_id, was_following=existing is not None, on=on
+    )
     if on and existing is None:
         db.add(Follow(consumer_id=consumer_id, farm_id=farm_id, created_at=now()))
         farm.follower_count += 1
@@ -400,7 +405,12 @@ def set_follow(db: Session, consumer_id: str, farm_id: str, on: bool) -> FollowS
         db.delete(existing)
         farm.follower_count = max(0, farm.follower_count - 1)
     db.flush()
-    return FollowState(following=on, follower_count=farm.follower_count)
+    return FollowState(
+        following=on,
+        follower_count=farm.follower_count,
+        first_follow=first,
+        fan_number=receipt.fan_number if receipt else None,
+    )
 
 
 def summary(farm: Farm) -> FarmSummary:

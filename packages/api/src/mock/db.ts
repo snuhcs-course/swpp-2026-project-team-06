@@ -197,6 +197,7 @@ export type OrderRec = Recipient & {
   trackingNumber: string | null;
   createdAt: string;
   paidAt: string | null;
+  completedAt?: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;
   refundedAt: string | null;
@@ -236,14 +237,22 @@ export type DB = {
   /** 아이디 로그인 실패 수와 잠금(DEV-363, 서버 auth_throttles를 단순하게) */
   loginFailures?: Record<string, { count: number; lockedUntil: number | null }>;
   farms: Record<string, FarmRec>;
-  follows: { userId: string; farmId: string }[];
+  follows: { userId: string; farmId: string; createdAt?: string }[];
+  /** DEV-465 additive persistence: receipts survive unfollow; no synthetic followers. */
+  followReceipts?: { userId: string; farmId: string; fanNumber: number; createdAt: string }[];
+  verifiedReviews?: Record<string, { orderId: string; consumerId: string; stars: number }>;
+  farmReports?: {
+    reportId: string; consumerId: string; farmId: string; reason: string;
+    status: import("../types").FarmReportStatus; incidentKey: string | null;
+    createdAt: string; reviewedAt: string | null;
+  }[];
   products: Record<string, ProductRec>;
   news: NewsRec[];
   /** 생산자가 지운 소식(M-23, DEV-210). 서버의 소프트 삭제처럼 모든 조회에서 빠지고 다시 지워도 204 */
   deletedNews?: NewsRec[];
   roomReplies: RoomReplyRec[];
   roomReads?: RoomReadRec[];
-  reactions: { broadcastId: string; userId: string }[];
+  reactions: { broadcastId: string; userId: string; createdAt?: string }[];
   /** key = `${farmId}:${consumerId}` */
   threads: Record<string, ChatMessage[]>;
   unread: Record<string, number>;
@@ -307,10 +316,12 @@ export function db(): DB {
       throw new Error(
         "Mock schema changed: back up and explicitly migrate/reset local data before starting.",
       );
+    initializeEngagement(parsed);
     cache = parsed;
     return cache;
   }
   cache = seed();
+  initializeEngagement(cache);
   save();
   return cache;
 }
@@ -319,7 +330,19 @@ export function save() {
 }
 export function reset() {
   cache = seed();
+  initializeEngagement(cache);
   save();
+}
+/** Backfill only observable saved follows; fixture followerCount is never an ordinal. */
+function initializeEngagement(d: DB) {
+  if (d.followReceipts === undefined) {
+    const next: Record<string, number> = {};
+    d.followReceipts = [...d.follows]
+      .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? "") || a.userId.localeCompare(b.userId))
+      .map(f => ({ ...f, createdAt: f.createdAt ?? "1970-01-01T00:00:00.000Z", fanNumber: next[f.farmId] = (next[f.farmId] ?? 0) + 1 }));
+  }
+  d.verifiedReviews ??= {};
+  d.farmReports ??= [];
 }
 export function nextId(prefix: string) {
   const d = db();

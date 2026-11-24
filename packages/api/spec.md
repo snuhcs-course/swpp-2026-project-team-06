@@ -1,5 +1,12 @@
 # packages/api spec
 
+## DEV-465 고객 참여 계약
+- 제품 기준은 `docs/spec/customer-engagement.md` AC-ENG-1~5. `farms.temperature`, `engagement.achievements/getReview/review/report/reports/moderateReport`가 서버 경로를 그대로 호출한다. `FollowState`는 `firstFollow`·`fanNumber`를 함께 받는다. 신고 이유와 판정 대기열은 ADMIN만 읽으며 공개 응답에는 넣지 않는다.
+- Mock도 실제 `follows`·`news`·`reactions`·`threads`·`orders`를 읽어 온도·도전과제를 재계산한다. 프런트가 점수나 완료 상태를 쓰는 API는 없다. `verifiedReviews`는 실제 구매 확정된 본인 주문만 저장하고, 환불 시 기여와 완료 상태가 사라진다. 신고는 PENDING 저장 후 ADMIN 판정으로만 반영한다.
+- 추가 저장 필드는 선택 필드로 기존 schema-10 DB를 보존한다. `followReceipts`가 없는 기존 DB만 확인 가능한 활성 follows에서 번호를 만든다. 기존 화면용 followerCount·baseReactions로 기록이나 번호를 만들지 않는다. 언팔 뒤에도 receipt는 유지한다. 자동 채팅 팔로우도 같은 저장 helper를 사용한다.
+- 새 좋아요는 저장 시각을 기록한다. 과거 Mock 좋아요에 시각이 없으면 최근28일 온도 점수에 추정 시각을 넣지 않는다(기록 자체가 있는 첫 공감 도전과제는 유효). 구매 확정 액션은 `completedAt`을 실제 저장한다. 정수 점수·KST 일/주 cap·최종 합계 clamp는 서버와 같다.
+- `scripts/test-engagement.mjs`는 `test:mock` 자동 탐색으로 실행한다. 중복/동시/재팔로우·저장소 재로드·실패 불변, 실제 과제 달성/취소·계정 격리, 구매확정·별점 경계/수정/환불, 신고 경계/권한/중복사건/판정반전,28일 양끝·KST 날짜/주 cap·온도 상하한을 검사한다.
+
 ## DEV-367 평가 빌드 플래그 폐기
 - evaluatorBuild export와 EXPO_PUBLIC_EVALUATOR_LOGIN 해석을 제거한다. 시드 로그인 API 계약은 로컬 개발/Mock용으로 유지하며 앱의 AC-01-34 경계에서 목록 요청을 제한한다.
 
