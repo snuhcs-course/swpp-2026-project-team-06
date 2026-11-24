@@ -586,7 +586,8 @@ export default function Ship() {
   };
 
   const tabs: { value: Tab; label: string; count: number }[] = [
-    { value: "all", label: "전체", count: data.all.length },
+    // 현황 ‘전체’와 같은 기준: 되돌릴 수 있는 돈 없는 취소 카드는 보이되 세지 않는다(R-15)
+    { value: "all", label: "전체", count: data.all.filter((o) => !(o.status === "CANCELED" && o.undoAction)).length },
     { value: "AWAITING_DEPOSIT", label: "입금 대기", count: data.awaiting.length },
     { value: "PREPARING", label: "배송 대기", count: data.preparing.length },
     { value: "SHIPPED", label: "출하", count: data.shipped.length },
@@ -687,7 +688,7 @@ export default function Ship() {
           accessibilityLabel="주문 검색"
           value={query}
           onChangeText={setQuery}
-          placeholder="주문번호 · 이름 · 송장 검색"
+          placeholder="주문번호 · 이름 · 입금자명 · 송장 검색"
         />
       </View>
       {/* 밑줄 탭: 가로로 넘겨 보고, 글자가 잘리지 않는다(DEV-294) */}
@@ -797,7 +798,7 @@ export default function Ship() {
           {shown.length === 0 ? (
             <T variant="sub" muted style={{ paddingVertical: tokens.space.lg }}>
               {query.trim()
-                ? "찾는 주문이 없어요. 주문 번호·이름·송장 번호를 다시 확인해 주세요"
+                ? "찾는 주문이 없어요. 주문 번호·이름·입금자명·송장 번호를 다시 확인해 주세요"
                 : tab === "PREPARING"
                   ? "배송 대기 주문이 없어요"
                   : tab === "AWAITING_DEPOSIT"
