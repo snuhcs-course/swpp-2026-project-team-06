@@ -37,6 +37,23 @@ test("DEV-476: store profiles on the EAS build server stop when business info is
   });
 });
 
+test("DEV-476: any EAS profile but development is checked, so new or renamed store profiles cannot slip through", () => {
+  // 허용 목록이 아니라 제외 목록(development만). 모르는 이름·대소문자 변형·빈 프로필도 멈춘다
+  for (const profile of ["onestore", "production-apk", "Production", "PREVIEW", "store", ""]) {
+    assert.throws(() => consumer.assertStoreBusinessInfo(build(profile), quiet), /빌드를 멈춥니다/, profile);
+    assert.throws(() => producer.assertStoreBusinessInfo(build(profile), quiet), /빌드를 멈춥니다/, profile);
+  }
+  for (const profile of ["development", "Development", " development "])
+    assert.equal(consumer.assertStoreBusinessInfo(build(profile), quiet).applies, false, profile);
+  assert.deepEqual(consumer.EXEMPT_PROFILES, ["development"]);
+  // 안내는 EAS 환경 이름을 단정하지 않는다(preview 프로필도 production 환경을 쓸 수 있다)
+  assert.throws(() => consumer.assertStoreBusinessInfo(build("preview"), quiet), (e) => {
+    assert.match(e.message, /이 프로필이 쓰는 EAS 환경/);
+    assert.doesNotMatch(e.message, /--environment (preview|production)\b/);
+    return true;
+  });
+});
+
 test("DEV-476: a store build with every required value passes; a missing mail-order number only warns", () => {
   const warnings = [];
   const result = consumer.assertStoreBusinessInfo(build("production", FILLED), (m) => warnings.push(m));
@@ -52,7 +69,7 @@ test("DEV-476: a store build with every required value passes; a missing mail-or
   assert.deepEqual(none, []);
 });
 
-test("DEV-476: local, Mock, CI, development builds and eas update are not checked", () => {
+test("DEV-476: local, Mock, CI, development builds and eas update are not checked (only the build server sets EAS_BUILD)", () => {
   for (const env of [
     {}, // 로컬 expo start·export, 웹 Mock
     { CI: "1", EXPO_PUBLIC_API_MOCK: "1" }, // CI
