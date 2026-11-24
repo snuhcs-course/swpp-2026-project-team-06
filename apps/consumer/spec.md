@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-481 탭 레이아웃 key
+`(tabs)/_layout`의 Tabs `key`는 세션의 `tabsKey`(`lib/tabsKey.ts`의 `TabsKey`)다. 인증 이벤트(onAuthChange) 때만 바뀐다: 토큰이 생기거나 바뀌면 늘 바꾸고, 토큰이 지워지면 그 토큰으로 사용자를 확인(auth.me 성공)한 적이 있을 때만 바꾼다. 같은 사용자의 auth.me 답(첫 확인·실패 뒤 다시 확인)으로는 안 바뀌고, 지금 탭에서 확인한 사용자와 다른 사용자가 확인되면(웹에서 다른 브라우저 탭이 계정을 바꿔 토큰이 알림 없이 바뀜) 바뀐다. 전 key `user?.userId ?? "guest"`(DEV-3)는 저장된 토큰으로 연 첫 실행에서 답이 오는 순간 탭을 다시 만들어 그 사이 누른 동작을 지웠다. 저장된 토큰이 있을 때 탭을 auth.me까지 그리지 않는 방법(생산자 앱 DEV-56)은 소비자 앱에 없던 로딩 화면이 생겨 쓰지 않았다. `scripts/test-tabs-key.mjs`, e2e `scripts/e2e/session-restore-taps.spec.ts`.
+
 ## DEV-473 화면 오류 경계
 `lib/ScreenBoundary.tsx`. 화면 한 장 경계는 레이아웃 prop `unstable_screenErrorBoundary`(루트 Stack = 탭 밖 화면 `StackScreenBoundary`, `(tabs)/_layout`의 Tabs와 탭 폴더 Stack = `TabScreenBoundary`). Tabs prop이 레이아웃 없는 탭 화면과 앞으로 `(tabs)` 바로 아래에 더할 화면을 받으므로 화면 파일에 경계를 따로 내보내지 않는다(배치는 `scripts/test-screen-error.mjs`가 검사). 받는 것은 그리기·effect 중 예외뿐이고 이벤트 핸들러·비동기 콜백 예외는 못 받는다. expo-router가 죽은 화면만 장면 안에서 감싸 스택·탭 바가 남고 ‘다시 시도’는 그 화면만 다시 그린다. 탭 폴더 `_layout`의 `export ErrorBoundary`는 Stack째 갈려 하위 상태가 지워지므로 쓰지 않는다. 루트 `_layout`의 `export ErrorBoundary`(`RootBoundary`)는 세션·탭 레이아웃이 죽을 때의 마지막 그물이라 세션·내비게이터 없이 움직인다(웹은 `location.replace`). ‘홈으로’는 죽은 화면이 든 스택을 첫 화면으로 되돌리고, 웹은 그 주소 변화를 본 다음(최대 1초) `router.replace`(뒤로 가기로 돌아오지 않음). 죽은 화면이 운영팀 방이면 ‘운영팀에 알리기’를 숨긴다. 홈 `/`, 운영팀 `/chats/support`(비로그인은 관문 시트). `scripts/e2e/screen-error-boundary.spec.ts`.
 

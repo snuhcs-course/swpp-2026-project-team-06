@@ -1141,6 +1141,7 @@ Rules that apply on every screen:
 - When a save fails (network, validation or conflict), what the user typed and the photos they picked are kept, including after a detour to login.
 - If the user is not allowed to see a screen, it shows "You can't view this screen" with a link to the first screen.
 - If a screen crashes while drawing, the app shows "We couldn't open this screen" instead of a blank page, says saved data is kept, and offers Retry (redraws the same screen), Home and a link to the farmclub support chat. Inside a tab only that screen is replaced and the tab bar stays; error names and stack traces are never shown. This covers errors thrown while drawing a screen or in its effects; errors inside button handlers or asynchronous callbacks are not caught (DEV-473).
+- When the consumer app is reopened while signed in, the screen is usable right away while the saved sign-in is being checked, and anything tapped in that moment (opening the option sheet, moving to another screen) stays after the check finishes. Open screens inside the tabs are reset only when the account changes (sign-in, sign-out, a new token, or a 401 while in use). The producer app keeps a loading indicator in place of the tabs until the check finishes (DEV-481).
 - Network errors show "Your connection is unstable" with Retry. Success messages appear as a short toast.
 
 ### 7.6 Operator screens (I2)

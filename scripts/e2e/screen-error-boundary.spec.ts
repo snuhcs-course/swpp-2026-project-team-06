@@ -38,21 +38,10 @@ async function consumerLogin(page: Page, name = "김민지") {
   await expect(page).not.toHaveURL(/\/login/);
 }
 
-/** 로그인한 채 새로 연 화면에서 세션이 섰다(auth/me 응답 처리 끝, 이어진 요청도 잠잠). 그 전에는 탭 레이아웃이
- * `key={user?.userId ?? "guest"}`로 다시 만들어져 연 시트·이동이 사라진다(기존 동작, 아래 후속 이슈) */
-async function sessionSettled(page: Page, load: () => Promise<unknown>) {
-  const me = page.waitForResponse(/\/api\/auth\/me(\?|$)/);
-  await load();
-  await (await me).finished();
-  await page.waitForLoadState("networkidle");
-}
-
-/** 소비자 상품 화면을 열고 로그인한 사용자 기준으로 다시 그려질 때까지 기다린다. 신호: 사용자가 있을 때만 부르는
- * 이 상품의 내 예약 조회(orders?productId=…) 응답 */
-async function openProductReady(page: Page, productId: string) {
-  const mine = page.waitForResponse((r) => /\/api\/orders(\?|$)/.test(new URL(r.url()).pathname + "?") && r.url().includes(`productId=${productId}`));
-  await sessionSettled(page, () => page.goto(`${consumerUrl}/products/${productId}`));
-  await mine;
+/** 소비자 상품 화면을 열고 예약하기가 눌릴 때까지. 세션 확인(auth/me) 답을 기다리지 않는다: 답이 와도 탭 아래 화면을
+ * 다시 만들지 않는다(DEV-481, `scripts/e2e/session-restore-taps.spec.ts`) */
+async function openProduct(page: Page, productId: string) {
+  await page.goto(`${consumerUrl}/products/${productId}`);
   await expect(page.getByRole("button", { name: "예약하기" })).toBeEnabled();
 }
 
@@ -157,7 +146,7 @@ test("DEV_473 consumer home (tab screen without a layout) dies → error with th
 
 test("DEV_473 consumer screen outside tabs (checkout) dies → root stack boundary, retry and support", async ({ page }) => {
   await consumerLogin(page);
-  await openProductReady(page, "p-house");
+  await openProduct(page, "p-house");
   await page.getByRole("button", { name: "예약하기" }).click();
   const restore = await breakNames(page, /\/api\/products\/p-house(\?|$)/, (b) => [b]);
   await page.getByRole("button", { name: "주문서로" }).click();
@@ -173,7 +162,7 @@ test("DEV_473 consumer screen outside tabs (checkout) dies → root stack bounda
   await expect(page.getByRole("heading", { name: "주문서", exact: true })).toBeVisible();
 
   await breakNames(page, /\/api\/products\/p-house(\?|$)/, (b) => [b]);
-  await sessionSettled(page, () => page.reload());
+  await page.reload();
   await expect(page.getByText(TITLE)).toBeVisible();
   await page.getByRole("link", { name: "운영팀에 알리기" }).click();
   await expect(page).toHaveURL(/\/chats\/support/);
@@ -182,7 +171,7 @@ test("DEV_473 consumer screen outside tabs (checkout) dies → root stack bounda
 test("DEV_473 support room itself dies → no support link (it would reopen the same dead room)", async ({ page }) => {
   await consumerLogin(page);
   await breakNames(page, /\/api\/messaging\/support\/messages(\?|$)/, (b) => b.items, "body");
-  await sessionSettled(page, () => page.goto(`${consumerUrl}/chats/support`));
+  await page.goto(`${consumerUrl}/chats/support`);
   await expect(page.getByText(TITLE)).toBeVisible();
   await expect(page.getByRole("button", { name: "다시 시도" })).toBeVisible();
   await expect(page.getByRole("link", { name: "운영팀에 알리기" })).toHaveCount(0);
