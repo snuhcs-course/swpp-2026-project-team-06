@@ -218,3 +218,9 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 ## DEV-468 이모티콘
 
 AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달한다. 공통 카탈로그 ID 외 값과 혼합 메시지는 거부한다. UI는 공통 + 도구·160px 투명 그림·독립 전송 초안 보존을 사용한다. 이모티콘만 보낸 소비자 메시지는 AI를 호출하지 않고, 기존 권한·멱등성·비공개 답장을 유지한다. 상세는 tasks/DEV-468.md.
+
+## DEV-475 채팅방 주의·제재 안내 (원스토어 공지 29889)
+- `ChatNotice`(`ChatNotice.tsx`)는 띠 + ‘채팅 이용 안내’ 시트(기존 `Sheet`). 문구·접기 조건은 순수 함수 파일 `chatNoticeCopy.ts`(대소문자만 다른 이름은 macOS에서 부딪혀 `Copy`를 붙임). 테스트 `scripts/test-chat-notice.mjs`(react-native-web + react-dom/server로 실제로 그리고, 띠가 루트의 조건 없는 직접 자식인지 TypeScript AST로 본다). 시트 안쪽은 `ChatNoticeSheetBody`로 따로 둬 Modal 없이 그려 본다.
+- `ChatThread`·`NewsRoom`은 필수 prop `notice: { onSupport: (() => void) | null }`를 받아 루트 맨 위(스크롤 밖)에 띠를 그린다. 시트 셋째 줄은 `producer`로 고르고, `onSupport`가 null(운영팀 방)이면 넷째 줄과 ‘운영팀에 알리기’를 뺀다.
+- 띠는 `surface` 면 + 아래 테두리, 14/20 두 줄(높이 57, `minHeight` 48). 운영팀 방(`onSupport` null)은 늘, 다른 방은 키보드가 뜬 높이 720 미만 창이나 높이 500 미만 창에서 12/16 한 줄로 그린다(앱 높이 33 + hitSlop 8로 터치 48, 웹은 hitSlop이 없어 `minHeight` 48). 화면 읽기 이름은 늘 전체 문구 + ‘채팅 이용 안내 보기’.
+- `RoomMedia`의 앱 영상 포스터는 열 수 없는 주소(`https?:` 아님 — `data:` 영상)에 글자 띠 없이 흐린 재생 원만 두고 ‘영상을 열 수 없어요’로 읽힌다.
