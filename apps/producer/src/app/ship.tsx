@@ -232,9 +232,15 @@ export default function Ship() {
     try {
       await orders.undoProducerAction(o.orderId, action.actionId, key);
       undoKeys.current.delete(action.actionId);
+      // 출하를 되돌리면 출하 때 보낸 송장을 다시 채워 두어 다시 출하할 때 옮겨 적지 않게 한다
+      const shippedInvoice =
+        o.status === "SHIPPED" && action.previousStatus === "PREPARING" && (o.carrier || o.trackingNumber)
+          ? { carrier: o.carrier, no: o.trackingNumber ?? "" }
+          : null;
       setInvoices((old) => {
         const next = { ...old };
-        delete next[o.orderId];
+        if (shippedInvoice) next[o.orderId] = shippedInvoice;
+        else delete next[o.orderId];
         return next;
       });
       setUndoFor(null);

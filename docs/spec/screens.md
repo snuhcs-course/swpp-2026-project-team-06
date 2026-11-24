@@ -529,6 +529,10 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 ### SCR-29 주문·출하 처리 `/ship`
 
 - **관련**: FEAT-17, AC-17-2/3/4/5/6/7/8/9/10, FEAT-09 AC-09-8/9, R-07/15/19/28 · 디자인: DEV-68 보드, Figma 검토본 `TEN0IqovZJenoRqSIma3wL` 배송 현황 1:74·PR542 ⑤ 11:196(DEV-294).
+- **DEV-466 주문 카드(아래 ‘주문 줄’ 설명보다 우선)**: 목록 배경은 보조 면, 주문 한 건이 흰 카드 하나(모서리 16, 테두리 없음, 카드 사이 12). 카드 순서: ① 받는 사람 이름(18 굵게) + 아래 ‘주문 번호 · 주문 시각(MM.DD HH:mm)’(12 muted), 오른쪽 상태 칩(높이 28, 손이 가야 하는 상태는 accentSoft 바탕·accent 글자, 나머지 회색; 송금 마친 환불은 ‘환불 완료’) ② 상품 사진 56(내 상품 대표 사진, 없으면 기본) + 상품명(길면 상품명만 줄임)·옵션 × 수량 + 오른쪽 금액(굵게) ③ 회색 띠(입금 대기: ‘입금자명 ○○’·‘입금 기한 …/입금 기한 지남’·‘소비자가 입금했다고 알렸어요’·미승인 사유 / 배송 대기·출하: 택배사·송장 또는 ‘송장 미등록’ / 환불: 송금 안내·‘○월 ○일 송금 완료’·미승인 사유 / 되돌릴 수 있는 취소: ‘취소된 주문이에요’) ④ 입금 대기·송금 전 환불은 ‘미승인’ 1 : ‘승인’ 2(줄 안 미승인 사유 칸 그대로), 배송 대기는 받는 곳 한 줄·배송 예정 기간 ⑤ 펼친 ‘주문 상세’(왼쪽 회색 선: 받는 사람·연락처·우편번호·주소·메모, 입금 전은 ‘입금을 확인하면 배송 정보가 보여요’) ⑥ 아래 동작 줄(위 선, 칸 사이 세로선): ‘주문 상세 ⌄’ | 입금 대기 ‘채팅하기’ | 배송 대기·출하 ‘송장 입력/송장 수정’. 배송 대기 탭은 이름 왼쪽에 고르기 상자(보이는 24, 누르는 48).
+- **상태 칩 시트(DEV-466)**: 칩(읽기 라벨 ‘주문 번호 상태 ○○, 변경’)을 누르면 ‘주문 상태 변경’ 시트: 대상 주문(이름·주문 번호·시각·상품·금액) → ‘지금 상태 · ○○’ → 선택지(입금 대기: ‘배송 대기로’=입금 승인 확인 시트, ‘미승인’ / 배송 대기: ‘출하로’=그 주문만 고른 출하 확인, 닫거나 출하하면 이전 선택을 되살림 / 송금 전 환불: ‘환불 완료로’, ‘미승인’ / 서버가 준 `undoAction`이 있으면 ‘○○로 되돌리기’, 상태가 그대로인 처리는 ‘‘처리 이름’ 되돌리기’) → ‘배송 완료는 farmclub이 배송 결과를 확인해서 바꿔요’ → ‘닫기’. 선택지가 없으면 칩은 표시만.
+- **실행 취소(DEV-455·466)**: 머리 오른쪽 ‘실행 취소’(되돌림 아이콘) → ‘최근 처리 되돌리기’ 시트: `undoAction`이 있는 주문을 새것부터 최대 10(처리 이름·‘이름 · 상품’·‘주문 번호 · 처리 시각’, 읽기 라벨 ‘주문 번호 처리 이름 되돌리기’), 없으면 안내 문구. 고르면(또는 칩 시트의 되돌리기) ‘이 처리를 되돌릴까요?’: 대상 주문, ‘지금 상태 → 되돌릴 상태’, ‘앱의 처리 기록만 되돌려요. 실제 입금·송금이나 택배 발송은 취소되지 않아요.’, ‘닫기’ 1 : ‘되돌리기’ 2. 성공 토스트 ‘주문 번호 ‘처리 이름’ 전으로 되돌렸어요 · 상태’. 409·404면 시트를 닫고 위 안내 띠에 이유, 목록을 다시 읽는다. 연결이 끊기면 같은 키로 다시 시도. 기간 제한 없음.
+- **검색(DEV-466)**: 머리 아래 검색칸 ‘주문번호 · 이름 · 입금자명 · 송장 검색’. 지금 탭의 카드를 주문 번호·받는 사람·입금자명·송장 번호(하이픈 없이 숫자만 넣어도)로 거른다. 검색 중 ‘전체 선택’·개수·출하 대상은 보이는 카드만이고, 가려진 선택은 ‘검색에 가려진 n건 제외’로 알리고 출하하지 않는다. 결과 없음 ‘찾는 주문이 없어요. 주문 번호·이름·입금자명·송장 번호를 다시 확인해 주세요’.
 - **머리·탭**: 머리 ‘배송 현황’(출하 준비·출하 탭) / ‘주문 현황’(그 밖). 그 아래 밑줄 탭 ‘전체 n / 입금 대기 n / 예약 n / 출하 준비 n / 출하 n / 환불 n’(가로로 넘겨 보고 글자를 자르지 않는다, 고른 탭은 굵게 + 아래 2px 선, 고른 탭 숫자는 accent).
 - **탭 안내**: 한 줄 13 muted. 입금 대기 ‘입금자명·금액 확인 후 승인 · 24시간 안에 입금이 없으면 자동 취소’, 환불 ‘입금했던 계좌로 직접 보낸 뒤 승인’, 출하 ‘배송 완료는 farmclub이 확인해서 바꿔요’. 출하 준비·예약(DEV-361)·전체는 없다(출하 준비·예약은 ‘전체 선택’ 줄이 대신한다).
 - **주문 줄(공통)**: 첫 줄 받는 사람 이름(굵게) + 오른쪽 13 muted 주문 번호(입금 대기는 ‘ · 기한 …’/‘ · 기한 지남’). 둘째 줄 ‘상품명 옵션 × 수량’ + 오른쪽 금액(굵게). 상품명 끝 옵션 목록(예: ‘하우스 감귤 5kg / 10kg’)에 이 주문 옵션이 있으면 그 목록을 떼고 보인다(옵션 중복 제거, `lib/orderWho.ts` `orderItem`). 셋째 줄 배송지 한 줄(넘치면 말줄임), 배송 메모가 있으면 ‘메모: …’ 한 줄. 시트(입금 승인·송장·출하 확인)는 지금처럼 ‘이름 · 상품명 옵션 × 수량’ 전체 글자(DEV-226, AC-17-10).
@@ -615,7 +619,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
   | 401 | `UNAUTHENTICATED` | 토큰 없음·만료 → 로그인(SCR-05) |
   | 403 | `FORBIDDEN` | 역할·승인 상태 부족(N-06); 같은 역할의 타인 자원은 404. 다른 앱 계정의 토큰이면 `details.reason: WRONG_APP` |
   | 404 | `NOT_FOUND` | 없음. 남의 주문·대화도 404 |
-  | 409 | `CONFLICT` | 상태·물량 충돌. `details.reason`: `STAGE_CHANGED`, `SOLD_OUT`, `QUANTITY_LIMIT`, `INVALID_TRANSITION`, `IDEMPOTENCY_MISMATCH`, 추가 판매·버전 reason은 계약 1장. 최신 값을 `details`에 담는다 |
+  | 409 | `CONFLICT` | 상태·물량 충돌. `details.reason`: `STAGE_CHANGED`, `SOLD_OUT`, `QUANTITY_LIMIT`, `INVALID_TRANSITION`, `IDEMPOTENCY_MISMATCH`, `UNDO_CONFLICT`(생산자 실행 취소, DEV-455), 추가 판매·버전 reason은 계약 1장. 최신 값을 `details`에 담는다 |
   | 413 | `PAYLOAD_TOO_LARGE` | 첨부 개수·용량 초과 |
   | 5xx | `INTERNAL_ERROR` | 서버 오류. AI 실패는 오류로 돌려주지 않고 각 FEAT의 대체 동작(전달, 빈 초안)으로 처리 |
 
@@ -701,10 +705,11 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /api/orders/{orderId}/confirm` | 소비자(본인) | SCR-14 | — | `COMPLETED`, 구매 확정일 | FEAT-10 | Should |
 | `POST /api/orders/{orderId}/delivery-window-response` | 소비자(본인) | SCR-14 | `choice`(`accept`·`refund`) | 바뀐 주문 | FEAT-10 | Should |
 | `GET /api/orders/producer/dashboard` | 생산자 | SCR-22 | — | 할 일 수(`awaitingDeposit`·`refundsToSettle`·`hasAccount`·`openQuestions`, AI 답변 확인 요청 수 `aiCheckRequests`(DEV-296) 포함), 상품별 `reservedCount`·주문 수, 단계·옵션별 예약 수량과 남은 물량, 최근 주문(이름 앞 글자) | FEAT-14 | Must |
-| `GET /api/orders/producer` | 생산자 | SCR-29 | `status`, `productId`, `cursor`, `limit` | 내 농가 주문(입금 대기 포함, 배송 완료 전·입금 후만 배송 정보), `carrier`·`trackingNumber`, `totalAmount`·`depositDueAt`·`depositReportedAt`·`refundSettledAt`·`depositCode` | FEAT-14, 17 | Should |
+| `GET /api/orders/producer` | 생산자 | SCR-29 | `status`, `productId`, `cursor`, `limit` | 내 농가 주문(입금 대기 포함, 배송 완료 전·입금 후만 배송 정보), `carrier`·`trackingNumber`, `totalAmount`·`depositDueAt`·`depositReportedAt`·`refundSettledAt`·`depositCode`, `undoAction`(지금 되돌릴 수 있는 마지막 처리 `{actionId, label, previousStatus, createdAt}` 또는 null, DEV-455). 돈 없이 취소된 주문은 되돌릴 수 있는 동안만 포함 | FEAT-14, 17 | Should |
 | `POST /api/orders/producer/harvest-orders` | 생산자(자기 농가) | SCR-29 | `orderIds`(1~500개, id마다 64자까지, 중복은 한 번), `Idempotency-Key` 필수 | `{changed, orderIds, skipped}`. 고른 주문 중 지금 `RESERVED`인 것만 `PREPARING`(예약 기간 무관), 나머지는 건너뛰고 `skipped`로 센다. 키 없음·빈 목록 400, 하나라도 없거나 다른 농가 주문이면 404이고 아무것도 바뀌지 않음, 같은 키·본문은 첫 응답, 다른 본문 409. 옮긴 주문이 있을 때만 감사 `orders.harvest_started`(대상 농가) | FEAT-17 AC-17-11·12 (DEV-361) | Should |
 | `POST /api/orders/producer/harvest-start` | 생산자(자기 농가) | (예전 앱 빌드, DEV-361부터 앱은 쓰지 않음) | `productId`, `stageId`(없으면 상품 전체), `Idempotency-Key` 필수 | `{changed, stageId, orderIds}`. 그 기간의 `RESERVED`만 `PREPARING`. 키 없음 400, 다른 농가·없는 기간 404, 옮길 주문 없으면 200 `changed: 0`. 감사 `orders.harvest_started` | FEAT-17 AC-17-11·12 | Should |
 | `POST /api/orders/{orderId}/ship` | 생산자(자기 농가) | SCR-29 | `carrier`(선택, 택배사 코드 7.1), `trackingNumber`(선택, 50자 이하). 여러 건은 주문마다 호출 | `SHIPPED`, 출하일, 택배사·송장. 출하 준비가 아니면 409 `INVALID_TRANSITION` | FEAT-17 | Should |
+| `POST /api/orders/{orderId}/undo` | 생산자(자기 농가, 승인된 농가) | SCR-29 | `actionId`(1~64자), `Idempotency-Key` 필수 | 최신 ProducerOrder(현재 권한·개인정보 가림 적용). 마지막 처리(입금 확인·입금 미승인·미승인 주문 취소·출하·환불 미승인·환불 완료 표시)만, 지금 상태가 기록한 직후와 같을 때 이전 상태로 되돌린다. 그사이 다른 처리·입금 기한 지남·입금자명 겹침·물량 부족·판매가 끝난 상품이면 409 `UNDO_CONFLICT`, 없는 처리·남의 농가 404. 같은 키 재시도와 이미 되돌린 처리는 다시 되돌리지 않는다. 결제는 지우지 않고 `REVERSED` | FEAT-09·17 DEV-455 | Should |
 | `PATCH /api/orders/{orderId}/tracking` | 생산자(자기 농가 SHIPPED 주문) | SCR-29 | `version`(현재 trackingVersion), `carrier`(필수), `trackingNumber`(선택·50자 이하), `Idempotency-Key` | 최신 ProducerOrder·trackingVersion. 타농가404, 다른 상태409 INVALID_TRANSITION, 버전 불일치409 VERSION_MISMATCH. 감사 이력은 서버/관리자 전용 | FEAT-17 AC-17-9 | Should |
 
 **messaging** (`/api/messaging`)
