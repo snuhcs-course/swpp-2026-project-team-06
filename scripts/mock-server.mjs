@@ -145,6 +145,7 @@ const server = createServer(async (req, res) => {
       body = {
         orderId: form.get("orderId") || undefined,
         threadId: form.get("threadId") || undefined,
+        roomFarmId: form.get("roomFarmId") || undefined,
         dataUrl: `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`,
       };
     } else body = await readBody(req);

@@ -56,7 +56,9 @@ test("DEV-229 R-28: a fresh reported order is not shown as late on either app", 
   const producerClean = monitor(producerPage);
   await loginProducer(producerPage, "강영수");
   await producerPage.goto(`${producerUrl}/ship?status=AWAITING_DEPOSIT`);
-  await expect(producerPage.getByText(new RegExp(`^${orderNo} · 기한 \\d+월 \\d+일`))).toBeVisible();
-  await expect(producerPage.getByText(`${orderNo} · 기한 지남`, { exact: true })).toHaveCount(0);
+  // DEV-466: 주문 카드의 입금자명 띠에 기한이 나온다
+  const card = producerPage.getByTestId(`order-card-${orderNo}`);
+  await expect(card.getByText(/^입금 기한 \d+월 \d+일/)).toBeVisible();
+  await expect(card.getByText("입금 기한 지남", { exact: true })).toHaveCount(0);
   producerClean();
 });

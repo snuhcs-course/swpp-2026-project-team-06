@@ -1,4 +1,5 @@
 import { attachmentAccess } from "./conversations";
+import { roomPhotoAccess } from "./rooms";
 import { nextId, nowIso } from "./db";
 import { invalid, notFound, register } from "./router";
 // Mock strips metadata too. Production image decoding belongs to DEV-4.
@@ -92,8 +93,13 @@ function image(raw: string) {
 register({
   "POST /api/messaging/attachments": (ctx) => {
     const orderId = ctx.body.orderId as string | undefined,
-      threadId = ctx.body.threadId as string | undefined;
-    attachmentAccess(ctx, orderId, threadId);
+      threadId = ctx.body.threadId as string | undefined,
+      roomFarmId = ctx.body.roomFarmId as string | undefined;
+    if (roomFarmId) {
+      // 소식방 비공개 답장 사진(DEV-467): 답장을 보낼 수 있는 소비자(팔로워)만
+      if (orderId || threadId) invalid({ file: "주문 또는 대화를 하나 지정해 주세요" });
+      roomPhotoAccess(ctx, roomFarmId);
+    } else attachmentAccess(ctx, orderId, threadId);
     const data = image(String(ctx.body.dataUrl ?? ""));
     for (const [id, a] of Object.entries(ctx.db.attachments))
       if (!a.bound && Date.now() - Date.parse(a.createdAt) > 86400000)
@@ -104,6 +110,7 @@ register({
       ownerId: ctx.me().userId,
       orderId,
       threadId,
+      roomFarmId,
       bound: false,
       createdAt: nowIso(),
     };
@@ -118,6 +125,11 @@ register({
         a.ownerId !== ctx.me().userId ||
         Date.now() - Date.parse(a.createdAt) > 86400000
       )
+        notFound();
+    } else if (a.roomReplyId) {
+      // 답장 쓴 소비자와 그 농가 생산자만(M-19)
+      const u = ctx.me(), reply = ctx.db.roomReplies.find((r) => r.messageId === a.roomReplyId);
+      if (!reply || (u.role === "CONSUMER" ? reply.senderId !== u.userId : u.farmId !== reply.farmId))
         notFound();
     } else attachmentAccess(ctx, a.orderId, a.threadId);
     return { dataUrl: a.dataUrl };

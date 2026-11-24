@@ -22,7 +22,7 @@
 | 프론트엔드 | Expo(React Native, TypeScript) + Expo Router, **웹 출력**으로 소비자 앱·생산자 앱 2개 | 한 코드로 웹을 먼저 내고 I2에 Android·iOS로 넓힐 수 있음 | [0001](./adr/0001-frontend-expo-web.md) |
 | 웹 호스팅 | Vercel(정적 웹 출력), 앱마다 프로젝트 1개 | 무료, 브랜치 미리보기 | 0001 |
 | 도메인 | `farmclub.kr`(소비자 앱), `farm.farmclub.kr`(생산자 앱), `api.farmclub.kr`(서버). 호스팅케이알(KISA 인증 등록대행자)에서 사고 DNS는 Cloudflare. 공유 링크는 소비자 앱이 `/s/*`를 서버로 프록시해 `farmclub.kr/s/farms/<id>` | `.kr`은 Cloudflare Registrar가 팔지 않음. 대상 없는 서브도메인(`admin`·`dev`·`staging`)은 레코드를 만들지 않음. 워킹 데모 `demo.farmclub.kr`은 Vercel `farmclub-demo`(원본 `demo/`, DEV-133) | [0012](./adr/0012-domains-cloudflare.md) |
-| 앱 빌드 | 같은 Expo 코드로 iOS·Android 네이티브 앱(EAS Build), JS는 EAS Update(채널 `preview`·`production`, 런타임 버전 `fingerprint`). 식별자 `kr.farmclub.consumer`·`kr.farmclub.producer`, 설치 이름 `farmclub`·`farmclub 농가`(DEV-377). 웹 전용 코드는 `*.native.ts` 쌍이나 `Platform.OS` 분기, 카카오 복귀는 웹 복귀 화면이 앱 스킴으로 넘김 | iOS까지 스토어에 내야 해서 TWA·WebView 셸 대신 네이티브. 화면·로직 변경은 심사 없이 반영 | [0013](./adr/0013-eas-native-builds.md) |
+| 앱 빌드 | 같은 Expo 코드로 iOS·Android 네이티브 앱(EAS Build), JS는 EAS Update(채널 `preview`·`production`, 런타임 버전 `fingerprint`). 식별자 `kr.farmclub.consumer`·`kr.farmclub.producer`, 설치 이름 `farmclub`·`farmclub 농가`(DEV-377). iPad 미지원, 쓰지 않는 Android 권한(다른 앱 위 그리기·진동·생체 인증·Play 설치 경로)은 `blockedPermissions`로 막음(DEV-435). 웹 전용 코드는 `*.native.ts` 쌍이나 `Platform.OS` 분기, 카카오 복귀는 웹 복귀 화면이 앱 스킴으로 넘김 | iOS까지 스토어에 내야 해서 TWA·WebView 셸 대신 네이티브. 화면·로직 변경은 심사 없이 반영 | [0013](./adr/0013-eas-native-builds.md) |
 | 백엔드 | FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic, Railway | 타입 기반 API 정의, 코드에서 나온 OpenAPI 스키마로 `packages/api` 클라이언트 생성, 트랜잭션과 `SELECT … FOR UPDATE`로 물량 차감(R-06) | [0007](./adr/0007-backend-fastapi.md) |
 | 운영자 화면 | 관리 API(`/admin/...`). I1은 화면 없이 Swagger UI였지만 관리자 UI(`scripts/admin-web`, `admin.farmclub.kr`, Vercel 함수 중계)를 만들어 바꿈 | 승인·배송 완료·환불을 I1부터 화면 없이 처리, 모든 관리 API에서 `ADMIN` 역할 검사(N-06) | [0008](./adr/0008-operator-admin-api.md) |
 | 인증 | I1: Mock 로그인(시드 테스트 계정 선택, 설정 플래그) → 서버가 JWT 발급(PyJWT). I2: 카카오 로그인(OAuth 인가 코드) | 데모를 외부 계정 없이 재현. 두 웹 앱과 API가 다른 도메인이어도 동작 | [0009](./adr/0009-mock-login.md), [0003](./adr/0003-auth-kakao.md) |
@@ -161,3 +161,4 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 | 2026-11-06 | 0.10 | DEV-122: TQ-01에 PostHog 국외 이전 근거(제28조의8 ① 3호 가목, 처리방침 공개) 결정 기록. 코드 동작은 그대로 |
 | 2026-11-05 | 0.9 | DEV-236: Vercel 기본 주소를 공식 도메인으로 넘기지 않고(DEV-127 리다이렉트 제거, noindex 헤더) 서버 보조 주소로 CORS·카카오 복귀를 받는다. 운영 화면 테스트는 기본 주소에서(PostHog 꺼짐) |
 | 2026-11-21 | 0.11 | DEV-377: 2장 ‘앱 빌드’ 줄에 설치 이름(`farmclub`·`farmclub 농가`). 식별자·웹 제목은 그대로 |
+| 2026-11-22 | 0.12 | DEV-435: 2장 ‘앱 빌드’ 줄에 iPad 미지원·막은 Android 권한 |

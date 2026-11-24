@@ -164,7 +164,7 @@ def test_AC_06_10_ops_tester_producer_farm_is_test_farm(client, viewers):
     assert client.get("/api/products/mine", headers=producer).status_code == 200
 
 
-# ---- 경로 × 보는 사람 (AC-06-11, AC-07-11, AC-15-12) ----
+# ---- 경로 × 보는 사람 (AC-06-11, AC-07-11, AC-15-15) ----
 # (이름, 메서드, 경로, 본문, 로그인 필요, 숨김일 때 메시지 — None이면 없는 자원과 같은 404만 본다)
 ROUTES = [
     ("farm_detail", "GET", "/api/farms/f-kang", None, False, FARM_GONE),

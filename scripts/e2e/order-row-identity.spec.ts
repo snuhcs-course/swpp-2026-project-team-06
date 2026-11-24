@@ -108,9 +108,12 @@ test("DEV-226 AC-10-8/AC-17-10: repeated orders are told apart by number, date a
   // DEV-294: 줄은 이름 / 상품 줄(상품명 옵션 × 수량, 상품명 끝 옵션 목록은 뗌)이다. 우리 주문 두 줄 모두 상품 줄이 보여야 한다
   const item = `${productName.replace(/\s+[\d.]+\s*kg(?:\s*\/\s*[\d.]+\s*kg)*$/, "")} 5kg × 1`;
   for (const o of mine) {
-    // 입금자명 글자 → 입금자명·채팅하기 줄 → 주문 줄
-    const row = producerPage.getByText(o.depositCode!, { exact: true }).first().locator("xpath=../../..");
-    await expect(row.getByText(item, { exact: true })).toBeVisible();
+    // DEV-466: 주문 카드 하나에 입금자명과 상품 줄(상품명 / 옵션 × 수량)이 함께 있다
+    const row = producerPage.getByTestId(`order-card-${o.orderNo}`);
+    await expect(row.getByText(o.depositCode!, { exact: true })).toBeVisible();
+    const [itemName, itemTail] = [item.slice(0, item.lastIndexOf(" 5kg")), "5kg × 1"];
+    await expect(row.getByText(itemName, { exact: true })).toBeVisible();
+    await expect(row.getByText(itemTail, { exact: true })).toBeVisible();
   }
   await producerPage.getByRole("button", { name: `${placed[1].orderNo} 입금 승인`, exact: true }).click();
   const sheet = producerPage.getByRole("dialog");

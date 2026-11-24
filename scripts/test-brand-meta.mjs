@@ -294,3 +294,20 @@ for (const [app, v] of Object.entries(INSTALLED)) {
     assert.deepEqual([manifest.name, manifest.short_name], v.pwa);
   });
 }
+
+// DEV-435: App Store 아이콘은 투명할 수 없다. icon.png는 RGBA(알파 채널 있음)지만 모든 픽셀이 불투명(알파 255)이다.
+// Expo prebuild(@expo/prebuild-config withIosIcons)는 iOS 1024 아이콘을 removeTransparency로 흰 바탕 위에 다시 그려 RGB로 낸다.
+// 픽셀이 전부 불투명이면 흰 바탕이 비치지 않아 색이 그대로다(prebuild 결과 RGB, 모서리 #FFF4E8·#56652A 확인). 반투명 픽셀이 생기면 흰색이 섞이므로 막는다.
+for (const [app, { bg }] of Object.entries(APPS)) {
+  test(`DEV-435 ${app} iOS 아이콘(expo.icon) 1024, 모든 픽셀 불투명, 바탕 ${bg}`, () => {
+    const { expo } = JSON.parse(read(`apps/${app}/app.json`));
+    assert.equal(expo.ios.icon, undefined, "iOS도 expo.icon을 쓴다");
+    const p = `apps/${app}/${expo.icon.replace(/^\.\//, "")}`;
+    const img = decodePng(p);
+    assert.deepEqual([img.width, img.height], [1024, 1024]);
+    let transparent = 0;
+    for (let o = 3; o < img.data.length; o += 4) if (img.data[o] !== 255) transparent++;
+    assert.equal(transparent, 0, `${p} 불투명 아닌 픽셀 ${transparent}개`);
+    assert.equal(png(p).corner, bg);
+  });
+}

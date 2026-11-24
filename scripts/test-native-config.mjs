@@ -37,6 +37,36 @@ for (const [app, { id, scheme, host }] of Object.entries(APPS)) {
     assert.equal(new Set(expo.ios.associatedDomains).size, expo.ios.associatedDomains.length, "associatedDomains 중복 없음");
   });
 
+  // DEV-435: 스토어 심사 전 네이티브 설정. iPad 미지원(PM 11/22), 쓰지 않는 Android 권한은 막고 쓰는 기능의 권한은 남긴다.
+  test(`DEV-435 ${app} app.json: iPad 끔, 쓰지 않는 Android 권한만 막음`, () => {
+    const { expo } = json(`apps/${app}/app.json`);
+    assert.equal(expo.ios.supportsTablet, false, "iPad 미지원(TARGETED_DEVICE_FAMILY 1)");
+    assert.equal(expo.orientation, "portrait");
+    // 끌어온 곳: SYSTEM_ALERT_WINDOW·VIBRATE는 Expo prebuild 템플릿, USE_BIOMETRIC·USE_FINGERPRINT는 expo-secure-store의 androidx.biometric,
+    // BIND_GET_INSTALL_REFERRER_SERVICE는 expo-application의 com.android.installreferrer(getInstallReferrerAsync 전용, 아래 검사).
+    // 앱은 진동·다른 앱 위 그리기·생체 인증(requireAuthentication)·Play 설치 경로를 쓰지 않는다. debug 빌드(dev client)의 SYSTEM_ALERT_WINDOW는 debug 매니페스트가 따로 둔다.
+    assert.deepEqual(expo.android.blockedPermissions, [
+      "android.permission.SYSTEM_ALERT_WINDOW",
+      "android.permission.VIBRATE",
+      "android.permission.USE_BIOMETRIC",
+      "android.permission.USE_FINGERPRINT",
+      "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE",
+    ]);
+    // 쓰는 기능의 권한은 막지 않는다: 네트워크, expo-updates, 사진 선택(Android 12 이하 저장소, 아래 검사)
+    for (const keep of [
+      "android.permission.INTERNET",
+      "android.permission.ACCESS_NETWORK_STATE",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+    ])
+      assert.ok(!expo.android.blockedPermissions.includes(keep), `${keep}는 막지 않음`);
+    assert.equal(expo.android.permissions, undefined, "권한을 따로 더하지 않음");
+    // 카메라·마이크는 expo-image-picker 플러그인이 막는다(기존 값)
+    const picker = expo.plugins.find((p) => Array.isArray(p) && p[0] === "expo-image-picker")[1];
+    assert.equal(picker.cameraPermission, false);
+    assert.equal(picker.microphonePermission, false);
+  });
+
   test(`${app} eas.json: 프로필·채널·autoIncrement·서버 주소`, () => {
     const eas = json(`apps/${app}/eas.json`);
     assert.equal(eas.cli.appVersionSource, "remote");
@@ -141,6 +171,23 @@ const files = (dir) =>
     return /\.tsx?$/.test(f) && !/\.web\.tsx?$/.test(f) ? [rel] : [];
   });
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/`[^`]*`/g, "``").replace(/"[^"\n]*"/g, '""');
+
+// DEV-435: 막은 권한·남긴 권한의 근거가 코드와 맞는지.
+// - 사진 선택(pickPhoto·pick·sourceFiles)은 launchImageLibraryAsync 전에 requestMediaLibraryPermissionsAsync를 부른다.
+//   expo-image-picker는 Android 12 이하에서 이 호출로 READ/WRITE_EXTERNAL_STORAGE를 요청하므로, 매니페스트에서 빼면 거절로 돌아와 사진을 못 고른다.
+// - install referrer 권한은 expo-application getInstallReferrerAsync만 쓴다. 이 호출이 생기면 blockedPermissions에서 빼야 한다.
+const NATIVE_SRC = ["apps/consumer/src", "apps/producer/src", "packages/api/src", "packages/ui/src", "packages/analytics/src"];
+test("DEV-435 저장소 권한은 사진 선택의 권한 요청 때문에 남기고, install referrer는 호출이 없어 막는다", () => {
+  const all = NATIVE_SRC.flatMap(files).map((f) => [f, stripComments(read(f))]);
+  const mediaPerm = all.filter(([, c]) => /requestMediaLibraryPermissionsAsync\s*\(/.test(c)).map(([f]) => f);
+  assert.ok(mediaPerm.length > 0, "사진 선택이 권한을 요청하지 않게 바뀌면 저장소 권한을 막을지 다시 본다");
+  for (const app of Object.keys(APPS)) {
+    const blocked = json(`apps/${app}/app.json`).expo.android.blockedPermissions;
+    for (const p of ["android.permission.READ_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE"])
+      assert.ok(!blocked.includes(p), `${app}: ${p}를 막으면 Android 12 이하에서 사진 선택이 거절된다(${mediaPerm.join(", ")})`);
+  }
+  assert.deepEqual(all.filter(([, c]) => /getInstallReferrerAsync/.test(c)).map(([f]) => f), [], "install referrer를 쓰면 권한을 막지 않는다");
+});
 
 test("공용 패키지에 웹 전용 전역 직접 호출이 없다(결정 문서 ‘웹 전용 코드 격리’)", () => {
   const hits = [];
