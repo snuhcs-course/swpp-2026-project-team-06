@@ -173,14 +173,10 @@ def latest_public_news(db: Session, farm, user_id: str | None) -> NewsItem | Non
 
 
 def followed_news(db: Session, consumer_id: str, cursor: str | None, limit: int) -> Paged[NewsItem]:
-    """팔로우한 승인 농가의 소식(공개·팔로워 전용)."""
+    """팔로우한 공개 농가의 소식(공개·팔로워 전용). 테스트 농가는 테스트 계정에게만(DEV-472)."""
     from app.farms import service as farms
 
-    farm_ids = [
-        f.id
-        for f in farms.get_farms(db, farms.followed_farm_ids(db, consumer_id)).values()
-        if f.approval_status == "APPROVED"
-    ]
+    farm_ids = list(farms.public_farms(db, farms.followed_farm_ids(db, consumer_id), consumer_id))
     query = select(Broadcast).where(Broadcast.farm_id.in_(farm_ids), _LIVE)
     return _news_page(db, query, consumer_id, cursor, limit)
 
@@ -192,7 +188,7 @@ def _visible_broadcast(db: Session, consumer_id: str, broadcast_id: str) -> Broa
     b = db.scalar(select(Broadcast).where(Broadcast.id == broadcast_id).with_for_update())
     if b is not None and b.deleted_at is not None:
         raise not_found("삭제된 소식이에요.")
-    if b is None or farms.get_approved_farm(db, b.farm_id) is None:
+    if b is None or farms.public_farm(db, b.farm_id, consumer_id) is None:
         raise not_found("볼 수 없는 소식이에요.")
     if b.visibility != "PUBLIC" and not farms.is_following(db, consumer_id, b.farm_id):
         raise not_found("볼 수 없는 소식이에요.")
@@ -250,7 +246,7 @@ def _room_access(db: Session, user, farm_id: str):
     from app.farms import service as farms
 
     if user is None:
-        farm = farms.get_approved_farm(db, farm_id)
+        farm = farms.public_farm(db, farm_id, None)
         if farm is None:
             raise not_found("지금은 이 농가의 소식방을 열 수 없어요.")
         return farm, False
@@ -263,7 +259,7 @@ def _room_access(db: Session, user, farm_id: str):
         return own, True
     if user.role != "CONSUMER":
         raise forbidden()
-    farm = farms.get_approved_farm(db, farm_id)
+    farm = farms.public_farm(db, farm_id, user)
     if farm is None:
         raise not_found("지금은 이 농가의 소식방을 열 수 없어요.")
     return farm, farms.is_following(db, user.id, farm_id)
@@ -438,11 +434,7 @@ def rooms(db: Session, user, cursor: str | None, limit: int) -> Paged[NewsRoomSu
         farm, _ = _room_access(db, user, getattr(farms.get_farm_of_producer(db, user.id), "id", ""))
         found = [farm]
     else:
-        found = [
-            f
-            for f in farms.get_farms(db, farms.followed_farm_ids(db, user.id)).values()
-            if f.approval_status == "APPROVED"
-        ]
+        found = list(farms.public_farms(db, farms.followed_farm_ids(db, user.id), user).values())
     summaries = [_room_summary(db, user, f, True) for f in found]
     summaries.sort(key=lambda s: (s.last_at is not None, s.last_at or now()), reverse=True)
     return _offset_page(summaries, cursor, limit)
@@ -887,10 +879,10 @@ def ensure_thread(db: Session, farm_id: str, consumer_id: str) -> Thread:
 
 
 def _consumer_thread(db: Session, consumer_id: str, farm_id: str, lock: bool = False) -> Thread:
-    """소비자는 팔로우한 승인 농가의 대화만. 결제 주문 문의가 있으면 팔로우 예외(1.2 2/2)."""
+    """소비자는 팔로우한 공개 농가의 대화만. 결제 주문 문의가 있으면 팔로우 예외(1.2 2/2)."""
     from app.farms import service as farms
 
-    if farms.get_approved_farm(db, farm_id) is None:
+    if farms.public_farm(db, farm_id, consumer_id) is None:
         raise not_found("찾을 수 없는 농가예요.")
     thread = get_thread(db, farm_id, consumer_id, lock=lock)
     if thread is None:
@@ -1067,12 +1059,13 @@ def consumer_chats(db: Session, consumer, cursor: str | None, limit: int) -> Pag
     from app.farms import service as farms
 
     threads = list(db.scalars(select(Thread).where(Thread.consumer_id == consumer.id)))
-    found = farms.get_farms(db, [t.farm_id for t in threads])
+    # 정지 농가처럼 테스트 농가(DEV-472)도 일반 소비자의 목록에서 빠진다
+    found = farms.public_farms(db, [t.farm_id for t in threads], consumer)
     followed = set(farms.followed_farm_ids(db, consumer.id))
     summaries = []
     for t in threads:
         farm = found.get(t.farm_id)
-        if farm is None or farm.approval_status != "APPROVED":
+        if farm is None:
             continue
         last = db.scalar(
             select(ThreadMessage)
@@ -1107,7 +1100,7 @@ def authorize_chat_start(db: Session, consumer, farm_id: str, order_id: str | No
     """Also run before an idempotent replay; GET never initializes a thread."""
     from app.farms import service as farms
 
-    if farms.get_approved_farm(db, farm_id) is None:
+    if farms.public_farm(db, farm_id, consumer) is None:
         raise not_found("찾을 수 없는 농가예요.")
     if order_id is not None:
         require_paid_order(db, consumer.id, farm_id, order_id)
@@ -1882,7 +1875,7 @@ def _check_resource(db: Session, user, order_id: str | None, thread_id: str | No
         if own is None or own.id != thread.farm_id or own.approval_status not in SUPPORT_STATUSES:
             raise not_found("찾을 수 없는 대화예요.")
         return
-    if farms.get_approved_farm(db, thread.farm_id) is None:
+    if farms.public_farm(db, thread.farm_id, user) is None:
         raise not_found("찾을 수 없는 대화예요.")
     if user.role == "CONSUMER":
         if thread.consumer_id != user.id:
@@ -1997,7 +1990,7 @@ def create_inquiry(db: Session, consumer, order_id: str, body: InquiryInput) -> 
     if not text or len(text) > 1000:
         raise invalid({"text": "유형을 선택하고 설명을 1~1,000자로 적어 주세요"})
     farm_id = orders.order_farm_id(db, order)
-    if farms.get_approved_farm(db, farm_id) is None:
+    if farms.public_farm(db, farm_id, consumer) is None:
         raise not_found("지금은 이 농가에 문의할 수 없어요.")
     ensure_thread(db, farm_id, consumer.id)
     thread = get_thread(db, farm_id, consumer.id, lock=True)
