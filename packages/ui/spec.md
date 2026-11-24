@@ -145,7 +145,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 - 두 앱 루트는 `KeyboardRoot`(`src/keyboard.tsx`)로 Stack을 감싼다. Android만 `KeyboardAvoidingView behavior="padding"`, 웹·iOS는 children 그대로(감싸는 View 없음). app.json `softwareKeyboardLayoutMode`는 쓰지 않는다: Android 15+ edge-to-edge에서 adjustResize가 창을 줄이지 않고, 네이티브 설정은 새 빌드가 필요하다.
 - Android에서 키보드가 떠 있는 동안 `TabBar`·`BottomBar`는 그리지 않는다(`useKeyboardShown`). 루트가 올라가면 absolute 하단 바가 키보드 위에 떠 입력칸을 가린다.
 - `ChatThread` 입력창 아래 여백은 앱에서만 하단 안전 영역을 더한다(키보드가 떠 있으면 뺀다). 웹은 20 그대로.
-- `Sheet`(RN Modal)는 루트와 다른 창이라 루트 `KeyboardRoot`가 닿지 않는다. 그래서 `Sheet`가 Modal 안을 `KeyboardRoot`로 한 번 더 감싸고, 앱에서만 시트가 남은 높이에 맞춰 줄며(`flexShrink`, 위 여백 안전 영역+16) 안이 스크롤된다. 시트 ScrollView는 `keyboardShouldPersistTaps="handled"`라 키보드가 떠 있어도 저장 버튼이 첫 탭에 눌린다. 웹은 감싸지 않아 그대로(DEV-477). Modal을 직접 쓰는 다른 부품(`MessageMenu`, `PhotoViewer`, 생산자 `SourceExclusions`, 소비자 `CheckoutChangeModal`·우편번호 찾기)은 입력칸이 없거나 화면 전체라 손대지 않았다.
+- `Sheet`(RN Modal)는 루트와 다른 창이라 루트 `KeyboardRoot`가 닿지 않는다. 그래서 `Sheet`가 Modal 안을 `KeyboardRoot`로 한 번 더 감싸고, 앱에서만 시트가 남은 높이에 맞춰 줄며(`flexShrink`, 위 여백 안전 영역+16) 안이 스크롤된다. 시트 ScrollView는 `keyboardShouldPersistTaps="handled"`라 키보드가 떠 있어도 저장 버튼이 첫 탭에 눌린다. 웹은 감싸지 않아 그대로(DEV-477). 앱에서 유리 면(`glass`: `BottomBar`, `sheetGlass`: `Sheet`·`PeekSheet`)은 흰 불투명(`tokens.color.background`)이다. `backdropFilter`가 웹에만 있어 앱에서 반투명이면 뒤 글자가 비쳤다. 웹은 반투명+blur 그대로. `Checkbox`의 `inline`은 가로로 늘어놓는 줄(flexWrap)용으로 글자 칸을 `flexShrink: 1`로 둔다(기본 `flex: 1`은 폭이 글자에 맞춰지는 줄에서 앱이 글자 칸을 0으로 계산함). Modal을 직접 쓰는 다른 부품(`MessageMenu`, `PhotoViewer`, 생산자 `SourceExclusions`, 소비자 `CheckoutChangeModal`·우편번호 찾기)은 입력칸이 없거나 화면 전체라 손대지 않았다.
 
 
 ### DEV-289
