@@ -758,11 +758,16 @@ def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
 
 def used_deposit_codes(db: Session, order: Order, farm_id: str) -> set[str]:
     """같은 농가 코드 할당과 실행 취소 복구를 직렬화한다(DEV-342/455)."""
-    from app.catalog import service as catalog
-
     db.execute(
         select(func.pg_advisory_xact_lock(func.hashtextextended(f"deposit-code:{farm_id}", 0)))
     )
+    return taken_deposit_codes(db, order, farm_id)
+
+
+def taken_deposit_codes(db: Session, order: Order, farm_id: str) -> set[str]:
+    """같은 농가에서 지금 쓰는 입금자명(잠금 없음). 실행 취소 가능 표시용 미리보기에도 쓴다."""
+    from app.catalog import service as catalog
+
     product_ids = catalog.farm_product_ids(db, farm_id)
     recently_canceled = (
         (Order.status == "CANCELED")
@@ -1109,8 +1114,14 @@ def producer_orders(
             raise not_found("찾을 수 없는 상품이에요.")
         query = query.where(Order.product_id == product_id)
     rows = db.scalars(query.order_by(Order.created_at.desc(), Order.id.desc()))
-    result = [producer_order_view(db, row) for row in rows]
-    return [row for row in result if row.status != "CANCELED" or row.undo_action is not None]
+    result = []
+    for row in rows:
+        view = producer_order_view(db, row)
+        # 돈 없이 끝난 취소는 실행 취소할 수 있는 동안만 보인다(R-15, DEV-455)
+        if row.status == "CANCELED" and row.paid_at is None and view.undo_action is None:
+            continue
+        result.append(view)
+    return result
 
 
 HARVESTED = ("PREPARING", "SHIPPED", "DELIVERED", "COMPLETED")

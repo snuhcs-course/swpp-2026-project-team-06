@@ -272,7 +272,7 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
   const delivered = !!o.deliveredAt || o.status === "DELIVERED" || o.status === "COMPLETED";
   const hide = delivered || !o.paidAt;
   return {
-    undoAction: availableOrderUndo(o),
+    undoAction: availableOrderUndo(d, o),
     orderId: o.orderId,
     orderNo: o.orderNo,
     depositCode: o.depositCode ?? null,

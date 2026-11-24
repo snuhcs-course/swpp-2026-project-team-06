@@ -140,3 +140,18 @@ test("DEV-455 Mock: successful replay returns current delivery state and masks a
   assert.equal(replay.body.deliveryNote, null);
   assert.deepEqual(db().orders[oid], before);
 });
+
+test("DEV-455 Mock AC-09-9: expired undo is not offered and an unpaid cancel leaves the producer list", async () => {
+  const { oid, producer } = await fixture();
+  const canceled = await ok("POST", `/api/orders/${oid}/reject-deposit`, producer, { reason: "취소", cancel: true });
+  const aid = actionId(canceled);
+  let list = await ok("GET", "/api/orders/producer?limit=50", producer);
+  assert.equal(list.items.find(o => o.orderId === oid)?.undoAction?.actionId, aid);
+  // 기록한 이전 상태의 입금 기한이 지난 것으로 만든다(서버는 FIXED_NOW로 같은 경우를 본다)
+  const record = db().orders[oid].producerActionHistory.find(a => a.actionId === aid);
+  record.before.depositDueAt = new Date(Date.now() - 60_000).toISOString();
+  record.before.depositReportedAt = null;
+  list = await ok("GET", "/api/orders/producer?limit=50", producer);
+  assert.equal(list.items.find(o => o.orderId === oid), undefined);
+  assertConflict(await undo(producer, oid, aid));
+});

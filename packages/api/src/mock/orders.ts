@@ -26,7 +26,7 @@ import {
 import { ADDRESS_LIMIT, publicName } from "./auth";
 import { ORDER_CONSENT_KEYS, allOrderConsents } from "../orderConsents";
 import { depositCodeName, pickDepositCode } from "../depositCode";
-import { availableOrderUndo, producerOrderState, recordOrderAction } from "./orderUndo";
+import { DEPOSIT_CODE_HOLD_DAYS, availableOrderUndo, latestOrderAction, orderRestoreBlocker, producerOrderState, recordOrderAction } from "./orderUndo";
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
 /** 도서산간(예시): 제주·울릉·옹진 등 우편번호 앞자리 */
@@ -90,8 +90,6 @@ function refund(ctx: Ctx, o: OrderRec, reason: string) {
 
 /** 입금 기한(시간). 서버 DEPOSIT_DEADLINE_HOURS와 같다(R-28) */
 const DEPOSIT_DEADLINE_HOURS = 24;
-/** 돈 없이 취소된 주문의 입금자명을 다시 쓰지 않는 기간(입금 기한 끝부터, 서버 DEPOSIT_CODE_HOLD_DAYS, DEV-342) */
-const DEPOSIT_CODE_HOLD_DAYS = 3;
 const DEPOSIT_EXPIRED = "입금 기한 초과";
 
 /** 입금 대기 주문을 결제 없이 끝낸다. 잡아 둔 물량은 한 번만 돌려준다(R-28) */
@@ -364,20 +362,11 @@ register({
       const action = o.producerActionHistory?.find(a => a.actionId === actionId);
       if (!action) notFound("되돌릴 처리를 찾을 수 없어요.");
       if (action.status === "UNDONE") return { orderId: o.orderId, actionId };
-      if (availableOrderUndo(o)?.actionId !== actionId)
+      if (latestOrderAction(o)?.actionId !== actionId)
         conflict("UNDO_CONFLICT", "다른 처리가 이어져 실행 취소할 수 없어요. 최신 주문을 확인해 주세요.");
       const previous = action.before;
-      if (previous.status === "AWAITING_DEPOSIT") {
-        if (previous.depositDueAt && new Date(previous.depositDueAt).getTime() <= Date.now() && !previous.depositReportedAt)
-          conflict("UNDO_CONFLICT", "입금 기한이 지나 입금 대기로 되돌릴 수 없어요.");
-        const code = previous.depositCode?.toLocaleLowerCase();
-        if (code && Object.values(ctx.db.orders).some(x => x.orderId !== o.orderId &&
-          ctx.db.products[x.productId]?.farmId === ctx.me().farmId &&
-          x.depositCode?.toLocaleLowerCase() === code &&
-          (x.status === "AWAITING_DEPOSIT" || (x.status === "CANCELED" && !x.paidAt && x.depositDueAt &&
-            new Date(x.depositDueAt).getTime() > Date.now() - DEPOSIT_CODE_HOLD_DAYS * 86400_000))))
-          conflict("UNDO_CONFLICT", "같은 입금자명을 쓰는 다른 주문이 있어 되돌릴 수 없어요.");
-      }
+      const blocker = orderRestoreBlocker(ctx.db, o, previous);
+      if (blocker) conflict("UNDO_CONFLICT", blocker);
       const p = ctx.db.products[o.productId];
       const reclaim = o.releasedQuantity - previous.releasedQuantity;
       if (reclaim > 0) {
@@ -504,7 +493,7 @@ register({
           ctx.db.products[o.productId]?.farmId === u.farmId &&
           o.status !== "PENDING_PAYMENT" &&
           // 돈을 낸 적 없이 끝난 취소는 생산자 목록에서 뺀다(R-15)
-          (!(o.status === "CANCELED" && !o.paidAt) || !!availableOrderUndo(o)),
+          (!(o.status === "CANCELED" && !o.paidAt) || !!availableOrderUndo(ctx.db, o)),
       )
       .filter((o) => !ctx.query.status || o.status === ctx.query.status)
       .filter(

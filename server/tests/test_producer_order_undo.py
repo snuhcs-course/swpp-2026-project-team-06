@@ -423,3 +423,29 @@ def test_ordinary_orders_have_no_undo_and_missing_key_does_not_mutate(client, lo
     unknown = undo(client, producer, "o-40", "not-a-recorded-action")
     assert unknown.status_code == 404, unknown.text
     assert persisted("o-40") == ordinary_snapshot
+
+
+def test_AC_09_9_expired_undo_is_not_offered_and_unpaid_cancel_leaves_the_list(
+    client, login, monkeypatch
+):
+    """DEV-455: 눌러도 409가 날 실행 취소는 내주지 않는다.
+
+    돈 없이 취소된 주문은 실행 취소할 수 있는 동안만 생산자 목록에 보인다(R-15).
+    """
+    canceled_id, _, producer = waiting(client, login)
+    confirmed_id, _, _ = waiting(client, login)
+    canceled = action(
+        client, producer, canceled_id, "reject-deposit", {"reason": "취소", "cancel": True}
+    )
+    token(canceled, "AWAITING_DEPOSIT")
+    confirmed = action(client, producer, confirmed_id, "confirm-deposit")
+    token(confirmed, "AWAITING_DEPOSIT")
+    listed = rows(client, producer)
+    assert listed[canceled_id]["undoAction"] and listed[confirmed_id]["undoAction"]
+
+    # 원래 입금 기한이 지나면 입금 대기로 되돌릴 수 없다
+    monkeypatch.setattr(get_settings(), "fixed_now", "2026-10-08T10:00:01+09:00")
+    listed = rows(client, producer)
+    assert canceled_id not in listed
+    assert listed[confirmed_id]["status"] == "PREPARING"
+    assert listed[confirmed_id]["undoAction"] is None

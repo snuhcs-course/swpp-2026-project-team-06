@@ -80,9 +80,34 @@ def _latest(db: Session, order_id: str) -> ManagerEvent | None:
     )
 
 
+def _restore_blocker(
+    db: Session, order: Order, farm_id: str, state: dict, *, lock: bool
+) -> str | None:
+    """입금 대기로 되돌릴 수 없는 이유.
+
+    목록 표시(잠금 없음)와 실제 실행 취소(잠금)가 같은 규칙을 쓴다.
+    """
+    from app.orders import service
+
+    if state["status"] != "AWAITING_DEPOSIT":
+        return None
+    due = _value("deposit_due_at", state["deposit_due_at"])
+    if due is not None and due <= now() and state["deposit_reported_at"] is None:
+        return "입금 기한이 지나 입금 대기로 되돌릴 수 없어요."
+    read = service.used_deposit_codes if lock else service.taken_deposit_codes
+    codes = read(db, order, farm_id)
+    if state["deposit_code"] and state["deposit_code"].casefold() in {c.casefold() for c in codes}:
+        return "같은 입금자명을 쓰는 다른 주문이 있어 되돌릴 수 없어요."
+    return None
+
+
 def current_action(db: Session, order: Order) -> ProducerOrderUndo | None:
     event = _latest(db, order.id)
     if event is None or event.result["after"] != _snapshot(db, order):
+        return None
+    # 눌러도 409가 날 처리는 내주지 않는다(기한 지남·입금자명 겹침)
+    farm_id = event.scope.removeprefix("producer-order:")
+    if _restore_blocker(db, order, farm_id, event.result["before"]["order"], lock=False):
         return None
     return ProducerOrderUndo(
         action_id=event.id,
@@ -160,7 +185,6 @@ def _value(field: str, value):
 def undo_action(db: Session, farm_id: str, actor_id: str, order_id: str, action_id: str) -> dict:
     from app.catalog import service as catalog
     from app.farms.service import get_farm_shared
-    from app.orders import service
 
     order = _locked_order(db, farm_id, order_id)
     farm = get_farm_shared(db, farm_id)
@@ -183,17 +207,9 @@ def undo_action(db: Session, farm_id: str, actor_id: str, order_id: str, action_
 
     before, after = event.result["before"], event.result["after"]
     state = before["order"]
-    if state["status"] == "AWAITING_DEPOSIT":
-        due = _value("deposit_due_at", state["deposit_due_at"])
-        if due is not None and due <= now() and state["deposit_reported_at"] is None:
-            raise conflict("UNDO_CONFLICT", "입금 기한이 지나 입금 대기로 되돌릴 수 없어요.")
-        codes = service.used_deposit_codes(db, order, farm_id)
-        if state["deposit_code"] and state["deposit_code"].casefold() in {
-            code.casefold() for code in codes
-        }:
-            raise conflict(
-                "UNDO_CONFLICT", "같은 입금자명을 쓰는 다른 주문이 있어 되돌릴 수 없어요."
-            )
+    blocker = _restore_blocker(db, order, farm_id, state, lock=True)
+    if blocker:
+        raise conflict("UNDO_CONFLICT", blocker)
 
     reclaim = after["order"]["released_quantity"] - state["released_quantity"]
     if reclaim > 0:
