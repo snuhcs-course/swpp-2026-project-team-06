@@ -11,12 +11,12 @@ test.use({ viewport: { width: 390, height: 844 } });
 
 const TITLE = "이 화면을 열지 못했어요";
 
-/** 이 주소의 응답에서 상품 이름을 객체로 바꾼다. 돌려주는 함수를 부르면 원래 응답으로 돌아간다 */
-async function breakNames(page: Page, url: RegExp, pick: (body: any) => any[]) {
+/** 이 주소의 응답에서 글자 칸(기본은 상품 이름)을 객체로 바꾼다. 돌려주는 함수를 부르면 원래 응답으로 돌아간다 */
+async function breakNames(page: Page, url: RegExp, pick: (body: any) => any[], field = "name") {
   const handler = async (route: import("@playwright/test").Route) => {
     const response = await route.fetch();
     const body = await response.json();
-    for (const item of pick(body)) item.name = { broken: true };
+    for (const item of pick(body)) item[field] = { broken: true };
     await route.fulfill({ response, json: body });
   };
   await page.route(url, handler);
@@ -38,8 +38,31 @@ async function consumerLogin(page: Page, name = "김민지") {
   await expect(page).not.toHaveURL(/\/login/);
 }
 
+/** 로그인한 채 새로 연 화면에서 세션이 섰다(auth/me 응답 처리 끝, 이어진 요청도 잠잠). 그 전에는 탭 레이아웃이
+ * `key={user?.userId ?? "guest"}`로 다시 만들어져 연 시트·이동이 사라진다(기존 동작, 아래 후속 이슈) */
+async function sessionSettled(page: Page, load: () => Promise<unknown>) {
+  const me = page.waitForResponse(/\/api\/auth\/me(\?|$)/);
+  await load();
+  await (await me).finished();
+  await page.waitForLoadState("networkidle");
+}
+
+/** 소비자 상품 화면을 열고 로그인한 사용자 기준으로 다시 그려질 때까지 기다린다. 신호: 사용자가 있을 때만 부르는
+ * 이 상품의 내 예약 조회(orders?productId=…) 응답 */
+async function openProductReady(page: Page, productId: string) {
+  const mine = page.waitForResponse((r) => /\/api\/orders(\?|$)/.test(new URL(r.url()).pathname + "?") && r.url().includes(`productId=${productId}`));
+  await sessionSettled(page, () => page.goto(`${consumerUrl}/products/${productId}`));
+  await mine;
+  await expect(page.getByRole("button", { name: "예약하기" })).toBeEnabled();
+}
+
 const tabBar = (page: Page) => page.getByRole("tablist");
-/** 보이는 오류 안내(다른 탭의 숨은 화면은 빼고) */
+
+/** 탭 바의 탭을 누른다. 개발 서버(npm run dev)는 잡힌 오류도 화면 아래 LogBox 알림으로 띄워 탭 바 왼쪽을 덮으므로
+ * (스토어·export 빌드에는 없음) 포인터 대신 키보드(초점 + Enter)로 누른다 */
+async function pressTab(page: Page, name: RegExp) {
+  await tabBar(page).getByRole("tab", { name }).press("Enter");
+}/** 보이는 오류 안내(다른 탭의 숨은 화면은 빼고) */
 const shown = (page: Page) => page.getByText(TITLE).filter({ visible: true });
 
 test("DEV_473 producer tab screen dies → error inside the tab, tab bar stays, retry redraws the list", async ({ page }) => {
@@ -92,15 +115,17 @@ test("DEV_473 home leaves the dead screen: browser back and the tab do not reope
   await expect(shown(page)).toHaveCount(0);
   await expect(tabBar(page).getByRole("tab", { name: /현황/ })).toHaveAttribute("aria-selected", "true");
 
-  // 브라우저 뒤로: 죽은 하위 화면으로 돌아가지 않는다(응답은 아직 깨진 채)
-  await page.goBack();
-  await expect(page).not.toHaveURL(/\/sales/);
-  await expect(shown(page)).toHaveCount(0);
-  // 상품 탭을 다시 눌러도 죽은 화면이 아니라 탭 첫 화면
-  await page.goto(`${producerUrl}/`);
-  await tabBar(page).getByRole("tab", { name: /상품/ }).click();
+  // 페이지를 새로 부르지 않고 앱 안에서: 상품 탭을 다시 눌러도 죽은 화면이 아니라 탭 첫 화면(응답은 아직 깨진 채)
+  await pressTab(page, /상품/);
   await expect(page).toHaveURL(/\/products(\?|$)/);
+  await expect(page.getByText("하우스 감귤 5kg / 10kg")).toBeVisible();
   await expect(shown(page)).toHaveCount(0);
+  // 브라우저 뒤로 두 번: 어느 기록도 죽은 하위 화면이 아니다(죽은 화면 기록은 꺼낼 때 탭 첫 화면 주소로 바뀐다)
+  for (const _ of [1, 2]) {
+    await page.goBack();
+    await expect(page).not.toHaveURL(/\/sales/);
+    await expect(shown(page)).toHaveCount(0);
+  }
 });
 
 test("DEV_473 producer support link opens the farmclub room", async ({ page }) => {
@@ -124,12 +149,8 @@ test("DEV_473 consumer home (tab screen without a layout) dies → error with th
 
 test("DEV_473 consumer screen outside tabs (checkout) dies → root stack boundary, retry and support", async ({ page }) => {
   await consumerLogin(page);
-  await page.goto(`${consumerUrl}/products/p-house`);
-  // 화면이 막 열린 직후의 누름은 시트를 열지 못할 때가 있어 시트가 보일 때까지 다시 누른다
-  await expect(async () => {
-    await page.getByRole("button", { name: "예약하기" }).click();
-    await expect(page.getByRole("button", { name: "주문서로" })).toBeVisible({ timeout: 2000 });
-  }).toPass({ timeout: 30_000 });
+  await openProductReady(page, "p-house");
+  await page.getByRole("button", { name: "예약하기" }).click();
   const restore = await breakNames(page, /\/api\/products\/p-house(\?|$)/, (b) => [b]);
   await page.getByRole("button", { name: "주문서로" }).click();
   await expect(page).toHaveURL(/\/checkout\/p-house/);
@@ -144,11 +165,17 @@ test("DEV_473 consumer screen outside tabs (checkout) dies → root stack bounda
   await expect(page.getByText("주문서").first()).toBeVisible();
 
   await breakNames(page, /\/api\/products\/p-house(\?|$)/, (b) => [b]);
-  // 새로고침 뒤 세션(auth/me)이 서기 전에 누르면 탭 레이아웃이 사용자 키로 다시 만들어지며 첫 화면으로 돌아간다(기존 동작)
-  const me = page.waitForResponse(/\/api\/auth\/me(\?|$)/);
-  await page.reload();
-  await me;
+  await sessionSettled(page, () => page.reload());
   await expect(page.getByText(TITLE)).toBeVisible();
   await page.getByRole("link", { name: "운영팀에 알리기" }).click();
   await expect(page).toHaveURL(/\/chats\/support/);
+});
+
+test("DEV_473 support room itself dies → no support link (it would reopen the same dead room)", async ({ page }) => {
+  await consumerLogin(page);
+  await breakNames(page, /\/api\/messaging\/support\/messages(\?|$)/, (b) => b.items, "body");
+  await sessionSettled(page, () => page.goto(`${consumerUrl}/chats/support`));
+  await expect(page.getByText(TITLE)).toBeVisible();
+  await expect(page.getByRole("button", { name: "다시 시도" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "운영팀에 알리기" })).toHaveCount(0);
 });
