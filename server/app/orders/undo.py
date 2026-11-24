@@ -55,9 +55,15 @@ DATE_FIELDS = {"delivery_start", "delivery_end", "proposed_delivery_start", "pro
 PAYMENT_FIELDS = ("id", "status", "amount", "method", "provider", "approved_at")
 
 
-def _snapshot(db: Session, order: Order) -> dict:
-    payment = db.scalar(select(Payment).where(Payment.order_id == order.id))
-    refunds = db.scalars(select(Refund).where(Refund.order_id == order.id).order_by(Refund.id))
+_UNREAD = object()
+
+
+def _snapshot(db: Session, order: Order, payment=_UNREAD, refunds=_UNREAD) -> dict:
+    """거래 상태 스냅샷. 목록은 결제·환불을 미리 묶어 읽어 넘긴다(N+1 방지)."""
+    if payment is _UNREAD:
+        payment = db.scalar(select(Payment).where(Payment.order_id == order.id))
+    if refunds is _UNREAD:
+        refunds = db.scalars(select(Refund).where(Refund.order_id == order.id).order_by(Refund.id))
     return jsonable_encoder(
         {
             "order": {key: getattr(order, key) for key in STATE_FIELDS},
@@ -87,10 +93,24 @@ def _restore_blocker(
 
     목록 표시(잠금 없음)와 실제 실행 취소(잠금)가 같은 규칙을 쓴다.
     """
+    from app.catalog import service as catalog
     from app.orders import service
 
     if state["status"] != "AWAITING_DEPOSIT":
         return None
+    if order.status == "CANCELED":
+        # 취소를 되돌리면 다시 물량을 잡고 입금을 받는다. 그사이 판매가 멈췄거나
+        # 판매 기간이 바뀐 상품이면 되돌리지 않는다(입금 요청과 같은 판매 중 확인)
+        item = catalog.load_product(db, order.product_id)
+        current = catalog.current_stage(item) if item else None
+        if (
+            item is None
+            or item.product.sales_paused
+            or item.product.status != "PUBLISHED"
+            or current is None
+            or current.id != order.stage_id
+        ):
+            return "판매가 끝난 상품이라 되돌릴 수 없어요."
     due = _value("deposit_due_at", state["deposit_due_at"])
     if due is not None and due <= now() and state["deposit_reported_at"] is None:
         return "입금 기한이 지나 입금 대기로 되돌릴 수 없어요."
@@ -102,10 +122,52 @@ def _restore_blocker(
 
 
 def current_action(db: Session, order: Order) -> ProducerOrderUndo | None:
-    event = _latest(db, order.id)
-    if event is None or event.result["after"] != _snapshot(db, order):
+    return _offer(db, order, _latest(db, order.id))
+
+
+def current_actions(db: Session, orders: list[Order]) -> dict[str, ProducerOrderUndo | None]:
+    """목록용: 이벤트·결제·환불을 주문 묶음으로 한 번씩 읽고 같은 규칙으로 판단한다."""
+    ids = [order.id for order in orders]
+    if not ids:
+        return {}
+    events = {
+        row.target_id: row
+        for row in db.scalars(
+            select(ManagerEvent).where(
+                ManagerEvent.event_type == EVENT,
+                ManagerEvent.target_type == "order",
+                ManagerEvent.target_id.in_(ids),
+                ManagerEvent.status == "SUCCEEDED",
+            )
+        )
+    }
+    with_events = [order.id for order in orders if order.id in events]
+    payments, refunds = {}, {}
+    if with_events:
+        payments = {
+            row.order_id: row
+            for row in db.scalars(select(Payment).where(Payment.order_id.in_(with_events)))
+        }
+        for row in db.scalars(
+            select(Refund).where(Refund.order_id.in_(with_events)).order_by(Refund.id)
+        ):
+            refunds.setdefault(row.order_id, []).append(row)
+    return {
+        order.id: _offer(
+            db, order, events.get(order.id), payments.get(order.id), refunds.get(order.id, [])
+        )
+        if order.id in events
+        else None
+        for order in orders
+    }
+
+
+def _offer(
+    db: Session, order: Order, event: ManagerEvent | None, payment=_UNREAD, refunds=_UNREAD
+) -> ProducerOrderUndo | None:
+    if event is None or event.result["after"] != _snapshot(db, order, payment, refunds):
         return None
-    # 눌러도 409가 날 처리는 내주지 않는다(기한 지남·입금자명 겹침)
+    # 눌러도 409가 날 처리는 내주지 않는다(기한 지남·입금자명 겹침·판매 끝)
     farm_id = event.scope.removeprefix("producer-order:")
     if _restore_blocker(db, order, farm_id, event.result["before"]["order"], lock=False):
         return None

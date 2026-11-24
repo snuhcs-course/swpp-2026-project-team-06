@@ -1,5 +1,5 @@
 import type { ProducerOrderUndo } from "../types";
-import { nextId, nowIso, type DB, type OrderRec, type ProducerOrderActionRec, type ProducerOrderState } from "./db";
+import { TODAY, nextId, nowIso, type DB, type OrderRec, type ProducerOrderActionRec, type ProducerOrderState } from "./db";
 
 /** 돈 없이 취소된 주문의 입금자명을 다시 쓰지 않는 기간(서버 DEPOSIT_CODE_HOLD_DAYS, DEV-342) */
 export const DEPOSIT_CODE_HOLD_DAYS = 3;
@@ -31,6 +31,13 @@ export function latestOrderAction(o: OrderRec): ProducerOrderActionRec | null {
 /** 입금 대기로 되돌릴 수 없는 이유(서버 `_restore_blocker`와 같은 규칙) */
 export function orderRestoreBlocker(d: DB, o: OrderRec, previous: ProducerOrderState): string | null {
   if (previous.status !== "AWAITING_DEPOSIT") return null;
+  if (o.status === "CANCELED") {
+    // 취소를 되돌리면 다시 입금을 받으므로, 판매가 멈췄거나 기간이 바뀐 상품이면 막는다(서버와 같음)
+    const p = d.products[o.productId];
+    const current = p?.stages.find(s => s.startsAt <= TODAY && TODAY <= s.endsAt);
+    if (!p || p.salesPaused || p.status !== "PUBLISHED" || !current || current.stageId !== o.stageId)
+      return "판매가 끝난 상품이라 되돌릴 수 없어요.";
+  }
   if (previous.depositDueAt && new Date(previous.depositDueAt).getTime() <= Date.now() && !previous.depositReportedAt)
     return "입금 기한이 지나 입금 대기로 되돌릴 수 없어요.";
   const farmId = d.products[o.productId]?.farmId;

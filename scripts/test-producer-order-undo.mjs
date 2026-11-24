@@ -155,3 +155,15 @@ test("DEV-455 Mock AC-09-9: expired undo is not offered and an unpaid cancel lea
   assert.equal(list.items.find(o => o.orderId === oid), undefined);
   assertConflict(await undo(producer, oid, aid));
 });
+
+test("DEV-455 Mock AC-09-9: cancel undo is blocked once the product stops selling", async () => {
+  const { oid, producer } = await fixture();
+  const canceled = await ok("POST", `/api/orders/${oid}/reject-deposit`, producer, { reason: "취소", cancel: true });
+  const aid = actionId(canceled);
+  db().products[db().orders[oid].productId].salesPaused = true;
+  const list = await ok("GET", "/api/orders/producer?limit=50", producer);
+  assert.equal(list.items.find(o => o.orderId === oid), undefined);
+  const response = await undo(producer, oid, aid);
+  assertConflict(response);
+  assert.match(response.body.message, /판매/);
+});

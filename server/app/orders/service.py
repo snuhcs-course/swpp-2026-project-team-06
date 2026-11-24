@@ -1032,7 +1032,11 @@ def dashboard(db: Session, farm) -> Dashboard:
     )
 
 
-def producer_order_view(db: Session, order: Order) -> ProducerOrder:
+_UNDO_UNREAD = object()
+
+
+def producer_order_view(db: Session, order: Order, undo_action=_UNDO_UNREAD) -> ProducerOrder:
+    """undo_action을 넘기면(목록의 묶음 조회) 주문마다 다시 읽지 않는다."""
     from app.catalog import service as catalog
     from app.orders.undo import current_action
 
@@ -1043,7 +1047,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
     delivered = order.delivered_at is not None or order.status in ("DELIVERED", "COMPLETED")
     hide = delivered or order.paid_at is None
     return ProducerOrder(
-        undo_action=current_action(db, order),
+        undo_action=current_action(db, order) if undo_action is _UNDO_UNREAD else undo_action,
         order_id=order.id,
         order_no=order.order_no,
         deposit_code=order.deposit_code,
@@ -1094,7 +1098,7 @@ def producer_orders(
 ) -> list[ProducerOrder]:
     from app.admin.models import ManagerEvent
     from app.catalog import service as catalog
-    from app.orders.undo import EVENT
+    from app.orders.undo import EVENT, current_actions
 
     if expire_overdue_deposits(db, farm_id=farm_id):
         db.commit()
@@ -1113,10 +1117,11 @@ def producer_orders(
         if product_id not in product_ids:
             raise not_found("찾을 수 없는 상품이에요.")
         query = query.where(Order.product_id == product_id)
-    rows = db.scalars(query.order_by(Order.created_at.desc(), Order.id.desc()))
+    rows = list(db.scalars(query.order_by(Order.created_at.desc(), Order.id.desc())))
+    undo = current_actions(db, rows)
     result = []
     for row in rows:
-        view = producer_order_view(db, row)
+        view = producer_order_view(db, row, undo[row.id])
         # 돈 없이 끝난 취소는 실행 취소할 수 있는 동안만 보인다(R-15, DEV-455)
         if row.status == "CANCELED" and row.paid_at is None and view.undo_action is None:
             continue

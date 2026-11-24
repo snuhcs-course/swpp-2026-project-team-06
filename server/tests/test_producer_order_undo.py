@@ -87,7 +87,7 @@ def persisted(oid):
     return state, financial(oid), stock
 
 
-def test_confirm_undo_restores_report_issue_and_reuses_preserved_payment(
+def test_AC_09_8_confirm_undo_restores_report_issue_and_reuses_preserved_payment(
     client, login, admin_headers
 ):
     oid, consumer, producer = waiting(client, login)
@@ -136,7 +136,7 @@ def test_confirm_undo_restores_report_issue_and_reuses_preserved_payment(
     assert detail(client, consumer, oid)["paidAt"]
 
 
-def test_rejection_keep_undo_restores_previous_report_and_issue(client, login):
+def test_AC_09_9_rejection_keep_undo_restores_previous_report_and_issue(client, login):
     oid, consumer, producer = waiting(client, login)
     action(client, producer, oid, "reject-deposit", {"reason": "첫 사유"})
     ok(client.post(f"/api/orders/{oid}/deposit-reported", headers=consumer))
@@ -156,7 +156,7 @@ def test_rejection_keep_undo_restores_previous_report_and_issue(client, login):
         assert after[field] == before[field], field
 
 
-def test_rejection_cancel_stays_discoverable_and_reclaims_quantity_once(client, login):
+def test_AC_09_9_rejection_cancel_stays_discoverable_and_reclaims_quantity_once(client, login):
     oid, consumer, producer = waiting(client, login, quantity=2)
     before = persisted(oid)[0]
     reserved = allocation().reserved_count
@@ -188,7 +188,7 @@ def test_rejection_cancel_stays_discoverable_and_reclaims_quantity_once(client, 
 
 
 @pytest.mark.parametrize("constraint", ["stage", "product_grams"])
-def test_cancel_undo_refuses_atomically_when_other_order_consumed_capacity(
+def test_AC_09_9_cancel_undo_refuses_atomically_when_other_order_consumed_capacity(
     client, login, constraint
 ):
     if constraint == "stage":
@@ -212,7 +212,7 @@ def test_cancel_undo_refuses_atomically_when_other_order_consumed_capacity(
 
 
 @pytest.mark.parametrize("reported", [False, True])
-def test_undo_uses_original_deadline_and_original_report_protection(
+def test_AC_09_8_undo_uses_original_deadline_and_original_report_protection(
     client, login, monkeypatch, reported
 ):
     oid, consumer, producer = waiting(client, login)
@@ -233,7 +233,7 @@ def test_undo_uses_original_deadline_and_original_report_protection(
 
 
 @pytest.mark.parametrize("recently_canceled", [False, True])
-def test_undo_cannot_restore_code_reserved_by_another_order_case_insensitively(
+def test_AC_09_8_undo_cannot_restore_code_reserved_by_another_order_case_insensitively(
     client, login, recently_canceled
 ):
     oid, _, producer = waiting(client, login)
@@ -250,7 +250,9 @@ def test_undo_cannot_restore_code_reserved_by_another_order_case_insensitively(
     assert persisted(oid) == before
 
 
-def test_shipment_undo_restores_prior_values_and_never_revives_old_tracking_version(client, login):
+def test_AC_17_2_shipment_undo_restores_prior_values_and_never_revives_old_tracking_version(
+    client, login
+):
     oid, consumer, producer = waiting(client, login)
     action(client, producer, oid, "confirm-deposit")
     with get_sessionmaker()() as db, db.begin():
@@ -284,7 +286,7 @@ def test_shipment_undo_restores_prior_values_and_never_revives_old_tracking_vers
     assert detail(client, consumer, oid)["trackingNumber"] == reshipped["trackingNumber"]
 
 
-def test_tracking_edit_invalidates_shipment_undo_atomically(client, login):
+def test_AC_17_9_tracking_edit_invalidates_shipment_undo_atomically(client, login):
     oid, _, producer = waiting(client, login)
     action(client, producer, oid, "confirm-deposit")
     shipped = action(client, producer, oid, "ship", {"carrier": "CJ", "trackingNumber": "original"})
@@ -319,7 +321,9 @@ def test_subsequent_action_and_consumer_cancellation_invalidate_old_tokens(clien
     assert persisted(other) == snapshot
 
 
-def test_refund_issue_and_settlement_undo_retain_refunds_and_restore_prior_markers(client, login):
+def test_AC_17_7_AC_17_8_refund_issue_and_settlement_undo_retain_refunds_and_restore_prior_markers(
+    client, login
+):
     consumer, producer = login("u-minji"), login("u-kang")
     oid = "o-42"
     ok(client.post(f"/api/orders/{oid}/cancel", headers=consumer))
@@ -383,7 +387,7 @@ def test_authorization_is_rechecked_before_successful_replay(client, login, othe
     assert persisted(oid) == snapshot
 
 
-def test_delivery_blocks_undo_and_successful_replay_uses_current_privacy(
+def test_AC_17_13_delivery_blocks_undo_and_successful_replay_uses_current_privacy(
     client, login, admin_headers
 ):
     oid, _, producer = waiting(client, login)
@@ -449,3 +453,24 @@ def test_AC_09_9_expired_undo_is_not_offered_and_unpaid_cancel_leaves_the_list(
     assert canceled_id not in listed
     assert listed[confirmed_id]["status"] == "PREPARING"
     assert listed[confirmed_id]["undoAction"] is None
+
+
+def test_AC_09_9_cancel_undo_is_blocked_once_the_product_stops_selling(client, login):
+    """취소를 되돌리면 다시 입금을 받는다.
+
+    그사이 판매가 멈춘 상품이면 막는다(사용자 결정 11/24).
+    """
+    oid, _, producer = waiting(client, login)
+    canceled = action(
+        client, producer, oid, "reject-deposit", {"reason": "취소", "cancel": True}
+    )
+    aid = token(canceled, "AWAITING_DEPOSIT")
+    with get_sessionmaker()() as db, db.begin():
+        product_id = db.get(Order, oid).product_id
+        db.get(Product, product_id).sales_paused = True
+    assert oid not in rows(client, producer)
+    before = persisted(oid)
+    response = undo(client, producer, oid, aid)
+    conflict(response)
+    assert "판매" in response.json()["message"]
+    assert persisted(oid) == before
