@@ -21,3 +21,6 @@ Partial human feedback binds only the actual reviewed source/output version and 
 
 
 A separate wording-only experiment uses the exact four originally reviewed v11 outputs. Module/text/citation identities remain fixed; bounded source excerpts guide register rather than authorize new facts. Deterministic quantity, option, explicit polarity/context and safety guards retain partial failures without baseline rescue. An independent model critic remains uncalibrated and cannot approve semantic accuracy or deployment. Default generation and editor behavior remain unchanged.
+
+
+Saved wording proposals are evaluated per edit. Mechanical eligibility, human semantic decisions, uncalibrated/missing critic evidence and no-ops are separate. Wording flags alone do not establish factual error; hard quantity, privacy, explicit property-polarity and safety blocks remain. Offline compositions apply only exact-bound human-approved eligible edits and label every unchanged baseline origin. Baseline retention is never counted as generation success. Product defaults and persistence remain unchanged.

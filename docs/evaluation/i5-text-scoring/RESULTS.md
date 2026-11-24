@@ -141,3 +141,20 @@ Decision: keep current v11. The experiment does not establish improved factual a
 Nine actual calls cost$0.036522 against the fixed$0.75phase allowance. Cumulative settled$1.675206 +prior uncertain$0.828496 leaves$2.496298 of the original$5cap. No new uncertainty. All frozen requests/results/costs/failures remain private and preserved; no further paid calls in this slice.
 
 Agent approximately0.5h shared continuation / Tokens / Human unconfirmed; priorparent5hnotreassigned. DraftPR797 contains implementation/evidence; no merge/deployment. PR798 spec review SC-001 scope wording was clarified separately in00aca349 with schema context/disposition; human review remains required.
+
+
+## Offline per-edit review and explicit composition
+
+Replayed all eight saved voice-polish results without changing source, gold, requests, outputs or original guard outcomes. The138text instances comprise48exact no-ops and90changed proposals. New reporting separates59mechanically eligible changes,24soft wording flags needing review and7hard-blocked changes. None of these are human semantic labels. The existing model critic covers6text instances, including5no-ops; only1changed edit has an existing model judgment. All90human decisions remain pending. Zero useful-edit accuracy is inferred from missing labels.
+
+Each human decision binds baseline request/source revision, text identity and exact original/proposed hashes. Wording APPROVE and semantic PASS are independent and both required to compose an edit; readability-only approval does not imply factual approval. Hard numeric/privacy/causal/final-safety and recognized presence/absence changes remain non-overridable. Unknown-prefix wording alarms are review evidence rather than automatically proven errors. Recognized property relations retain order/multiplicity to prevent reversal being hidden in a set.
+
+Composition starts with exact v11, records baseline provenance for unchanged text, applies only explicit eligible approvals, and runs final whole-page safety validation. All eight real no-review compositions were byte-structure identical to their baseline modules with zero applied edits. Baseline retention is not generation gain. A failed final composition remains an explicit hard failure, not a rescued success. No product generator/UI/persistence change was made.
+
+Prepared89isolated pending critic jobs for changed edits, excluded48no-ops and did not requeue the1already judged change. These jobs were not executed. Each single-text job preserves exact parent binding, local text identity and request hash; an unsafe proposal blocks only its own job. Model PASS remains uncalibrated and cannot approve composition.
+
+The private source-first six-edit decision packet spans four formats with separate assistant observations and pending human answers. Its exporter requires separate wording and factual decisions and does not infer PASS from APPROVE. The main viewer retains all90proposals, counts and source-bound reports. Older packets remain unchanged. Link/hash and local HTTP checks passed; native app screenshot/visual evaluation is not claimed.
+
+Actual final command with isolated farmclub_dev448 database: `.venv/bin/pytest tests/test_edit_review.py tests/test_voice_polish.py tests/test_text_calibration.py -q --tb=short` → **61 passed, zero failed (4.62s)**. Focused Ruff/diff checks passed. Independent medium Sol review closed known-property deletion/order and independent semantic-approval requirements, plus per-edit critic privacy/isolation and exact bindings. Earlier55pass/2fixturefail and60pass/1fixturefail runs were corrected at fixture boundaries (string/list helper, per-text versus whole-page injection, internal critic request shape); guards were not weakened.
+
+Medium Sol implementation/audit plus Luna tests and separate medium Sol review; no high Sol. No new provider/generation/judge calls or ledger charge. The prior remaining$2.496298 includes existing uncertainty. Agent approximately0.5h shared continuation / Tokens / Human unconfirmed; prior parent5h unchanged. No merge/deployment. Human source decisions and broader scoring calibration remain open.
