@@ -300,6 +300,8 @@ export type NewsRoomMessage = {
   /** 소유 생산자의 방송에만 숫자: 읽음 위치가 이 소식 이상인 팔로워 수, 이 소식에 연결된 답장 수(DEV-297). 그 밖에는 null */
   readCount?: number | null;
   replyCount?: number | null;
+  /** 소비자 답장의 비공개 사진 id(DEV-467). 답장 쓴 소비자와 그 농가 생산자만 받는다. privateImage로 연다 */
+  attachmentIds?: string[];
 };
 export type NewsRoomSummary = {
   canReply: boolean;
@@ -324,6 +326,8 @@ export type FanReply = {
   reservedCustomer: boolean;
   /** 이 답장을 인용한 소식(모두에게 답장)이 있음 */
   quoted: boolean;
+  /** 비공개 사진 id(DEV-467) */
+  attachmentIds?: string[];
 };
 export type FanReplyPage = Paged<FanReply> & {
   broadcast: { broadcastId: string; body: string; mediaCount: number; createdAt: ISODate };

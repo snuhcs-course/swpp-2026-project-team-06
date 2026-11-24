@@ -329,11 +329,28 @@ export const messaging = {
     request<A.NewsRoomPage>("GET", `/api/messaging/rooms/${farmId}/messages`, {
       query: q,
     }),
-  sendRoom: (farmId: string, text: string, idempotencyKey: string, replyToMessageId?: string, replyToVersion?: number) =>
+  /** 소비자 답장은 extra로 답한 소식(broadcastId, 없으면 가장 최근 소식)과 비공개 사진 id를 넘긴다(DEV-467) */
+  sendRoom: (
+    farmId: string,
+    text: string,
+    idempotencyKey: string,
+    replyToMessageId?: string,
+    replyToVersion?: number,
+    extra: { broadcastId?: string; attachmentIds?: string[] } = {},
+  ) =>
     request<A.NewsRoomMessage>(
       "POST",
       `/api/messaging/rooms/${farmId}/messages`,
-      { body: { text, replyToMessageId, replyToVersion }, idempotencyKey },
+      {
+        body: {
+          text,
+          replyToMessageId,
+          replyToVersion,
+          ...(extra.broadcastId ? { broadcastId: extra.broadcastId } : {}),
+          ...(extra.attachmentIds?.length ? { attachmentIds: extra.attachmentIds } : {}),
+        },
+        idempotencyKey,
+      },
     ),
   /** 팔로워가 소식방에서 이 소식이 보이는 위치까지 읽었다(DEV-297) */
   readRoom: (farmId: string, lastReadMessageId: string) =>

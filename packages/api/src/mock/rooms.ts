@@ -36,6 +36,12 @@ function access(ctx: Ctx, farmId: string) {
       ));
   return { user, farm, canReply };
 }
+/** 소식방 비공개 답장 사진 올리기(DEV-467): 그 농가를 팔로우한 소비자만(서버와 같음) */
+export function roomPhotoAccess(ctx: Ctx, farmId: string) {
+  const user = ctx.me();
+  if (user.role !== "CONSUMER") fail(403, "FORBIDDEN", "소비자 답장에만 사진을 붙일 수 있어요.");
+  if (!access(ctx, farmId).canReply) fail(403, "FORBIDDEN", "팔로우한 뒤 답장할 수 있어요.");
+}
 function authorize(ctx: Ctx, farmId: string) {
   ctx.me();
   const a = access(ctx, farmId);
@@ -143,7 +149,7 @@ function summary(ctx: Ctx, farmId: string): NewsRoomSummary {
     canReply,
     farmName: farm.name,
     farmPhoto: farm.photo,
-    lastMessage: last ? last.body || "사진·영상 소식" : null,
+    lastMessage: last ? last.body || (last.senderRole === "CONSUMER" ? "사진" : "사진·영상 소식") : null,
     lastAt: last?.createdAt ?? null,
   };
 }
@@ -199,8 +205,15 @@ register({
     const { user } = authorize(ctx, farmId);
     const text = String(ctx.body.text ?? "").trim();
     const max = user?.role === "PRODUCER" ? 2000 : 1000;
-    if (!text || text.length > max)
+    const photoIds: string[] = Array.isArray(ctx.body.attachmentIds) ? ctx.body.attachmentIds.map(String) : [];
+    const target = ctx.body.broadcastId == null ? null : String(ctx.body.broadcastId);
+    // 답한 소식·사진은 소비자 답장에만(DEV-467). 생산자 방송 계약은 그대로
+    if (user?.role === "PRODUCER" && (target != null || photoIds.length))
+      invalid({ broadcastId: "소비자 답장에만 쓸 수 있어요." });
+    if ((!text && !photoIds.length) || text.length > max)
       invalid({ text: `1~${max}자로 적어 주세요.` });
+    if (photoIds.length > 3 || new Set(photoIds).size !== photoIds.length)
+      invalid({ attachmentIds: "사진은 서로 다른 3장까지 첨부해 주세요" });
     if (ctx.body.replyToVersion != null && (!Number.isInteger(ctx.body.replyToVersion) || Number(ctx.body.replyToVersion) < 0)) invalid({replyToVersion: "원문 버전을 확인해 주세요."});
     if (ctx.body.replyToMessageId != null && typeof ctx.body.replyToMessageId !== "string") invalid({replyToMessageId: "원문을 확인해 주세요."});
     return idempotent(ctx, `room:${farmId}`, () => {
@@ -232,9 +245,21 @@ register({
         ctx.db.news.push(n);
         return visible(ctx, farmId).find((m) => m.messageId === n.broadcastId)!;
       }
-      const answersBroadcastId = latestBroadcast(ctx.db, farmId);
+      // 고른 소식(소식 카드 ‘농가에 답장’, DEV-467). 없으면 보낸 순간의 가장 최근 소식(AC-15-10)
+      if (target != null && !ctx.db.news.some((n) => n.broadcastId === target && n.farmId === farmId))
+        notFound("이 소식방의 소식에만 답장할 수 있어요.");
+      const answersBroadcastId = target ?? latestBroadcast(ctx.db, farmId);
+      const photos = photoIds.map((id) => {
+        const a = ctx.db.attachments[id];
+        if (!a || a.ownerId !== user.userId || a.bound || a.roomFarmId !== farmId || Date.now() - Date.parse(a.createdAt) > 86400000)
+          notFound("사용할 수 없는 첨부예요.");
+        return a;
+      });
+      const messageId = nextId("reply");
+      for (const a of photos) Object.assign(a, { bound: true, roomReplyId: messageId });
       const message: RoomReplyRec = {
-        messageId: nextId("reply"),
+        attachmentIds: photoIds,
+        messageId,
         farmId,
         body,
         photos: [],
@@ -303,6 +328,7 @@ register({
         // 탈퇴한 회원은 끝난 주문이 남아 있어도 예약 고객이 아니다(서버와 같음)
         reservedCustomer: !u?.deleted && reserved(r.senderId),
         quoted: quoted.has(r.messageId),
+        attachmentIds: r.attachmentIds ?? [],
       }));
     return {
       broadcast: {
