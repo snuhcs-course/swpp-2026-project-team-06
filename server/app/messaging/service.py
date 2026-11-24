@@ -510,7 +510,12 @@ def send_room(
         raise forbidden("팔로우한 뒤 답장할 수 있어요.")
     if user.role == "PRODUCER" and (broadcast_id is not None or attachment_ids):
         # 생산자 방송의 사진은 공개 소식 미디어로 올린다(기존 계약). 답한 소식은 소비자 답장에만
-        raise invalid({"broadcastId": "소비자 답장에만 쓸 수 있어요."})
+        fields = {}
+        if broadcast_id is not None:
+            fields["broadcastId"] = "소비자 답장에만 쓸 수 있어요."
+        if attachment_ids:
+            fields["attachmentIds"] = "소비자 답장에만 쓸 수 있어요."
+        raise invalid(fields)
     limit = 2000 if user.role == "PRODUCER" else 1000
     text = text.strip()
     if (not text and not attachment_ids) or len(text) > limit:

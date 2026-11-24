@@ -272,7 +272,7 @@ export function NewsRoom({
       alive.current = false;
     };
   }, []);
-  useEffect(() => { if (!active) { accessEpoch.current++; setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setReplySheet(null); } }, [active]);
+  useEffect(() => { if (!active) { accessEpoch.current++; setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setPhotoIds([]); setReplySheet(null); } }, [active]);
   /** 새로고침 응답이 덮는 범위(가장 오래된 항목 이후, complete면 전부)에서 응답에 없는 방송은 지워진 것이다(M-23).
    * 답장은 지우지 않는다. 내가 막 보내 아직 응답에 나온 적 없는 소식(fresh)은 늦게 온 응답이 지우지 않게 남긴다 */
   const reconcile = (items: Message[], complete: boolean) => {
@@ -325,7 +325,7 @@ export function NewsRoom({
         if (cancelled) return;
         if (access.current !== page.room.canReply) {
           accessEpoch.current++;
-          setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null);
+          setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setPhotoIds([]);
           access.current = page.room.canReply;
           setCanReply(page.room.canReply);
           setMessages([]);
@@ -370,7 +370,7 @@ export function NewsRoom({
             [401, 403, 404].includes(Number(e.status))
           ) {
             accessEpoch.current++;
-            setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null);
+            setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setPhotoIds([]);
             access.current = null;
             setCanReply(false);
             setMessages([]);

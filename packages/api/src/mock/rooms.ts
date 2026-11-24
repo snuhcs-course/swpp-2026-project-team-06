@@ -209,7 +209,10 @@ register({
     const target = ctx.body.broadcastId == null ? null : String(ctx.body.broadcastId);
     // 답한 소식·사진은 소비자 답장에만(DEV-467). 생산자 방송 계약은 그대로
     if (user?.role === "PRODUCER" && (target != null || photoIds.length))
-      invalid({ broadcastId: "소비자 답장에만 쓸 수 있어요." });
+      invalid({
+        ...(target != null ? { broadcastId: "소비자 답장에만 쓸 수 있어요." } : {}),
+        ...(photoIds.length ? { attachmentIds: "소비자 답장에만 쓸 수 있어요." } : {}),
+      });
     if ((!text && !photoIds.length) || text.length > max)
       invalid({ text: `1~${max}자로 적어 주세요.` });
     if (photoIds.length > 3 || new Set(photoIds).size !== photoIds.length)

@@ -221,3 +221,16 @@ def test_AC_15_12_AC_15_13_send_errors_carry_reasons_for_the_app(client, login):
     unusable = _post(client, minji, text="사진", attachmentIds=["att-missing"])
     assert unusable.status_code == 404
     assert unusable.json()["details"]["reason"] == "ATTACHMENT_UNUSABLE"
+
+
+def test_AC_15_12_AC_15_13_producer_field_errors_name_the_field_sent(client, login):
+    """생산자가 답장 전용 칸을 보내면 그 칸 이름으로 400을 받는다(재스캔 지적)."""
+    producer = login("u-kang")
+    photos_only = _post(client, producer, text="방송", attachmentIds=["att-any"])
+    assert photos_only.status_code == 400, photos_only.text
+    fields = photos_only.json()["details"]["fields"]
+    assert "attachmentIds" in fields and "broadcastId" not in fields
+    target_only = _post(client, producer, text="방송", broadcastId="n-1")
+    assert target_only.status_code == 400, target_only.text
+    fields = target_only.json()["details"]["fields"]
+    assert "broadcastId" in fields and "attachmentIds" not in fields
