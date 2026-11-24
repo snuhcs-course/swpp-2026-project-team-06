@@ -1,6 +1,8 @@
 """farms 모듈 업무 로직. 다른 모듈은 이 파일의 함수로만 부른다."""
 
-from sqlalchemy import exists, select
+from typing import TYPE_CHECKING, Union
+
+from sqlalchemy import ColumnElement, exists, select
 from sqlalchemy.orm import Session
 
 from app.catalog.schemas import ProductCard
@@ -33,6 +35,9 @@ from app.farms.schemas import (
     MyFarm,
     SellerInfo,
 )
+
+if TYPE_CHECKING:
+    from app.accounts.models import User
 
 # 시즌 히어로 문구는 서버 설정 값이다(screens.md 결정 19). 운영자 관리는 I2.
 HERO = {
@@ -171,60 +176,67 @@ def get_farm_shared(db: Session, farm_id: str) -> Farm | None:
     return db.scalar(query.execution_options(populate_existing=True))
 
 
-def get_approved_farm(db: Session, farm_id: str) -> Farm | None:
-    """승인 상태만 본다. 보는 사람이 없는 내부 확인용이고, 공개 경로는 public_farm을 쓴다."""
-    farm = db.get(Farm, farm_id)
-    return farm if farm and farm.approval_status == "APPROVED" else None
-
-
 # ---------------- 공개 범위 (DEV-472, R-29) ----------------
 # 테스트 농가 = 생산자 계정이 시드 테스트 계정(is_test_account)이거나 운영 검증 계정(ops_tester)인
-# 농가. 테스트 농가와 그 상품·소식은 테스트 계정으로 로그인한 사람에게만 공개 경로에 나온다.
-# 비로그인·일반 사용자에게는 정지 농가처럼 없는 것으로 보인다. 공개 경로는 모두 아래
-# public_farm_clause 하나로 거른다(목록은 SQL 조건, 한 농가는 그 조건으로 다시 조회).
-# 시드 선택 로그인(MOCK_LOGIN_ENABLED)이 켜진 환경(로컬 시드·데모·CI)은 데모 농가 주인부터
-# 시드 테스트 계정이라 숨기지 않는다. 운영(스토어 심사·UAT 포함)은 이 값이 꺼져 있다(README).
+# 농가. 테스트 농가와 그 상품·소식은 테스트 계정으로 로그인한 사람에게만 공개 경로에 나오고
+# 주문도 그 사람만 할 수 있다. 비로그인·일반 사용자에게는 정지 농가처럼 없는 것으로 보인다.
+# 공개 경로는 모두 아래 public_farm_clause 하나로 거른다(목록은 SQL 조건, 한 농가는 그 조건으로
+# 다시 조회).
+# 로컬(APP_ENV=local)이면서 시드 선택 로그인(MOCK_LOGIN_ENABLED)이 켜진 환경(로컬 시드·데모·
+# pytest·Playwright)은 데모 농가 주인부터 시드 테스트 계정이라 거르지 않는다. 운영은
+# APP_ENV=production이라 UAT 때 MOCK_LOGIN_ENABLED를 켜도(DEV-305) 거른다.
 
-# 인증 헤더 없이 오는 요청(공개 사진 <img>)처럼 보는 사람을 알 수 없는 내부 확인. 승인만 본다.
-ANY_VIEWER = object()
+
+class _AnyViewer:
+    """보는 사람을 알 수 없는 내부 확인(인증 헤더 없는 공개 사진 <img>). 승인만 본다."""
 
 
-def sees_test_farms(db: Session, viewer) -> bool:
-    """viewer는 로그인 사용자, 사용자 ID, None(비로그인), ANY_VIEWER 중 하나."""
+ANY_VIEWER = _AnyViewer()
+
+# 로그인 사용자, 사용자 ID(이미 인증한 요청의 ID라 세션에 있는 행을 다시 쓴다), None(비로그인)
+Viewer = Union["User", str, None, _AnyViewer]
+
+
+def _seed_demo_env() -> bool:
+    settings = get_settings()
+    return settings.app_env == "local" and settings.mock_login_enabled
+
+
+def sees_test_farms(db: Session, viewer: Viewer) -> bool:
     from app.accounts import service as accounts
 
-    if viewer is ANY_VIEWER or get_settings().mock_login_enabled:
+    if isinstance(viewer, _AnyViewer) or _seed_demo_env():
         return True
     if isinstance(viewer, str):
         viewer = accounts.get_user(db, viewer)
     return viewer is not None and accounts.account_kind(viewer) != "REAL"
 
 
-def _test_owner():
+def _test_owner() -> ColumnElement[bool]:
     from app.accounts import service as accounts
     from app.accounts.models import User
 
     return exists().where(User.id == Farm.producer_id, accounts.test_account_clause())
 
 
-def public_farm_clause(db: Session, viewer):
+def public_farm_clause(db: Session, viewer: Viewer) -> ColumnElement[bool]:
     """공개 경로에 보일 농가의 SQL 조건: 승인됐고, 테스트 농가면 보는 사람도 테스트 계정."""
     approved = Farm.approval_status == "APPROVED"
     return approved if sees_test_farms(db, viewer) else approved & ~_test_owner()
 
 
-def public_farm(db: Session, farm_id: str, viewer) -> Farm | None:
+def public_farm(db: Session, farm_id: str, viewer: Viewer) -> Farm | None:
     return db.scalar(select(Farm).where(Farm.id == farm_id, public_farm_clause(db, viewer)))
 
 
-def public_farms(db: Session, farm_ids: list[str], viewer) -> dict[str, Farm]:
+def public_farms(db: Session, farm_ids: list[str], viewer: Viewer) -> dict[str, Farm]:
     if not farm_ids:
         return {}
     query = select(Farm).where(Farm.id.in_(farm_ids), public_farm_clause(db, viewer))
     return {f.id: f for f in db.scalars(query)}
 
 
-def public_farm_names(db: Session, farm_ids: list[str], viewer) -> dict[str, str]:
+def public_farm_names(db: Session, farm_ids: list[str], viewer: Viewer) -> dict[str, str]:
     return {fid: f.name for fid, f in public_farms(db, farm_ids, viewer).items()}
 
 
@@ -257,7 +269,7 @@ def _featured_sort_key(card: FarmCard) -> tuple[bool, bool, int]:
     return (f is None, f is not None and f.availability != "AVAILABLE", f.d_day if f else 0)
 
 
-def farm_cards(db: Session, viewer) -> list[FarmCard]:
+def farm_cards(db: Session, viewer: Viewer) -> list[FarmCard]:
     """공개 농가 카드(DEV-472). 지금 단계가 가장 일찍 끝나는 농가가 위(FEAT-06)."""
     from app.catalog import service as catalog
 
@@ -284,7 +296,7 @@ def farm_cards(db: Session, viewer) -> list[FarmCard]:
     return sorted(cards, key=_featured_sort_key)
 
 
-def search_farms(db: Session, q: str | None, viewer) -> list[FarmCard]:
+def search_farms(db: Session, q: str | None, viewer: Viewer) -> list[FarmCard]:
     """농가 목록·검색(SCR-02, FEAT-06).
 
     정렬은 farm_cards와 같고, q는 농가명·지역·주 품목·판매 중 상품의 상품명·품종 부분 일치
@@ -326,13 +338,14 @@ def following_farms(db: Session, consumer_id: str) -> list[FarmSummary]:
     return [summary(f) for f in rows]
 
 
-def home(db: Session, viewer) -> Home:
+def home(db: Session, viewer: Viewer) -> Home:
     """홈·발견(SCR-01): 시즌 히어로, 추천 상품(마감 임박순 상위 N), 농가 둘러보기."""
     from app.catalog import service as catalog
 
     settings = get_settings()
     limit = settings.home_recommend_limit
-    cards = listed_cards(catalog.published_cards(db, viewer=viewer))
+    published = catalog.published_cards(db, viewer=viewer)
+    cards = listed_cards(published)
     hero_id = settings.home_hero_product_id
     # 히어로는 예약 가능한 상품만(품절이면 비운다, DEV-327).
     hero_product = (
@@ -340,8 +353,13 @@ def home(db: Session, viewer) -> Home:
         if any(c.product_id == hero_id and c.availability == "AVAILABLE" for c in cards)
         else None
     )
+    hero = dict(HERO)
+    # 문구가 히어로 상품의 농가·상품 이름이다. 보는 사람에게 공개가 아닌 상품이면(테스트 농가,
+    # 판매 종료) 이름을 드러내지 않게 비운다(DEV-472). 소비자 앱은 hero를 그리지 않는다
+    if not any(c.product_id == hero_id for c in published):
+        hero["caption"] = ""
     return Home(
-        hero=Hero(**HERO, product_id=hero_product),
+        hero=Hero(**hero, product_id=hero_product),
         recommended=cards[:limit],
         farms=farm_cards(db, viewer)[:limit],
     )
@@ -351,7 +369,7 @@ def is_following(db: Session, consumer_id: str, farm_id: str) -> bool:
     return db.get(Follow, (consumer_id, farm_id)) is not None
 
 
-def farm_detail(db: Session, farm_id: str, user) -> FarmDetail:
+def farm_detail(db: Session, farm_id: str, user: Viewer) -> FarmDetail:
     from app.catalog import service as catalog
 
     farm = public_farm(db, farm_id, user)
@@ -368,7 +386,9 @@ def farm_detail(db: Session, farm_id: str, user) -> FarmDetail:
     )
 
 
-def _my_farm_view(farm: Farm) -> MyFarm:
+def _my_farm_view(db: Session, farm: Farm) -> MyFarm:
+    # 공유 링크는 누구나(로그인 없이) 여는 페이지라 비로그인에게 공개인 농가만 준다. 테스트
+    # 농가는 링크가 404라 비운다(R-29, DEV-472). 생산자 앱은 값이 없으면 링크 칸·공유 막대를 숨긴다
     return MyFarm(
         **_summary(farm),
         intro=farm.intro,
@@ -377,7 +397,7 @@ def _my_farm_view(farm: Farm) -> MyFarm:
         account_holder=farm.account_holder,
         detail_content=detail_content(farm.detail_content),
         status=farm.approval_status,
-        share_url=share_url(farm) if farm.approval_status == "APPROVED" else None,
+        share_url=share_url(farm) if public_farm(db, farm.id, None) else None,
     )
 
 
@@ -385,7 +405,7 @@ def my_farm(db: Session, producer_id: str) -> MyFarm:
     farm = get_farm_of_producer(db, producer_id)
     if farm is None:
         raise forbidden("생산자만 볼 수 있어요.")
-    return _my_farm_view(farm)
+    return _my_farm_view(db, farm)
 
 
 def patch_my_farm(db: Session, producer_id: str, body: FarmPatch) -> MyFarm:
@@ -420,7 +440,7 @@ def patch_my_farm(db: Session, producer_id: str, body: FarmPatch) -> MyFarm:
     if "detail_content" in data:
         farm.detail_content = body.detail_content.model_dump(by_alias=True)
     db.flush()
-    return _my_farm_view(farm)
+    return _my_farm_view(db, farm)
 
 
 def create_detail_draft(farm: Farm, body: DetailDraftInput) -> DetailDraft:
