@@ -14,7 +14,7 @@
 홈 카드 가격·취소선은 main 그대로(`productPrices`의 `referencePrice`), 상품 상세도 `referencePrice`를 넘겨 옵션 줄에 ‘지금 예약가 ~~비교 가격~~’(11/17 PM 결정으로 취소선 유지). 카드 메타는 ‘이 가격 D-n’ 한 줄 + ‘n명 예약’ 한 줄, 개념 상자는 추천 상품이 있을 때만. 상품 상세 판매자 줄의 ‘팬 n명’은 상품 응답에 없어 `farms.get(farmId)`를 한 번 더 읽고, 실패하면 수만 뺀다. 소식방 머리도 ‘팬 N명’(버튼·공개 범위 이름 ‘팔로워 전용’은 그대로). FEAT-06 AC-06-9, FEAT-07 AC-07-9·10.
 
 ## DEV-314 우편번호 찾기
-배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.ts`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
+배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.tsx`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 두 파일은 확장자가 같아야 한다: Metro는 확장자마다 `.android`→`.native`→무접미사 순으로 찾고 `ts`를 `tsx`보다 먼저 보므로, 웹이 `.ts`이고 앱이 `.native.tsx`이면 앱 번들에 웹 파일이 들어간다(DEV-474, `scripts/test-native-pairs.mjs`). 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
 
 ## DEV-252 권한 확인 뒤 읽기 위치 복구
 SessionProvider는 auth 이벤트마다 메모리 scope를 동기 폐기한다. 같은 토큰 문자열로 다시 로그인해도 새 generation이고, 같은 세션 auth.me 성공은 기존 scope를 유지한다. event/request serial은 이전 세션·늦은 사용자 응답을 버린다. 일시적인 auth.me 실패는 UI만 숨기며 안전한 geometry는 재시도까지 유지한다.
