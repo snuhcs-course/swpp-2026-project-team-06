@@ -89,7 +89,7 @@ async function setup(request: APIRequestContext) {
   return { producer, consumer, handoff, check, messages, read, restore };
 }
 
-test("AC-13-2/5: producer request selects the original question, focuses without losing draft, and survives failed-send retry", async ({ page, request }) => {
+test("AC-13-2/5: producer request selects the original question, focuses without losing draft, and survives failed-send retry", async ({ page, request, browser }) => {
   test.setTimeout(150_000);
   await page.setViewportSize({ width: 320, height: 844 });
   const fixture = await setup(request);
@@ -150,12 +150,17 @@ test("AC-13-2/5: producer request selects the original question, focuses without
     expect(messages.find(m => m.messageId === selected.message.messageId)?.replyRequested).toBe(false);
     expect(messages.find(m => m.messageId === other.message.messageId)?.replyRequested).toBe(true);
     expect(posts).toHaveLength(2);
-    const rows = (await fixture.read("/api/messaging/producer/chats")).items;
-    const support = rows.find((row: { isSupport: boolean }) => row.isSupport);
-    expect(support).toBeTruthy();
-    await page.goto(`${producerUrl}/chats/${support.consumerId}`);
-    await expect(page.getByRole("textbox", { name: "메시지", exact: true })).toBeEditable();
-    await expect(page.getByRole("button", { name: "답장 요청에 답장", exact: true })).toHaveCount(0);
+    // Keep Kang's seeded unread welcome intact for farmclub-support.spec.ts.
+    // Rejected farms use the same shared ChatThread for their support room.
+    const supportContext = await browser.newContext();
+    try {
+      const supportPage = await supportContext.newPage();
+      await loginProducer(supportPage, "박순자");
+      await supportPage.goto(`${producerUrl}/support`);
+      await expect(supportPage.getByTestId("support-status-note")).toBeVisible();
+      await expect(supportPage.getByRole("textbox", { name: "메시지", exact: true })).toBeEditable();
+      await expect(supportPage.getByRole("button", { name: "답장 요청에 답장", exact: true })).toHaveCount(0);
+    } finally { await supportContext.close(); }
   } finally { await fixture.restore(); }
 });
 
