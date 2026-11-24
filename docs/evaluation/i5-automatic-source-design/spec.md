@@ -24,3 +24,11 @@ Root only passes existing approved review-source bytes after inspecting them for
 
 ## Verification / result boundaries
 Meaningful synthetic bounds/limits/prompt injection/schema/module coverage/dimension/native pixel/abstention/no-photo/provider failure tests. Run backend focused tests (local isolated DB if conftest needs it), relevant mock/type checks and actual automatic preview mobile/desktop. Inspect selected crops against whole source, especially size graphic. Show manual vs automatic separately with provenance and failures; do not claim automatic quality from this development demo. Server AI change makes PR high risk; human code review mandatory before merge. Figma follow-upDEV430. Root handles Git/PR/tracker/archive; no messages to others.
+
+## Pre-call review decisions
+Enforce sizeGuide role iff comparison kind, so diagrams cannot bypass the higher completeness/confidence checks. Region role placement must match supported groups: hero→intro; product→intro/composition/taste; packaging→composition/packing; cutFruit/sizeGuide→taste; process→production/packing/farm. Reject incompatible assignments rather than silently repairing a model plan. Include the duplicate system prompt and response-format schema in budget estimation, not just user metadata. Require a reconciled historical ledger-baseline JSON in the runner to detect a reset/missing ledger.
+
+## Bounded model-image compression adjustment
+Initial dry run rejected the actual long-image source before any provider call because the overlapping JPEG65 model copies exceeded1.5MB. Preserve original native pixels/tiles, but retry deterministic encoding at JPEG50 then40 then30 (same<=768px width), accepting the first complete set within1.5MB; if none fits, reject. Record chosen quality for reproducibility. This is model-input compression only and never changes output crops. Do not manually select tiles or relax the budget cap.
+
+Root also owns server/tests/test_design_preview.py for runner privacy approval, local-ledger boundaries and zero-call dry-run regression. Makefile test-source-design executes both focused files.
