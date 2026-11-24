@@ -26,6 +26,7 @@ export type ConflictReason =
   | "SOLD_OUT"
   | "QUANTITY_LIMIT"
   | "INVALID_TRANSITION"
+  | "UNDO_CONFLICT"
   | "IDEMPOTENCY_MISMATCH"
   | "SALES_PAUSED"
   | "TOTAL_LIMIT_REACHED"
@@ -74,12 +75,14 @@ export type CurrentStageSnapshot = StageSnapshot & {
   endsAt: string;
 };
 
+/** 404에 붙는 이유(DEV-467): 소식방 답장의 고른 소식이 사라짐 · 쓸 수 없는 첨부 사진 */
+export type NotFoundReason = "REPLY_TARGET_GONE" | "ATTACHMENT_UNUSABLE";
 export type ErrorBody = {
   code: ErrorCode;
   message: string;
   details: {
     fields?: Record<string, string>;
-    reason?: ConflictReason | ForbiddenReason | UnauthenticatedReason;
+    reason?: ConflictReason | ForbiddenReason | UnauthenticatedReason | NotFoundReason;
     /** STAGE_CHANGED·SOLD_OUT: 고른 옵션 */
     optionId?: string | null;
     previous?: StageSnapshot;
@@ -300,6 +303,8 @@ export type NewsRoomMessage = {
   /** 소유 생산자의 방송에만 숫자: 읽음 위치가 이 소식 이상인 팔로워 수, 이 소식에 연결된 답장 수(DEV-297). 그 밖에는 null */
   readCount?: number | null;
   replyCount?: number | null;
+  /** 소비자 답장의 비공개 사진 id(DEV-467). 답장 쓴 소비자와 그 농가 생산자만 받는다. privateImage로 연다 */
+  attachmentIds?: string[];
 };
 export type NewsRoomSummary = {
   canReply: boolean;
@@ -324,6 +329,8 @@ export type FanReply = {
   reservedCustomer: boolean;
   /** 이 답장을 인용한 소식(모두에게 답장)이 있음 */
   quoted: boolean;
+  /** 비공개 사진 id(DEV-467) */
+  attachmentIds?: string[];
 };
 export type FanReplyPage = Paged<FanReply> & {
   broadcast: { broadcastId: string; body: string; mediaCount: number; createdAt: ISODate };
@@ -726,7 +733,16 @@ export type Dashboard = {
   }[];
 };
 
+export type ProducerOrderUndo = {
+  actionId: string;
+  label: string;
+  previousStatus: OrderStatus;
+  createdAt: ISODate;
+};
+
 export type ProducerOrder = Recipient & {
+  /** 서버가 확인한 마지막 처리. 이전 서버 응답에는 없을 수 있다. */
+  undoAction?: ProducerOrderUndo | null;
   deliveryWindow: { start: ISODate; end: ISODate };
   trackingVersion: number;
   orderId: string;

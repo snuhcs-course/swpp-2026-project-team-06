@@ -105,3 +105,27 @@ test("AC-15-11 fan reply sheet lists replies, marks them read on open and hands 
   await row(page, MINJI).getByRole("button", { name: "1:1 채팅" }).click();
   await expect(page).toHaveURL(`${producerUrl}/chats/u-minji`);
 });
+
+// DEV-467: 소식 카드 반응 줄. 소비자는 ‘좋아요 | 농가에 답장’ 두 칸만(숫자 없음), 생산자는 읽음·좋아요 왼쪽, ‘답장 N ›’ 오른쪽
+test("AC-15-3 AC-15-9 DEV-467 news cards show a private reply row to consumers and stats only to the producer", async ({ page }) => {
+  test.setTimeout(120_000);
+  await loginConsumer(page, "김민지");
+  await page.goto(`${consumerUrl}/news/f-kang`);
+  const card = page.getByTestId("news-card").filter({ hasText: N1 });
+  await expect(card).toBeVisible();
+  await expect(card.getByRole("button", { name: /^좋아요( 취소)?$/ })).toBeVisible();
+  await expect(card.getByRole("button", { name: "농가에 답장", exact: true })).toBeVisible();
+  await expect(card.getByRole("button", { name: /모아 보기$/ })).toHaveCount(0);
+  await expect(card.getByText(/^(읽음|좋아요|답장) \d+$/)).toHaveCount(0);
+  // ‘농가에 답장’은 농가만 보는 답장 입력칸으로 간다(공개 댓글 아님)
+  await card.getByRole("button", { name: "농가에 답장", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "농가에 답장", exact: true })).toBeFocused();
+
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/chats?view=news`);
+  const own = page.getByTestId("news-card").filter({ hasText: N1 });
+  await expect(own.getByText(/^읽음 \d+$/)).toBeVisible();
+  await expect(own.getByText(/^좋아요 \d+$/)).toBeVisible();
+  await expect(own.getByRole("button", { name: /^답장 \d+ 모아 보기$/ })).toBeVisible();
+  await expect(own.getByRole("button", { name: "농가에 답장", exact: true })).toHaveCount(0);
+});

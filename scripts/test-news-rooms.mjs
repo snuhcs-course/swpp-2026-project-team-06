@@ -310,3 +310,101 @@ test("AC-12-14/15: producers delete their own news and it leaves every consumer 
     }
   }
 });
+
+// DEV-467 (FEAT-15 AC-15-12·13): 소식 카드 ‘농가에 답장’이 고른 소식에 붙고, 소비자 답장에 비공개 사진을 붙인다
+test("AC-15-12 AC-15-13 shared Mock links replies to the tapped post and keeps reply photos private", async () => {
+  const dir = mkdtempSync(path.resolve(".expo/room-test-"));
+  const { child, base } = await startMock(dir);
+  const api = async (method, url, token, body, key) => {
+    const r = await fetch(base + url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: "Bearer " + token } : {}),
+        ...(key ? { "Idempotency-Key": key } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    return { status: r.status, body: r.status === 204 ? null : await r.json() };
+  };
+  // 1x1 PNG
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+    "base64",
+  );
+  const upload = async (token, fields) => {
+    const form = new FormData();
+    form.append("file", new Blob([png], { type: "image/png" }), "a.png");
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
+    const r = await fetch(base + "/api/messaging/attachments", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token },
+      body: form,
+    });
+    return { status: r.status, body: await r.json() };
+  };
+  const room = "/api/messaging/rooms/f-kang";
+  // 사진은 바이트로 내려온다. 볼 수 있는지만 본다
+  const see = async (id, token) =>
+    (await fetch(`${base}/api/messaging/attachments/${id}`, { headers: { Authorization: "Bearer " + token } })).status;
+  try {
+    const login = async (userId, app) =>
+      (await api("POST", "/api/auth/test-login", null, { userId, app })).body.accessToken;
+    const minji = await login("u-minji", "consumer"),
+      seojun = await login("u-seojun", "consumer"),
+      producer = await login("u-kang", "producer");
+    const counts = async () =>
+      Object.fromEntries(
+        (await api("GET", `${room}/messages?limit=50`, producer)).body.items
+          .filter((m) => m.broadcastId)
+          .map((m) => [m.broadcastId, m.replyCount]),
+      );
+    const before = await counts();
+    // 가장 최근 소식과 그 전 소식(작성 시각 순)
+    const [latest, older] = (await api("GET", `${room}/messages?limit=50`, producer)).body.items
+      .filter((m) => m.broadcastId)
+      .sort((x, y) => y.createdAt.localeCompare(x.createdAt) || y.messageId.localeCompare(x.messageId))
+      .map((m) => m.broadcastId);
+    assert.ok(latest && older);
+
+    // 고른 소식(older)에 답장 → older의 답장 수만 는다
+    const tapped = await api("POST", `${room}/messages`, minji, { text: "이 소식 좋아요", broadcastId: older }, "tap-1");
+    assert.equal(tapped.status, 200, JSON.stringify(tapped.body));
+    const after = await counts();
+    assert.equal(after[older], before[older] + 1);
+    assert.equal(after[latest], before[latest]);
+    const sheet = await api("GET", `${room}/broadcasts/${older}/replies`, producer);
+    assert.ok(sheet.body.items.some((r) => r.messageId === tapped.body.messageId));
+    // 남의 농가 소식·없는 소식은 404, 생산자는 고를 수 없다
+    const gone = await api("POST", `${room}/messages`, minji, { text: "x", broadcastId: "n-missing" }, "tap-2");
+    assert.equal(gone.status, 404);
+    assert.equal(gone.body.details.reason, "REPLY_TARGET_GONE");
+    assert.equal((await api("POST", `${room}/messages`, producer, { text: "x", broadcastId: older }, "tap-3")).status, 400);
+
+    // 비공개 사진: 팔로우한 소비자만 올리고, 답장 쓴 소비자와 그 농가 생산자만 본다
+    assert.equal((await upload(producer, { roomFarmId: "f-kang" })).status, 403);
+    assert.equal((await upload(seojun, { roomFarmId: "f-kang" })).status, 403); // 시드에서 강씨네를 팔로우하지 않음
+    const photo = await upload(minji, { roomFarmId: "f-kang" });
+    assert.equal(photo.status, 200, JSON.stringify(photo.body));
+    const id = photo.body.attachmentId;
+    const withPhoto = await api("POST", `${room}/messages`, minji, { text: "", attachmentIds: [id] }, "photo-1");
+    assert.equal(withPhoto.status, 200, JSON.stringify(withPhoto.body));
+    assert.deepEqual(withPhoto.body.attachmentIds, [id]);
+    assert.equal(await see(id, minji), 200);
+    assert.equal(await see(id, producer), 200);
+    assert.equal(await see(id, seojun), 404);
+    // 다시 쓰기·4장·글도 사진도 없음은 거부
+    const reused = await api("POST", `${room}/messages`, minji, { text: "again", attachmentIds: [id] }, "photo-2");
+    assert.equal(reused.status, 404);
+    assert.equal(reused.body.details.reason, "ATTACHMENT_UNUSABLE");
+    assert.equal((await api("POST", `${room}/messages`, minji, { text: "many", attachmentIds: ["a", "b", "c", "d"] }, "photo-3")).status, 400);
+    assert.equal((await api("POST", `${room}/messages`, minji, { text: " " }, "photo-4")).status, 400);
+    // 생산자 팬 답장 시트에도 사진 id
+    const latestSheet = await api("GET", `${room}/broadcasts/${latest}/replies`, producer);
+    assert.deepEqual(latestSheet.body.items.find((r) => r.messageId === withPhoto.body.messageId)?.attachmentIds, [id]);
+  } finally {
+    const exit = once(child, "exit");
+    child.kill();
+    await exit;
+  }
+});
