@@ -17,17 +17,28 @@ import { T } from "./Text";
 import { tokens } from "./tokens";
 import { focusRing, safe, showFocus } from "./web";
 
-// 웹 전용 흐림. react-native-web이 CSS로 그대로 넘긴다.
-const glass = {
-  backgroundColor: tokens.color.glass,
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-} as unknown as ViewStyle;
-const sheetGlass = {
-  backgroundColor: tokens.color.sheet,
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-} as unknown as ViewStyle;
+const nativeApp = Platform.OS === "ios" || Platform.OS === "android";
+
+// 웹: 흰 반투명 + 흐림(react-native-web이 CSS로 그대로 넘긴다).
+// 앱: backdropFilter가 없어 반투명이면 뒤 화면 글자가 그대로 비친다. 흰 불투명 면으로 그린다(DEV-477).
+const glass = (
+  nativeApp
+    ? { backgroundColor: tokens.color.background }
+    : {
+        backgroundColor: tokens.color.glass,
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }
+) as unknown as ViewStyle;
+const sheetGlass = (
+  nativeApp
+    ? { backgroundColor: tokens.color.background }
+    : {
+        backgroundColor: tokens.color.sheet,
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }
+) as unknown as ViewStyle;
 
 /* ---------------- Header ---------------- */
 
@@ -311,8 +322,6 @@ export function Fab({
 }
 
 /* ---------------- Sheet ---------------- */
-
-const nativeApp = Platform.OS === "ios" || Platform.OS === "android";
 
 /**
  * 시트 안 버튼으로 다른 화면으로 갈 때 쓴다(DEV-225). `leave(close, go)`는 시트를 애니메이션 없이 닫고
