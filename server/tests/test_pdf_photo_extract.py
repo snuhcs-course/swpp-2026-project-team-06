@@ -5,6 +5,7 @@ import json
 import subprocess
 import sys
 
+import psutil
 import pytest
 from PIL import Image
 
@@ -301,3 +302,204 @@ def test_AC_SRC_5_cli_oversized_input_is_rejected_before_decode(tmp_path):
     assert manifest["errors"] == ["INPUT_BYTES_LIMIT"]
     assert manifest["source"]["sha256"] is None
     assert list(output.glob("*.png")) == []
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"1": [[0, 0, 1, 1]], "01": []}',
+        '{"1": [[0, 0, 1, 1]], "1": []}',
+        '{"1": [[0, 0, 2, 1]]}',
+        "[]",
+        "{invalid",
+    ],
+)
+def test_AC_SRC_5_cli_bad_redactions_never_export(tmp_path, payload):
+    source = tmp_path / "invented.pdf"
+    source.write_bytes(pdf_bytes())
+    masks = tmp_path / "masks.json"
+    masks.write_text(payload)
+    output = tmp_path / "output"
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.source_analysis.pdf_photo_extract",
+            str(source),
+            "--output",
+            str(output),
+            "--redactions",
+            str(masks),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert run.returncode == 1 and manifest["errors"] == ["INVALID_REDACTIONS"]
+    assert manifest["source"]["sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
+    assert list(output.glob("*.png")) == []
+
+
+def test_AC_SRC_5_cli_integer_float_caps(tmp_path):
+    source = tmp_path / "invented.pdf"
+    source.write_bytes(pdf_bytes())
+    output = tmp_path / "output"
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.source_analysis.pdf_photo_extract",
+            str(source),
+            "--output",
+            str(output),
+            "--limits",
+            json.dumps(
+                {
+                    "maxInputBytes": float(source.stat().st_size + 1),
+                    "pageCap": 1.0,
+                }
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert run.returncode == 0 and manifest["status"] == "SUCCEEDED"
+    assert type(manifest["limits"]["maxInputBytes"]) is int
+    assert type(manifest["limits"]["pageCap"]) is int
+
+
+@pytest.mark.parametrize("failure", [PermissionError("denied"), psutil.AccessDenied()])
+@pytest.mark.parametrize("stage", ["children", "constructor"])
+def test_AC_SRC_5_monitor_failure_kills_and_waits_child(
+    tmp_path, monkeypatch, capsys, failure, stage
+):
+    from app.source_analysis import pdf_photo_extract as extractor
+
+    source = tmp_path / "invented.pdf"
+    source.write_bytes(pdf_bytes())
+    output = tmp_path / "output"
+
+    class Child:
+        pid = 123
+        returncode = None
+        killed = False
+        waited = False
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+        def wait(self):
+            self.waited = True
+            return self.returncode
+
+    class Monitor:
+        def memory_info(self):
+            return type("Memory", (), {"rss": 100})()
+
+        def children(self, recursive):
+            raise failure
+
+    child = Child()
+    monkeypatch.setattr(extractor.subprocess, "Popen", lambda *a, **k: child)
+
+    def make_monitor(pid):
+        if stage == "constructor":
+            raise failure
+        return Monitor()
+
+    monkeypatch.setattr(extractor.psutil, "Process", make_monitor)
+    assert extractor.main([str(source), "--output", str(output)]) == 1
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert child.killed and child.waited
+    assert manifest["errors"] == ["MONITOR_FAILED"]
+    assert manifest["source"]["sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
+    assert "invented" not in capsys.readouterr().out
+
+
+def test_AC_SRC_2_source_change_preserves_worker_hash_and_fails(tmp_path, monkeypatch):
+    from app.source_analysis import pdf_photo_extract as extractor
+
+    source = tmp_path / "invented.pdf"
+    source.write_bytes(pdf_bytes())
+    changed = pdf_bytes(cover=True)
+    output = tmp_path / "output"
+
+    class Child:
+        pid = 123
+        returncode = 0
+
+        def poll(self):
+            return 0
+
+        def wait(self):
+            return 0
+
+    def spawn(*args, **kwargs):
+        extract_pdf(changed, output)
+        return Child()
+
+    monkeypatch.setattr(extractor.subprocess, "Popen", spawn)
+    monkeypatch.setattr(extractor.psutil, "Process", lambda pid: object())
+    assert extractor.main([str(source), "--output", str(output)]) == 1
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["errors"] == ["SOURCE_CHANGED"]
+    assert manifest["source"]["sha256"] == hashlib.sha256(changed).hexdigest()
+
+
+def test_AC_SRC_5_cli_output_reservation_rejects_loser_without_rewrite(tmp_path, monkeypatch):
+    from app.source_analysis import pdf_photo_extract as extractor
+
+    source = tmp_path / "invented.pdf"
+    data = pdf_bytes()
+    source.write_bytes(data)
+    output = tmp_path / "output"
+    invocation = [str(source), "--output", str(output)]
+    claim = tmp_path / ".output.pdf-photo-cli.lock"
+
+    class Child:
+        pid = 123
+        returncode = 0
+
+        def poll(self):
+            return 0
+
+        def wait(self):
+            return 0
+
+    def spawn(*args, **kwargs):
+        assert claim.exists() and not output.exists()
+        # Deterministically enter a second CLI before the winner creates output.
+        with pytest.raises(SystemExit) as rejected:
+            extractor.main(invocation)
+        assert rejected.value.code == 2
+        assert claim.exists() and not output.exists()
+        extract_pdf(data, output)
+        return Child()
+
+    monkeypatch.setattr(extractor.subprocess, "Popen", spawn)
+    monkeypatch.setattr(extractor.psutil, "Process", lambda pid: object())
+    assert extractor.main(invocation) == 0
+    assert not claim.exists()
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["status"] == "SUCCEEDED" and manifest["errors"] == []
+
+
+def test_AC_SRC_5_cli_never_removes_another_owners_claim(tmp_path):
+    from app.source_analysis.pdf_photo_extract import main
+
+    source = tmp_path / "invented.pdf"
+    source.write_bytes(pdf_bytes())
+    output = tmp_path / "output"
+    claim = tmp_path / ".output.pdf-photo-cli.lock"
+    claim.write_text("other owner")
+    with pytest.raises(SystemExit):
+        main([str(source), "--output", str(output)])
+    assert claim.read_text() == "other owner"
+    assert not output.exists()

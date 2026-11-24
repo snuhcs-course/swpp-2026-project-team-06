@@ -53,7 +53,7 @@ def _limits(values):
                 or (key not in {"maxElapsedSeconds", "renderScale"} and int(value) != value)
             ):
                 raise ValueError("INVALID_LIMITS")
-            result[key] = value
+            result[key] = value if key in {"maxElapsedSeconds", "renderScale"} else int(value)
     return result
 
 
@@ -414,26 +414,61 @@ def main(argv=None):
     if args.output.is_symlink() or (args.output.exists() and any(args.output.iterdir())):
         parser.error("OUTPUT_NOT_EMPTY")
     if args.worker:
-        redactions = None
-        if args.redactions:
-            raw_masks = json.loads(args.redactions.read_text())
-            redactions = {int(k): v for k, v in raw_masks.items()}
         if args.input.stat().st_size > caps["maxInputBytes"]:
-            manifest = extract_pdf(b"", args.output, source_id=args.source_id, limits=caps)
-            manifest["errors"] = ["INPUT_BYTES_LIMIT"]
+            manifest = _manifest(b"", args.source_id, 1, 1, caps)
+            manifest.update(status="FAILED", errors=["INPUT_BYTES_LIMIT"])
             manifest["source"]["sha256"] = None
+            args.output.mkdir(parents=True, exist_ok=True)
             _write(manifest, args.output)
         else:
             with args.input.open("rb") as source:
                 data = source.read(caps["maxInputBytes"] + 1)
+            redactions = None
+            if args.redactions:
+                try:
+
+                    def unique_object(pairs):
+                        value = {}
+                        for key, item in pairs:
+                            if key in value:
+                                raise ValueError("INVALID_REDACTIONS")
+                            value[key] = item
+                        return value
+
+                    raw_masks = json.loads(
+                        args.redactions.read_text(), object_pairs_hook=unique_object
+                    )
+                    if not isinstance(raw_masks, dict) or any(
+                        not re.fullmatch(r"[1-9][0-9]*", key) for key in raw_masks
+                    ):
+                        raise ValueError("INVALID_REDACTIONS")
+                    redactions = _redactions({int(k): v for k, v in raw_masks.items()})
+                except (OSError, ValueError, TypeError):
+                    manifest = _manifest(data, args.source_id, 1, 1, caps)
+                    manifest.update(status="FAILED", errors=["INVALID_REDACTIONS"])
+                    args.output.mkdir(parents=True, exist_ok=True)
+                    _write(manifest, args.output)
+                    return 0
             extract_pdf(
-                data,
-                args.output,
-                source_id=args.source_id,
-                redactions=redactions,
-                limits=caps,
+                data, args.output, source_id=args.source_id, redactions=redactions, limits=caps
             )
         return 0
+    # Reserve at the parent level as well: a losing CLI must never inspect or
+    # rewrite the winning worker's output. Keep the claim beside the empty output
+    # so the worker can use the public extraction API without bypassing its check.
+    claim = args.output.with_name(f".{args.output.name}.pdf-photo-cli.lock")
+    claim.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        claim.touch(exist_ok=False)
+    except FileExistsError:
+        parser.error("OUTPUT_IN_USE")
+    try:
+        return _run_cli_worker(args, caps, argv)
+    finally:
+        claim.unlink()
+
+
+def _run_cli_worker(args, caps, argv):
     command = [
         sys.executable,
         "-m",
@@ -460,9 +495,16 @@ def main(argv=None):
             source_digest = digest.hexdigest()
     started = time.monotonic()
     process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    monitor = psutil.Process(process.pid)
     reason = None
-    while process.poll() is None:
+    try:
+        monitor = psutil.Process(process.pid)
+    except (psutil.Error, OSError):
+        reason = "MONITOR_FAILED"
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+    while reason is None and process.poll() is None:
         try:
             rss = monitor.memory_info().rss + sum(
                 p.memory_info().rss for p in monitor.children(recursive=True)
@@ -472,9 +514,20 @@ def main(argv=None):
             elif time.monotonic() - started > caps["maxElapsedSeconds"]:
                 reason = "TIME_LIMIT"
             if reason:
-                process.kill()
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
                 break
         except psutil.NoSuchProcess:
+            # A descendant can exit during the RSS sum; keep monitoring the worker.
+            continue
+        except (psutil.Error, OSError):
+            reason = "MONITOR_FAILED"
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
             break
         time.sleep(0.02)
     process.wait()
@@ -485,8 +538,15 @@ def main(argv=None):
         args.output.mkdir(parents=True, exist_ok=True)
         manifest = _manifest(b"", args.source_id, 1, 1, caps)
         manifest["source"]["sha256"] = source_digest
-    if source_digest is not None:
-        manifest["source"]["sha256"] = source_digest
+    # Never relabel completed worker output with a hash from a different read.
+    # The file may have changed between parent preflight and the worker snapshot.
+    if (
+        source_digest is not None
+        and manifest["source"]["sha256"] is not None
+        and manifest["source"]["sha256"] != source_digest
+    ):
+        manifest["status"] = "FAILED"
+        manifest["errors"].append("SOURCE_CHANGED")
     if reason or process.returncode:
         manifest["status"] = "FAILED"
         manifest["errors"].append(reason or "WORKER_FAILED")
