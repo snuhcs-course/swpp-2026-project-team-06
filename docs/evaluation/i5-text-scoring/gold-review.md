@@ -23,3 +23,7 @@ The final independent schema/fidelity pass completed **105 checks, 0 failed**. A
 | Pilot manifest | `ab3089ab9a0b1b1202fc73c9983d56e48ab18888df4507a8e35cfae8b219145b` |
 | Preparation verification | `da2c3cbd93f5a8756012c35d4a5c6dbc01f1b3d0e19243379281fd924e1d240c` |
 | Adapter verification | `f9045c7d268a1e096635e2752650e9944b6b3aaebce98fe6768b533c4a40dc07` |
+
+
+## Superseding user-authorized policy revision — 2026-11-25
+The user explicitly authorizes revised, simpler gold instead of awaiting a new full human audit. Original artifacts above stay immutable history. New draft-first-gold-v2 maps all354old facts, adds1optional source descriptor and separates142essential/186optional/27review requirements without changing historical critical flags. Explicit source-specific aliases and positive/forbidden conflict dispositions live privately. This is policy authorization, not full source factual adjudication. See ../i5-relaxed-gold/RESULTS.md and contract.md.

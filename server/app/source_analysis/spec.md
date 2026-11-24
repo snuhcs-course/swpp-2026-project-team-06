@@ -353,3 +353,5 @@ FEAT-03/04/07 AC-SRC-2/3/5/10/11 M-11/18: passage_refinement preserves complete 
 
 ### DEV-450 voice-polishing experiment
 FEAT-03/04/07 AC-SRC-2/3/5/10/11 M-11/18: voice_polish freezes exact reviewed baseline modules/texts/citations and safe style excerpts; source_polish provides isolated writer/critic adapters. Per-text guards and existing final validation expose incomplete output; separate critic bindings are rebuilt from source and writer result. No default generator, persistence or editor changes. Model critique never equals human acceptance.
+
+DEV-447/448 2026-11-25: 원본 gold/critical 보존, 별도 draft-first-gold-v2 sidecar essential/optional/review 및 source-specific 동치/금지 규칙 처분. 원문/개정/출력 해시와 양쪽 비교 분모 유지. 상세 source-scoring-relaxed.md.

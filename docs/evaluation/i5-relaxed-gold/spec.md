@@ -1,0 +1,3 @@
+# DEV-447/448 revised gold implementation
+
+Scope: this folder, source-scoring-relaxed Korean/English contracts, existing gold-review/results, server tasks447/448, source_analysis spec, new relaxed_score and its tests, Makefile target. Relevant FEAT03/04/07 and AC-SRC2/3/5/10. User authorizes simpler draft-first policy; preserve original source-scoped IDs and historicalflags, versionchanges, classifyoptional/review separately, resolve contradictions. No rawsource/gold in repository. Local migration/replay uses explicit existingdevelopment paths and immutable outputfolders; source/output/policy hashes retained. No provider orholdout access.
