@@ -63,3 +63,50 @@ Medium Sol implemented/audited/reviewed; Luna added bounded regressions; coordin
 Independent final review: ten pure closure probes passed, no unresolved must findings. Latest private replay r002 retains the same selector totals, four complete/four review assembly outcomes, three unsupported sentences and five legacy forbidden violations. Original r001 and all historical outputs remain unchanged. No paid calls or budget changes. CI and human review are separate from these local results.
 
 Final post-cache focused command: isolated `.venv/bin/pytest tests/test_text_score.py tests/test_inventory_refinement.py tests/test_inventory_compare.py -q --tb=short`: **89 passed, zero failed (9.33s)**. No source changes followed this verification.
+
+
+## Live passage routing and quote-repair comparison
+
+Live implementation commit: 92c5c4f1. Fixed provider/model: OpenRouter / google/gemini-3-flash-preview, output cap 8,000, two trials per arm. Primary eight-source inputs were frozen before requests; only accepted candidates, quoted context and target information were sent. Full OCR and gold remained offline. The two-source extraction supplement was separately predeclared and never pooled with the primary pilot. All 48 calls and failed records were retained without retry. No holdout access, gold changes, production mutation, merge or deployment.
+
+### Primary eight-source result: reject passage-router adoption
+
+| Trial | Writer | Page-wide selectors | Critical selectors | Permitted placement |
+| --- | --- | ---: | ---: | ---: |
+| 1 | Current v11 | 105/130 | 44/55 | 83/130 |
+| 1 | Passage router | 33/130 | 13/55 | 24/130 |
+| 2 | Current v11 | 109/130 | 44/55 | 83/130 |
+| 2 | Passage router | 58/130 | 23/55 | 44/130 |
+
+The experimental router is unselected. Five of its 16 primary responses failed validation; all current-v11 responses produced retained text. The exact invalid-response subcauses remain UNKNOWN because the original adapter did not retain parsed raw invalid output or safe reason codes. No later code change is treated as an explanation or correction of these historical outcomes.
+
+Independent audit attributes 42 of the 52 lost critical selector instances to failed response cases, and ten to valid whole passages marked REVIEW. The latter include blocked parents and mixed product/other-product/service passages. Only four of 121 candidate units split into finer passages. All kept passages survived final safety validation. This does not establish that valid routing decisions were semantically correct. Retaining zero unsupported-sentence flags alongside low coverage is not a quality improvement.
+
+### Separate extraction supplement: retain the narrow repair as the supported direction
+
+Existing v11 writer, original versus quote-layout-repaired candidates:
+
+| Trial | Input | Page-wide selectors | Critical selectors | Permitted placement |
+| --- | --- | ---: | ---: | ---: |
+| 1 | Original | 23/44 | 6/16 | 23/44 |
+| 1 | Repaired | 32/44 | 11/16 | 28/44 |
+| 2 | Original | 23/44 | 6/16 | 23/44 |
+| 2 | Repaired | 32/44 | 11/16 | 28/44 |
+
+The affected PDF gained nine fact selectors in trial one and ten in trial two; the unchanged long-image control varied down by one fact in trial two. All five additional critical selectors came from the affected PDF in both trials. This is a targeted development result, not a cross-format accuracy estimate. No new unsupported-sentence flags were detected in these v11 supplement outputs; semantic uncertainty and human adjudication remain open.
+
+The frozen extraction replay preserved all 68 original accepted values/quotes and reproduced 16 prior rejection codes. Eight newly accepted candidates came from one PDF outside the primary pilot; six passed unchanged literal page-safety echoes. In actual v11 generation, seven recovered candidate IDs were cited in retained text in both trials, with existing neutral editing/safety handling. These are different checks and must not be conflated. Six historical-field rows remain rejected. Only three retained, bounded reconstructed chunks were replayed; seven primary exports are explicitly unchanged/NOT_REPLAYED. Full original provider chunks were not captured. Draft PR798 retains the narrow consecutive-span Korean line-wrap fix; no automatic raw-candidate restoration or rollout is authorized by these scores.
+
+### Cost and implementation verification
+
+48 actual model calls; phase ledger charge **$0.266945** within the fixed $1.50 phase allowance. Cumulative settled **$1.638684** plus prior uncertain reservations **$0.828496** leaves **$2.532820** of the original $5 cap. No new uncertain reservation and no further paid calls in this phase.
+
+Before paid execution, the complete isolated scoring/generation regression suite passed **959 cases, zero failed (86.21s)**; the new passage/budget suite passed **30 cases, zero failed (5.31s)**. One initial oversized-input fixture used exact duplicates that correctly collapsed; it was corrected to distinct values without relaxing limits. Independent review fixed detached hedge context and unknown-cost continuation before execution. Focused Ruff/diff checks passed.
+
+After the experiment, fixed redacted validation reason codes were added for future source-scoped attribution, with usage/request IDs retained and only whitelisted reasons propagated to private failure artifacts. Valid output, routing, prompt/schema, default v11 and prior literal behavior remain unchanged. Past invalid subcauses are still UNKNOWN. Final post-diagnostic test evidence is recorded below after execution.
+
+Private text-only comparison preserves all 48 records, protocols, inputs, costs and both trials, with primary/supplement separated; HTML links and HTTP availability checked. This is a diagnostic text viewer, not an actual app screenshot or visual-quality benchmark. Earlier page-evolution and review packets remain untouched.
+
+Medium Sol implementation/source audit/independent review; Luna bounded regressions; coordinator integration. No high Sol. Agent approximately 0.5h elapsed for this continuation shared across DEV450/451/453 (not additive) / Tokens / Human unconfirmed. Prior DEV445 Human5h remains unchanged. Human code/source/editorial review, full semantic scoring/calibration and release acceptance remain open.
+
+Final post-diagnostic command: isolated `.venv/bin/pytest tests/test_text_score.py tests/test_text_score_compare.py tests/test_source_inventory.py tests/test_inventory_refinement.py tests/test_inventory_compare.py tests/test_passage_refinement.py tests/test_passage_compare.py tests/test_source_refine.py tests/test_final_score.py tests/test_final_eval.py -q --tb=short`: **962 passed, zero failed (87.51s)**. Focused Ruff and git diff --check passed. Independent final diagnostic review has no unresolved must findings. No model calls followed the frozen 48-call experiment. All six invalid-output subcauses (five primary, one repaired supplement) remain UNKNOWN; future reason codes are not retrofitted.

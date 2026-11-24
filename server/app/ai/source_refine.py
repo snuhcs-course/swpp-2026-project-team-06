@@ -554,6 +554,7 @@ def refine_passages(mode, model, target, inventory, *, source_revisions):
     """Explicit passage-routing experiment; default v11/literal-v1 stay unchanged."""
     from app.source_analysis.passage_refinement import (
         PassageOutput,
+        PassageValidationError,
         mock_output,
         prepare_request,
         provider_payload,
@@ -591,21 +592,48 @@ def refine_passages(mode, model, target, inventory, *, source_revisions):
             raise RefineError("PRIVATE_SOURCE")
 
         schema = passage_provider_schema()
-        response = _refine_transport(
-            mode,
-            model,
-            payload=json.dumps(wire, ensure_ascii=False),
-            prompt=PASSAGE_PROMPT,
-            output_type=PassageOutput,
-            schema=schema,
-        )
+        try:
+            response = _refine_transport(
+                mode,
+                model,
+                payload=json.dumps(wire, ensure_ascii=False),
+                prompt=PASSAGE_PROMPT,
+                output_type=PassageOutput,
+                schema=schema,
+            )
+        except RefineError as exc:
+            if exc.code != "INVALID_MODEL_OUTPUT":
+                raise
+            raise RefineError(
+                "INVALID_MODEL_OUTPUT",
+                usage=exc.usage,
+                request_id=exc.request_id,
+                details={"reason": "PROVIDER_OUTPUT_SCHEMA"},
+            ) from None
         usage, request_id = response.usage, response.request_id
         try:
             output = response.refinement.model_dump()
         except (AttributeError, TypeError, ValueError):
-            raise RefineError("INVALID_MODEL_OUTPUT", usage=usage, request_id=request_id) from None
+            raise RefineError(
+                "INVALID_MODEL_OUTPUT",
+                usage=usage,
+                request_id=request_id,
+                details={"reason": "RESPONSE_SERIALIZATION"},
+            ) from None
     try:
         result = validate_response(request, output, source_revisions=source_revisions)
+    except PassageValidationError as exc:
+        raise RefineError(
+            "INVALID_MODEL_OUTPUT",
+            usage=usage,
+            request_id=request_id,
+            details={"reason": exc.reason},
+        ) from None
     except ValueError:
-        raise RefineError("INVALID_MODEL_OUTPUT", usage=usage, request_id=request_id) from None
+        raise RefineError(
+            "INVALID_MODEL_OUTPUT",
+            usage=usage,
+            request_id=request_id,
+            details={"reason": "INVALID_INPUT"},
+        ) from None
     return {**result, "usage": usage, "requestId": request_id}

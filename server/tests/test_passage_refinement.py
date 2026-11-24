@@ -2,6 +2,7 @@
 
 import json
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 
@@ -83,6 +84,15 @@ def output_for(request, *, decisions=None, modules=None):
 def rejects(request, output, *, revisions=REVISIONS):
     with pytest.raises(ValueError, match="Invalid passage writer input or output"):
         passage_refinement.validate_response(request, output, source_revisions=revisions)
+
+
+def rejects_reason(request, output, reason):
+    with pytest.raises(passage_refinement.PassageValidationError) as caught:
+        passage_refinement.validate_response(request, output, source_revisions=REVISIONS)
+    assert reason in passage_refinement.VALIDATION_REASONS
+    assert caught.value.reason == reason
+    assert "details redacted" in str(caught.value)
+    return caught.value
 
 
 def passage_output_from_wire(wire):
@@ -393,6 +403,8 @@ def test_AC_SRC_10_private_source_is_blocked_before_transport_and_usage_is_retur
             "openai", "fixture", TARGET, private_inventory, source_revisions=REVISIONS
         )
     assert error.value.code == "PRIVATE_SOURCE"
+    assert "010-1234-5678" not in str(error.value)
+    assert "010-1234-5678" not in repr(error.value.details)
     assert called == []
 
     inventory = make_inventory()
@@ -439,3 +451,84 @@ def test_AC_SRC_10_transport_adapter_preserves_default_v11_and_literal_entries(m
         inventory_refinement.InventoryOutput,
         passage_refinement.PassageOutput,
     ]
+
+
+def test_AC_SRC_10_safe_validation_reason_enum_distinguishes_malformed_responses():
+    one = make_request()
+    output = output_for(one)
+    output["requestSha256"] = "0" * 64
+    rejects_reason(one, output, "REQUEST_HASH_MISMATCH")
+
+    two = make_request(
+        [
+            candidate("c1", "첫 문장이에요.", field="summary", span="first-sentence"),
+            candidate("c2", "두 번째 문장이에요.", field="summary", span="second-sentence"),
+        ]
+    )
+    duplicate = output_for(two)
+    duplicate["assignments"][1]["passageId"] = duplicate["assignments"][0]["passageId"]
+    rejects_reason(two, duplicate, "DUPLICATE_PASSAGE_ID")
+
+    foreign = output_for(one)
+    foreign["assignments"][0]["passageId"] = "passage-foreign"
+    rejects_reason(one, foreign, "UNKNOWN_PASSAGE_ID")
+
+    missing = output_for(two)
+    missing["assignments"].pop()
+    rejects_reason(two, missing, "MISSING_PASSAGE_IDS")
+
+    blocked_request = make_request(
+        [candidate(value="감귤 3kg은 32,000원이에요.", field="composition", span="blocked")]
+    )
+    blocked = output_for(
+        blocked_request,
+        decisions={blocked_request["passages"][0]["id"]: "KEEP"},
+    )
+    rejects_reason(blocked_request, blocked, "BLOCKED_KEEP")
+
+    wrong_module = output_for(one, modules={one["passages"][0]["id"]: "farmPhotos"})
+    rejects_reason(one, wrong_module, "INVALID_MODULE")
+
+    empty_reason = output_for(one, decisions={one["passages"][0]["id"]: "REVIEW"})
+    empty_reason["assignments"][0]["reason"] = "  "
+    rejects_reason(one, empty_reason, "MISSING_REASON")
+
+    bad_schema = output_for(one)
+    bad_schema["assignments"][0]["unexpected"] = "private input must not echo"
+    rejects_reason(one, bad_schema, "OUTPUT_SCHEMA")
+
+
+def test_AC_SRC_10_validation_exceptions_never_echo_private_source_values():
+    secret = "연락처 010-1234-5678"
+    request = make_request(
+        [candidate(value=secret, field="support", span="private-validation-span")]
+    )
+    output = output_for(request)
+    output["requestSha256"] = "0" * 64
+    error = rejects_reason(request, output, "REQUEST_HASH_MISMATCH")
+    assert secret not in str(error)
+    assert secret not in repr(getattr(error, "details", {}))
+
+
+def test_AC_SRC_10_adapter_maps_safe_reason_and_preserves_usage_request_id(monkeypatch):
+    def transport(mode, model, *, payload, prompt, output_type, schema):
+        wire = json.loads(payload)
+        invalid = passage_output_from_wire(wire)
+        invalid["requestSha256"] = "0" * 64
+        return RefineResponse(
+            SimpleNamespace(model_dump=lambda: invalid),
+            {"input_tokens": 23, "output_tokens": 4},
+            "fixture-response-id",
+        )
+
+    monkeypatch.setattr(source_refine, "_refine_transport", transport)
+    inventory = make_inventory()
+    with pytest.raises(RefineError) as caught:
+        source_refine.refine_passages(
+            "openai", "fixture", TARGET, inventory, source_revisions=REVISIONS
+        )
+    error = caught.value
+    assert error.code == "INVALID_MODEL_OUTPUT"
+    assert error.details == {"reason": "REQUEST_HASH_MISMATCH"}
+    assert error.usage == {"input_tokens": 23, "output_tokens": 4}
+    assert error.request_id == "fixture-response-id"

@@ -5,7 +5,7 @@ import json
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.ai.source_refine import TEXT_MODULE_FIELDS
 from app.source_analysis.inventory_refinement import _hash
@@ -40,8 +40,41 @@ class PassageOutput(BaseModel):
     assignments: list[Assignment] = Field(max_length=MAX_PASSAGES)
 
 
-def _fail():
-    raise ValueError("Invalid passage writer input or output (details redacted)")
+VALIDATION_REASONS = frozenset(
+    {
+        "INVALID_INPUT",
+        "INPUT_LIMIT",
+        "STALE_REQUEST",
+        "OUTPUT_SCHEMA",
+        "REQUEST_HASH_MISMATCH",
+        "UNKNOWN_PASSAGE_ID",
+        "DUPLICATE_PASSAGE_ID",
+        "MISSING_PASSAGE_IDS",
+        "BLOCKED_KEEP",
+        "INVALID_MODULE",
+        "MISSING_REASON",
+        "LEGACY_OUTPUT_SCHEMA",
+        "RESPONSE_SERIALIZATION",
+        "PROVIDER_OUTPUT_SCHEMA",
+    }
+)
+
+
+class PassageValidationError(ValueError):
+    """Fixed safe classification; never includes input values or validation details."""
+
+    def __init__(self, reason):
+        self.reason = reason if reason in VALIDATION_REASONS else "INVALID_INPUT"
+        message = (
+            "INVENTORY_INPUT_LIMIT"
+            if self.reason == "INPUT_LIMIT"
+            else "Invalid passage writer input or output (details redacted)"
+        )
+        super().__init__(message)
+
+
+def _fail(reason="INVALID_INPUT"):
+    raise PassageValidationError(reason) from None
 
 
 def _partitions(value):
@@ -120,11 +153,11 @@ def prepare_request(target, inventory, *, source_revisions):
             or len(passages) > MAX_PASSAGES
             or len(json.dumps(_wire_payload(request), ensure_ascii=False)) > MAX_REQUEST_CHARS
         ):
-            raise ValueError("INVENTORY_INPUT_LIMIT")
+            _fail("INPUT_LIMIT")
         return request
-    except (ValueError, TypeError, KeyError, AttributeError) as exc:
-        if str(exc) == "INVENTORY_INPUT_LIMIT":
-            raise ValueError("INVENTORY_INPUT_LIMIT") from None
+    except PassageValidationError:
+        raise
+    except (ValueError, TypeError, KeyError, AttributeError):
         _fail()
 
 
@@ -147,7 +180,8 @@ def _wire_payload(request):
             "reviewReasons": unit["reviewReasons"],
             "requiresReview": constraints["requiresReview"],
             "permittedModules": (
-                "moduleTaxonomy" if constraints["permittedModules"] == request["moduleTaxonomy"]
+                "moduleTaxonomy"
+                if constraints["permittedModules"] == request["moduleTaxonomy"]
                 else constraints["permittedModules"]
             ),
             "contextProtected": constraints["contextProtected"],
@@ -180,43 +214,51 @@ def _wire_payload(request):
 def provider_payload(request):
     """Compact context-complete wire projection; full request hash remains bound."""
     try:
-        rebuilt = prepare_request(
-            request["target"], request["inventory"], source_revisions=request["sourceRevisions"]
-        )
+        try:
+            rebuilt = prepare_request(
+                request["target"], request["inventory"], source_revisions=request["sourceRevisions"]
+            )
+        except PassageValidationError as exc:
+            _fail("INPUT_LIMIT" if exc.reason == "INPUT_LIMIT" else "STALE_REQUEST")
         if rebuilt != request:
-            _fail()
+            _fail("STALE_REQUEST")
         return copy.deepcopy(_wire_payload(request))
+    except PassageValidationError:
+        raise
     except (ValueError, TypeError, KeyError, AttributeError):
-        _fail()
+        _fail("STALE_REQUEST")
 
 
 def validate_response(request, output, *, source_revisions):
     """Route only exact passages; retain every rejected KEEP as an incomplete result."""
     try:
-        if (
-            type(request) is not dict
-            or set(request)
-            != {
-                "plannerVersion",
-                "target",
-                "inventory",
-                "sourceRevisions",
-                "safetyListsHash",
-                "moduleTaxonomy",
-                "passages",
-                "requestSha256",
-            }
-            or type(output) is not dict
-        ):
-            _fail()
-        rebuilt = prepare_request(
-            request["target"], request["inventory"], source_revisions=source_revisions
-        )
+        if type(request) is not dict or set(request) != {
+            "plannerVersion",
+            "target",
+            "inventory",
+            "sourceRevisions",
+            "safetyListsHash",
+            "moduleTaxonomy",
+            "passages",
+            "requestSha256",
+        }:
+            _fail("STALE_REQUEST")
+        if type(output) is not dict:
+            _fail("OUTPUT_SCHEMA")
+        try:
+            rebuilt = prepare_request(
+                request["target"], request["inventory"], source_revisions=source_revisions
+            )
+        except PassageValidationError as exc:
+            _fail("INPUT_LIMIT" if exc.reason == "INPUT_LIMIT" else "STALE_REQUEST")
         if rebuilt != request:
-            _fail()
-        parsed = PassageOutput.model_validate(output)
+            _fail("STALE_REQUEST")
+        try:
+            parsed = PassageOutput.model_validate(output)
+        except ValidationError:
+            _fail("OUTPUT_SCHEMA")
         if parsed.requestSha256 != request["requestSha256"]:
-            _fail()
+            _fail("REQUEST_HASH_MISMATCH")
         by_id = {p["id"]: p for p in request["passages"]}
         units = {u["id"]: u for u in request["inventory"]["units"]}
         seen, groups, kept_texts = set(), {}, []
@@ -226,21 +268,27 @@ def validate_response(request, output, *, source_revisions):
         )
         for row in assignments:
             pid = row.passageId
-            if pid not in by_id or pid in seen:
-                _fail()
+            if pid not in by_id:
+                _fail("UNKNOWN_PASSAGE_ID")
+            if pid in seen:
+                _fail("DUPLICATE_PASSAGE_ID")
             seen.add(pid)
             passage = by_id[pid]
             if row.status == "KEEP":
-                if passage["requiresReview"] or row.module not in passage["permittedModules"]:
-                    _fail()
+                if passage["requiresReview"]:
+                    _fail("BLOCKED_KEEP")
+                if row.module not in passage["permittedModules"]:
+                    _fail("INVALID_MODULE")
                 cids = units[passage["unitId"]]["candidateIds"]
                 text = {"value": passage["text"], "candidateIds": cids}
                 groups.setdefault(row.module, []).append(text)
                 kept_texts.append((pid, row.module, text))
-            elif row.module is not None or not row.reason.strip():
-                _fail()
+            elif row.module is not None:
+                _fail("INVALID_MODULE")
+            elif not row.reason.strip():
+                _fail("MISSING_REASON")
         if seen != set(by_id):
-            _fail()
+            _fail("MISSING_PASSAGE_IDS")
         from app.ai.source_refine import Refinement
         from app.source_analysis.refinement import validate
 
@@ -249,7 +297,10 @@ def validate_response(request, output, *, source_revisions):
             for module in TEXT_MODULE_FIELDS
             if module in groups
         ]
-        legacy = Refinement.model_validate({"modules": raw_modules, "excluded": []})
+        try:
+            legacy = Refinement.model_validate({"modules": raw_modules, "excluded": []})
+        except ValidationError:
+            _fail("LEGACY_OUTPUT_SCHEMA")
         modules, diagnostics = validate(
             legacy,
             request["inventory"]["candidates"],
@@ -296,6 +347,8 @@ def validate_response(request, output, *, source_revisions):
             "status": status,
             "diagnostics": diagnostics,
         }
+    except PassageValidationError:
+        raise
     except (ValueError, TypeError, KeyError, AttributeError):
         _fail()
 

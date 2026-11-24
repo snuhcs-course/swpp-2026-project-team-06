@@ -148,7 +148,10 @@ def test_AC_SRC_10_uncertainty_stops_remaining_jobs_without_retry(
             self.entries.append({"costKnown": False, "reservedMicros": 1000})
             if unknown_kind == "request":
                 raise ExtractionError("REQUEST_UNCERTAIN")
-            raise ExtractionError("INVALID_MODEL_OUTPUT")
+            raise ExtractionError(
+                "INVALID_MODEL_OUTPUT",
+                details={"reason": "MISSING_PASSAGE_IDS", "untrusted": "must-not-be-recorded"},
+            )
 
     monkeypatch.setattr(runner, "Calls", UncertainCalls)
     result = runner._run_locked(
@@ -167,3 +170,8 @@ def test_AC_SRC_10_uncertainty_stops_remaining_jobs_without_retry(
     )
     assert sum(j["status"] == "NOT_RUN" for j in result["jobs"]) == 31
     assert len(result["jobs"]) == 32
+    if unknown_kind == "cost":
+        assert result["jobs"][0]["validationReason"] == "MISSING_PASSAGE_IDS"
+        failure = next((tmp_path / "private-result").rglob("*-failure.json")).read_text()
+        assert "MISSING_PASSAGE_IDS" in failure
+        assert "must-not-be-recorded" not in failure
