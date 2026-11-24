@@ -29,6 +29,7 @@
 - GET /api/messaging/rooms/{farmId}/messages → {room,items,nextCursor}.
 - items: {messageId,farmId,senderId,senderName,senderRole,body,photos,videos,createdAt,broadcastId,reactionCount,myReaction,visibility}. visibility는 방송의 PUBLIC/FOLLOWERS, 소비자 답장은 null(DEV-210).
 - photos/videos는 방송에 연결된 기존 미디어 배열이며 텍스트 답장은 빈 배열이다. 소비자 답장의 broadcastId는 null, reactionCount=0, myReaction=false이다.
+- (DEV-467) `POST /api/messaging/rooms/{farmId}/messages` 소비자 본문에 선택 `broadcastId`(답한 소식, 그 농가의 지우지 않은 소식만, 아니면 404, 없으면 보낸 순간의 가장 최근 소식)와 `attachmentIds`(비공개 사진 3장까지, 사진이 있으면 text는 비어도 됨)를 받는다. 생산자가 보내면 400. 사진은 `POST /api/messaging/attachments`에 `roomFarmId`(그 농가 팔로워 소비자만)로 올린다. 응답 NewsRoomMessage·FanReply에 `attachmentIds`(답장 쓴 소비자와 그 농가 생산자만, 방송은 빈 배열)가 붙고, 사진 읽기도 그 둘만이다.
 - 생산자는 자기 농가의 방송+모든 답장, 소비자는 방송+본인 답장만 받는다. 요약·cursor에도 같은 필터. 소비자 이름은 생산자 응답에서 앞 글자+○○.
 - POST 같은 messages 경로: {text}, 소비자 1~1000자/생산자 1~2000자 → 저장된 메시지. 생산자는 FOLLOWERS 방송, 소비자는 텍스트 비공개 답장. AI/1:1 대화에는 넣지 않는다.
 - 사진·영상 방송은 기존 POST /api/messaging/news로 작성. FOLLOWERS가 기본, PUBLIC은 농가 공개 목록에도 노출한다. 본문 <=2000자, 사진 최대5장(각10MB), 영상1개(60초/100MB). Idempotency-Key 필수.
@@ -150,3 +151,25 @@ DEV-289 이관: 기존 OPEN 주문 문제 문의와 운영팀 방의 직접응�
 `POST /api/messaging/rooms/{farmId}/messages`는 선택적 `replyToMessageId`를 받는다. 소유 생산자가 같은 농가 소비자 답장을 지정하면 마스킹한 익명 텍스트를 `replyTo: {senderType: "CONSUMER", body}`로 고정 저장한 FOLLOWERS 방송을 만든다. 소비자 지정은403, 없는/다른 농가/방송 target은404. 새 방송만 인용 스냅샷을 노출하고 원문 조회 권한은 바뀌지 않는다.
 
 인용 작성 UI는 원문의 editVersion을 replyToVersion으로 함께 보내며, 발송 시 원문이 수정되었으면409로 거부하여 재선택을 안내한다. 확인 미리보기의 이메일도 가린다.
+
+
+## DEV-468 이모티콘 메시지
+
+1:1 소비자/생산자 전송, 소식 작성, 소식방 전송 요청에 선택 emoticonId를 받는다. 응답 NewsItem/NewsRoomMessage/FanReply/ChatMessage에도 nullable emoticonId를 돌려준다. 미지정/null이면 기존 글·미디어 계약이다. 알 수 없는 ID 또는 글·첨부와 함께 보낸 ID는 4xx이며 저장하지 않는다. 이모티콘 본문 수정도 4xx다. 기존 권한·멱등성을 유지한다.
+
+| ID | 본문 캡션 |
+| --- | --- |
+| farmclub-reserved | 예약했어요 |
+| farmclub-paid | 입금했어요 |
+| farmclub-packing | 포장 중이에요 |
+| farmclub-shipping | 오늘 출하해요 |
+| farmclub-arrived | 잘 도착했어요 |
+| farmclub-delicious | 맛있어요 |
+| farmclub-wait | 잠시만요 |
+| farmclub-check | 확인 부탁해요 |
+| farmclub-thanks | 고마워요 |
+| farmclub-sorry | 미안해요 |
+
+ThreadMessage/Broadcast/RoomReply에 선택 ID를 저장한다. body는 고정 캡션이므로 기존 목록·인용·구형 클라이언트도 읽을 수 있고, 새 대화 UI는 ID가 있으면 그림을 렌더링하며 캡션 본문을 중복하지 않는다. 소비자 이모티콘은 AI 호출·답장 요청 없이 저장한다. 소식의 공개 범위·팔로우·비공개 답장 권한은 AC-12-6 그대로다.
+
+배포는 서버(0038 nullable 열3개 추가) 후 양쪽 앱 순서다. 서버 시작 명령이 alembic upgrade head를 실행한다. 이모티콘 원본과 표시 WebP는 앱 번들에 포함하고 별도 업로드·R2 설정은 없다.

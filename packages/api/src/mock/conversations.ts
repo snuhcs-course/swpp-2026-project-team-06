@@ -1,3 +1,4 @@
+import { emoticonMessage } from "./emoticons";
 import type {
   AiCheckState,
   AiPreview,
@@ -586,7 +587,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     let target = replyId ? list(ctx.db, t).find(m => m.messageId === replyId) : undefined;
     if (replyId && !target) notFound();
     const aa = attachments(ctx, t, orderId);
-    if ((!text && !aa.length) || text.length > 1000)
+    const emoji = emoticonMessage(ctx.body.emoticonId, text, aa);
+    if ((!emoji.text && !aa.length) || text.length > 1000)
       invalid({
         text: "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요",
       });
@@ -614,7 +616,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       replyId = corrected[0].reportedMessageId!;
       target = list(ctx.db, t).find(m => m.messageId === replyId);
     }
-    const m = mask(text),
+    const m = mask(emoji.text),
       settings = ctx.db.aiSettings[t.farmId] ?? defaultSettings();
     const message = chatMessage({
       replyToMessageId: replyId ?? null,
@@ -624,11 +626,12 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       sequence: list(ctx.db, t).length + 1,
       senderType: producer ? "PRODUCER" : "CONSUMER",
       body: m.text,
+      emoticonId: emoji.emoticonId ?? null,
       masked: m.masked,
       createdAt: nowIso(),
       attachmentIds: aa.map((a) => a.attachmentId),
       orderId,
-      needsHuman: !producer && (effectiveMode(t) === "HUMAN" || !settings.enabled),
+      needsHuman: !producer && !emoji.emoticonId && (effectiveMode(t) === "HUMAN" || !settings.enabled),
     });
     bind(ctx, aa);
     list(ctx.db, t).push(message);
@@ -645,7 +648,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     // Deterministic Mock: no async/model call. Versions are checked in the same synchronous transaction.
     const tv = t.version,
       sv = settings.version;
-    if (effectiveMode(t) === "AUTO" && settings.enabled) {
+    if (!emoji.emoticonId && effectiveMode(t) === "AUTO" && settings.enabled) {
       const a = preview(
         ctx.db,
         t.farmId,
@@ -693,7 +696,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     return { message: withCheckState(ctx.db, message), reply: reply ? withCheckState(ctx.db, reply) : null };
   });
 }
-export function editMessageText(ctx: Ctx, row: {body: string; replyTo?: {body: string} | null; masked?: boolean; editedAt?: string | null; editVersion?: number; photos?: string[]; videos?: string[]; attachmentIds?: string[]}, limit: number, redactEmail = false) {
+export function editMessageText(ctx: Ctx, row: {body: string; emoticonId?: string | null; replyTo?: {body: string} | null; masked?: boolean; editedAt?: string | null; editVersion?: number; photos?: string[]; videos?: string[]; attachmentIds?: string[]}, limit: number, redactEmail = false) {
+  if (row.emoticonId) invalid({ text: "이모티콘 메시지는 수정할 수 없어요" });
   if (typeof ctx.body.text !== "string" || !Number.isInteger(ctx.body.version) || Number(ctx.body.version) < 0) invalid({text: "본문과 버전을 확인해 주세요."});
   if ((row.editVersion ?? 0) !== ctx.body.version) conflict("STALE_VERSION", "다른 곳에서 수정됐어요. 닫고 다시 열어 주세요.");
   const text = String(ctx.body.text).trim();

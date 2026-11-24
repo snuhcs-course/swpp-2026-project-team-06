@@ -149,3 +149,5 @@ export {
   useFieldErrors,
 } from "./AuthForms";
 export { LOGIN_CONFIG_TIMEOUT_MS, withTimeout } from "./timeout";
+
+export { EmoticonImage, EmoticonMessage } from "./Emoticon";
