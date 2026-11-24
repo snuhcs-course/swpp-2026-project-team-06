@@ -119,3 +119,25 @@ The first representative review is bound to the original focused baseline v11 tr
 A private source-first packet leads with confirmed decisions and only three unresolved questions. Twelve optional calibration pairs remain separate from assistant proposals. The strict offline reporter recomputes source/output/gold hashes, supports partial reviewed dimensions and retains missing labels, predictions, abstentions and failures. It never edits gold or infers semantic approval. Real pending-template replay:12pairs,0reviewed, statusPENDING_HUMAN_REVIEW,0provider calls. Voice/naturalness remains qualitative feedback outside the three factual dimensions.
 
 Actual isolated command: `.venv/bin/pytest tests/test_text_calibration.py tests/test_text_score_compare.py tests/test_text_score.py -q --tb=short` with the isolated farmclub_dev448 database: **93 passed, zero failed (7.00s)**. Focused Ruff/diff checks passed; independent review verified16pure cases and original artifact/source bindings with no unresolved must findings. No new model spend, gold changes, merge or deployment. Agent approximately0.5h shared continuation / Tokens / Human unconfirmed.
+
+
+## Focused wording-only experiment
+
+Live code9fc24855. Four EXACT originally reviewed baseline v11 trial-one pages,69text units,94goldfacts/38critical; two polishing trials. No rerouting, extraction/gold changes or default adoption. Full accepted snapshots remain private/offline; only baseline-cited candidates and nine bounded style excerpts enter the writer. Same Gemini Flash model and8,000output cap.
+
+Before execution,430relatedpytestcases passed0failed(38.09s), including new writer/critic/budget cases and existingv11/scorer regressions. Final26focused cases passed0failed(2.34s). Ruff/diff and independent review passed. Three pre-paid must findings were fixed/regressed: hash-named metadata privacy, package-weight association and property-negation swaps. Critic source/output bindings are rebuilt from internal request/result; no approval transfer. Initial fixture failures were corrected without weakening guards.
+
+Eight writer responses were structurally valid; no transport/schema failures. One page was COMPLETE with uncalibrated critic PASS; seven were INCOMPLETE and did not receive a paid critic, as predeclared. Across138proposed text instances,107passed mechanical/final safety checks and31were rejected (16polarity,12qualifier,2numeric,1final-safety). These guard decisions are not human semantic judgments. Independent source-linked audit provisionally identified11possible guard sensitivities,13observable baseline changes/additions and7mixed/unadjudicated paraphrases. A prefix alarm can coexist with actual changed content; these categories are not false-positive rates. Examples of baseline deviations include added delivery timing and unsupported trust/quality wording. No guard was relaxed or response retried after seeing results.
+
+| Trial | Arm | Fact selectors | Critical selectors |
+| --- | --- | ---: | ---: |
+| 1 | Frozen reviewed baseline | 73/94 | 27/38 |
+| 1 | Polished text retained after checks | 51/94 | 22/38 |
+| 2 | Frozen reviewed baseline | 73/94 | 27/38 |
+| 2 | Polished text retained after checks | 55/94 | 20/38 |
+
+Decision: keep current v11. The experiment does not establish improved factual accuracy or an acceptable whole-page replacement. The private comparison shows all proposed wording, with rejected edits visibly flagged, separately from retained-output scores. It is a text diagnostic viewer, not an actual app screenshot or visual benchmark. Human voice/readability and factual acceptance remain pending. The one model-critic PASS is explicitly uncalibrated.
+
+Nine actual calls cost$0.036522 against the fixed$0.75phase allowance. Cumulative settled$1.675206 +prior uncertain$0.828496 leaves$2.496298 of the original$5cap. No new uncertainty. All frozen requests/results/costs/failures remain private and preserved; no further paid calls in this slice.
+
+Agent approximately0.5h shared continuation / Tokens / Human unconfirmed; priorparent5hnotreassigned. DraftPR797 contains implementation/evidence; no merge/deployment. PR798 spec review SC-001 scope wording was clarified separately in00aca349 with schema context/disposition; human review remains required.
