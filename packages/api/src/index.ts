@@ -40,3 +40,5 @@ export { priceDDay, priceFrom, referencePrice, productPrices } from "./productPr
 
 export * from "./sourceAnalysis";
 export * from "./productWorkspace";
+
+export { EMOTICONS, emoticonLabel, isEmoticonId, type EmoticonId } from "./emoticons";

@@ -1,3 +1,4 @@
+import type { EmoticonId } from "./emoticons";
 // API 타입. 원본: docs/spec/screens.md 7장, 데이터 모델·주문 상태: docs/spec/tech-design/README.md.
 // 디자인에서 더한 필드(reservedCount, brixRecordCount)는 docs/design/README.md "스펙과 다른 점" 2.
 
@@ -266,6 +267,7 @@ export type ProductCard = SalesState & {
 };
 
 export type NewsItem = {
+  emoticonId?: EmoticonId | null;
   replyTo?: {senderType: string; body: string} | null;
   editedAt?: string | null;
   editVersion?: number;
@@ -282,6 +284,7 @@ export type NewsItem = {
 };
 
 export type NewsRoomMessage = {
+  emoticonId?: EmoticonId | null;
   replyTo?: {senderType: string; body: string} | null;
   editedAt?: string | null;
   editVersion?: number;
@@ -316,6 +319,7 @@ export type NewsRoomSummary = {
 export type NewsRoomPage = Paged<NewsRoomMessage> & { room: NewsRoomSummary };
 /** 팬 답장 시트 한 줄(DEV-297). 이름은 생산자 방과 같은 가린 이름 */
 export type FanReply = {
+  emoticonId?: EmoticonId | null;
   messageId: string;
   consumerId: string;
   senderName: string;
@@ -768,6 +772,7 @@ export type HarvestProduct = {
 /* ---------------- messaging ---------------- */
 
 export type NewsInput = {
+  emoticonId?: EmoticonId;
   body: string;
   photos: string[];
   videos?: string[];
@@ -794,6 +799,7 @@ export type SenderType = "CONSUMER" | "PRODUCER" | "AI" | "OPERATOR";
 export const SUPPORT_ID = "u-farmclub";
 
 export type ChatMessage = {
+  emoticonId?: EmoticonId | null;
   editedAt?: string | null;
   editVersion?: number;
   replyToMessageId?: string | null;
@@ -949,3 +955,5 @@ export type DetailBlock =
 export type DetailContent = { blocks: DetailBlock[] };
 export type DetailDraftInput = { inputText: string; photos: string[] };
 export type DetailDraft = { content: DetailContent; mode: "mock" | "ai" };
+
+export type { EmoticonId } from "./emoticons";

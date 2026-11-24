@@ -213,3 +213,8 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - 반응 줄: 소비자 `ReactionHalf` 두 칸(‘좋아요’ 접근성 이름·`aria-pressed`는 예전 하트와 같음, ‘농가에 답장’은 입력칸 포커스 · 비로그인 `onLogin` · 답장할 수 없는 방은 비활성). 서버가 소비자 인용 답장을 막아 고른 소식을 인용하지 않는다. 생산자 `ProducerReactions`는 접근성 이름 ‘읽음 N, 좋아요 N’·‘답장 N 모아 보기’를 유지한다.
 - 그림자는 웹 `boxShadow`, 앱 `shadow*`·`elevation 1`. 아이콘은 새로 더하지 않았다(‘농가에 답장’은 `chat`).
 - (2단계) 소비자 ‘농가에 답장’은 `replyPost`로 그 소식을 고르고 입력칸 위 ‘소식에 답장 · 농가만 봐요’ 줄(testID `room-reply-post`, 취소 48)을 보인다. 보낼 때 `send`의 다섯째 인자 `{broadcastId, attachmentIds}`. 소비자 사진은 `Composer` `tool` ‘+’가 `usePhotoAttach`의 숨긴 파일 칸을 바로 열고 `AttachedPhotoRow`(72×72 한 줄, ×·‘1/3’)로 보인다(1:1 `PrivatePhotos`는 그대로), 말풍선·`FanReplySheet`은 `PrivatePhoto`(눌러 크게). 멱등 키는 글·고른 소식·사진 id가 같을 때만 다시 쓴다.
+
+
+## DEV-468 이모티콘
+
+AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달한다. 공통 카탈로그 ID 외 값과 혼합 메시지는 거부한다. UI는 공통 + 도구·160px 투명 그림·독립 전송 초안 보존을 사용한다. 이모티콘만 보낸 소비자 메시지는 AI를 호출하지 않고, 기존 권한·멱등성·비공개 답장을 유지한다. 상세는 tasks/DEV-468.md.

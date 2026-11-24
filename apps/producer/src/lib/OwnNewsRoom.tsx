@@ -66,7 +66,7 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
           makeKey={newIdempotencyKey}
           onAttach={() => router.push("/broadcast/new")}
           edit={(id, text, version, key) => messaging.editRoomMessage(farmId, id, text, version, key)}
-          send={(text, key, replyId, replyVersion) => messaging.sendRoom(farmId, text, key, replyId, replyVersion)}
+          send={(text, key, replyId, replyVersion, extra) => messaging.sendRoom(farmId, text, key, replyId, replyVersion, extra)}
           recipientCount={farm.data?.followerCount ?? null}
           remove={(id) => messaging.deleteNews(id)}
           copy={copyText}
