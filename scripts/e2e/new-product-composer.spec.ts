@@ -118,7 +118,7 @@ for (const width of [360, 390, 430]) {
       }
       await expect(modal.getByText("가격·배송비는 다음 단계(판매·가격)에서 직접 정해 주세요.", { exact: true })).toBeVisible();
       await expect(modal.getByText("교환·환불·문의는 팜클럽이 같은 기준으로 안내해 드려요.", { exact: true })).toBeVisible();
-      await expect(modal.getByText("출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.", { exact: true })).toBeVisible();
+      await expect(modal.getByText("출하 전 취소하면 입금액을 모두 돌려받고, 배송 후 상품에 문제가 있으면 교환·환불할 수 있어요.", { exact: true })).toBeVisible();
       await expect(modal.getByText("건강 효능은 상세 페이지에 넣을 수 없어요.", { exact: true })).toBeVisible();
       await expect(modal.getByTestId("excluded-item-price")).toHaveCount(2);
       await expect(modal.getByTestId("excluded-item-platform")).toHaveText("고객센터 평일 10시~5시");
@@ -243,7 +243,7 @@ for (const width of [360, 390, 430]) {
       await page.getByRole("dialog").getByRole("button", { name: /^10월 25일 .요일/ }).click();
       await page.getByRole("dialog").getByRole("button", { name: /^10월 28일 .요일/ }).click();
       await page.getByRole("dialog").getByRole("button", { name: "이 기간으로", exact: true }).click();
-      await page.getByRole("button", { name: /이 날까지 못 보내면 전액 환불/ }).last().click();
+      await page.getByRole("button", { name: /최종 출하일/ }).last().click();
       await page.getByRole("dialog").getByRole("button", { name: /^10월 30일 .요일/ }).click();
       await page.getByRole("dialog").getByRole("button", { name: "이 날로", exact: true }).click();
       await page.getByLabel("5kg 가격", { exact: true }).fill("28000");

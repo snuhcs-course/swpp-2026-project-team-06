@@ -154,7 +154,7 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   ).toBeVisible();
   await expect(consumerPage.getByText("DEV25-1234")).toBeVisible();
   await expect(
-    consumerPage.getByRole("button", { name: "예약 취소하기" }),
+    consumerPage.getByRole("button", { name: /^예약 취소/ }),
   ).toHaveCount(0);
 
   // AC-17-9: a shipped order keeps its shipping state while correcting its invoice.

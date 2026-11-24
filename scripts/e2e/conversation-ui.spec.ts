@@ -123,10 +123,10 @@ for (const width of [360, 390, 430]) {
     await expect(page.getByText(/^\d+명이 예약했어요$/)).toBeVisible();
     await expect(page.getByText(/^지금 예약하면 \d+번째예요$/)).toBeVisible();
     await expect(page.getByText("농가 계좌로 직접 입금해요", { exact: true })).toBeVisible();
-    await expect(page.getByText("11월 30일까지 못 보내면 전액 환불", { exact: true })).toBeVisible();
+    await expect(page.getByText("최종 출하일 11월 30일", { exact: true })).toBeVisible();
     // 취소 규정 한 줄은 세 줄 아래에 그대로(지금 화면의 정보는 빼지 않는다)
     await expect(
-      page.getByText("출하 전 전액 환불 · 출하 후 단순 변심 반품 불가", { exact: true }),
+      page.getByText("출하 전 취소 시 입금액 모두 반환 · 출하 후 단순 변심 반품 불가", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText(/^제주 서귀포 · 팬 \d+명$/)).toBeVisible();
     await page.screenshot({ path: info.outputPath(`product-${width}.png`) });

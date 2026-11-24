@@ -142,7 +142,7 @@ for (const width of [360, 390, 430]) {
     await sell.getByRole("dialog").getByRole("button", { name: /^10월 28일 .요일/ }).click();
     await sell.getByRole("dialog").getByRole("button", { name: "이 기간으로", exact: true }).click();
     await sell
-      .getByRole("button", { name: /이 날까지 못 보내면 전액 환불/ })
+      .getByRole("button", { name: /최종 출하일/ })
       .last()
       .click();
     await sell.getByRole("dialog").getByRole("button", { name: /^10월 30일 .요일/ }).click();

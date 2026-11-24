@@ -17,7 +17,7 @@ export const sourceExclusionReasons: Record<
   platform: {
     label: "🛡️ 팜클럽 정책",
     explanation: "교환·환불·문의는 팜클럽이 같은 기준으로 안내해 드려요.",
-    detail: "출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.",
+    detail: "출하 전 취소하면 입금액을 모두 돌려받고, 배송 후 상품에 문제가 있으면 교환·환불할 수 있어요.",
     accent: true,
   },
   health: {

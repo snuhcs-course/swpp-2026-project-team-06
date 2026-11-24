@@ -522,9 +522,9 @@ function SaleRows({
         <T variant="sub">
           {joinSentences(
             p.deliveryWindow ? null : DELIVERY_PENDING_NOTE,
-            "농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수 있어요.",
+            "농가 사정으로 바뀌면 새 기간으로 받거나 예약을 취소하고 입금액을 모두 돌려받을 수 있어요.",
             p.maxDelayUntil
-              ? `${md(p.maxDelayUntil)}까지 보내지 못하면 자동으로 전액 환불해 드려요.`
+              ? `${md(p.maxDelayUntil)}까지 보내지 못하면 예약이 자동 취소되고, 농가가 입금액을 모두 돌려드려요.`
               : null,
           )}
         </T>
@@ -621,7 +621,7 @@ function SaleRows({
         }}
       >
         <T variant="sub" muted style={{ flexShrink: 1 }}>
-          출하 전 전액 환불 · 출하 후 단순 변심 반품 불가
+          출하 전 취소 시 입금액 모두 반환 · 출하 후 단순 변심 반품 불가
         </T>
         <Icon
           name={open === "cancel" ? "chevronDown" : "chevron"}
@@ -633,7 +633,7 @@ function SaleRows({
         <View style={{ gap: 8, marginTop: -8 }}>
           <T variant="sub">예약할 때 전액을 한 번에 입금해요.</T>
           <T variant="sub">
-            보내기 전에는 언제든 취소할 수 있고 전액 환불돼요. 수수료는 없어요.
+            보내기 전에는 언제든 취소할 수 있고 입금액을 모두 돌려드려요. 수수료는 없어요.
           </T>
           <T variant="sub">
             신선식품이라 보낸 뒤에는 단순 변심으로 취소·반품할 수 없어요.
@@ -703,10 +703,10 @@ function TrustRows({
   if (p.maxDelayUntil)
     rows.push({
       icon: "refund",
-      title: `${md(p.maxDelayUntil)}까지 못 보내면 전액 환불`,
+      title: `최종 출하일 ${md(p.maxDelayUntil)}`,
       note: (
         <T variant="sub" muted>
-          보내기 전에는 언제든 취소할 수 있어요
+          이날까지 출하되지 않으면 입금액을 모두 돌려받아요
         </T>
       ),
     });

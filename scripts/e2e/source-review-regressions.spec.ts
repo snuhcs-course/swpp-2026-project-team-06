@@ -210,7 +210,7 @@ test("DEV-186 DEV-361 AC-SRC-1/2/11: product exclusions open one modal with the 
   await expect(modal.getByText("가격·배송비는 다음 단계(판매·가격)에서 직접 정해 주세요.", { exact: true })).toBeVisible();
   await expect(modal.getByText("판매 기간이나 받는 날은 다음 단계(판매·가격)에서 정해요.", { exact: true })).toBeVisible();
   await expect(modal.getByText("교환·환불·문의는 팜클럽이 같은 기준으로 안내해 드려요.", { exact: true })).toBeVisible();
-  await expect(modal.getByText("출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.", { exact: true })).toBeVisible();
+  await expect(modal.getByText("출하 전 취소하면 입금액을 모두 돌려받고, 배송 후 상품에 문제가 있으면 교환·환불할 수 있어요.", { exact: true })).toBeVisible();
   await expect(modal.getByTestId("excluded-item-platform")).toHaveText("고객센터 평일 10시~5시");
   // Presenting the modal does not acknowledge it.
   expect(await page.evaluate((key) => localStorage.getItem(key), storageKey)).toBeNull();

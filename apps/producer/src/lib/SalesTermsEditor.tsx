@@ -1,4 +1,4 @@
-// 판매 조건 편집부(DEV-361 PR C): 중량 옵션·받는 시기·전액 환불 날짜·예약 기간·가격·박스·배송비.
+// 판매 조건 편집부(DEV-361 PR C): 중량 옵션·받는 시기·최종 출하일·예약 기간·가격·박스·배송비.
 // 판매 전 상품의 판매·가격(SCR-24b, `mode="new"`)과 구매자에게 보이는 상품의 composer 판매 조건 시트(`mode="live"`)가 같이 쓴다.
 // 판매할 총 물량은 판매·가격 화면에서 입력한다.
 import {
@@ -147,9 +147,9 @@ export function checkTerms(t: Terms): TermsProblem | null {
   const bad = (field: TermsField, message: string, target: Partial<TermsProblem> = {}): TermsProblem => ({ field, message, ...target });
   if (!t.options.length) return bad("options", "중량 옵션을 하나 이상 골라 주세요.");
   if (!t.deliveryWindow) return bad("delivery", "받는 시기를 정해 주세요.");
-  if (!t.maxDelayUntil) return bad("delivery", "전액 환불 날짜를 정해 주세요.");
+  if (!t.maxDelayUntil) return bad("delivery", "최종 출하일을 정해 주세요.");
   if (t.maxDelayUntil <= t.deliveryWindow.end)
-    return bad("delivery", "전액 환불 날짜는 받는 시기가 끝난 다음 날 이후여야 해요.");
+    return bad("delivery", "최종 출하일은 받는 시기가 끝난 다음 날 이후여야 해요.");
   if (!t.rows.length) return bad("prices", "예약 기간을 하나 이상 두어 주세요.");
   const rows = [...t.rows].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const validDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) &&
@@ -378,17 +378,20 @@ export function SalesTermsEditor({
           />
           {mode === "live" && deliveryChanged && product.reservedCount > 0 ? (
             <T variant="caption" color={tokens.color.error}>
-              예약한 {product.reservedCount}명에게 새 기간 동의를 받아요. 동의하지 않으면 전액 환불돼요.
+              예약한 {product.reservedCount}명에게 새 기간 동의를 받아요. 동의하지 않으면 입금액을 모두 돌려드려요.
             </T>
           ) : null}
           <FieldButton
             highlight={editable}
             disabled={off}
-            label="이 날까지 못 보내면 전액 환불"
+            label="최종 출하일"
             value={md(t.maxDelayUntil)}
             placeholder="날짜를 골라 주세요"
             onPress={() => !off && setSheet("maxDelay")}
           />
+          <T variant="caption" muted>
+            이날까지 출하하지 못한 예약은 취소되고, 입금액을 모두 돌려드려요.
+          </T>
         </Sec>
       </FieldFeedback>
 
@@ -570,7 +573,7 @@ export function SalesTermsEditor({
       />
       <DateSheet
         visible={sheet === "maxDelay"}
-        title="이 날까지 못 보내면 전액 환불"
+        title="최종 출하일"
         range={false}
         start={t.maxDelayUntil}
         min={t.deliveryWindow?.end ? addDays(t.deliveryWindow.end, 1) : addDays(seoulToday(), 1)}
@@ -623,7 +626,7 @@ export function TermsSummary({ value, children }: { value: Terms; children?: Rea
           ? "도서산간 추가 운임 미입력"
           : `도서산간 추가 운임 ${t.remoteAreaFee.toLocaleString("ko-KR")}원`}
       </T>
-      <T>{t.maxDelayUntil ? `${t.maxDelayUntil}까지 출하하지 못하면 전액 환불` : "전액 환불 날짜 미입력"}</T>
+      <T>{t.maxDelayUntil ? `${t.maxDelayUntil}까지 출하하지 못하면 입금액을 모두 돌려드려요` : "최종 출하일 미입력"}</T>
       {children}
     </View>
   );
