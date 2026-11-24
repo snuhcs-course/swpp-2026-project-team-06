@@ -68,3 +68,5 @@ farmclub 스펙 문서의 원본이다(한글). 위키(`docs/wiki/`)는 TA용 �
 | Q-xx, IA-Qx, FQ-xx, PQ-xx | 열린 질문 | 각 문서 끝 |
 
 커밋·PR에는 Linear 키와 관련 ID를 적고, 테스트 이름에는 AC ID를 넣는다(예: `test_AC_09_1_last_item_concurrent_payment`).
+
+- [원문 보존 초안](./source-preserving-drafts.md) — DEV-452 명시적 정책과 생산자 확인 통합.
