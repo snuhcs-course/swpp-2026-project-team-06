@@ -110,3 +110,26 @@ Stronger models also encounter conservative exclusion-checker mismatches: genuin
 Executed after v2: `DATABASE_URL=...farmclub_dev452_source make test-source-preserving`:670backendpassed55.82s+14UIchecks passed; pure helper/runner59passed0.40s(overlapping). Earlier v1related119passed6.69s. Initial v2one layout expectation failed58passed, then boundary expectation corrected with exact evidence assertions retained. Initial nonexistent test filename ran0tests and remains recorded. Independent mediumSol code/results review found no remaining observed MUST. Private viewer all24module outputs/downloads exact;8case/trial browser selections,0pageerrors, desktop/mobile check and screenshot inspection passed. Human high-risk code/producer review remains pending. Agent approx0.5h continuation / Tokens / Human unconfirmed.
 
 Final configuration boundary: Astra prices support explicit experiments, but enabled product Settings reject Astra until legacy refinement support is separately implemented. New regression and affected controls120passed6.82s; independent guard+block39passed0.32s(overlap), server-onlyRuff/diffpassed. No remaining observed MUST in independent final review.
+
+
+## Exact-review-draft Astra assembly comparison — DEV-451
+
+This is the matched-input follow-up to the broader OCR/model experiment. Freeze exactly the106assembled moduletexts in full-source-r004 (122contributing sourcepassages, including the six restored PDF rows once). Freshly reproduced baseline87/94facts,35/38critical,47/94primary and55/94permitted placement before paid calls. Four known development sources, Astra medium, two trials per source/eight calls. No OCR, extraction, additional original passages, gold/selectors or missing-fact hints reach the model. Whitelisted wire contains target{id,name} and frozen texts{id,module,value,ownerFlags}; original provenance remains independent local audit.
+
+| Same original gold/scorer | Fixed review draft | Astra trial1 | Astra trial2 |
+| --- | --- | --- | --- |
+| Pagewide lexical fact matches |87/94|87/94|87/94|
+| Critical lexical matches |35/38|35/38|35/38|
+| Primary section matches |47/94|52/94|50/94|
+| Permitted section matches |55/94|60/94|58/94|
+| Full reference matches |3/94|4/94|4/94|
+
+All106input IDs accounted exactly once per trial; no exclusions/unknown/duplicate IDs. Model raw wording is scored/displayed without fallback or restoring baseline on failure. Sourcebound ownerflag unions retained independently of model notes; omitted IDs could not clear original review flags. Eight/eight outputs returned.
+
+Independent inspection of all changed blocks found no concrete unsupported factual addition, optionquantityswap or lostnegation/qualifier. Six PDF option rows keep their own label/weight/count/price; four longimage options keep2/3/5/9kg and8–18/12–22/18–32/25–50counts and packing. Observed readability gains: combined package/count line, complete peel/flesh sentence, coherent explanatory paragraphs, minimal Korean spacing/particle correction, and an existing source tagline promoted to title. Remaining PDF history order is awkward, cultivation/taste placement varies, and historicalprice/sourceclaims still need owner review. This is bounded internal inspection, not producer acceptance or calibrated semantic accuracy.
+
+Numeric warnings in both text trials are only12브릭 스→12브릭스: the regex changes the associated unit after a whitespace correction, not the numeral or threshold. Original warning retained with explanation; no audit weakening or generated-text repair. Number/range sets do not certify option associations or nonnumeric meaning; those were inspected separately. No absent input facts were recovered or gold changed. Fact coverage staying87/94is expected for a faithful downstream pass.
+
+Cost$0.594275 for8calls. Cumulative testingledger529rows,$3.700270settled+$0.956184uncertain,$25.343546remaining under the user-authorized$30cap. This is not API account balance. No retries, holdout, defaultworker/productAPI/UI change, production mutation, merge or deployment.
+
+Executed: pure helper24passed0.31s; related `pytest -q tests/test_source_assembly.py tests/test_source_preserving.py tests/test_source_options.py tests/test_source_reflow.py`:190passed9.33s(overlapping), serverRuff/diffpass. Independent preflight identity/sourceboundary/flagunion audit and final actual-output review found no remaining observed MUST. Private viewer106baselineblocks+8rawoutputs/audits/downloads exact;4browser case switches0pageerrors,desktop/mobile and screenshot inspectionpassed. Initial input-freeze missing optional moduletext ID fixed by assigning stable tNNN IDs before any calls; no source values changed. Human high-risk code/producer adoption remains pending. Agent approx0.5h continuation / Tokens / Human unconfirmed.
