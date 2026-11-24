@@ -41,5 +41,52 @@
   "codeSha256": {
     "worker.py": "1a4696629deab2638707617900286b362114339af30b313005d6eb01c1af820b",
     "source_analysis.py": "43ed68a202e3a6be643e62cfed353b0767750b0202bd6db9a5532610db5700b1"
+  },
+  "controlledGenerationFollowup": {
+    "date": "2026-11-24",
+    "relatedDraftPR": 797,
+    "liveImplementationCommit": "92c5c4f1",
+    "cohort": "TARGETED_TWO_SOURCE_DEVELOPMENT_SUPPLEMENT_NOT_PRIMARY_PILOT",
+    "trialsPerArm": 2,
+    "writer": "source-refine-v11-routing",
+    "original": {
+      "facts": [
+        23,
+        44
+      ],
+      "critical": [
+        6,
+        16
+      ],
+      "permittedPlacement": [
+        23,
+        44
+      ]
+    },
+    "repaired": {
+      "facts": [
+        32,
+        44
+      ],
+      "critical": [
+        11,
+        16
+      ],
+      "permittedPlacement": [
+        28,
+        44
+      ]
+    },
+    "bothTrialsSameAggregate": true,
+    "unchangedControlFactVariationInSecondTrial": -1,
+    "primaryPilotRecoveredCandidates": 0,
+    "recoveredCandidateIdsCitedPerTrial": [
+      7,
+      7
+    ],
+    "literalEchoSafetyPasses": 6,
+    "semanticCalibration": "NOT_ESTABLISHED",
+    "humanReview": "PENDING",
+    "rollout": false
   }
 }
