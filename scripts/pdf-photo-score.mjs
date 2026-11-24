@@ -9,14 +9,16 @@ const rate = (hits, total) => total ? hits / total : null;
 
 function validate(doc, label, permittedSourceIds = null) {
   if (!object(doc) || doc.schemaVersion !== 1 || !str(doc.datasetId)) fail(`${label}: invalid schemaVersion or datasetId`);
-  if (!arr(doc.sources) || !arr(doc.items ?? doc.photos)) fail(`${label}: sources and records must be arrays`);
+  const collection = label === 'reference' ? 'photos' : 'items';
+  const wrongCollection = label === 'reference' ? 'items' : 'photos';
+  if (!arr(doc.sources) || !arr(doc[collection]) || Object.hasOwn(doc, wrongCollection)) fail(`${label}: sources and ${collection} must be arrays`);
   const sourceStatus = label === 'reference' ? ['READY', 'FAILED', 'EMPTY'] : ['SUCCEEDED', 'PARTIAL', 'FAILED', 'EMPTY'];
   const sourceMap = new Map();
   for (const s of doc.sources) {
     if (!object(s) || !str(s.id) || !sourceStatus.includes(s.status) || sourceMap.has(s.id)) fail(`${label}: malformed or duplicate source ID`);
     sourceMap.set(s.id, s.status);
   }
-  const rows = doc.items ?? doc.photos;
+  const rows = doc[collection];
   const ids = new Set();
   for (const r of rows) {
     const sourceKnown = sourceMap.has(r?.sourceId) || (permittedSourceIds && permittedSourceIds.has(r?.sourceId));
@@ -57,27 +59,37 @@ export function scorePdfPhotos(reference, prediction) {
     if (!p) fail(`unknown referenceId on item ${i.id}`);
     if (p.sourceId !== i.sourceId || p.page !== i.page) fail(`source/page mismatch on item ${i.id}`);
   }
-  const used = new Set();
-  const goodItems = new Set();
-  const placed = new Set();
-  const placedItemIds = new Set();
+  const eligibleByPhoto = new Map();
   for (const i of items) {
     if (i.status !== 'RECOVERED' || !i.referenceId) continue;
     const p = photoById.get(i.referenceId);
     const unavailable = failedSourceIds.includes(i.sourceId) || missingSourceIds.includes(i.sourceId) || ref.sourceMap.get(i.sourceId) === 'EMPTY' || pred.sourceMap.get(i.sourceId) === 'EMPTY';
     if (unavailable || !p.useful) continue;
-    if (used.has(p.id)) { duplicateMatches++; continue; }
-    used.add(p.id); goodItems.add(i.id);
-    if (i.shown && i.section !== null && p.allowedSections.includes(i.section)) { placed.add(p.id); placedItemIds.add(i.id); }
+    const candidates = eligibleByPhoto.get(p.id) ?? [];
+    if (candidates.length) duplicateMatches++;
+    candidates.push(i);
+    eligibleByPhoto.set(p.id, candidates);
   }
   const shown = items.filter(i => i.shown);
-  const relevantShown = shown.filter(i => goodItems.has(i.id)).length;
   const useful = photos.filter(p => p.useful);
   const native = useful.filter(p => p.applicability === 'native');
   const placedItems = items.filter(i => i.shown && i.section !== null);
-  const placementHits = placed.size;
+  const recoveredRefs = new Set(eligibleByPhoto.keys());
+  const relevantRefs = new Set();
+  const placedRefs = new Set();
+  const placedItemIds = new Set();
+  for (const p of useful) {
+    const candidates = eligibleByPhoto.get(p.id) ?? [];
+    if (candidates.some(i => i.shown)) relevantRefs.add(p.id);
+    const correctPlacement = candidates.find(i => i.shown && i.section !== null && p.allowedSections.includes(i.section));
+    if (correctPlacement) { placedRefs.add(p.id); placedItemIds.add(correctPlacement.id); }
+  }
+  const relevantShown = relevantRefs.size;
+  const placementHits = native.filter(p => placedRefs.has(p.id)).length;
   const dateText = reference.reviewedAt;
-  const validReviewDate = typeof dateText === 'string' && /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(dateText) && Number.isFinite(Date.parse(dateText));
+  const dateMatch = typeof dateText === 'string' ? /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?$/.exec(dateText) : null;
+  const validCalendarDate = dateMatch && Number(dateMatch[2]) >= 1 && Number(dateMatch[2]) <= 12 && Number(dateMatch[3]) >= 1 && Number(dateMatch[3]) <= new Date(Date.UTC(Number(dateMatch[1]), Number(dateMatch[2]), 0)).getUTCDate() && (!dateMatch[4] || (Number(dateMatch[4]) <= 23 && Number(dateMatch[5]) <= 59 && Number(dateMatch[6]) <= 59));
+  const validReviewDate = Boolean(validCalendarDate && Number.isFinite(Date.parse(dateText)));
   const pendingHuman = reference.status !== 'VERIFIED' || !str(reference.reviewer) || !validReviewDate;
   const sourceBlocked = missingSourceIds.length > 0 || failedSourceIds.length > 0;
   if (pendingHuman) warnings.push('Human reference review is pending or lacks a valid reviewer/date.');
@@ -85,9 +97,9 @@ export function scorePdfPhotos(reference, prediction) {
   if (duplicateMatches) warnings.push('Duplicate recovered mappings count once; additional displays remain in relevance denominator.');
   const allEmpty = photos.length === 0 && [...ref.sourceMap.values()].every(s => s === 'EMPTY') && [...pred.sourceMap.values()].every(s => s === 'EMPTY');
   if (!photos.length && !allEmpty) warnings.push('Reference contains no photos; zero-photo scoring is N/A only when sources are explicitly EMPTY.');
-  const nativeRecovery = { hits: native.filter(p => used.has(p.id)).length, total: native.length };
+  const nativeRecovery = { hits: native.filter(p => recoveredRefs.has(p.id)).length, total: native.length };
   nativeRecovery.rate = rate(nativeRecovery.hits, nativeRecovery.total);
-  const overallRecovery = { hits: useful.filter(p => used.has(p.id)).length, total: useful.length };
+  const overallRecovery = { hits: useful.filter(p => recoveredRefs.has(p.id)).length, total: useful.length };
   overallRecovery.rate = rate(overallRecovery.hits, overallRecovery.total);
   const suggestionRelevance = { hits: relevantShown, total: shown.length };
   suggestionRelevance.rate = rate(suggestionRelevance.hits, suggestionRelevance.total);

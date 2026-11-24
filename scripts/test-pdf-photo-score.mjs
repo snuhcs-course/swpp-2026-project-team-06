@@ -18,6 +18,8 @@ test('AC-SRC-1 validates shapes, duplicate IDs, source/page relations, and integ
   throws(() => score(ref([photo()]), pred([item(), item()])), /duplicate record/);
   throws(() => score(ref(), pred([], [], {datasetId:'old'})), /datasetId mismatch/);
   throws(() => score(ref([photo()], [{id:'s2',status:'READY'}]), pred([])), /invalid source\/page/);
+  throws(() => score({ ...ref([photo()]), items: [] }, pred([])), /reference: sources and photos/);
+  throws(() => score(ref([photo()]), { ...pred([]), photos: [] }), /prediction: sources and items/);
 });
 
 test('AC-SRC-5 all-failed sources retain misses and failed leftovers get no credit', () => {
@@ -36,6 +38,16 @@ test('AC-SRC-2 counts each useful reference once; displayed duplicates are unwan
   assert.deepEqual(s.metrics.suggestionRelevance, {hits:1,total:2,rate:0.5});
   assert.equal(s.counts.duplicateRecoveredMatches, 1);
   assert.equal(s.decision, 'FAIL');
+});
+
+test('AC-SRC-2 hidden duplicate order cannot consume shown relevance or placement credit', () => {
+  const hidden = item('hidden', 'p1', { shown: false, section: null });
+  const visible = item('visible', 'p1');
+  const s = score(ref([photo()]), pred([hidden, visible]));
+  assert.deepEqual(s.metrics.overallRecovery, {hits:1,total:1,rate:1});
+  assert.deepEqual(s.metrics.suggestionRelevance, {hits:1,total:1,rate:1});
+  assert.deepEqual(s.metrics.placementAccuracy, {hits:1,total:1,rate:1});
+  assert.deepEqual(s.metrics.placementCoverage, {hits:1,total:1,rate:1});
 });
 
 test('AC-SRC-5 retains failed and missing source references in denominators and gives leftovers no credit', () => {
@@ -79,9 +91,18 @@ test('AC-SRC-11 placement needs correct section, is measured over shown predicti
   assert.equal(abstains.placementGoal.met, false);
 });
 
+test('AC-SRC-11 placement coverage numerator excludes assisted references', () => {
+  const assisted = photo('p2', { page: 2, applicability: 'assisted' });
+  const s = scorePdfPhotos(ref([photo(), assisted]), pred([item(), {...item('i2','p2'),page:2}]));
+  assert.deepEqual(s.metrics.placementAccuracy, {hits:2,total:2,rate:1});
+  assert.deepEqual(s.metrics.placementCoverage, {hits:1,total:1,rate:1});
+});
+
 test('AC-SRC-11 unknown source IDs and invalid verified reviewer dates are handled strictly', () => {
   throws(() => score(ref(), pred([], [{id:'s9',status:'SUCCEEDED'}])), /unknown source IDs/);
   const invalidDate = score(ref([photo()], [{id:'s1',status:'READY'}], {reviewer:'r',reviewedAt:'not a date'}), pred([item()]));
   assert.equal(invalidDate.status, 'PROVISIONAL');
   assert.equal(invalidDate.decision, 'PENDING_HUMAN_REVIEW');
+  const impossibleCalendarDate = score(ref([photo()], [{id:'s1',status:'READY'}], {reviewedAt:'2026-02-30'}), pred([item()]));
+  assert.equal(impossibleCalendarDate.status, 'PROVISIONAL');
 });
