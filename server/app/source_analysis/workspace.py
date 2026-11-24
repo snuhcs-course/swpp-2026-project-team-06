@@ -80,6 +80,9 @@ class PageModule(Input):
 
 
 class PageSnapshot(Input):
+    source_review_version: int | None = Field(
+        default=None, ge=1, exclude_if=lambda value: value is None
+    )
     representative_uri: str | None = Field(max_length=2000)
     hidden_section_ids: list[SectionId] = Field(default_factory=list, max_length=9)
     kind: Literal["modules", "blocks"]
@@ -702,7 +705,7 @@ def owned(db, farm, pid):
 def save(db, farm, pid, body):
     product, row = owned(db, farm, pid)
     s.version(row.version, body.version)
-    snapshot = body.snapshot.model_dump(by_alias=True)
+    snapshot = body.snapshot.model_dump(by_alias=True, exclude={"source_review_version"})
     # Only retain photos already belonging to this product; never accept another farm's private URI.
     allowed = set(product.photos)
     allowed.update(
@@ -720,6 +723,9 @@ def save(db, farm, pid, body):
         raise invalid({"photos": "현재 상품의 사진만 사용할 수 있어요."})
     if snapshot["kind"] != base["kind"]:
         raise invalid({"kind": "기존 상세 형식을 유지해 주세요."})
+    batch = db.get(Batch, row.batch_id)
+    if batch and batch.source_copy_enabled:
+        snapshot["sourceReviewVersion"] = batch.review_version
     row.snapshot = snapshot
     row.version += 1
     db.flush()
@@ -731,6 +737,28 @@ def apply(db, farm, pid, body):
     s.version(row.version, body.version)
     s.version(product.version, row.base_product_version)
     snap = row.snapshot
+    from app.source_analysis.source_copy_service import validate_publication
+
+    batch = db.get(Batch, row.batch_id)
+    if batch and batch.source_copy_enabled:
+        if snap.get("sourceReviewVersion") != batch.review_version:
+            from app.core.errors import conflict
+
+            raise conflict(
+                "SOURCE_REVIEW_CHANGED",
+                "원문 검토가 바뀌었어요. 수정본을 다시 확인하고 저장해 주세요.",
+            )
+        target = next(t for t in batch.targets if t["id"] == row.target_id)
+        values = (
+            [t["value"] for m in snap["modules"] for t in m["texts"]]
+            if snap["kind"] == "modules"
+            else [
+                b.get(key, "")
+                for b in snap["content"]["blocks"]
+                for key in ("title", "body", "alt")
+            ]
+        )
+        validate_publication(db, batch, target["id"], values)
     representative = snap["representativeUri"]
     if not representative:
         raise invalid({"representativePhoto": "대표 상품사진을 한 장 이상 지정해 주세요."})

@@ -65,6 +65,14 @@ def apply_draft(db, batch, draft, body, apply_cover=False):
         s.version(source.sanitization_version, expected["sanitizationVersion"])
     if not snap["previewModules"]:
         raise invalid({"modules": "확정된 상세 내용이 필요해요."})
+    from app.source_analysis.source_copy_service import validate_publication
+
+    validate_publication(
+        db,
+        batch,
+        draft.target_id,
+        [t["value"] for m in snap["previewModules"] for t in m["texts"]],
+    )
     # Copy sanitized photos into independent keys as display-size JPEG (DEV-328). No EXIF.
     copied, store = {}, Storage()
     from app.source_analysis.representative import selected

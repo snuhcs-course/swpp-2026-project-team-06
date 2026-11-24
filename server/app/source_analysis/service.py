@@ -775,16 +775,25 @@ def patch_review(db, row, body, *, inactive=frozenset()):
     refined_records = (
         stored_fields(db, row.id) if any(f.provenance == "REFINED" for f in body.fields) else set()
     )
+    source_records = set()
     if row.source_copy_enabled:
         from app.source_analysis.source_copy_service import stored_fields as source_copy_fields
 
-        refined_records |= source_copy_fields(db, row)
+        source_records = source_copy_fields(db, row)
+        refined_records |= source_records
     current_ids = {
         tid: {c.id for c in current_candidates(db, row.id, tid)}
         for tid in {f.target_id for f in body.fields if f.provenance == "REFINED"}
     }
     seen = set()
     for entry in body.fields:
+        source_signature = (
+            entry.target_id,
+            entry.field_key,
+            entry.value,
+            frozenset(entry.candidate_ids),
+        )
+        source_owned = source_signature in source_records and entry.provenance == "REFINED"
         if (entry.target_id, entry.field_key) in seen:
             raise invalid({"fields": "같은 항목은 한 번만 수정해 주세요."})
         seen.add((entry.target_id, entry.field_key))
@@ -805,6 +814,7 @@ def patch_review(db, row, body, *, inactive=frozenset()):
             or (entry.provenance != "REFINED" and c.field_key != entry.field_key)
             or (
                 entry.provenance == "REFINED"
+                and not source_owned
                 and (
                     not includes_target(c.target_id, entry.target_id, len(row.targets))
                     or c.target_id is None
@@ -842,12 +852,17 @@ def patch_review(db, row, body, *, inactive=frozenset()):
             )
             if signature not in refined_records or (
                 not preserve_inactive
+                and not source_owned
                 and not set(entry.candidate_ids) <= current_ids[entry.target_id]
             ):
                 raise invalid(
                     {"provenance": "저장된 정리 문구와 근거만 REFINED로 사용할 수 있어요."}
                 )
-        if entry.state != "EXCLUDED" and (entry.target_id, entry.field_key) not in inactive:
+        if (
+            not row.source_copy_enabled
+            and entry.state != "EXCLUDED"
+            and (entry.target_id, entry.field_key) not in inactive
+        ):
             if entry.value and has_health_claim(entry.value):
                 raise invalid({entry.field_key: "건강 효능 문구는 넣을 수 없어요."})
             if entry.value and has_money(entry.value):
@@ -920,9 +935,9 @@ def save_drafts(db, row, body, *, editor=False, migrated=False):
                 continue
             # A page migrated as-is (DEV-346) keeps its published wording; the rules apply when
             # the producer next saves it in the composer.
-            if not migrated and has_health_claim(field.value):
+            if not migrated and not row.source_copy_enabled and has_health_claim(field.value):
                 raise invalid({field.field_key: "건강 효능 문구는 넣을 수 없어요."})
-            if not migrated and has_money(field.value):
+            if not migrated and not row.source_copy_enabled and has_money(field.value):
                 raise invalid({field.field_key: "상세 문구에 금액을 넣을 수 없어요."})
             candidates = list(
                 db.scalars(

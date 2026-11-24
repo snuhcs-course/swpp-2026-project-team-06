@@ -11,6 +11,8 @@ import type {
 } from "./types";
 import type { ModuleDetail } from "./sourceAnalysis";
 export type PageSnapshot = {
+  /** Server-owned source review fence for private legacy pages. */
+  sourceReviewVersion?: number | null;
   representativeUri: string | null;
   hiddenSectionIds: string[];
   kind: "modules" | "blocks";

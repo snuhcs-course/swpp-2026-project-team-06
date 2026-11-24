@@ -24,8 +24,20 @@ from app.source_analysis.text_safety import (
     has_product_lineup,
 )
 
-VERSION = "source-preserving-v1"
+VERSION = "source-preserving-v2-private-review"
 _KINDS = ("COPY_EDIT", "OWNER_CONFIRMATION", "PLACEMENT", "SAFETY")
+_RESTRICTED = {"PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"}
+_EXPLANATIONS = {
+    "COPY_EDIT": "원문의 문장·공백·반복을 확인한 뒤 공개해 주세요.",
+    "OWNER_CONFIRMATION": (
+        "가격·시점·배송 등 현재도 맞는 정보인지 확인해 주세요. "
+        "원문 가격과 실제 판매 설정이 일치하는지 별도로 확인해 주세요. 판매 설정은 바뀌지 않습니다."
+    ),
+    "PLACEMENT": (
+        "대상 상품과 상세 항목, 글자 수를 확인해 주세요. 전체 원문은 검토 목록에 보존됩니다."
+    ),
+    "SAFETY": "공개 제한 표현은 수정하거나 제외해 주세요. 홍보 표현은 사실 여부를 확인해 주세요.",
+}
 _ACTIONS = {"KEEP", "EDIT", "OMIT", "TRANSFER_TO_SETTINGS", "ACCEPT_REPAIR"}
 _SPLIT = re.compile(r"(?P<head>[가-힣]*(?:습니|입니))[ \t]*\r?\n[ \t]*다(?=[.!?。]|$)")
 _FRAGMENT = re.compile(r"(?:듯이|지만|지고|때문에|그리고|또한|하지만)[,，]?\s*$|[,，]\s*$")
@@ -108,7 +120,7 @@ def _reasons(value, historical, target_name):
 
 
 def build_plan(target, candidates, *, source_versions, target_count=1, decisions=()):
-    """Return exact safe suggestions plus separately version-bound review items.
+    """Return private source wording plus separately version-bound public-review items.
 
     Candidate IDs are traceability, not part of a stable per-source decision key.
     planHash covers full current input; reviewVersion is separately fenced by API.
@@ -224,8 +236,8 @@ def _build(target, candidates, versions, target_count, decisions):
             reasons["SAFETY"].append("HEALTH_CLAIM")
         if group["commonRestricted"]:
             reasons["PLACEMENT"].append("COMMON_SCOPE_UNCONFIRMED")
-        module = group["modules"][0] if len(group["modules"]) == 1 else None
-        if module is None:
+        module = group["modules"][0]
+        if len(group["modules"]) != 1:
             reasons["PLACEMENT"].append("AMBIGUOUS_MODULE_ROUTING")
         if len(value) > 3000:
             reasons["PLACEMENT"].append("FIELD_LIMIT")
@@ -296,9 +308,9 @@ def _build(target, candidates, versions, target_count, decisions):
             if "COMMON_SCOPE_UNCONFIRMED" in reasons["PLACEMENT"] and action != "EDIT":
                 raise SourcePlanError("EDIT_REQUIRED")
             if action == "KEEP":
-                if reasons["SAFETY"] or "RELATIVE_TIME" in reasons["OWNER_CONFIRMATION"]:
+                if _RESTRICTED.intersection(reasons["SAFETY"]):
                     raise SourcePlanError("EDIT_REQUIRED")
-                if reasons["OWNER_CONFIRMATION"] and not note:
+                if (reasons["OWNER_CONFIRMATION"] or reasons["SAFETY"]) and not note:
                     raise SourcePlanError("NOTE_REQUIRED")
             if action == "ACCEPT_REPAIR":
                 if not passage["repairValue"] or reasons["OWNER_CONFIRMATION"] or reasons["SAFETY"]:
@@ -308,7 +320,7 @@ def _build(target, candidates, versions, target_count, decisions):
                 value = (decision.get("value") or "").strip()
                 if not value or len(value) > 3000 or not note:
                     raise SourcePlanError("INVALID_DECISION")
-                if _safety(value, scope["name"]) or _RELATIVE.search(value):
+                if _RESTRICTED.intersection(_safety(value, scope["name"])):
                     raise SourcePlanError("UNSAFE_EDIT")
                 passage["value"] = value
             if decision.get("module") is not None:
@@ -330,13 +342,21 @@ def _build(target, candidates, versions, target_count, decisions):
         else:
             passage["status"] = (
                 "BLOCKED"
-                if reasons["SAFETY"]
+                if _RESTRICTED.intersection(reasons["SAFETY"])
                 else ("PENDING" if any(reasons.values()) else "READY")
             )
         passage["queueKinds"] = [kind for kind in _KINDS if reasons[kind]]
+    for passage in passages:
+        passage["includedInDraft"] = False
     modules = []
     for module in TEXT_MODULE_FIELDS:
-        selected = [p for p in passages if p["module"] == module and p["status"] == "READY"]
+        selected = [
+            p
+            for p in passages
+            if p["module"] == module
+            and p["status"] != "EXCLUDED"
+            and scrub(p["value"]) == p["value"]
+        ]
         total, ids = 0, set()
         texts = []
         for passage in selected:
@@ -348,12 +368,15 @@ def _build(target, candidates, versions, target_count, decisions):
                 if "PLACEMENT" not in passage["queueKinds"]:
                     passage["queueKinds"].append("PLACEMENT")
                 continue
+            passage["includedInDraft"] = True
             ids = proposed_ids
             total = proposed_total
             texts.append({"value": passage["value"], "candidateIds": passage["candidateIds"]})
         if texts:
             modules.append({"module": module, "texts": texts})
     for passage in passages:
+        passage["reviewPending"] = passage["status"] in {"PENDING", "BLOCKED"}
+        passage["reviewExplanations"] = [_EXPLANATIONS[kind] for kind in passage["queueKinds"]]
         entries = [r for r in accounting if r["passageId"] == passage["id"]]
         for i, row in enumerate(entries):
             row["disposition"] = (
@@ -370,6 +393,8 @@ def _build(target, candidates, versions, target_count, decisions):
             "inputCandidates": len(candidates),
             "inputEvidence": sum(len(c.get("evidence", [])) for c in candidates),
             "passages": len(passages),
+            "includedInDraft": sum(p["includedInDraft"] for p in passages),
+            "reviewPending": sum(p["reviewPending"] for p in passages),
             "ready": sum(p["status"] == "READY" for p in passages),
             "held": sum(p["status"] in {"PENDING", "BLOCKED"} for p in passages),
             "excluded": sum(p["status"] == "EXCLUDED" for p in passages),

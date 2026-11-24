@@ -140,6 +140,9 @@ export type SourceCopyPassage = {
   reasonCodes: Record<"COPY_EDIT" | "OWNER_CONFIRMATION" | "PLACEMENT" | "SAFETY", string[]>;
   repairValue: string | null;
   status: "READY" | "PENDING" | "EXCLUDED" | "BLOCKED";
+  includedInDraft: boolean;
+  reviewPending: boolean;
+  reviewExplanations: string[];
   decision: SourceCopyDecision | null;
 };
 export type SourceCopyReview = {

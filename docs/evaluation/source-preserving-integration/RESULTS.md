@@ -1,6 +1,6 @@
 # Source-preserving editor integration (DEV-452)
 
-## Implemented boundary
+## Historical v1 implemented boundary (superseded by complete-private-draft revision below)
 
 The opt-in policy builds suggestions from all current validated extraction evidence, independent of an earlier generated page. It preserves full quoted wording, original source/target/revision/sanitization identity and every candidate/evidence disposition. Known whitespace OCR repairs remain explicit suggestions; uncertain grammar, exact repetition, owner-conditional information, placement and safety holds remain separate. Broad grammar correctness, semantic deduplication and extraction completeness are not established.
 
@@ -42,3 +42,19 @@ A final text/media edge correction preserves photos attached to an unchanged dec
 All5workspace typechecks were rerun successfully. Review hub links/cards/mobile widths and the local editor screenshot were inspected. Spreadsheet status readback/formulas/styles/validation were checked; native browser host and artifact renderer were unavailable, so no native spreadsheet visual QA is claimed.
 
 Final commit is recorded in the implementation task/PR. No merge or deployment. Agent approx0.5h continuation / Tokens / Human unconfirmed (prior parent5h not reassigned).
+
+
+## Superseding complete-private-draft revision — 2026-11-25
+User explicitly replaced withholding: warnings do not remove source wording from private draft. All116current target-relevant accepted evidence passages are included across the4focused examples;42have pending review flags. Inclusion and review state are independent, with explanations and owner KEEP/EDIT/OMIT/settings choices. Dates/prices/marketing/policy allow explicit acknowledgment with note; actual sale settings are not silently changed. Privacy redaction and restricted public-claim checks remain. Both public apply paths require current source-bound review, and legacy snapshots carry a server-owned review version. Removed/replaced source wording cannot be republished from a stale legacy snapshot.
+
+Same original gold/scorer: baseline73/94critical27/38, previous withhelddraft61/94critical22/38, current completeprivate draft81/94critical29/38. This isolates the inclusion change from separately revised gold. Old scorer now flags27forbiddenmatches and19repetitionexcesses on private source text; neither warning count proves all flagged wording is invented, nor does coverage establish publication readiness. Linked option/context assembly remains a quality limitation. No new generation/OCR/provider calls.
+
+Focused DB/backend related run453passed(48.48s); updated make test-source-preserving446passed(47.45s)+12UItests. Independent review caught stale legacy publicapply and prompted regression/fence. Final full backend and real browser results follow below. Initial browser failed for unmatched worker storage directory, second for cached CI-mode Expo bundle, third exposed an E2E save/reload race: the test reloaded before its async save reached the server; failures retained privately. Final typecheck all5workspaces passed.
+
+
+### Final executed revision checks
+- Full backend before compatibility correction:2337passed/3failed(299.93s). Failures exposed an optional review-metadata null key added to legacy saved responses but absent after reopen. Fixed serialization to omit absent metadata; old tests unchanged. The first affected rerun preceded correction; final affected workspace/source-copy/publication cohort19passed0failed(6.81s). This is not a claim that the full suite was rerun after the narrow metadata fix.
+- Final make test-source-preserving:446backend tests passed,12UItests passed; all5workspace typechecks passed. Review-version, stale OMIT/EDIT snapshot and actual-sale-price-preservation regressions executed.
+- Real local API/DB/worker/browser1passed(5.5s), retries0. Full flagged source survives private save/reopen, explicit owner correction and price transfer persist, and final public page contains confirmed date plus original warm wording only after explicit apply. Mobile390px/desktop1365px and console checks pass. Earlier failures retained; no speculative frontend refactor was made.
+- Related newgold/scoring suite1094passed+10migrationpassed, final44pure checks include3additional format cases. Independent mediumSol reviews closed known findings; privacy/review/legacy serialization assertions verified. Sourcecopy screenshot inspected.
+- Stable private review hub updated with current4pagecomparison, original metric history, separate relaxedgold summary and downloadable versioned privategold/policy/map. Historical folders untouched. No paid provider calls, production changes, merge or deployment. Human unconfirmed; Agent approx0.5h continuation / Tokens .

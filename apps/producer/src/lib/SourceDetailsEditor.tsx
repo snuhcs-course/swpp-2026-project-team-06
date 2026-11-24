@@ -478,6 +478,7 @@ export function SourceDetailsEditor({
           골라 주세요.
         </T>
       ) : null}
+      {preview && review.sourceCopyEnabled ? <T variant="sub" style={{ paddingHorizontal: tokens.space.gutter }}>비공개 초안 미리보기예요. 확인이 필요한 원문도 포함돼 있어요. 편집 화면의 공개 전 확인 대기 항목을 모두 처리해야 상품에 반영할 수 있어요.</T> : null}
       {!preview && typeof review.sourceCopyEnabled === "boolean" && batch.targets.map((target) => (
         <SourceCopyReview key={`copy-${batch.id}-${target.id}`} batchId={batch.id} targetId={target.id}
           enabled={!!review.sourceCopyEnabled} reviewVersion={review.reviewVersion}

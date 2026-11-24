@@ -90,7 +90,7 @@ def save(db, batch, target_id, body, actor_id):
         messages = {
             "EDIT_REQUIRED": "그대로 쓸 수 없는 문구예요. 수정하거나 상세에서 빼 주세요.",
             "NOTE_REQUIRED": "현재도 맞는 내용인지 확인한 이유를 적어 주세요.",
-            "UNSAFE_EDIT": "금액·개인정보·효능·운영 조건과 상대적인 시점을 확인해 수정해 주세요.",
+            "UNSAFE_EDIT": "개인정보·건강 효능·다른 상품 표현을 확인해 수정해 주세요.",
             "PLACEMENT_REQUIRED": "문구를 넣을 상세 항목을 선택해 주세요.",
             "FIELD_LIMIT": "상세 항목의 글자 수를 줄이거나 일부 문구를 다른 항목으로 옮겨 주세요.",
             "STALE_DECISION": "자료가 바뀌었어요. 최신 원문을 불러와 다시 확인해 주세요.",
@@ -269,3 +269,37 @@ def reconcile_owner_fields(db, batch, target_id, previous, updated, changed_bind
         saved.candidate_ids = candidate_ids
         saved.provenance = provenance
         saved.state = "UNREVIEWED"
+
+
+def validate_publication(db, batch, target_id, texts):
+    """Private evidence can be complete; only explicitly reviewed, safe text is public.
+
+    Recompute under the caller's batch/product lock, including hidden and overflow items.
+    A private save, checkbox or manual canvas edit cannot acknowledge source warnings.
+    """
+    if not batch.source_copy_enabled:
+        return
+    current = plan(db, batch, target_id)
+    if any(p["reviewPending"] for p in current["passages"]):
+        raise conflict(
+            "SOURCE_REVIEW_PENDING",
+            "공개 전 원문 검토가 필요해요. 표시된 항목을 확인·수정하거나 제외해 주세요.",
+        )
+    for passage in current["passages"]:
+        decision = passage.get("decision")
+        if not decision:
+            continue
+        removed = decision["action"] in {"OMIT", "TRANSFER_TO_SETTINGS"}
+        changed = decision["action"] in {"EDIT", "ACCEPT_REPAIR"} and (
+            passage["originalValue"] not in passage["value"]
+        )
+        if (removed or changed) and any(passage["originalValue"] in value for value in texts):
+            raise conflict(
+                "SOURCE_REVIEW_CHANGED",
+                "수정·제외한 원문이 상세에 남아 있어요. 저장된 문구를 확인해 주세요.",
+            )
+    from app.source_analysis.source_preserving import _RESTRICTED, _safety
+
+    target = next(t for t in batch.targets if t["id"] == target_id)
+    if any(_RESTRICTED.intersection(_safety(value, target.get("name", ""))) for value in texts):
+        raise invalid({"modules": "공개 제한 표현은 수정하거나 제외한 뒤 다시 적용해 주세요."})

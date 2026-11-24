@@ -80,7 +80,9 @@ def test_AC_SRC_3_exact_quote_dedup_keeps_candidate_attribution_and_module_ambig
         ]
     )
     assert len(routed["passages"]) == 1
-    assert routed["passages"][0]["module"] is None
+    assert routed["passages"][0]["module"] == "summary"
+    assert routed["passages"][0]["includedInDraft"] is True
+    assert routed["passages"][0]["reviewPending"] is True
     assert "AMBIGUOUS_MODULE_ROUTING" in routed["passages"][0]["reasonCodes"]["PLACEMENT"]
     assert routed["passages"][0]["status"] == "PENDING"
 
@@ -96,10 +98,12 @@ def test_AC_SRC_3_exact_quote_dedup_keeps_candidate_attribution_and_module_ambig
         ("환불은 어렵습니다.", "PAYMENT_OR_RETURN_TERMS"),
     ],
 )
-def test_AC_SRC_10_volatile_or_conditional_claims_are_held_for_owner(quote, reason):
+def test_AC_SRC_10_volatile_claims_are_in_private_draft_and_flagged_for_owner(quote, reason):
     passage = plan([candidate("c1", quote)])["passages"][0]
-    expected = "BLOCKED" if reason in {"PRICE_OR_FEE", "PAYMENT_OR_RETURN_TERMS"} else "PENDING"
-    assert passage["status"] == expected
+    assert passage["status"] == "PENDING"
+    assert passage["includedInDraft"] is True
+    assert passage["reviewPending"] is True
+    assert passage["reviewExplanations"]
     assert reason in passage["reasonCodes"]["OWNER_CONFIRMATION"]
     assert "OWNER_CONFIRMATION" in passage["queueKinds"]
 
@@ -136,6 +140,8 @@ def test_AC_SRC_3_common_taste_claim_requires_explicit_placement_edit():
     item = candidate("c1", "산미가 적고 달콤합니다.", target_id=None)
     passage = plan([item], target_count=2)["passages"][0]
     assert passage["status"] == "PENDING"
+    assert passage["includedInDraft"] is True
+    assert passage["reviewPending"] is True
     assert "COMMON_SCOPE_UNCONFIRMED" in passage["reasonCodes"]["PLACEMENT"]
     with pytest.raises(SourcePlanError):
         plan(
@@ -156,6 +162,8 @@ def test_AC_SRC_3_common_taste_claim_requires_explicit_placement_edit():
         ],
     )["passages"][0]
     assert edited["status"] == "READY"
+    assert edited["includedInDraft"] is True
+    assert edited["reviewPending"] is False
     assert edited["sourceExact"] is False
 
 
@@ -275,7 +283,7 @@ def test_AC_SRC_10_source_version_change_invalidates_plan_binding_and_old_decisi
         )
 
 
-def test_AC_SRC_10_keep_requires_owner_note_and_relative_claim_requires_edit():
+def test_AC_SRC_10_keep_requires_owner_note_and_relative_claim_can_be_acknowledged():
     item = candidate("c1", "월요일에 감귤을 발송합니다.")
     held = plan([item])["passages"][0]
     with pytest.raises(SourcePlanError):
@@ -289,17 +297,19 @@ def test_AC_SRC_10_keep_requires_owner_note_and_relative_claim_requires_edit():
 
     relative = candidate("c3", "올해 감귤을 수확했습니다.")
     relative_passage = plan([relative])["passages"][0]
-    with pytest.raises(SourcePlanError):
-        plan(
-            [relative],
-            decisions=[
-                {
-                    "bindingHash": relative_passage["bindingHash"],
-                    "action": "KEEP",
-                    "note": "농가 확인",
-                }
-            ],
-        )
+    acknowledged = plan(
+        [relative],
+        decisions=[
+            {
+                "bindingHash": relative_passage["bindingHash"],
+                "action": "KEEP",
+                "note": "농가가 현재 기준 시점을 확인",
+            }
+        ],
+    )["passages"][0]
+    assert acknowledged["includedInDraft"] is True
+    assert acknowledged["reviewPending"] is False
+    assert acknowledged["value"] == relative["evidence"][0]["quote"]
     absolute = "2026년 감귤을 수확했습니다."
     edited_relative = plan(
         [relative],
@@ -332,3 +342,86 @@ def test_AC_SRC_10_keep_requires_owner_note_and_relative_claim_requires_edit():
     assert result["value"] == edited
     assert result["sourceExact"] is False
     assert result["status"] == "READY"
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "당도가 좋지만",
+        "당도는 좋습니\n다.",
+        "올해 수확한 감귤입니다.",
+        "가격은 5,000원입니다.",
+        "감기를 치료하는 감귤입니다.",
+        "최고의 감귤입니다.",
+    ],
+)
+def test_AC_SRC_2_7_10_full_flagged_text_is_in_private_modules(quote):
+    result = plan([candidate("c1", quote)])
+    passage = result["passages"][0]
+    assert passage["includedInDraft"] is True
+    assert passage["reviewPending"] is True
+    assert result["modules"][0]["texts"][0]["value"] == quote
+    assert result["summary"]["includedInDraft"] == 1
+    assert result["summary"]["reviewPending"] == 1
+
+
+def test_AC_SRC_10_marketing_warning_can_be_acknowledged_with_explanation():
+    item = candidate("c1", "최고의 감귤입니다.")
+    passage = plan([item])["passages"][0]
+    with pytest.raises(SourcePlanError):
+        plan([item], decisions=[{"bindingHash": passage["bindingHash"], "action": "KEEP"}])
+    reviewed = plan(
+        [item],
+        decisions=[
+            {
+                "bindingHash": passage["bindingHash"],
+                "action": "KEEP",
+                "note": "농가가 홍보 표현 확인",
+            }
+        ],
+    )["passages"][0]
+    assert reviewed["includedInDraft"] is True
+    assert reviewed["reviewPending"] is False
+    assert reviewed["reasonCodes"]["SAFETY"] == ["EXAGGERATION"]
+
+
+def test_AC_SRC_3_overflow_is_preserved_in_full_for_review_without_silent_truncation():
+    result = plan([candidate("a", "가" * 2000), candidate("b", "나" * 1500)])
+    passage = result["passages"][1]
+    assert passage["value"] == "나" * 1500
+    assert passage["includedInDraft"] is False
+    assert passage["reviewPending"] is True
+    assert "FIELD_LIMIT" in passage["reasonCodes"]["PLACEMENT"]
+    assert passage["reviewExplanations"]
+
+
+def test_AC_SRC_7_private_value_is_not_reintroduced_into_private_draft():
+    result = plan([candidate("a", "연락처 010-1234-5678")])
+    passage = result["passages"][0]
+    assert "PRIVATE_VALUE" in passage["reasonCodes"]["SAFETY"]
+    assert passage["includedInDraft"] is False
+    assert result["modules"] == []
+
+
+@pytest.mark.parametrize(
+    "quote", ["가격은 5,000원입니다.", "환불은 어렵습니다.", "고객센터로 문의해 주세요."]
+)
+def test_AC_SRC_10_price_and_policy_can_be_acknowledged_without_changing_settings(quote):
+    item = candidate("c1", quote)
+    passage = plan([item])["passages"][0]
+    with pytest.raises(SourcePlanError, match="redacted"):
+        plan([item], decisions=[{"bindingHash": passage["bindingHash"], "action": "KEEP"}])
+    result = plan(
+        [item],
+        decisions=[
+            {
+                "bindingHash": passage["bindingHash"],
+                "action": "KEEP",
+                "note": "현재 판매 설정과 내용 일치 확인",
+            }
+        ],
+    )
+    assert result["passages"][0]["reviewPending"] is False
+    assert result["modules"][0]["texts"][0]["value"] == quote
+    assert set(result) >= {"modules", "passages"}
+    assert not {"price", "shippingFee", "saleSettings"}.intersection(result)

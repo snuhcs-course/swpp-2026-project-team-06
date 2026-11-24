@@ -72,10 +72,27 @@ with get_sessionmaker()() as db,db.begin():
   expect(state.plan.modules.flatMap((m:any)=>m.texts.map((t:any)=>t.value))).toContain(warmCopy);
   const date=state.plan.passages.find((p:any)=>p.originalValue===originalDate);
   const priced=state.plan.passages.find((p:any)=>p.originalValue===price);
-  expect(date.status).toBe("PENDING");expect(priced.status).toBe("BLOCKED");
+  expect(date.reviewPending).toBe(true);expect(priced.reviewPending).toBe(true);
+  expect(date.includedInDraft).toBe(true);expect(priced.includedInDraft).toBe(true);
+  const draftTexts = state.plan.modules.flatMap((m:any)=>m.texts.map((t:any)=>t.value));
+  expect(draftTexts).toContain(originalDate);expect(draftTexts).toContain(price);
+  expect(date.reviewExplanations.length).toBeGreaterThan(0);
   await loginProducer(page,"강영수");await page.goto(`${producerUrl}/products/${pid}/detail`);
   const panel=page.getByTestId("source-copy-review");await expect(panel).toBeVisible();
-  const farmAdd=page.getByRole("button",{name:"농가 이야기 추가",exact:true});if(await farmAdd.isVisible())await farmAdd.click();
+  const farmAdd=page.getByRole("button",{name:"농가 이야기 추가",exact:true});if(await farmAdd.isVisible()) { await farmAdd.click(); await expect(farmAdd).not.toBeVisible(); }
+  await expect(panel.getByText(/자료의 문구를 비공개 초안에 담았어요/)).toBeVisible();
+  const initialSave = page.waitForResponse((r) => r.url() === `${base}/editor` && r.request().method() === "PUT");
+  await page.getByRole("button",{name:"임시 저장",exact:true}).click();
+  const initialResponse = await initialSave;
+  expect(initialResponse.ok(), await initialResponse.text()).toBeTruthy();
+  const initialBody = initialResponse.request().postDataJSON();
+  expect(initialBody.targets.find((t:any)=>t.targetId===tid).enabledModuleIds).toContain("farmStory");
+  await expect(page.getByText(/비공개로 저장했어요|저장했어요. 구매자에게는/)).toBeVisible();
+  await page.reload();await expect(panel).toBeVisible();
+  const unreviewed=await (await request.get(`${base}/source-copy?targetId=${tid}`,{headers})).json();
+  expect(unreviewed.plan.modules.flatMap((m:any)=>m.texts.map((t:any)=>t.value))).toContain(originalDate);
+  expect(unreviewed.plan.modules.flatMap((m:any)=>m.texts.map((t:any)=>t.value))).toContain(price);
+  expect((await (await request.get(`${apiUrl}/api/products/${pid}`)).json()).moduleDetail).toEqual(before.moduleDetail);
   const card=page.getByTestId(`source-copy-passage-${date.id}-OWNER_CONFIRMATION`);
   await expect(card).toBeVisible();await card.getByRole("button",{name:"직접 수정",exact:true}).click();
   await card.getByLabel("사용할 문구",{exact:true}).fill(confirmedDate);
@@ -89,6 +106,7 @@ with get_sessionmaker()() as db,db.begin():
   expect(checked.plan.passages.find((p:any)=>p.originalValue===price).status).toBe("EXCLUDED");
   expect((await (await request.get(`${apiUrl}/api/products/${pid}`)).json()).moduleDetail).toEqual(before.moduleDetail);
   await page.getByRole("button",{name:"임시 저장",exact:true}).click();
+  await expect(page.getByText(/비공개로 저장했어요|저장했어요. 구매자에게는/)).toBeVisible();
   await page.reload();await expect(panel).toBeVisible();
   const saved=await (await request.get(`${base}/source-copy?targetId=${tid}`,{headers})).json();
   expect(saved.plan.passages.find((p:any)=>p.originalValue===originalDate).decision.action).toBe("EDIT");
