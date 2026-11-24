@@ -1,5 +1,4 @@
 import {
-  ApiError,
   isNativeFile,
   sourceAnalysis as api,
   uploadSource,
@@ -11,6 +10,7 @@ import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Image, Pressable, TextInput, View } from "react-native";
 import { chooseSourceFiles, type PickedFile } from "./sourceFiles";
 import { sourcePhotoUrl } from "./sourcePhoto";
+import { initialThumb, loadThumb, type ThumbState } from "./sourceThumb";
 function Tile({
   batch,
   targets,
@@ -46,9 +46,9 @@ function Tile({
   const [uri, setUri] = useState(""),
     [text, setText] = useState("");
   // 썸네일 상태(DEV-477): 받는 중 · 받음 · 없음(아직 페이지가 없거나 서버에 그림이 없음) · 실패
-  const [thumb, setThumb] = useState<"loading" | "ready" | "none" | "failed">(
-    "none",
-  );
+  // 처음 값도 같은 규칙으로 정한다: 받을 쪽이 있으면 처음부터 '받는 중'(면색 칸). 'none'으로 시작하면
+  // 첫 화면에 'PDF · n쪽' 칸이 한 번 그려졌다가 바뀌어 깜빡였다
+  const [thumb, setThumb] = useState<ThumbState>(() => initialThumb(source));
   const [focused, setFocused] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => {
@@ -68,19 +68,16 @@ function Tile({
     else if (source.pageCount) {
       setThumb("loading");
       // DEV-341: 첨부 칸은 작은 사본(짧은 변 480px JPEG)만 받는다. 옮겨 온 사진은 자기 주소(DEV-346)
-      sourcePhotoUrl({ id: batch, targets }, source, "thumb")
-        .then((u) => {
-          url = u;
-          if (active) {
-            setUri(u);
-            setThumb("ready");
-          } else URL.revokeObjectURL(u);
-        })
-        .catch((e) => {
-          // 받기 실패와 '그림이 없음'(404)을 나눈다. 예전에는 조용히 넘어가 '준비 중'이 계속 남았다
-          if (active)
-            setThumb(e instanceof ApiError && e.status === 404 ? "none" : "failed");
-        });
+      // 받기 실패와 '그림이 없음'(404)을 나눈다. 예전에는 실패를 조용히 삼켜 '준비 중'이 계속 남았다(DEV-477)
+      void loadThumb(() =>
+        sourcePhotoUrl({ id: batch, targets }, source, "thumb"),
+      ).then((r) => {
+        url = r.uri;
+        if (active) {
+          setUri(r.uri);
+          setThumb(r.thumb);
+        } else if (r.uri) URL.revokeObjectURL(r.uri);
+      });
     } else setThumb("none");
     return () => {
       active = false;
