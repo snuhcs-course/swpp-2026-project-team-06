@@ -145,6 +145,7 @@ export type ProductRec = {
   updatedAt: string;
 };
 export type NewsRec = {
+  emoticonId?: import("../emoticons").EmoticonId | null;
   replyTo?: {senderType: string; body: string} | null;
   editedAt?: string | null; editVersion?: number;
   broadcastId: string;

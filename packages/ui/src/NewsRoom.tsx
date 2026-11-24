@@ -1,3 +1,6 @@
+import type { EmoticonId } from "@farmclub/api";
+import { EmoticonImage, EmoticonMessage } from "./Emoticon";
+import { useComposerTools } from "./ComposerTools";
 import { MessageEditSheet } from "./MessageEditSheet";
 import {
   createElement,
@@ -28,7 +31,7 @@ import { inBackground } from "./foreground";
 import { chatDay, seoulDay, time, won } from "./format";
 import { chatGroups } from "./chatGroups";
 import { ProfileAvatar } from "./Messenger";
-import { Composer, copyToClipboard, FloatingPill, ToolChip } from "./composer";
+import { Composer, copyToClipboard, FloatingPill } from "./composer";
 import { AttachedPhotoRow, PrivatePhoto, ViewablePhoto, usePhotoAttach } from "./PrivatePhotos";
 import type { PickedPhoto } from "./pickPhoto";
 import { Price, type ShelfProduct } from "./Storefront";
@@ -47,6 +50,7 @@ type Message = {
   senderName: string;
   senderRole: string;
   body: string;
+  emoticonId?: EmoticonId | null;
   photos: string[];
   videos: string[];
   createdAt: string;
@@ -81,7 +85,7 @@ type Props = {
     key: string,
     replyToMessageId?: string,
     replyToVersion?: number,
-    extra?: { broadcastId?: string; attachmentIds?: string[] },
+    extra?: { broadcastId?: string; attachmentIds?: string[]; emoticonId?: EmoticonId },
   ) => Promise<Message>;
   /** 소비자: 답장 사진 올리기(1:1과 같은 비공개 사진, DEV-467). 있으면 입력칸 왼쪽 ‘+’ */
   upload?: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
@@ -219,6 +223,7 @@ export function NewsRoom({
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [body, setBody] = useState("");
+  const [selectedEmoticon, setSelectedEmoticon] = useState<EmoticonId>();
   const [busy, setBusy] = useState(false);
   const [older, setOlder] = useState(false);
   const [unseen, setUnseen] = useState(false);
@@ -279,7 +284,7 @@ export function NewsRoom({
       alive.current = false;
     };
   }, []);
-  useEffect(() => { if (!active) { accessEpoch.current++; setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setPhotoIds([]); setReplySheet(null); } }, [active]);
+  useEffect(() => { if (!active) { accessEpoch.current++; setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setPhotoIds([]); setSelectedEmoticon(undefined); setReplySheet(null); } }, [active]);
   /** 새로고침 응답이 덮는 범위(가장 오래된 항목 이후, complete면 전부)에서 응답에 없는 방송은 지워진 것이다(M-23).
    * 답장은 지우지 않는다. 내가 막 보내 아직 응답에 나온 적 없는 소식(fresh)은 늦게 온 응답이 지우지 않게 남긴다 */
   const reconcile = (items: Message[], complete: boolean) => {
@@ -332,7 +337,7 @@ export function NewsRoom({
         if (cancelled) return;
         if (access.current !== page.room.canReply) {
           accessEpoch.current++;
-          setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setPhotoIds([]);
+          setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setPhotoIds([]); setSelectedEmoticon(undefined);
           access.current = page.room.canReply;
           setCanReply(page.room.canReply);
           setMessages([]);
@@ -377,7 +382,7 @@ export function NewsRoom({
             [401, 403, 404].includes(Number(e.status))
           ) {
             accessEpoch.current++;
-            setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setPhotoIds([]);
+            setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplyPost(null); setPhotoIds([]); setSelectedEmoticon(undefined);
             access.current = null;
             setCanReply(false);
             setMessages([]);
@@ -415,7 +420,7 @@ export function NewsRoom({
     }
   }
   function submit() {
-    if ((!body.trim() && !photoIds.length) || uploading || sending.current) return;
+    if ((!body.trim() && !photoIds.length && !selectedEmoticon) || uploading || sending.current) return;
     if (producer) {
       setSheetError("");
       setConfirming(true);
@@ -424,29 +429,28 @@ export function NewsRoom({
     void deliver();
   }
   async function deliver() {
-    const text = body.trim();
-    const ids = producer ? [] : photoIds;
-    if ((!text && !ids.length) || sending.current) return;
+    const emoji = selectedEmoticon;
+    const text = emoji ? "" : body.trim();
+    const ids = producer || emoji ? [] : photoIds;
+    if ((!text && !ids.length && !emoji) || sending.current) return;
     const epoch = accessEpoch.current;
     sending.current = true;
     setBusy(true);
     setError("");
     const replyVersion = replyTarget ? replyTarget.editVersion ?? 0 : undefined;
     // 같은 글·인용·고른 소식·사진이면 같은 멱등 키로 다시 보낸다
-    const scope = JSON.stringify({ text, post: replyPost?.broadcastId ?? null, ids });
+    const scope = JSON.stringify({ text, post: replyPost?.broadcastId ?? null, ids, emoji });
     if (pending.current?.body !== scope || pending.current?.replyId !== replyTarget?.messageId || pending.current?.replyVersion !== replyVersion)
       pending.current = { body: scope, replyId: replyTarget?.messageId, replyVersion, key: makeKey() };
     try {
       const message = await send(text, pending.current.key, pending.current.replyId, pending.current.replyVersion,
-        producer ? undefined : { broadcastId: replyPost?.broadcastId ?? undefined, attachmentIds: ids });
+        { emoticonId: emoji, ...(!producer ? { broadcastId: replyPost?.broadcastId ?? undefined, attachmentIds: ids } : {}) });
       if (!alive.current || epoch !== accessEpoch.current) return;
       nearBottom.current = true;
       if (message.broadcastId) fresh.current.add(message.messageId);
       merge([message]);
-      setBody("");
-      setReplyTarget(null);
-      setReplyPost(null);
-      setPhotoIds([]);
+      if (emoji) setSelectedEmoticon(undefined);
+      else { setBody(""); setPhotoIds([]); setReplyTarget(null); setReplyPost(null); }
       pending.current = null;
       if (producer) {
         setConfirming(false);
@@ -484,6 +488,12 @@ export function NewsRoom({
       if (alive.current) setBusy(false);
     }
   }
+  const tools = useComposerTools({
+    selected: selectedEmoticon, onSelect: setSelectedEmoticon, onSend: submit,
+    disabled: !active || !canReply || !ready || busy || uploading,
+    onPhoto: producer ? onAttach : upload && loadPhoto ? attach.open : undefined,
+    photoLabel: producer ? "사진·영상" : "사진", photoDisabled: !producer && attach.full,
+  });
   /** 팔로워가 맨 아래(가장 최근 소식이 보이는 위치)에 있으면 그 소식까지 읽음을 남긴다(DEV-297, AC-15-9).
    * 팔로우를 끊은 방·비로그인·생산자는 부르지 않는다. 실패는 알리지 않고 다음 기회에 다시 보낸다 */
   function markSeen() {
@@ -543,7 +553,8 @@ export function NewsRoom({
     setTarget(null);
     setRemoving(false);
     if (rewrite) {
-      setBody(m.body);
+      if (m.emoticonId) setSelectedEmoticon(m.emoticonId);
+      else { setSelectedEmoticon(undefined); setBody(m.body); }
       pending.current = null;
       notify?.("소식을 삭제했어요 · 고쳐서 다시 보내 주세요");
       setTimeout(() => input.current?.focus(), 0);
@@ -728,7 +739,7 @@ export function NewsRoom({
                 ? producer ? "팔로워의 답장 · 이름은 가려져요" : "팔로워의 답장"
                 : "농가에게 답장") : undefined}
               edited={!!m.editedAt}
-              text={m.body}
+              text={m.emoticonId ? "" : m.body}
               avatar={mine ? undefined : m.senderRole === "PRODUCER"
                 ? <ProfileAvatar uri={farmPhoto} name={m.senderName || farmName} size={BUBBLE_AVATAR} />
                 : <ProfileAvatar name={m.senderName} size={BUBBLE_AVATAR} />}
@@ -744,6 +755,7 @@ export function NewsRoom({
                 ) : undefined
               }
             >
+              {m.emoticonId ? <EmoticonMessage id={m.emoticonId} /> : null}
               {[...m.photos, ...m.videos].map((uri) =>
                 VIDEO.test(uri) ? (
                   <RoomMedia key={uri} uri={uri} />
@@ -805,16 +817,11 @@ export function NewsRoom({
             editable={ready && !busy}
             maxLength={producer ? 2000 : 1000}
             onSend={submit}
-            canSend={ready && !uploading && (!!body.trim() || (!producer && photoIds.length > 0))}
+            canSend={ready && !uploading && (!!selectedEmoticon || !!body.trim() || (!producer && photoIds.length > 0))}
             busy={busy}
-            // 소비자 답장 사진(1:1과 같은 ‘+’ 도구, DEV-467). 생산자는 아래 ‘사진·영상’ 칩
-            tool={!producer && upload && loadPhoto ? {
-              icon: "plus",
-              label: "사진 첨부",
-              onPress: attach.open,
-              disabled: !ready || busy || uploading || attach.full,
-            } : undefined}
+            tool={tools.tool}
             above={<>
+              {tools.above}
               {replyPost ? (
                 // 고른 소식(DEV-467). 답장은 그 소식에 붙고 농가만 본다
                 <View testID="room-reply-post" style={{flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent}}>
@@ -843,18 +850,9 @@ export function NewsRoom({
                 <View style={{flex: 1}}><T variant="caption" muted>소비자에게 답장 · 모든 팔로워에게 보여요</T><T numberOfLines={2}>{quotePreview(replyTarget.body)}</T></View>
                 <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTarget(null)} style={{width: 44, height: 44, alignItems: "center", justifyContent: "center"}}><Icon name="close" size={18} /></Pressable>
               </View> : null}
-              {onAttach ? (
-                // '+' 글자 대신 도구 칩(Figma 7:90)
-                <ToolChip
-                  icon="photo"
-                  label="사진·영상"
-                  accessibilityLabel="사진·영상 소식 첨부"
-                  onPress={onAttach}
-                  disabled={!ready || busy}
-                />
-              ) : null}
             </>}
           />
+          {tools.below}
         </View>
       ) : lapsed ? (
         // 예전 팔로워는 강조색 버튼 대신 잠긴 입력칸(DEV-230). 다시 팔로우는 띠·헤더에서
@@ -900,7 +898,7 @@ export function NewsRoom({
             const text = menuTarget.body;
             void copyToClipboard(text, copy).then(ok => { if (ok && alive.current) setCopied(true); });
           }}] : []),
-          ...(menuTarget && edit && menuTarget.senderId === userId ? [{label: "수정", onPress: () => setEditTarget(menuTarget)}] : []),
+          ...(menuTarget && edit && !menuTarget.emoticonId && menuTarget.senderId === userId ? [{label: "수정", onPress: () => setEditTarget(menuTarget)}] : []),
           ...(menuTarget?.broadcastId && remove && producer ? [{label: "삭제·다시 쓰기", onPress: () => { if (menuTarget) openMenu(menuTarget); }}] : []),
           ...(menuTarget?.senderRole === "CONSUMER" && producer ? [{label: "답장", onPress: () => { setReplyTarget(menuTarget); setTimeout(() => input.current?.focus(), 0); }}] : []),
           ...(menuTarget?.senderRole === "CONSUMER" && producer && onPrivateReply ? [{label: "1:1 채팅", onPress: () => { if (menuTarget) onPrivateReply(menuTarget.senderId, menuTarget.messageId); }}] : []),
@@ -962,12 +960,13 @@ export function NewsRoom({
             head={farmName}
             meta="팔로워만 · 소비자에게 이렇게 보여요"
             body={body.trim()}
+            emoticonId={selectedEmoticon}
           />
           <T variant="sub">
             {recipientCount === 0
               ? "새로 팔로우하는 분이 이 소식을 보게 돼요. "
               : ""}
-            보낸 소식의 본문은 수정하거나 삭제할 수 있어요.
+            {selectedEmoticon ? "보낸 이모티콘 소식은 삭제할 수 있어요." : "보낸 소식의 본문은 수정하거나 삭제할 수 있어요."}
           </T>
           {sheetError ? (
             <View accessibilityRole="alert">
@@ -1168,7 +1167,7 @@ function NewsCard({
           {videos.map((uri) => <RoomMedia key={uri} uri={uri} />)}
         </View>
       ) : null}
-      {m.body ? (
+      {m.emoticonId ? <View style={{ alignItems: "center" }}><EmoticonMessage id={m.emoticonId} /></View> : m.body ? (
         <View style={{ paddingHorizontal: 16, paddingTop: media ? 12 : 0 }}>
           <T variant="body">{m.body}</T>
         </View>
@@ -1273,10 +1272,12 @@ function NewsPreview({
   head,
   meta,
   body,
+  emoticonId,
 }: {
   head: string;
   meta: string;
   body: string;
+  emoticonId?: EmoticonId;
 }) {
   return (
     <View
@@ -1297,7 +1298,7 @@ function NewsPreview({
           {meta}
         </T>
       </View>
-      <T variant="sub">{body}</T>
+      {emoticonId ? <EmoticonImage id={emoticonId} size={112} /> : <T variant="sub">{body}</T>}
     </View>
   );
 }
