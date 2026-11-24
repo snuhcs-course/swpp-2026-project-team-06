@@ -292,12 +292,8 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
         fields["optionId"] = "옵션을 골라 주세요"
     if fields:
         raise invalid(fields)
-    if not 1 <= body.quantity <= p.max_quantity_per_order:
-        raise conflict(
-            "QUANTITY_LIMIT",
-            f"한 번에 최대 {p.max_quantity_per_order}개까지 예약할 수 있어요.",
-            maxQuantity=p.max_quantity_per_order,
-        )
+    if body.quantity < 1:
+        raise invalid({"quantity": "1 이상의 정수로 입력해 주세요"})
     stage = catalog.current_stage(item)
     expected = {
         "stageId": body.expected_stage_id,
@@ -866,7 +862,7 @@ def confirm_deposit(
         raise conflict("INVALID_TRANSITION", "입금 기한이 지나 취소된 주문이에요.")
     if order.status != "AWAITING_DEPOSIT":
         raise conflict("INVALID_TRANSITION", "입금 대기 주문만 확인할 수 있어요.")
-    order.status = "RESERVED"
+    order.status = "PREPARING"
     order.paid_at = now()
     order.deposit_confirmed_by = confirmed_by
     order.deposit_issue = None
@@ -1045,6 +1041,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         option_label=option.label if option else "",
         quantity=order.quantity,
         status=order.status,
+        delivery_window=DateRange(start=order.delivery_start, end=order.delivery_end),
         delivery_note=None if hide else order.delivery_note,
         carrier=order.carrier,
         tracking_number=order.tracking_number,
@@ -1074,7 +1071,7 @@ def producer_tracking_response(db: Session, farm_id: str, order_id: str, respons
         by_alias=True,
         include={
             "recipient_name", "recipient_phone", "postal_code", "address", "address_detail",
-            "delivery_note",
+            "delivery_note", "delivery_window",
         },
     )
     return response | shipping

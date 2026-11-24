@@ -105,7 +105,7 @@ def test_AC_11_3_refundable_balance_includes_delivery_fees(client, admin_headers
     )
 
     assert first.status_code == 200
-    assert first.json()["status"] == "RESERVED"
+    assert first.json()["status"] == "PREPARING"
     assert final.status_code == 200
     assert sum(row.amount for row in refund_rows("o-42")) == total
 
@@ -161,7 +161,7 @@ def test_AC_11_3_excessive_or_zero_refund_has_no_partial_writes(client, admin_he
     with get_sessionmaker()() as session:
         order = session.get(Order, "o-42")
         payment = session.scalar(select(Payment).where(Payment.order_id == order.id))
-        assert order.status == "RESERVED"
+        assert order.status == "PREPARING"
         assert payment.status == "APPROVED"
 
 

@@ -249,7 +249,7 @@ for (const width of [360, 390, 430]) {
       await page.getByLabel("5kg 가격", { exact: true }).fill("28000");
       await page.getByLabel("5kg 박스 수", { exact: true }).fill("40");
       await page.getByLabel("판매할 총 물량", { exact: true }).fill("300");
-      await page.getByLabel("한 주문 최대", { exact: true }).fill("3");
+      await expect(page.getByLabel("한 주문 최대", { exact: true })).toHaveCount(0);
       await page.getByRole("button", { name: "구매자 화면 보기", exact: true }).click();
       const preview = page.getByTestId("buyer-preview");
       await expect(preview).toBeVisible();

@@ -158,7 +158,7 @@ export default function KakaoCallback() {
         <EmptyState
           icon="alert"
           title={failed}
-          body="테스트 계정 로그인으로도 계속할 수 있어요."
+          body="로그인 화면에서 아이디로 로그인할 수 있어요."
           action={
             <View style={{ gap: 8, alignItems: "center", marginTop: 12 }}>
               <Button

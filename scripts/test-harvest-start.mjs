@@ -22,6 +22,8 @@ const api = (method, path, token, body, key = `harvest-test-${++seq}`) =>
   });
 async function producer() {
   reset();
+  // Paid reservations from a pre-migration installation exercise the legacy endpoints.
+  for (const id of ["o-42", "o-r0", "o-r1", "o-11"]) db().orders[id].status = "RESERVED";
   const r = await api("POST", "/api/auth/test-login", null, { userId: "u-kang", app: "producer" });
   return r.body.accessToken;
 }

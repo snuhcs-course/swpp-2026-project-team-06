@@ -137,9 +137,9 @@ def consent_required(db: Session, user: User) -> bool:
     """지금 버전의 필수 동의가 빠졌는가(DEV-113, AC-01-17·18).
 
     소비자는 약관·개인정보·만 14세, 생산자는 약관·개인정보. 동의했어도 버전이
-    `CONSENT_VERSION`이 아니면 다시 받는다. 테스트 계정과 운영자는 항상 false.
+    `CONSENT_VERSION`이 아니면 다시 받는다. ID 자격 증명이 없는 테스트 계정과 운영자는 false.
     """
-    if user.is_test_account or user.role not in ("CONSUMER", "PRODUCER"):
+    if (user.is_test_account and not user.username) or user.role not in ("CONSUMER", "PRODUCER"):
         return False
     required = REQUIRED_CONSENTS if user.role == "CONSUMER" else REQUIRED_PRODUCER_CONSENTS
     agreed = {
@@ -283,7 +283,7 @@ def test_accounts(db: Session, app: str) -> list[TestAccount]:
     result = []
     for uid in TEST_ACCOUNTS[app]:
         user = users.get(uid)
-        if user is None or not user.is_test_account:
+        if user is None or not user.is_test_account or user.uat_closed_at is not None:
             continue
         farm = farms.get_farm_of_producer(db, uid)
         result.append(
@@ -302,7 +302,7 @@ def test_login(db: Session, user_id: str, app: str) -> LoginResult:
     """시드 테스트 계정만 로그인한다. 새 계정은 만들지 않는다(AC-01-4)."""
     _require_mock_login()
     user = get_user(db, user_id)
-    if user is None or not user.is_test_account:
+    if user is None or not user.is_test_account or user.uat_closed_at is not None:
         raise not_found("테스트 계정이 아니에요.")
     if user.role != APP_ROLE[app]:
         raise forbidden("이 앱의 계정이 아니에요.", reason="WRONG_APP")
@@ -449,6 +449,8 @@ def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> KakaoLog
             }
         )
         return KakaoLoginResult(signup=KakaoSignup(signup_token=token, email=email or None))
+    if user.uat_closed_at is not None:
+        raise _invalid_login()
     if profile.email.strip():
         user.email = profile.email.strip()[:200]
     if not user.name.strip() and profile.name.strip():
@@ -506,6 +508,8 @@ def kakao_signup(db: Session, data: KakaoSignupInput) -> LoginResult:
             from app.messaging.support import ensure_consumer_support
 
             ensure_consumer_support(db, user.id)
+    if user.uat_closed_at is not None:
+        raise _invalid_login()
     save_consents(db, user, ConsentsInput(consents=data.consents))
     return _login_result(db, user)
 
@@ -610,7 +614,8 @@ def password_login(db: Session, data: PasswordLoginInput) -> LoginResult:
     if passwords.USERNAME_RE.fullmatch(username):
         row = db.execute(
             select(User.id, User.password_hash).where(
-                User.username == username, User.role == role, User.deleted_at.is_(None)
+                User.username == username, User.role == role, User.deleted_at.is_(None),
+                User.uat_closed_at.is_(None),
             )
         ).first()
         if row is not None:
@@ -639,7 +644,7 @@ def password_login(db: Session, data: PasswordLoginInput) -> LoginResult:
             new_hash = candidate
     user = db.get(User, user_id)
     # 검증한 뒤 비밀번호가 바뀌었거나 탈퇴했으면 이 로그인은 받지 않는다
-    stale = user is None or user.deleted_at is not None
+    stale = user is None or user.deleted_at is not None or user.uat_closed_at is not None
     if stale or user.password_hash not in (old_hash, new_hash):
         db.rollback()
         raise _invalid_login()
@@ -709,6 +714,46 @@ def issue_temporary_password(db: Session, user: User) -> str:
     user.must_change_password = True
     user.token_version += 1
     db.flush()
+    return value
+
+
+def provision_id_credentials(db: Session, user: User, username: str) -> str:
+    """기존 UAT 시드 생산자에 ID 로그인만 붙인다(DEV-439).
+
+    호출자는 User 행을 잠그고 기존 farm link 존재를 확인한다. 이 함수는 user.id, role,
+    test 분류, farm/product/order 데이터는 바꾸지 않는다. 평문은 호출자에게 한 번만 돌려준다.
+    """
+    if (
+        user.deleted_at is not None
+        or not user.is_test_account
+        or user.role != "PRODUCER"
+        or user.kakao_id is not None
+    ):
+        raise conflict(
+            "NOT_ELIGIBLE_PRODUCER",
+            "기존 UAT 생산자 계정만 아이디 로그인을 설정할 수 있어요.",
+        )
+    if user.username is not None or user.password_hash is not None:
+        raise conflict(
+            "ID_CREDENTIALS_ALREADY_PROVISIONED",
+            "이미 아이디 로그인이 설정된 계정이에요.",
+        )
+
+    normalized = passwords.normalize_username(username)
+    if error := passwords.username_error(normalized):
+        raise invalid({"username": error})
+    if _password_user(db, normalized, user.role) is not None:
+        raise invalid({"username": "이미 쓰는 아이디예요"})
+
+    value = passwords.temporary_password()
+    user.username = normalized
+    user.password_hash = passwords.hash_password(value)
+    user.must_change_password = True
+    user.token_version += 1
+    try:
+        db.flush()
+    except IntegrityError:
+        raise invalid({"username": "이미 쓰는 아이디예요"}) from None
     return value
 
 

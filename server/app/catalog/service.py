@@ -255,6 +255,7 @@ def my_stage_views(db: Session, item: Loaded) -> list[MyStageView]:
         views.append(
             MyStageView(
                 **view.model_dump(),
+                has_orders=any(by.values()),
                 reserved_order_count=by.get("RESERVED", 0),
                 awaiting_order_count=by.get("AWAITING_DEPOSIT", 0),
                 preparing_order_count=by.get("PREPARING", 0),
@@ -1212,7 +1213,8 @@ def update_sales_settings(
     # 상한을 먼저 바꾸는 저장까지 막으면 물량을 늘릴 길이 없어진다(DEV-344).
     resuming = p.sales_paused and not body.sales_paused
     p.sales_limit_grams = body.sales_limit_grams
-    p.max_quantity_per_order = body.max_quantity_per_order
+    if body.max_quantity_per_order is not None:
+        p.max_quantity_per_order = body.max_quantity_per_order
     p.sales_paused = body.sales_paused
     p.version += 1
     p.updated_at = now()

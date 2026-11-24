@@ -487,7 +487,7 @@ export const termsOfService: LegalDoc = {
           list: [
             "소비자는 상품 상세에서 옵션과 수량을 고르고, 주문서에서 받는 사람·연락처·주소를 입력해 예약합니다. 배송지는 주문마다 1곳입니다.",
             "예약 전에 받는 시기, 출하가 늦어질 때의 전액 환불, 흉작·수량 부족 때의 처리, 취소·반품 조건을 보여 주고 항목마다 동의를 받습니다. 회사는 동의 시각과 동의한 문구의 버전을 기록합니다.",
-            "한 주문의 최대 수량은 판매자가 상품마다 정합니다. 물량이 다 팔리면 예약할 수 없습니다.",
+            "선택한 옵션의 남은 물량만큼 예약할 수 있습니다. 물량이 다 팔리면 예약할 수 없습니다.",
             "예약한 때의 가격으로 확정되며, 이후 가격이 바뀌어도 이미 예약한 주문의 가격은 바뀌지 않습니다.",
             "배송비는 상품마다 무료배송 또는 별도 부과로 표시하고, 도서산간 지역 추가 운임은 주문서에서 결제 전에 보여 줍니다.",
           ],
@@ -653,9 +653,19 @@ export const WITHDRAW_REMOVED: Record<AppRole, string[]> = {
   ],
 };
 
-/** 회원 탈퇴 시트의 ‘남는 것’ 한 줄 */
-export const WITHDRAW_KEPT =
-  "법으로 보관해야 하는 주문·입금·환불 기록과 주문 문의, 약관 동의 기록은 정해진 기간 동안 따로 보관해요. 농가·소비자에게는 ‘탈퇴한 회원’으로 보여요.";
+/** 탈퇴 뒤 남은 기록이 상대에게 어떻게 보이는지(앱별, DEV-434). 회원 탈퇴 시트와 계정 삭제 안내가 같이 쓴다.
+ * 소비자가 탈퇴하면 농가 화면에 '탈퇴한 회원'(accounts.public_name). 생산자가 탈퇴하면 농가는 이름을 둔 채 숨김(SUSPENDED)이라
+ * 소비자의 지난 주문에는 농가 이름이 남고, 농가 페이지·소식방·채팅은 소비자 화면에서 빠진다 */
+export const WITHDRAWN_SEEN_AS: Record<AppRole, string> = {
+  CONSUMER: "농가에게는 ‘탈퇴한 회원’으로 보여요.",
+  PRODUCER: "소비자의 지난 주문에는 농가 이름이 그대로 남아요.",
+};
+
+/** 회원 탈퇴 시트의 ‘남는 것’ 한 줄(앱별, DEV-434). 앞부분은 두 앱이 같고 뒷부분은 WITHDRAWN_SEEN_AS */
+export const WITHDRAW_KEPT: Record<AppRole, string> = {
+  CONSUMER: `법으로 보관해야 하는 주문·입금·환불 기록과 주문 문의, 약관 동의 기록은 정해진 기간 동안 따로 보관해요. ${WITHDRAWN_SEEN_AS.CONSUMER}`,
+  PRODUCER: `법으로 보관해야 하는 주문·입금·환불 기록과 주문 문의, 약관 동의 기록은 정해진 기간 동안 따로 보관해요. ${WITHDRAWN_SEEN_AS.PRODUCER}`,
+};
 
 /** 로그인 없이 열리는 계정 삭제 안내(DEV-423, Google Play 계정 삭제 URL). 정적 HTML만 있다(scripts/legal-pages.mjs) */
 export const ACCOUNT_DELETION_PATH = "/account-deletion";
@@ -744,11 +754,8 @@ export function accountDeletionPage(role: AppRole, info: BusinessInfo = business
     removedTitle: "바로 지우는 정보",
     removed: WITHDRAW_REMOVED[role],
     keptTitle: "보관하는 정보와 기간",
-    // 소비자가 탈퇴하면 농가 화면에 '탈퇴한 회원'(accounts.public_name). 생산자가 탈퇴하면 농가는 이름을 둔 채 숨김(SUSPENDED)이라
-    // 소비자의 지난 주문에는 농가 이름이 남고, 농가 페이지·소식방·채팅은 소비자 화면에서 빠진다
-    kept: `거래 기록·주문 문의·동의 기록 등 아래 표의 정보만 회원과 분리해 보관하고, 기간이 지나면 파기해요. ${
-      consumer ? "농가에게는 ‘탈퇴한 회원’으로 보여요." : "소비자의 지난 주문에는 농가 이름이 그대로 남아요."
-    }`,
+    // 남은 기록이 상대에게 보이는 모습은 탈퇴 시트와 같은 문장(WITHDRAWN_SEEN_AS)
+    kept: `거래 기록·주문 문의·동의 기록 등 아래 표의 정보만 회원과 분리해 보관하고, 기간이 지나면 파기해요. ${WITHDRAWN_SEEN_AS[role]}`,
     retainedHead: ["정보", "보관 기간"],
     retained: retainedAfterWithdraw(),
     retainedNote: [

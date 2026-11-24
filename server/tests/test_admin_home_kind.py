@@ -59,7 +59,7 @@ def test_AC_23_11_counts_match_list_definitions(client, admin_headers, login):
     assert sent.status_code == 200, sent.text
     with get_sessionmaker()() as session, session.begin():
         record_refund_request(session, "f-kang", "thread-x", "message-x")
-        order = session.query(Order).filter(Order.status == "RESERVED").first()
+        order = session.query(Order).filter(Order.status == "PREPARING").first()
         order.status = "AWAITING_DEPOSIT"
         order.deposit_due_at = now() - timedelta(hours=1)
         order.deposit_reported_at = now() - timedelta(hours=2)

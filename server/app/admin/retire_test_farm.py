@@ -114,6 +114,10 @@ def check_retire(session: Session, farm: Farm | None, farm_id: str) -> None:
         raise RetireRefused(f"이미 숨겨진(정지된) 농가예요: {farm.suspend_reason}")
     if farm.approval_status != "APPROVED":
         raise RetireRefused(f"승인된 농가가 아니라 공개되지 않아요: {farm.approval_status}")
+    check_customer_orders(session, farm_id)
+
+
+def check_customer_orders(session: Session, farm_id: str) -> None:
     real = session.scalars(
         select(Order.consumer_id)
         .join(Product, Product.id == Order.product_id)

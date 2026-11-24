@@ -44,6 +44,7 @@ class StageView(CamelModel):
 class MyStageView(StageView):
     """생산자 예약 기간 화면용(DEV-231). 주문 수는 박스가 아니라 주문 건수다."""
 
+    has_orders: bool = False
     reserved_order_count: int = 0
     awaiting_order_count: int = 0
     preparing_order_count: int = 0
@@ -311,7 +312,7 @@ class StagesResult(CamelModel):
 
 class SalesInput(CamelModel):
     sales_limit_grams: int = Field(ge=0)
-    max_quantity_per_order: int = Field(ge=1)
+    max_quantity_per_order: int | None = Field(default=None, ge=1)
     sales_paused: bool
     version: int
 

@@ -440,7 +440,7 @@ test("AC-09-9 / AC-17-8: producer rejects deposit or refund inline with a requir
   assert.equal(seen.depositReportedAt, null);
   assert.ok(seen.actions.includes("reportDeposit"));
   const confirmed = await ok("POST", `/api/orders/${a.orderId}/confirm-deposit`, p, {});
-  assert.equal(confirmed.status, "RESERVED");
+  assert.equal(confirmed.status, "PREPARING");
   assert.equal(confirmed.depositIssue, null);
 
   const b = await ok("POST", "/api/orders", c, input());
@@ -475,4 +475,21 @@ test("AC-09-9 / AC-17-8: producer rejects deposit or refund inline with a requir
     reason: "x",
   });
   assert.equal(late.status, 409);
+});
+
+test("AC-08-2: the option stock limits a purchase above the legacy three-box cap", async () => {
+  const { c, p } = await setup();
+  const product = db().products["p-house"];
+  const option = product.stages[0].options["opt-5"];
+  option.quantity = option.reservedCount + 4;
+  const tooMany = await api("POST", "/api/orders", c, input("p-house", "opt-5", 5));
+  assert.equal(tooMany.status, 409);
+  assert.equal(tooMany.body.details.reason, "SOLD_OUT");
+  const order = await ok("POST", "/api/orders", c, input("p-house", "opt-5", 4));
+  await ok("POST", `/api/orders/${order.orderId}/deposit`, c, {});
+  const path = `/api/orders/${order.orderId}/confirm-deposit`;
+  assert.equal((await ok("POST", path, p, {})).status, "PREPARING");
+  assert.equal((await ok("POST", path, p, {})).status, "PREPARING");
+  const ready = await ok("GET", "/api/orders/producer?status=PREPARING&limit=50", p);
+  assert.deepEqual(ready.items.filter((o) => o.orderId === order.orderId).map((o) => o.deliveryWindow), [order.deliveryWindow]);
 });

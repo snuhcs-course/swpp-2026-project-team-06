@@ -83,7 +83,7 @@ def test_AC_09_12_code_stays_after_confirm_and_is_kept_for_history(client, login
     confirmed = client.post(
         f"/api/orders/{order['orderId']}/confirm-deposit", headers=login("u-kang")
     ).json()
-    assert confirmed["status"] == "RESERVED"
+    assert confirmed["status"] == "PREPARING"
     assert confirmed["depositCode"] == order["depositCode"]
 
 

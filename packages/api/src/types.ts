@@ -241,7 +241,7 @@ export type SalesState = {
 };
 export type SalesInput = {
   salesLimitGrams: number;
-  maxQuantityPerOrder: number;
+  maxQuantityPerOrder?: number;
   salesPaused: boolean;
   version: number;
 };
@@ -397,6 +397,8 @@ export type Stage = {
 
 /** 생산자 예약 기간 화면용(DEV-231). 주문 수는 박스가 아니라 주문 건수 */
 export type MyStage = Stage & {
+  /** 취소·환불을 포함해 주문 이력이 있으면 날짜 변경·삭제 불가. */
+  hasOrders: boolean;
   reservedOrderCount: number;
   awaitingOrderCount: number;
   preparingOrderCount: number;
@@ -725,6 +727,7 @@ export type Dashboard = {
 };
 
 export type ProducerOrder = Recipient & {
+  deliveryWindow: { start: ISODate; end: ISODate };
   trackingVersion: number;
   orderId: string;
   orderNo: string;
@@ -802,6 +805,8 @@ export type ChatMessage = {
   sourceRefs?: string[];
   settingsVersion?: number | null;
   needsHuman?: boolean;
+  /** 자동 전달된 소비자 질문에 열린 답장 요청이 있는지 */
+  replyRequested?: boolean;
   /** AI 근거 요약 */
   sourceSummary: string | null;
   handoffStatus: "FORWARDED" | null;

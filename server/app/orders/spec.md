@@ -7,7 +7,7 @@
 > API 원본: docs/spec/screens.md 7.2 orders
 
 ## 역할
-예약 주문, 무통장 입금 안내·확인(DEV-68), 출하 전 취소·환불(농가 송금 완료 표시), 수확 시작·출하, 배송 완료, 구매 확정. 운영자의 배송 완료·환불·입금 확인·만료 일괄.
+예약 주문, 무통장 입금 안내·확인(DEV-68), 출하 전 취소·환불(농가 송금 완료 표시), 배송 대기·출하, 배송 완료, 구매 확정. 운영자의 배송 완료·환불·입금 확인·만료 일괄.
 
 ## 구조
 - `router.py` — prefix `/orders`(앱에서는 `/api/orders`). 관리 API `/admin/orders/...`는 기능 이슈에서 추가.
@@ -24,7 +24,7 @@
 - 받는 사람·연락처·주소는 주문 시점 값을 `Order`에 복사해 저장한다. `ShippingAddress`(accounts)를 참조하지 않는다 — 저장 배송지를 나중에 바꿔도 지난 주문이 바뀌지 않게.
 - 생산자는 배송 완료 전 주문의 배송 정보만 본다(R-15, AC-17-13). 공통 생산자 주문 직렬화에서 DELIVERED·COMPLETED 또는 `delivered_at`이 있는 주문은 수령인 이름을 고정 `○○○`, 전화·우편번호·주소·상세주소를 빈 문자열, 배송 메모를 null로 반환한다. 배송 완료 뒤 환불해도 다시 노출하지 않는다. 소비자 본인·운영자 응답과 저장 원본은 유지한다.
 - 송장 수정의 `run_idempotent` 성공 응답은 현재 농가 소유를 다시 확인하고 현재 배송 정보 가림을 덮어쓴다. 송장·버전 등 비개인정보는 최초 결과 그대로다. 기존 멱등 레코드도 같은 응답 경계를 거친다(AC-17-9 개인정보 예외).
-- 생산자가 바꿀 수 있는 전이는 예약 완료 → 출하 준비(수확 시작, DEV-361부터 고른 주문 일괄 `harvest-orders`), 출하 준비 → 출하(택배사 `carrier`·송장 번호 선택)뿐이다. SHIPPED 택배사·송장 정정은 상태 전이가 아닌 별도 버전/멱등 API(AC-17-9)다. 여러 건 출하는 앱이 주문별 API를 반복하고, 서버에 일괄 API는 없다. 배송 완료는 운영자 관리 API만(R-19, AC-17-4).
+- 생산자가 바꿀 수 있는 전이는 입금 대기 → 배송 대기(생산자·운영자 입금 확인), 배송 대기 → 출하(택배사 `carrier`·송장 번호 선택)뿐이다. SHIPPED 택배사·송장 정정은 상태 전이가 아닌 별도 버전/멱등 API(AC-17-9)다. 여러 건 출하는 앱이 주문별 API를 반복하고, 서버에 일괄 API는 없다. 배송 완료는 운영자 관리 API만(R-19, AC-17-4).
 - `POST /api/orders`·`POST /api/orders/{orderId}/deposit`는 `Idempotency-Key`로 중복 처리를 막는다(AC-09-3, server/spec.md).
 - **무통장 입금(DEV-68, R-28)**: 물량은 입금 안내(`deposit`) 시점에 선점하고 주문은 `AWAITING_DEPOSIT`이 된다. `holds_stock(order)`(입금 대기 또는 `paid_at` 있음)가 물량·중량 집계의 기준이다. 입금 확인(`confirm_deposit`)은 자기 농가 생산자 또는 운영자만, 멱등이며 `paid_at`=확인 시각에 `Payment(BANK_TRANSFER/FARM_ACCOUNT)`를 만든다. 기한(`deposit_due_at` = 안내 + `DEPOSIT_DEADLINE_HOURS`)이 지난 입금 대기는 소비자 조회·취소, 생산자 목록·현황·확인 시점에 `expire_overdue_deposits`로 취소(`CANCELED`, `cancel_reason`)하고 물량을 돌려주며, 운영자 `POST /admin/orders/expire-deposits`가 일괄 처리한다. 입금 대기 취소는 환불 없이 `CANCELED`. 환불 송금은 농가가 하고 `Refund.settled_at`만 기록한다. 농가 계좌·판매자 정보는 `holds_stock`인 본인 주문 응답에서만 내려준다.
 - 다른 모듈과의 경계

@@ -169,7 +169,7 @@ def test_AC_23_2_refuses_with_pre_shipment_orders_and_no_refund(client, admin_he
     details = response.json()["details"]
     assert details["reason"] == "FARM_HAS_OPEN_ORDERS"
     statuses = {o["status"] for o in details["orders"]}
-    assert statuses == {"RESERVED", "PREPARING"}
+    assert statuses == {"PREPARING"}
     assert len(details["orders"]) == 37  # 시드 f-kang 예약 30 + 준비 7, 출고·배송 완료·환불 제외
     first = details["orders"][0]
     assert {"orderId", "orderNo", "productName", "consumerId", "totalAmount"} <= set(first)

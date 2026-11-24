@@ -70,7 +70,7 @@ def test_DEV_106_awaiting_deposit_offers_confirm_and_reflects_it(client, admin_h
     done = client.post("/admin/orders/o-g4/confirm-deposit", headers=admin_headers | key())
     assert done.status_code == 200, done.text
     after = order_of(client.get("/admin/users/u-g4", headers=admin_headers).json(), "o-g4")
-    assert after["status"] == "RESERVED" and after["depositConfirmedBy"] == "ADMIN"
+    assert after["status"] == "PREPARING" and after["depositConfirmedBy"] == "ADMIN"
     assert after["actions"] == ["refund"]
 
 

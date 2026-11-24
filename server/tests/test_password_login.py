@@ -18,10 +18,12 @@ from app.accounts import passwords, service, throttle
 from app.accounts.models import AuthThrottle, User
 from app.accounts.schemas import CONSENT_VERSION
 from app.admin.models import ManagerEvent
+from app.catalog.models import Product
 from app.core import config
 from app.core.clock import now
 from app.core.db import get_sessionmaker
 from app.core.models import IdempotencyRecord
+from app.farms.models import Farm
 
 PASSWORD = "Gamgyul-Sweet-77"
 NEW_PASSWORD = "Hallabong-Brix-14"
@@ -86,6 +88,342 @@ def _ready(client, admin_headers, username="mandarin7", app="consumer") -> tuple
 def _row(user_id: str) -> User:
     with get_sessionmaker()() as session:
         return session.get(User, user_id)
+
+
+def _seed_existing_uat_producer() -> None:
+    """기존 계정·농가·상품 관계를 만든다. provisioning 요청은 이 상태를 바꾸면 안 된다."""
+    at = now()
+    with get_sessionmaker()() as session, session.begin():
+        session.add(
+            User(
+                id="u-uat-p3",
+                kakao_id=None,
+                is_test_account=True,
+                role="PRODUCER",
+                name="UAT 생산자 3",
+                phone="010-0000-0103",
+                nickname=None,
+                email=None,
+                created_at=at,
+            )
+        )
+        session.flush()
+        session.add(
+            Farm(
+                id="f-uat-3",
+                producer_id="u-uat-p3",
+                name="UAT 농가 3",
+                region="제주 남원",
+                intro="UAT",
+                main_items="하우스 감귤",
+                contact_phone="010-0000-0103",
+                approval_status="APPROVED",
+                follower_count=0,
+                applied_at=at,
+                decided_at=at,
+            )
+        )
+        session.flush()
+        session.add(
+            Product(
+                id="p-56ef428b08",
+                farm_id="f-uat-3",
+                name="UAT 하우스 감귤 5kg",
+                status="PUBLISHED",
+                updated_at=at,
+            )
+        )
+
+
+def test_AC_01_37_DEV_439_existing_producer_gets_id_login_without_moving_farm(
+    client, admin_headers
+):
+    _seed_existing_uat_producer()
+    old = client.post("/api/auth/test-login", json={"userId": "u-uat-p3", "app": "producer"})
+    assert old.status_code == 200
+
+    provisioned = client.post(
+        "/admin/users/u-uat-p3/id-credentials",
+        json={"username": "  UatProducer3  "},
+        headers=admin_headers,
+    )
+    assert provisioned.status_code == 200, provisioned.text
+    assert provisioned.headers["cache-control"] == "no-store"
+    body = provisioned.json()
+    assert body["userId"] == "u-uat-p3" and body["username"] == "uatproducer3"
+    assert body["mustChangePassword"] is True
+    temporary = body["temporaryPassword"]
+    assert len(temporary) == 12 and passwords.password_error(temporary) is None
+    assert client.get("/api/auth/me", headers=_bearer(old)).status_code == 401
+
+    logged = _login(client, "uatproducer3", temporary, app="producer")
+    assert logged.status_code == 200, logged.text
+    headers = _bearer(logged)
+    blocked = client.get("/api/farms/me", headers=headers)
+    assert blocked.status_code == 403
+    assert blocked.json()["details"]["reason"] == "PASSWORD_CHANGE_REQUIRED"
+    changed = client.post(
+        "/api/auth/me/password",
+        json={"currentPassword": temporary, "newPassword": NEW_PASSWORD},
+        headers=headers,
+    )
+    assert changed.status_code == 200, changed.text
+    headers = _bearer(changed)
+    blocked = client.get("/api/farms/me", headers=headers)
+    assert blocked.status_code == 403
+    assert blocked.json()["details"]["reason"] == "CONSENT_REQUIRED"
+    saved = client.post(
+        "/api/auth/me/consents",
+        json={"consents": PRODUCER_CONSENTS},
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    farm = client.get("/api/farms/me", headers=headers)
+    products = client.get("/api/products/mine", headers=headers)
+    assert farm.status_code == 200 and farm.json()["farmId"] == "f-uat-3"
+    assert products.status_code == 200
+    assert [p["productId"] for p in products.json()["items"]] == ["p-56ef428b08"]
+
+    with get_sessionmaker()() as session:
+        user = session.get(User, "u-uat-p3")
+        linked_farm = session.get(Farm, "f-uat-3")
+        product = session.get(Product, "p-56ef428b08")
+        event = session.scalar(
+            select(ManagerEvent).where(ManagerEvent.event_type == "user.id_credentials_provisioned")
+        )
+        stored = [
+            json.dumps([e.original_body, e.request_summary, e.result], ensure_ascii=False)
+            for e in session.scalars(select(ManagerEvent))
+        ] + [
+            json.dumps(row.response, ensure_ascii=False)
+            for row in session.scalars(select(IdempotencyRecord))
+        ]
+        assert user.id == "u-uat-p3" and user.role == "PRODUCER" and user.is_test_account
+        assert user.username == "uatproducer3" and user.password_hash.startswith("$argon2id$")
+        assert temporary not in user.password_hash
+        assert linked_farm.producer_id == "u-uat-p3" and linked_farm.approval_status == "APPROVED"
+        assert product.farm_id == "f-uat-3" and product.status == "PUBLISHED"
+        assert event.actor_id == "u-admin" and event.target_id == "u-uat-p3"
+        assert event.result == {"status": "ISSUED"}
+        assert event.original_body == {} and event.request_summary == {}
+        assert not any(temporary in item for item in stored)
+
+
+def test_AC_01_37_DEV_439_invalid_and_repeated_provisioning_does_not_mutate_or_store_secret(
+    client, admin_headers
+):
+    _seed_existing_uat_producer()
+    invalid = client.post(
+        "/admin/users/u-uat-p3/id-credentials",
+        json={"username": "u-uat-p3"},
+        headers=admin_headers,
+    )
+    assert invalid.status_code == 400
+    assert _row("u-uat-p3").username is None
+
+    with get_sessionmaker()() as session, session.begin():
+        session.get(User, "u-uat-p3").role = "CONSUMER"
+    wrong_role = client.post(
+        "/admin/users/u-uat-p3/id-credentials",
+        json={"username": "uatproducer3"},
+        headers=admin_headers,
+    )
+    assert wrong_role.status_code == 409
+    assert wrong_role.json()["details"]["reason"] == "NOT_ELIGIBLE_PRODUCER"
+    assert _row("u-uat-p3").username is None
+    with get_sessionmaker()() as session, session.begin():
+        session.get(User, "u-uat-p3").role = "PRODUCER"
+
+    issued = client.post(
+        "/admin/users/u-uat-p3/id-credentials",
+        json={"username": "uatproducer3"},
+        headers=admin_headers,
+    )
+    assert issued.status_code == 200
+    secret = issued.json()["temporaryPassword"]
+    repeated = client.post(
+        "/admin/users/u-uat-p3/id-credentials",
+        json={"username": "uatproducer3"},
+        headers=admin_headers,
+    )
+    assert repeated.status_code == 409
+    assert repeated.json()["details"]["reason"] == "ID_CREDENTIALS_ALREADY_PROVISIONED"
+    assert _row("u-uat-p3").username == "uatproducer3"
+    with get_sessionmaker()() as session:
+        events = list(
+            session.scalars(
+                select(ManagerEvent).where(
+                    ManagerEvent.event_type == "user.id_credentials_provisioned"
+                )
+            )
+        )
+        assert len(events) == 1
+        payloads = [
+            json.dumps([e.original_body, e.request_summary, e.result, e.error_message])
+            for e in session.scalars(select(ManagerEvent))
+        ] + [json.dumps(row.response) for row in session.scalars(select(IdempotencyRecord))]
+        assert not any(secret in payload for payload in payloads)
+
+
+def test_AC_01_37_DEV_439_rejects_non_seed_and_non_producer_accounts(client, admin_headers):
+    for user_id in ("u-minji", "u-admin", "missing-user"):
+        response = client.post(
+            f"/admin/users/{user_id}/id-credentials",
+            json={"username": "uatproducer3"},
+            headers=admin_headers,
+        )
+        assert response.status_code in (404, 409)
+        assert "temporaryPassword" not in response.json()
+
+
+@pytest.mark.parametrize("change", ["real", "kakao", "deleted", "username", "hash", "no-farm"])
+def test_AC_01_37_DEV_439_ineligible_producer_keeps_credentials_unchanged(
+    client, admin_headers, change
+):
+    _seed_existing_uat_producer()
+    with get_sessionmaker()() as session, session.begin():
+        user = session.get(User, "u-uat-p3")
+        if change == "real":
+            user.is_test_account = False
+        elif change == "kakao":
+            user.kakao_id = "uat-kakao"
+        elif change == "deleted":
+            user.deleted_at = now()
+        elif change == "username":
+            user.username = "alreadyset"
+        elif change == "hash":
+            user.password_hash = passwords.hash_password(PASSWORD)
+        else:
+            session.delete(session.get(Product, "p-56ef428b08"))
+            session.flush()
+            session.delete(session.get(Farm, "f-uat-3"))
+    before = _row("u-uat-p3")
+    response = client.post(
+        "/admin/users/u-uat-p3/id-credentials",
+        json={"username": "uatproducer3"},
+        headers=admin_headers,
+    )
+    assert response.status_code == 409
+    assert "temporaryPassword" not in response.json()
+    after = _row("u-uat-p3")
+    assert (after.username, after.password_hash, after.token_version) == (
+        before.username,
+        before.password_hash,
+        before.token_version,
+    )
+    with get_sessionmaker()() as session:
+        assert (
+            session.scalar(
+                select(ManagerEvent).where(
+                    ManagerEvent.event_type == "user.id_credentials_provisioned"
+                )
+            )
+            is None
+        )
+
+
+def test_AC_01_37_DEV_439_only_admin_can_provision(client, login):
+    _seed_existing_uat_producer()
+    for headers, expected in (({}, 401), (login("u-minji"), 403), (login("u-kang"), 403)):
+        response = client.post(
+            "/admin/users/u-uat-p3/id-credentials",
+            json={"username": "uatproducer3"},
+            headers=headers,
+        )
+        assert response.status_code == expected
+    assert _row("u-uat-p3").username is None
+
+
+def test_AC_01_37_DEV_439_username_collision_is_atomic(client, admin_headers):
+    _created(client, admin_headers, "uatproducer3", app="producer")
+    _seed_existing_uat_producer()
+    response = client.post(
+        "/admin/users/u-uat-p3/id-credentials",
+        json={"username": "UATPRODUCER3"},
+        headers=admin_headers,
+    )
+    assert response.status_code == 400
+    assert "username" in response.json()["details"]["fields"]
+    user = _row("u-uat-p3")
+    assert user.username is None and user.password_hash is None and user.token_version == 0
+
+
+def test_AC_01_37_DEV_439_provisioning_unlocks_the_new_login(client, admin_headers):
+    _seed_existing_uat_producer()
+    for _ in range(throttle.LIMIT):
+        throttle.hit("PRODUCER:uatproducer3")
+    assert _login(client, "uatproducer3", PASSWORD, app="producer").status_code == 429
+    issued = client.post(
+        "/admin/users/u-uat-p3/id-credentials",
+        json={"username": "uatproducer3"},
+        headers=admin_headers,
+    )
+    assert issued.status_code == 200
+    assert (
+        _login(
+            client, "uatproducer3", issued.json()["temporaryPassword"], app="producer"
+        ).status_code
+        == 200
+    )
+
+
+def test_AC_01_37_DEV_439_unlock_failure_preserves_the_one_time_response(
+    client, admin_headers, monkeypatch, caplog
+):
+    _seed_existing_uat_producer()
+
+    def unavailable(*args):
+        raise RuntimeError("counter unavailable")
+
+    monkeypatch.setattr(service, "unlock_login", unavailable)
+    issued = client.post(
+        "/admin/users/u-uat-p3/id-credentials",
+        json={"username": "uatproducer3"},
+        headers=admin_headers,
+    )
+    assert issued.status_code == 200
+    temporary = issued.json()["temporaryPassword"]
+    assert passwords.verify_password(_row("u-uat-p3").password_hash, temporary)
+    assert temporary not in caplog.text
+    assert issued.headers["cache-control"] == "no-store"
+
+
+def test_AC_01_37_DEV_439_concurrent_provisioning_issues_only_once(client, admin_headers):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    _seed_existing_uat_producer()
+    start = Barrier(2)
+
+    def issue(username):
+        start.wait(timeout=5)
+        return client.post(
+            "/admin/users/u-uat-p3/id-credentials",
+            json={"username": username},
+            headers=admin_headers,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(issue, ("uatproducer3", "uatproducer4")))
+    assert sorted(r.status_code for r in responses) == [200, 409]
+    winner = next(r.json() for r in responses if r.status_code == 200)
+    user = _row("u-uat-p3")
+    assert user.username == winner["username"] and user.token_version == 1
+    assert passwords.verify_password(user.password_hash, winner["temporaryPassword"])
+    with get_sessionmaker()() as session:
+        assert (
+            len(
+                list(
+                    session.scalars(
+                        select(ManagerEvent).where(
+                            ManagerEvent.event_type == "user.id_credentials_provisioned"
+                        )
+                    )
+                )
+            )
+            == 1
+        )
+        assert session.get(Farm, "f-uat-3").producer_id == user.id
 
 
 # ---------------- AC-01-22 운영자가 아이디 계정을 만든다 ----------------

@@ -51,7 +51,10 @@ def _new_reserved(client, login, **body) -> str:
     created = client.post("/api/orders", headers=consumer | key(), json=order_body(**body))
     assert created.status_code == 200, created.text
     reserve(client, consumer, created.json()["orderId"], login=login)
-    return created.json()["orderId"]
+    order_id = created.json()["orderId"]
+    with get_sessionmaker()() as session, session.begin():
+        session.get(Order, order_id).status = "RESERVED"  # pre-migration fixture
+    return order_id
 
 
 def test_AC_17_11_harvest_start_moves_only_that_stage_reserved(client, login):
@@ -188,6 +191,7 @@ def test_AC_17_11_my_product_stage_counts_and_started(client, login):
     producer, consumer = login("u-kang"), login("u-seojun")
     waiting = client.post("/api/orders", headers=consumer | key(), json=order_body()).json()
     deposit(client, consumer, waiting["orderId"])
+    _new_reserved(client, login)
     statuses = _statuses()
     reserved = sum(1 for sid, st in statuses.values() if sid == STAGE_1 and st == "RESERVED")
     awaiting = sum(
@@ -220,6 +224,7 @@ def test_AC_14_5_harvest_todo_counts_all_reserved(client, login):
     기간별 목록(harvestTargets)은 예전 앱 호환으로 남는다.
     """
     producer = login("u-kang")
+    _new_reserved(client, login)
     reserved = sum(1 for _sid, st in _statuses().values() if st == "RESERVED")
     in_stage_1 = sum(1 for sid, st in _statuses().values() if sid == STAGE_1 and st == "RESERVED")
     assert reserved > 0 and in_stage_1 > 0

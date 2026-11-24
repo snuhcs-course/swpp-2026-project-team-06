@@ -39,9 +39,10 @@ test("DEV-289: consumer and producer quote, cancel, send, and reload replies", a
   await expect(replyAction).toHaveCount(0);
   await originalRow.click({ button: "right" });
   await expect(replyAction).toBeVisible();
-  const outsideBox = await page.getByRole("textbox", { name: "메시지", exact: true }).boundingBox();
-  expect(outsideBox).not.toBeNull();
-  await page.mouse.click(outsideBox!.x + outsideBox!.width / 2, outsideBox!.y + outsideBox!.height / 2);
+  // 메뉴가 입력창을 가릴 수 있으므로 실제 메뉴 위의 바깥 영역을 누른다.
+  const menuBox = await page.getByRole("menu", { name: "메시지 메뉴", exact: true }).boundingBox();
+  expect(menuBox).not.toBeNull();
+  await page.mouse.click(menuBox!.x + menuBox!.width / 2, menuBox!.y / 2);
   await expect(replyAction).toHaveCount(0);
   await originalRow.click({ button: "right" });
   await replyAction.click();

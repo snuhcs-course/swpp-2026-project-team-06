@@ -348,3 +348,24 @@ test("DEV-423 AC-01-36: step names match the real screens and the app names matc
   }
   await assert.rejects(pages.appRoleOf("scripts/admin-web/dist"));
 });
+
+test("DEV-434 AC-01-20: the withdraw sheet's kept line differs by app and shares its ending with the account deletion page", async () => {
+  const head = "법으로 보관해야 하는 주문·입금·환불 기록과 주문 문의, 약관 동의 기록은 정해진 기간 동안 따로 보관해요. ";
+  // PM 승인 문장(11/22). 앞부분은 두 앱이 같다
+  assert.equal(content.WITHDRAW_KEPT.CONSUMER, `${head}농가에게는 ‘탈퇴한 회원’으로 보여요.`);
+  assert.equal(content.WITHDRAW_KEPT.PRODUCER, `${head}소비자의 지난 주문에는 농가 이름이 그대로 남아요.`);
+  // 생산자가 탈퇴하면 농가는 이름을 둔 채 숨김(SUSPENDED)이라 '탈퇴한 회원'으로 보이지 않는다. 옛 공용 문장도 남지 않는다
+  assert.doesNotMatch(content.WITHDRAW_KEPT.PRODUCER, /탈퇴한 회원/);
+  for (const role of ["CONSUMER", "PRODUCER"]) {
+    assert.doesNotMatch(content.WITHDRAW_KEPT[role], /농가·소비자에게는/);
+    // 시트와 계정 삭제 안내가 같은 원본(WITHDRAWN_SEEN_AS)으로 끝난다
+    const seen = content.WITHDRAWN_SEEN_AS[role];
+    assert.ok(content.WITHDRAW_KEPT[role].endsWith(seen), role);
+    assert.ok(content.accountDeletionPage(role).kept.endsWith(seen), role);
+    assert.ok(pages.accountDeletionHtml(role).includes(seen), role);
+  }
+  // 시트는 앱 역할로 줄을 고른다
+  const { readFile } = await import("node:fs/promises");
+  const sheet = await readFile("packages/ui/src/WithdrawSheet.tsx", "utf8");
+  assert.ok(sheet.includes("{KEPT[role]}"), "the sheet picks the kept line by role");
+});

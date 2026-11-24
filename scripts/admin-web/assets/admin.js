@@ -97,4 +97,33 @@ async function issueTemporaryPassword(b, slot, id, who) {
   finally { issueTemporaryPassword.busy = false; b.disabled = false; b.dataset.confirm = ""; b.textContent = "임시 비밀번호"; }
 }
 
+// 기존 시드 생산자에 ID 로그인을 설정한다(DEV-439). 두 번 눌러 확인하고 비밀은 DOM에만 둔다.
+async function provisionIdLogin(b, slot, id, who, row) {
+  if (provisionIdLogin.busy) return;
+  const input = b.closest("[data-provision-form]").querySelector("[data-login-username]");
+  if (!input.reportValidity()) return;
+  const username = input.value.trim();
+  if (b.dataset.confirm !== "1" || b.dataset.username !== username) {
+    b.dataset.confirm = "1";
+    b.dataset.username = username;
+    b.textContent = "기존 계정에 설정 · 한 번 더 누르기";
+    slot.innerHTML = `<p class="error">새 사용자는 만들지 않습니다. 기존 비밀번호·로그인은 무효화되며, 농가 연결과 테스트 분류는 유지됩니다. 임시 비밀번호는 한 번만 보입니다.</p>`;
+    return;
+  }
+  provisionIdLogin.busy = true; b.disabled = true;
+  try {
+    const r = await call(`/admin/users/${id}/id-credentials`, "POST", { username });
+    row.signup = "PASSWORD"; row.username = r.username;
+    renderList();
+    const article = [...document.querySelectorAll("article[data-id]")].find((el) => el.dataset.id === id);
+    article.querySelector(".slot").innerHTML = secretBox(
+      r.temporaryPassword,
+      r.username,
+      "첫 로그인에서 비밀번호를 바꾼 뒤 생산자 약관과 개인정보 처리방침에 동의해요.",
+    );
+    toast(`${who}의 기존 계정에 아이디 로그인을 설정했어요`);
+  } catch (err) { slot.innerHTML = ""; toast(err.message, true); }
+  finally { provisionIdLogin.busy = false; b.disabled = false; b.dataset.confirm = ""; delete b.dataset.username; }
+}
+
 renderNav();

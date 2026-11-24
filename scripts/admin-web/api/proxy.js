@@ -28,6 +28,8 @@ const ALLOWED = [
   new RegExp(`^/admin/users/${ID}/activity$`), // 활동 로그(DEV-307)
   // 아이디 계정 임시 비밀번호 발급(DEV-363). 응답에 평문 비밀번호가 있어 아래에서 본문을 기록·저장하지 않고 no-store로만 넘긴다
   new RegExp(`^/admin/users/${ID}/temporary-password$`),
+  // 기존 UAT 생산자 ID 로그인 설정(DEV-439). 일회성 임시 비밀번호도 no-store로만 중계한다
+  new RegExp(`^/admin/users/${ID}/id-credentials$`),
   new RegExp(`^/admin/home(\\?kind=(real|test|all))?$`), // 홈 할 일 건수(DEV-307)
   // 사용자 상세와 그 화면의 주문 처리 버튼(DEV-106). 운영 API는 기존 것을 그대로 쓴다
   new RegExp(`^/admin/users/(${ID}|by-order/${REF})$`),

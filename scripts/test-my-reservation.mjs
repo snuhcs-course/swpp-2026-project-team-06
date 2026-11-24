@@ -75,7 +75,7 @@ test("DEV-379 Mock: 김민지 has reserved p-house (detail) and only a refund on
   reset();
   const minji = await login("u-minji");
   const house = await productOrders(minji, "p-house");
-  assert.deepEqual(house.map((x) => [x.orderId, x.status]), [["o-42", "RESERVED"]]);
+  assert.deepEqual(house.map((x) => [x.orderId, x.status]), [["o-42", "PREPARING"]]);
   assert.equal(myReservationHref(house, "p-house"), "/orders/o-42");
 
   const red = await productOrders(minji, "p-redhyang");

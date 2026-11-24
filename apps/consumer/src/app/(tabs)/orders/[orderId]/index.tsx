@@ -115,7 +115,7 @@ export default function OrderDetail() {
     : changing && o.proposedDeliveryWindow
       ? `농가 사정으로 받는 시기가 ${period(o.proposedDeliveryWindow.start, o.proposedDeliveryWindow.end)}로 바뀌었어요. 새 기간으로 받거나 전액 환불받을 수 있어요.`
       : o.status === "PREPARING"
-        ? `농가가 수확을 시작했어요. ${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
+        ? `입금이 확인됐어요. ${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
         : o.status === "SHIPPED"
           ? `${md(o.shippedAt)}에 보냈어요. ${trackingUrl(o.carrier, o.trackingNumber) ? "배송 조회로 위치를 볼 수 있어요." : "곧 도착해요."}`
           : o.status === "DELIVERED" || o.status === "COMPLETED"

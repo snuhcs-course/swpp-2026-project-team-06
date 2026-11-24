@@ -73,3 +73,6 @@
 - 안 읽음은 `room_replies.producer_read_at`이 없는 답장(시트에서 확인 전). 시트 읽음 처리·생산자 인용이 채운다. 0031은 기존 답장을 그때 지우지 않았던 가장 최근 방송에 연결하고 읽음으로 채운다.
 - 인용 방송은 원문 답장 id를 `broadcasts.quoted_reply_id`(서버 전용)에 둔다. `room_replies.broadcast_id`와 FK 고리가 생기지 않게 FK 없이 둔다(`seed.clear`·삭제 순서).
 - 예약 고객은 orders service `paid_customer_ids`(결제 확인 + RESERVED~COMPLETED)로 판단하고, 탈퇴한 회원(`deleted_at`)은 빼고 보인다.
+
+### DEV-454 자동 전달 답장 요청
+메시지 조회는 OPEN이고 reported_message_id가 없는 기존 Escalation의 thread_message_id로 `replyRequested`를 계산한다. 원래 소비자 질문에만 표시하고 AI 확인 요청의 checkState와 분리한다. 새 테이블·상태 변경 없이 페이지별 질문 ID 묶음으로 조회하며, 기존 인용 답장만 해당 전달을 닫는다.

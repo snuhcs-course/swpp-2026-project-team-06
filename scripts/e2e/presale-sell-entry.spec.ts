@@ -160,11 +160,11 @@ test("AC-04-1 DEV-361: 판매·가격 → 판매페이지 → back refreshes the
   const id1 = first.draft.productId;
   await page.goto(`${producerUrl}/products/${id1}/sell`);
   await expect(page.getByText("판매 시작 전에 채워 주세요: 상품명, 품종", { exact: true })).toBeVisible();
-  await page.getByLabel("한 주문 최대", { exact: true }).fill("2");
+  await page.getByLabel("도서산간 추가 운임", { exact: true }).fill("2");
   await fillInComposer(page, id1);
   await expect(page.getByText(/판매 시작 전에 채워 주세요/)).toHaveCount(0);
   // 판매·가격에서 고친 입력은 남는다(composer는 판매 조건 칸을 바꾸지 않음)
-  await expect(page.getByLabel("한 주문 최대", { exact: true })).toHaveValue("2");
+  await expect(page.getByLabel("도서산간 추가 운임", { exact: true })).toHaveValue("2");
   await page.getByLabel("판매할 총 물량", { exact: true }).fill("50");
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByText("저장했어요", { exact: true })).toBeVisible();
@@ -174,18 +174,18 @@ test("AC-04-1 DEV-361: 판매·가격 → 판매페이지 → back refreshes the
   const second = await sellReadyDraft(request);
   const id2 = second.draft.productId;
   await page.goto(`${producerUrl}/products/${id2}/sell`);
-  await page.getByLabel("한 주문 최대", { exact: true }).fill("2");
+  await page.getByLabel("도서산간 추가 운임", { exact: true }).fill("2");
   await page.getByLabel("판매할 총 물량", { exact: true }).fill("50");
   await second.send("patch", `/api/products/${id2}`, { version: (await second.read(id2)).version, remoteAreaFee: 5000 });
   await fillInComposer(page, id2);
-  await expect(page.getByLabel("한 주문 최대", { exact: true })).toHaveValue("2");
+  await expect(page.getByLabel("도서산간 추가 운임", { exact: true })).toHaveValue("2");
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByRole("alert").getByText("최신 상품을 다시 불러와 주세요.")).toBeVisible();
   expect((await second.read(id2)).remoteAreaFee).toBe(5000);
   // 막힌 자리에서 바로 최신 값으로 다시 채울 수 있다(입력이 서버 값으로 바뀜)
   await page.getByRole("button", { name: "최신 값 다시 불러오기" }).click();
   await expect(page.getByLabel("도서산간 추가 운임", { exact: true })).toHaveValue("5,000");
-  await expect(page.getByLabel("한 주문 최대", { exact: true })).not.toHaveValue("2");
+  await expect(page.getByLabel("도서산간 추가 운임", { exact: true })).not.toHaveValue("2");
   // 저장하지 않는 총 물량 입력은 남는다
   await expect(page.getByLabel("판매할 총 물량", { exact: true })).toHaveValue("50");
   await expect(page.getByText("최신 상품을 다시 불러와 주세요.")).toHaveCount(0);

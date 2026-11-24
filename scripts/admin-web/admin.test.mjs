@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 
 process.env.ADMIN_WEB_PASSWORD = "test-password";
 process.env.ADMIN_TOKEN = "test-token";
@@ -364,6 +365,17 @@ test("AC-01-31 중계는 임시 비밀번호 발급 경로만 넘기고 이웃 �
   }
 });
 
+test("DEV-439 중계는 기존 사용자 아이디 자격 증명 설정 경로만 넘긴다", async () => {
+  const go = proxyGo(await signIn());
+  assert.equal((await go("/admin/users/u-uat-p3/id-credentials", "POST")).status, 502);
+  for (const path of [
+    "/admin/users/u-uat-p3/id-credentials/extra", "/admin/users/u-uat-p3/id-credentials?x=1",
+    "/admin/users/u-uat-p3/id_credentials", "/admin/users/../users/u-uat-p3/id-credentials",
+  ]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
+
 // 가짜 실서버로 바꿔 중계 응답 헤더·본문과 콘솔 기록을 본다. 본문 없는 POST는 가짜 req라 body를 문자열로 둔다
 async function relaySecret(cookie, path, reqBody, upstreamBody) {
   const realFetch = globalThis.fetch;
@@ -417,6 +429,118 @@ test("AC-01-31 임시 비밀번호 응답은 no-store로 그대로 넘기고 콘
   assert.doesNotMatch(source("./api/proxy.js") + source("./server.mjs"), /console\.(log|info|warn|error|debug)\([^)]*(body|text\(\))/);
 });
 
+test("DEV-439 기존 사용자 자격 증명 응답은 no-store로 전달하고 평문을 기록하지 않는다", async () => {
+  const cookie = await signIn();
+  const secret = "Tmp-Uat-Secret-567";
+  const { r, seen, logged } = await relaySecret(
+    cookie,
+    "/admin/users/u-uat-p3/id-credentials",
+    JSON.stringify({ username: "uatproducer3" }),
+    { userId: "u-uat-p3", username: "uatproducer3", temporaryPassword: secret, mustChangePassword: true },
+  );
+  assert.equal(r.status, 200);
+  assert.equal(r.headers["cache-control"], "no-store");
+  assert.equal(JSON.parse(r.body).temporaryPassword, secret);
+  assert.match(seen.url, /\/admin\/users\/u-uat-p3\/id-credentials$/);
+  assert.equal(JSON.parse(seen.body).username, "uatproducer3");
+  assert.ok(!logged.some((line) => line.includes(secret)));
+});
+
+test("AC-01-37 DEV-439 연결 농가가 있는 활성 시드 생산자만 로그인 설정을 표시한다", async () => {
+  const elements = new Map();
+  const context = {
+    URLSearchParams,
+    $: (selector) => {
+      if (!elements.has(selector)) elements.set(selector, {});
+      return elements.get(selector);
+    },
+    esc: String,
+    call: async () => ({ items: [], total: 0 }),
+    toast() {},
+  };
+  const script = source("./api/_views/users.html").match(/<script>([\s\S]*?)<\/script>/)[1];
+  runInNewContext(script, context);
+  await Promise.resolve();
+  const producer = {
+    userId: "u-uat-p3", isTestAccount: true, role: "PRODUCER", signup: "SEED",
+    farmId: "f-uat-3", farmName: "UAT 농가 3", farmStatus: "APPROVED", createdAt: "2026-11-16",
+  };
+  const eligible = context.card(producer);
+  assert.match(eligible, /data-act="provision-id-login"/);
+  assert.doesNotMatch(eligible, /<form/); // Enter must not submit/navigate the containing page.
+  for (const patch of [
+    { farmId: null }, { withdrawn: true }, { isTestAccount: false },
+    { role: "CONSUMER" }, { signup: "KAKAO" }, { signup: "PASSWORD", username: "uatp3" },
+  ]) {
+    assert.doesNotMatch(context.card({ ...producer, ...patch }), /data-act="provision-id-login"/);
+  }
+  assert.match(context.card({ ...producer, signup: "PASSWORD", username: "uatp3" }), /data-act="temp-password"/);
+});
+
+function provisioningHarness(reply) {
+  const slot = { innerHTML: "" };
+  const input = { value: "uatp3", reportValidity: () => true };
+  const row = { signup: "SEED", username: null };
+  const button = {
+    dataset: {}, disabled: false,
+    closest: () => ({ querySelector: () => input }),
+  };
+  const article = { dataset: { id: "u-uat-p3" }, querySelector: () => slot };
+  const calls = [];
+  const context = {
+    document: { querySelector: () => ({}), querySelectorAll: () => [article] },
+    addEventListener() {}, location: { pathname: "/users" },
+  };
+  runInNewContext(source("./assets/admin.js"), context);
+  context.renderList = () => {};
+  context.toast = () => {};
+  context.call = async (...args) => { calls.push(args); return reply(); };
+  return { slot, input, row, button, calls, issue: () => context.provisionIdLogin(button, slot, "u-uat-p3", "UAT 생산자 3", row) };
+}
+
+test("AC-01-37 DEV-439 확인한 아이디만 한 번 발급하고 응답 비밀번호를 표시한다", async () => {
+  let finish;
+  const pending = new Promise((resolve) => { finish = resolve; });
+  const h = provisioningHarness(() => pending);
+  await h.issue();
+  assert.equal(h.calls.length, 0);
+  h.input.value = "uatp4";
+  await h.issue();
+  assert.equal(h.calls.length, 0); // A changed username needs fresh confirmation.
+  const issuance = h.issue();
+  await h.issue(); // Duplicate click while pending must not issue twice.
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.calls[0][0], "/admin/users/u-uat-p3/id-credentials");
+  assert.equal(h.calls[0][2].username, "uatp4");
+  assert.equal(h.button.disabled, true);
+  finish({ username: "uatp4", temporaryPassword: "Synthetic-Only-123" });
+  await issuance;
+  assert.equal(h.row.signup, "PASSWORD");
+  assert.equal(h.row.username, "uatp4");
+  assert.match(h.slot.innerHTML, /Synthetic-Only-123/);
+  assert.equal(h.button.disabled, false);
+});
+
+test("AC-01-37 DEV-439 잘못된 입력과 발급 실패는 계정을 바꾸지 않고 재시도를 허용한다", async () => {
+  let fail = true;
+  const h = provisioningHarness(() => {
+    if (fail) throw new Error("already in use");
+    return { username: "uatp3", temporaryPassword: "Synthetic-Only-456" };
+  });
+  h.input.reportValidity = () => false;
+  await h.issue();
+  assert.equal(h.calls.length, 0);
+  h.input.reportValidity = () => true;
+  await h.issue(); await h.issue();
+  assert.equal(h.row.signup, "SEED");
+  assert.equal(h.slot.innerHTML, "");
+  assert.equal(h.button.disabled, false);
+  fail = false;
+  await h.issue(); await h.issue();
+  assert.equal(h.calls.length, 2);
+  assert.equal(h.row.signup, "PASSWORD");
+});
+
 test("AC-01-22 아이디 계정 화면은 로그인해야 열리고 메뉴는 가입 신청 바로 다음, 가입 승인 화면은 없다 (DEV-363)", async () => {
   const r = await call(page, { url: "/api/page?name=id-accounts" });
   assert.equal(r.headers.location, "/login?next=%2Fid-accounts");
@@ -449,6 +573,10 @@ test("AC-01-31 임시 비밀번호는 아이디 계정·사용자 화면에서 �
   const ids = (await call(page, { url: "/api/page?name=id-accounts", headers: { cookie } })).body;
   const shared = source("./assets/admin.js");
   assert.match(users, /signup === "PASSWORD"/);
+  assert.match(users, /u\.isTestAccount && u\.role === "PRODUCER" && u\.signup === "SEED"/);
+  assert.match(users, /data-act="provision-id-login"/);
+  assert.match(users, /provisionIdLogin\(b, slot, id, who, u\)/);
+  assert.match(shared, /기존 비밀번호·로그인은 무효화되며, 농가 연결과 테스트 분류는 유지됩니다/);
   assert.match(users, /issueTemporaryPassword\(b, slot, id, who\)/);
   assert.doesNotMatch(users, /signupStatus|\/signups/); // 가입 승인 상태는 없어졌다
   assert.match(shared, /이 사용자의 지금 비밀번호와 모든 로그인이 바로 풀려요/);

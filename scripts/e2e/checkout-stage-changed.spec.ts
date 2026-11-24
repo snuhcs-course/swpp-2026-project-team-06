@@ -98,14 +98,17 @@ test("AC-08-8: price changed while the checkout is open → notice, no order, re
     expectedUnitPrice: 29000,
     expectedUnitWeightGrams: 5000,
   });
-  await expect(page.getByText("가격이 바뀌었어요")).toBeVisible();
-  await expect(page.getByText(/5kg 한 상자 29,000원 → 30,000원/)).toBeVisible();
-  await expect(page.getByText("처음 본 합계")).toBeVisible();
+  const modal = page.getByRole("dialog").or(page.getByRole("alertdialog"));
+  await expect(modal).toBeVisible();
+  await expect(modal.getByText("가격이 바뀌었어요", { exact: true })).toBeVisible();
+  await expect(modal.getByText(/5kg 한 상자 29,000원 → 30,000원/)).toBeVisible();
+  await expect(modal.getByText("처음 본 총 입금액", { exact: true })).toBeVisible();
+  await expect(modal.getByText("현재 총 입금액", { exact: true })).toBeVisible();
   // 입력값은 그대로(AC-08-8)
   await expect(page.getByLabel("배송 메모", { exact: true })).toHaveValue("문 앞에 두어 주세요");
   await expect(page.getByRole("checkbox", { name: "모두 동의해요" })).toBeChecked();
 
-  await page.getByRole("button", { name: "바뀐 금액으로 예약하기" }).click();
+  await modal.getByRole("button", { name: "바뀐 금액으로 예약하기" }).click();
   await expect(page).toHaveURL(/\/pay/);
   await expect(page.getByText("입금할 금액")).toBeVisible();
   await expect(

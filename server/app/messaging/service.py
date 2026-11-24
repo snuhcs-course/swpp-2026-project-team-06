@@ -811,7 +811,24 @@ def _message_views(db: Session, rows: list[ThreadMessage]) -> list[ChatMessage]:
         if ids
         else {}
     )
-    return [_message_view(m, m.id in states, states.get(m.id)) for m in rows]
+    question_ids = [m.id for m in rows if m.sender_type == "CONSUMER"]
+    requested = (
+        set(
+            db.scalars(
+                select(Escalation.thread_message_id).where(
+                    Escalation.thread_message_id.in_(question_ids),
+                    Escalation.reported_message_id.is_(None),
+                    Escalation.status == "OPEN",
+                )
+            )
+        )
+        if question_ids
+        else set()
+    )
+    views = [_message_view(m, m.id in states, states.get(m.id)) for m in rows]
+    for view in views:
+        view.reply_requested = view.message_id in requested
+    return views
 
 
 def _set_mode(t: Thread, mode: str) -> None:
@@ -1471,7 +1488,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
             message.needs_human = True
     db.flush()
     result = SendResult(
-        message=_message_view(message), reply=_message_view(reply) if reply else None
+        message=_message_views(db, [message])[0], reply=_message_view(reply) if reply else None
     )
     alert = None
     if text and _REFUND_OR_COMPENSATION.search(text):
@@ -2118,7 +2135,7 @@ def edit_chat_message(db: Session, user, message_id: str, body) -> ChatMessage:
     if previous != message.edit_version:
         thread.version += 1  # invalidate an AI answer generated from stale question text
     db.flush()
-    return _message_view(message)
+    return _message_views(db, [message])[0]
 
 
 def edit_room_message(db: Session, user, farm_id: str, message_id: str, body) -> NewsRoomMessage:
