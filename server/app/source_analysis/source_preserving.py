@@ -12,9 +12,9 @@ from collections import Counter
 
 from app.ai.source_refine import TEXT_MODULE_FIELDS, farm_common_allowed
 from app.source_analysis.preprocess import scrub
+from app.source_analysis.source_options import assemble_options
 from app.source_analysis.text_safety import (
     SAFETY_LISTS_HASH,
-    has_exaggeration,
     has_health_claim,
     has_health_words,
     has_money,
@@ -24,7 +24,7 @@ from app.source_analysis.text_safety import (
     has_product_lineup,
 )
 
-VERSION = "source-preserving-v2-private-review"
+VERSION = "source-preserving-v4-source-blocks"
 _KINDS = ("COPY_EDIT", "OWNER_CONFIRMATION", "PLACEMENT", "SAFETY")
 _RESTRICTED = {"PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"}
 _EXPLANATIONS = {
@@ -59,6 +59,20 @@ _DISPATCH = re.compile(
     r"발송|배송|출고|택배|수령|보내드|주문.{0,12}마감|(?:그날|당일|매일).{0,20}수확"
 )
 _CURATIVE = re.compile(r"(?:감기|당뇨|질병|질환).{0,16}(?:치료|예방|완화)")
+# Source-copy review deliberately permits ordinary subjective promotional wording.
+# This is local policy; the legacy extraction/refinement safety lists stay intact.
+_EXCESSIVE_PROMOTION = re.compile(
+    r"(?:세계|전\s*세계|우주|지구)(?:에서|의|적으로)?(?:가장|제일)?(?:최고|최상|으뜸|1위|일등|유일)"
+    r"|(?:절대|무조건|반드시|100%|백퍼센트).{0,16}(?:보장|만족|성공|효과|실패.{0,4}없)"
+    r"|(?:당도|맛|품질|만족|효과).{0,12}(?:100%|백퍼센트|무조건|절대).{0,8}보장"
+)
+_CONTINUATION_END = re.compile(r"(?:듯이|지만|지고|때문에)\s*$")
+_BOUNDARY_START = re.compile(
+    r"^(?:[-*•▶※#\[【(]|\d+[.)]|옵션|선택|상품|구성|소과|중과|대과|가정용|선물용|"
+    r"보관|배송|가격|주의|참고|또한|그리고|하지만|한편|다음|\d{1,4}\s*(?:년|월|일)|"
+    r"\d+(?:[,.]\d+)?\s*(?:kg|㎏|g|키로|킬로|박스|상자|과)(?=\s|[:：/–~-]|$))"
+)
+_SPAN_ORDER = re.compile(r"^(.+?[-_:])(\d+)$")
 _TERMS = re.compile(r"결제|입금|환불|반품|교환|취소|추가\s*(?:금|비)")
 
 
@@ -83,7 +97,7 @@ def _safety(value, target_name):
         (scrub(value) != value, "PRIVATE_VALUE"),
         (has_money(value), "MONEY_AMOUNT"),
         (has_health_claim(value) or bool(_CURATIVE.search(value)), "HEALTH_CLAIM"),
-        (has_exaggeration(value), "EXAGGERATION"),
+        (bool(_EXCESSIVE_PROMOTION.search(re.sub(r"\s+", "", value))), "EXAGGERATION"),
         (has_policy_text(value), "POLICY_TEXT"),
         (has_platform_text(value), "PLATFORM_TEXT"),
         (has_product_lineup(value, target_name), "OTHER_PRODUCT"),
@@ -117,6 +131,169 @@ def _reasons(value, historical, target_name):
         owner.append("TIMING_OR_SALES_TERMS")
     reasons["SAFETY"] = _safety(value, target_name)
     return reasons, repair if repair != value else None
+
+
+def _span_order(passage):
+    """Numeric source span IDs establish adjacency; prose/layout guesses do not."""
+    refs = passage["evidence"]
+    if len(refs) != 1:
+        return None
+    parsed = [_SPAN_ORDER.fullmatch(sid) for sid in refs[0]["spanIds"]]
+    if not parsed or not all(parsed):
+        return None
+    prefixes = {match[1] for match in parsed}
+    numbers = [int(match[2]) for match in parsed]
+    if len(prefixes) != 1 or any(
+        right != left + 1 for left, right in zip(numbers, numbers[1:], strict=False)
+    ):
+        return None
+    return next(iter(prefixes)), numbers[0], numbers[-1]
+
+
+def _can_join(left, right, occupied, candidate_by_id):
+    if left["decision"] or right["decision"]:
+        return False
+    if not _CONTINUATION_END.search(left["value"].rstrip()):
+        return False
+    continuation = right["value"].strip()
+    # A heading, option, independent topic or another unfinished label is not
+    # evidence of the missing clause. Never supply text absent from the source.
+    if (
+        not continuation
+        or _BOUNDARY_START.search(continuation)
+        or "\n\n" in continuation
+        or not (re.search(r"[.!?。]\s*$", continuation) or _CONTINUATION_END.search(continuation))
+        or left["reasonCodes"]["PLACEMENT"]
+        or right["reasonCodes"]["PLACEMENT"]
+    ):
+        return False
+    if (
+        any(
+            left[key] != right[key] for key in ("sourceId", "sourceRevision", "sanitizationVersion")
+        )
+        or left["evidence"][0]["page"] != right["evidence"][0]["page"]
+    ):
+        return False
+    shared = set(left["candidateIds"]) & set(right["candidateIds"])
+    a, b = _span_order(left), _span_order(right)
+    if not a or not b or a[0] != b[0] or a[2] + 1 != b[1]:
+        return False
+    # Shared-candidate references must retain their recorded order. Across
+    # candidates/modules, only unique consecutive source spans establish order.
+    if shared and not any(
+        any(
+            first == left["evidence"][0] and second == right["evidence"][0]
+            for first, second in zip(
+                candidate_by_id[cid]["evidence"],
+                candidate_by_id[cid]["evidence"][1:],
+                strict=False,
+            )
+        )
+        for cid in shared
+    ):
+        return False
+    return all(
+        occupied[(p["sourceId"], p["evidence"][0]["page"], sid)] == 1
+        for p in (left, right)
+        for sid in p["evidence"][0]["spanIds"]
+    )
+
+
+def _assembly_groups(passages, candidate_by_id):
+    eligible = [
+        p for p in passages if p["status"] != "EXCLUDED" and scrub(p["value"]) == p["value"]
+    ]
+    occupied = Counter(
+        (p["sourceId"], p["evidence"][0]["page"], sid)
+        for p in passages
+        for sid in p["evidence"][0]["spanIds"]
+    )
+    starts = {}
+    orders = {}
+    for passage in eligible:
+        order = _span_order(passage)
+        if order:
+            orders[passage["id"]] = order
+            key = (
+                passage["sourceId"],
+                passage["sourceRevision"],
+                passage["sanitizationVersion"],
+                passage["evidence"][0]["page"],
+                order[0],
+                order[1],
+            )
+            starts.setdefault(key, []).append(passage)
+    links = []
+    for left in eligible:
+        order = orders.get(left["id"])
+        if not order or not _CONTINUATION_END.search(left["value"].rstrip()):
+            continue
+        key = (
+            left["sourceId"],
+            left["sourceRevision"],
+            left["sanitizationVersion"],
+            left["evidence"][0]["page"],
+            order[0],
+            order[2] + 1,
+        )
+        for right in starts.get(key, ()):
+            if _can_join(left, right, occupied, candidate_by_id):
+                links.append((left["id"], right["id"]))
+    outgoing = Counter(left for left, _ in links)
+    incoming = Counter(right for _, right in links)
+    next_id = {left: right for left, right in links if outgoing[left] == incoming[right] == 1}
+    consumed = set(next_id.values())
+    by_id = {p["id"]: p for p in eligible}
+    groups = []
+    for passage in eligible:
+        if passage["id"] in consumed:
+            continue
+        parts = [passage]
+        while parts[-1]["id"] in next_id:
+            parts.append(by_id[next_id[parts[-1]["id"]]])
+        groups.append(parts)
+    return groups
+
+
+def _assembled_text(parts):
+    ids = [p["id"] for p in parts]
+    text = {
+        "value": " ".join(p["value"].strip() for p in parts)
+        if len(parts) > 1
+        else parts[0]["value"],
+        "candidateIds": list(dict.fromkeys(cid for p in parts for cid in p["candidateIds"])),
+        "passageIds": ids,
+    }
+    if len(parts) > 1:
+        text["assembly"] = {
+            "type": "SOURCE_ADJACENT_CONTINUATION",
+            "separator": " ",
+            "passageIds": ids,
+            "module": parts[0]["module"],
+        }
+    return text
+
+
+def _mark_assembly(parts, assembly):
+    common_candidates = set.intersection(*(set(p["candidateIds"]) for p in parts))
+    context_review = not common_candidates or len({p["module"] for p in parts}) != 1
+    assembly["contextReviewRequired"] = context_review
+    for index, passage in enumerate(parts):
+        cleared = []
+        if index < len(parts) - 1 and "POSSIBLE_FRAGMENT" in passage["reasonCodes"]["COPY_EDIT"]:
+            passage["reasonCodes"]["COPY_EDIT"].remove("POSSIBLE_FRAGMENT")
+            cleared.append("POSSIBLE_FRAGMENT")
+        if context_review:
+            passage["reasonCodes"]["COPY_EDIT"].append("CONTINUATION_CONTEXT")
+        passage["autoRepair"] = {**assembly, "clearedReasonCodes": cleared}
+        passage["queueKinds"] = [kind for kind in _KINDS if passage["reasonCodes"][kind]]
+        passage["status"] = (
+            "BLOCKED"
+            if _RESTRICTED.intersection(passage["reasonCodes"]["SAFETY"])
+            else "PENDING"
+            if passage["queueKinds"]
+            else "READY"
+        )
 
 
 def build_plan(target, candidates, *, source_versions, target_count=1, decisions=()):
@@ -346,37 +523,61 @@ def _build(target, candidates, versions, target_count, decisions):
                 else ("PENDING" if any(reasons.values()) else "READY")
             )
         passage["queueKinds"] = [kind for kind in _KINDS if reasons[kind]]
+    option_units = assemble_options(
+        [p for p in passages if p["status"] != "EXCLUDED" and scrub(p["value"]) == p["value"]]
+    )
+    option_ids = {p["id"] for unit in option_units for p in unit["parts"]}
+    units = option_units + [
+        {"module": parts[0]["module"], "parts": parts, "text": _assembled_text(parts)}
+        for parts in _assembly_groups(
+            [p for p in passages if p["id"] not in option_ids], candidate_by_id
+        )
+    ]
+    positions = {p["id"]: i for i, p in enumerate(passages)}
+    units.sort(key=lambda unit: min(positions[p["id"]] for p in unit["parts"]))
     for passage in passages:
         passage["includedInDraft"] = False
     modules = []
     for module in TEXT_MODULE_FIELDS:
-        selected = [
-            p
-            for p in passages
-            if p["module"] == module
-            and p["status"] != "EXCLUDED"
-            and scrub(p["value"]) == p["value"]
-        ]
+        selected = [unit for unit in units if unit["module"] == module]
         total, ids = 0, set()
         texts = []
-        for passage in selected:
-            proposed_ids = ids | set(passage["candidateIds"])
-            proposed_total = total + len(passage["value"]) + (2 if texts else 0)
+        for unit in selected:
+            parts, text = unit["parts"], unit["text"]
+            proposed_ids = ids | set(text["candidateIds"])
+            proposed_total = total + len(text["value"]) + (2 if texts else 0)
             if proposed_total > 3000 or len(proposed_ids) > 100:
-                passage["status"] = "PENDING"
-                passage["reasonCodes"]["PLACEMENT"].append("FIELD_LIMIT")
-                if "PLACEMENT" not in passage["queueKinds"]:
-                    passage["queueKinds"].append("PLACEMENT")
+                for passage in parts:
+                    passage["status"] = "PENDING"
+                    passage["reasonCodes"]["PLACEMENT"].append("FIELD_LIMIT")
+                    if "PLACEMENT" not in passage["queueKinds"]:
+                        passage["queueKinds"].append("PLACEMENT")
                 continue
-            passage["includedInDraft"] = True
+            for passage in parts:
+                passage["includedInDraft"] = True
+            if text.get("assembly", {}).get("type") == "SOURCE_ADJACENT_CONTINUATION":
+                _mark_assembly(parts, text["assembly"])
+            elif text.get("assembly", {}).get("type") == "SOURCE_OPTION_BLOCK":
+                for passage in parts:
+                    passage["optionAssembly"] = text["assembly"]
             ids = proposed_ids
             total = proposed_total
-            texts.append({"value": passage["value"], "candidateIds": passage["candidateIds"]})
+            texts.append(text)
         if texts:
             modules.append({"module": module, "texts": texts})
     for passage in passages:
         passage["reviewPending"] = passage["status"] in {"PENDING", "BLOCKED"}
         passage["reviewExplanations"] = [_EXPLANATIONS[kind] for kind in passage["queueKinds"]]
+        if "CONTINUATION_CONTEXT" in passage["reasonCodes"]["COPY_EDIT"]:
+            passage["reviewExplanations"].append(
+                "인접한 원문을 연결했지만 서로 다른 추출 항목의 내용입니다. "
+                "문맥이 자연스럽게 이어지는지 확인해 주세요."
+            )
+        if "POSSIBLE_FRAGMENT" in passage["reasonCodes"]["COPY_EDIT"]:
+            passage["reviewExplanations"].append(
+                "문장이 끊긴 것으로 보이지만 확실한 인접 원문 연결을 확인하지 못했습니다. "
+                "없는 뒷문장은 만들지 않았으니 원자료를 확인해 주세요."
+            )
         entries = [r for r in accounting if r["passageId"] == passage["id"]]
         for i, row in enumerate(entries):
             row["disposition"] = (

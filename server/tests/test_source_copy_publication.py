@@ -109,7 +109,7 @@ def test_AC_SRC_2_10_flagged_price_is_private_saved_reopened_then_reviewed_befor
         assert "5,000원" in str(db.get(Product, "p-house").module_detail)
 
 
-@pytest.mark.parametrize("quote", ["감기를 치료하는 감귤입니다.", "최고의 감귤입니다."])
+@pytest.mark.parametrize("quote", ["감기를 치료하는 감귤입니다.", "세계 최고의 감귤입니다."])
 def test_AC_SRC_7_flagged_health_and_marketing_save_private_but_unresolved_cannot_apply(
     client, login, quote
 ):
@@ -317,3 +317,64 @@ def test_AC_SRC_10_legacy_saved_snapshot_cannot_republish_omitted_source_after_r
         },
     )
     assert applied.status_code == 200, applied.text
+
+
+def test_AC_SRC_2_11_grouped_historical_options_save_and_reopen_privately(client, login):
+    headers, batch = ready(client, login)
+    with get_sessionmaker()() as db:
+        template = db.scalar(select(Candidate).where(Candidate.batch_id == batch["id"]))
+        source_ref = deepcopy(template.evidence[0])
+        item_id, target_id = template.item_id, template.target_id
+        header = "옵션 A 4kg"
+        for index, (field, value) in enumerate(
+            [
+                ("composition", header),
+                ("specification", header + "\n사이즈 : 중소과"),
+                ("pieceCount", header + "\n수량 : 9~20과"),
+                ("delivery", header + "\n포장 : 상자"),
+            ]
+        ):
+            ref = {
+                **source_ref,
+                "quote": value,
+                "spanIds": ["option-1"] if index == 0 else ["option-1", f"option-{index + 1}"],
+            }
+            db.add(
+                Candidate(
+                    batch_id=batch["id"],
+                    item_id=item_id,
+                    target_id=target_id,
+                    field_key=field,
+                    value=value,
+                    evidence=[ref],
+                    historical=True,
+                )
+            )
+        original = deepcopy(db.get(Product, "p-house").module_detail)
+        db.commit()
+    state, tid = get_plan(client, headers, batch)
+    enabled = client.post(
+        f"{PREFIX}/{batch['id']}/source-copy/enable",
+        headers=key(headers),
+        json={"reviewVersion": state["reviewVersion"]},
+    )
+    assert enabled.status_code == 200, enabled.text
+    state, _ = get_plan(client, headers, batch)
+    option = next(m for m in state["plan"]["modules"] if m["module"] == "composition")
+    assert option["texts"][0]["value"].count(header) == 1
+    assert len(option["texts"][0]["passageIds"]) == 4
+    assert all(p["reviewPending"] for p in state["plan"]["passages"] if p.get("optionAssembly"))
+    body = body_for(client, headers, batch)
+    body["targets"][0]["enabledModuleIds"] = ["composition"]
+    saved = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(headers), json=body)
+    assert saved.status_code == 200, saved.text
+    draft = saved.json()["drafts"][0]
+    text = "\n".join(t["value"] for m in draft["snapshot"]["previewModules"] for t in m["texts"])
+    assert text.count(header) == 1
+    assert all(value in text for value in ["중소과", "9~20과", "포장 : 상자"])
+    reopened = client.get(f"{PREFIX}/{batch['id']}/drafts", headers=headers)
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["items"][0]["snapshot"] == draft["snapshot"]
+    assert apply(client, headers, batch, draft).status_code == 409
+    with get_sessionmaker()() as db:
+        assert db.get(Product, "p-house").module_detail == original

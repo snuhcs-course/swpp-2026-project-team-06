@@ -140,6 +140,8 @@ export type SourceCopyPassage = {
   reasonCodes: Record<"COPY_EDIT" | "OWNER_CONFIRMATION" | "PLACEMENT" | "SAFETY", string[]>;
   repairValue: string | null;
   status: "READY" | "PENDING" | "EXCLUDED" | "BLOCKED";
+  optionAssembly?: { type: string; passageIds: string[]; module: string };
+  autoRepair?: { type: string; passageIds: string[]; module: string; contextReviewRequired?: boolean };
   includedInDraft: boolean;
   reviewPending: boolean;
   reviewExplanations: string[];

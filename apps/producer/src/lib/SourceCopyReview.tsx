@@ -13,6 +13,7 @@ const groups = [
 const requiresNote = (p: SourceCopyPassage) => p.reasonCodes.OWNER_CONFIRMATION.length > 0 || p.reasonCodes.SAFETY.some((reason) => !["PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"].includes(reason));
 const reasonMessages: Record<string, string> = {
   OCR_SPLIT: "자료를 읽는 과정에서 단어가 줄 사이에 끊겼을 수 있어요. 원문과 최소 수정 제안을 비교해 주세요.",
+  CONTINUATION_CONTEXT: "인접한 원문을 연결했어요. 서로 다른 항목에서 가져온 문구이므로 연결된 문맥이 자연스러운지 확인해 주세요.",
   POSSIBLE_FRAGMENT: "문장 끝이 끊겼을 수 있어요. 빠진 내용이 있는지 원문을 확인해 주세요.",
   EXACT_REPETITION: "같은 문장이 반복돼요. 그대로 둘지 직접 정리할지 선택해 주세요.",
   POSSIBLE_SPACING: "띄어쓰기가 어색할 수 있어요. 원문을 확인해 주세요.",
@@ -75,9 +76,10 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
     setNotice("");
     if (!decisionBases.current.has(p.bindingHash))
       decisionBases.current.set(p.bindingHash, decisionSnapshot(p.decision));
+    const currentModule = p.optionAssembly?.module ?? p.autoRepair?.module ?? p.module;
     setChoices((old) => ({ ...old, [p.bindingHash]: { ...old[p.bindingHash], bindingHash: p.bindingHash, action,
       ...(action === "EDIT" ? { value: old[p.bindingHash]?.value ?? p.value } : {}),
-      ...(p.module ? { module: p.module } : {}),
+      ...(currentModule ? { module: currentModule } : {}),
     } }));
   };
   const mutate = async (enable = false) => {
@@ -134,6 +136,8 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
     catch (e) { setError(e instanceof Error ? e.message : "불러오지 못했어요."); }
     finally { setBusy(false); }
   };
+  const optionBlocks = new Set(data?.plan.passages.filter((p) => p.optionAssembly).map((p) => p.optionAssembly!.passageIds.join("/"))).size;
+  const automaticJoins = new Set(data?.plan.passages.filter((p) => p.autoRepair?.type === "SOURCE_ADJACENT_CONTINUATION").map((p) => p.autoRepair!.passageIds.join("/"))).size;
   const pending = data?.plan.passages.filter((p) => p.queueKinds.length > 0 || choices[p.bindingHash]) ?? [];
   const pendingCount = data?.plan.passages.filter((p) => p.reviewPending).length ?? 0;
   return <View style={{ gap: 12, padding: tokens.space.gutter }} testID="source-copy-review">
@@ -143,6 +147,8 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
       <Button label="원문 유지 방식 사용" disabled={disabled} loading={busy} onPress={() => void mutate(true)} />
     </> : <>
       <T variant="sub" muted>자료의 문구를 비공개 초안에 담았어요. 아래에서 공개 전에 확인할 이유를 보고 원문 유지·수정·제외를 선택해 주세요. 선택은 ‘검토 선택 저장’을 눌러야 저장돼요.</T>
+      {optionBlocks ? <T variant="sub" muted>옵션 {optionBlocks}개의 크기·수량·포장을 한곳에 묶었어요. 원문의 옵션별 관계는 그대로 유지해요.</T> : null}
+      {automaticJoins ? <T variant="sub" muted>인접한 원문 {automaticJoins}곳을 자동으로 연결했어요. 단어·수치·조건은 그대로 유지해요. 문맥 확인이 필요한 연결은 아래에 표시해요.</T> : null}
       {data ? <View accessibilityRole="alert" style={{ gap: 4 }} testID="source-copy-publication-warning">
         <T weight="semibold">공개 전 확인 대기 · {pendingCount}건</T>
         <T variant="sub">{pendingCount ? "확인 대기 항목을 모두 처리해야 상품에 반영할 수 있어요. 비공개 저장과 미리보기는 계속할 수 있어요." : "자료 문구의 확인을 마쳤어요. 상품에 반영하기 전에 판매페이지 전체를 확인해 주세요."}</T>

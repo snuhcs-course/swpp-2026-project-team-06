@@ -663,7 +663,7 @@ def test_AC_SRC_5_10_diagnostics_fencing_preserves_original_exception(
     assert claimed_id == iid
     original = ExtractionError(code, usage={"cost": 0.001}, request_id="original-request")
 
-    def fail_ocr(*args):
+    def fail_ocr(*args, **kwargs):
         raise original
 
     if stage == "ocr":

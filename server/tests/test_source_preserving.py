@@ -352,7 +352,7 @@ def test_AC_SRC_10_keep_requires_owner_note_and_relative_claim_can_be_acknowledg
         "올해 수확한 감귤입니다.",
         "가격은 5,000원입니다.",
         "감기를 치료하는 감귤입니다.",
-        "최고의 감귤입니다.",
+        "세계 최고의 감귤입니다.",
     ],
 )
 def test_AC_SRC_2_7_10_full_flagged_text_is_in_private_modules(quote):
@@ -366,7 +366,7 @@ def test_AC_SRC_2_7_10_full_flagged_text_is_in_private_modules(quote):
 
 
 def test_AC_SRC_10_marketing_warning_can_be_acknowledged_with_explanation():
-    item = candidate("c1", "최고의 감귤입니다.")
+    item = candidate("c1", "세계 최고의 감귤입니다.")
     passage = plan([item])["passages"][0]
     with pytest.raises(SourcePlanError):
         plan([item], decisions=[{"bindingHash": passage["bindingHash"], "action": "KEEP"}])
@@ -425,3 +425,314 @@ def test_AC_SRC_10_price_and_policy_can_be_acknowledged_without_changing_setting
     assert result["modules"][0]["texts"][0]["value"] == quote
     assert set(result) >= {"modules", "passages"}
     assert not {"price", "shippingFee", "saleSettings"}.intersection(result)
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "최고의 감귤입니다.",
+        "최상의 맛을 전합니다.",
+        "으뜸인 감귤입니다.",
+        "맛좋은 감귤을 드세요.",
+        "맛있는 감귤을 만나보세요.",
+        "최고급 감귤입니다.",
+    ],
+)
+def test_AC_SRC_10_ordinary_promotional_copy_needs_no_promotion_review(quote):
+    passage = plan([candidate("c1", quote)])["passages"][0]
+    assert passage["reasonCodes"]["SAFETY"] == []
+    assert passage["status"] == "READY"
+    assert passage["includedInDraft"] is True
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "세계 최고의 감귤입니다.",
+        "전 세계 1위 감귤입니다.",
+        "맛을 100% 보장합니다.",
+        "무조건 만족을 보장합니다.",
+    ],
+)
+def test_AC_SRC_10_extreme_promotional_claims_still_require_review(quote):
+    passage = plan([candidate("c1", quote)])["passages"][0]
+    assert "EXAGGERATION" in passage["reasonCodes"]["SAFETY"]
+    assert passage["reviewPending"] is True
+
+
+def continuation_candidate(first="표면을 살펴보듯이", second="포장을 열어 확인해 주세요."):
+    item = candidate("joined", first, span_id="vision-gemini-1")
+    item["evidence"][0]["page"] = 6
+    item["evidence"].append(
+        {
+            **item["evidence"][0],
+            "spanIds": ["vision-gemini-2"],
+            "quote": second,
+        }
+    )
+    return item
+
+
+def test_AC_SRC_10_source_adjacent_continuation_assembles_without_rewriting_evidence():
+    item = continuation_candidate()
+    result = plan([item])
+    left, right = result["passages"]
+    row = result["modules"][0]["texts"][0]
+    assert len(result["modules"][0]["texts"]) == 1
+    assert row["value"] == "표면을 살펴보듯이 포장을 열어 확인해 주세요."
+    assert row["passageIds"] == [left["id"], right["id"]]
+    assert row["candidateIds"] == ["joined"]
+    assert row["assembly"]["type"] == "SOURCE_ADJACENT_CONTINUATION"
+    for index, passage in enumerate(result["passages"]):
+        assert passage["value"] == item["evidence"][index]["quote"]
+        assert passage["originalValue"] == passage["value"]
+        assert passage["sourceExact"] is True
+        assert passage["evidence"] == [item["evidence"][index]]
+        assert passage["autoRepair"]["passageIds"] == row["passageIds"]
+        assert passage["status"] == "READY"
+        assert passage["includedInDraft"] is True
+        assert passage["bindingHash"]
+    assert left["autoRepair"]["clearedReasonCodes"] == ["POSSIBLE_FRAGMENT"]
+    assert right["autoRepair"]["clearedReasonCodes"] == []
+    assert result["summary"]["inputEvidence"] == result["summary"]["passages"] == 2
+    assert result["summary"]["includedInDraft"] == 2
+    assert {r["passageId"] for r in result["accounting"]} == set(row["passageIds"])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "page",
+        "source",
+        "reverse",
+        "gap",
+        "prefix",
+        "overlap",
+        "decision",
+        "full_sentence",
+        "heading",
+        "option",
+        "numeric_option",
+        "topic",
+        "missing",
+        "comma",
+    ],
+)
+def test_AC_SRC_10_ambiguous_boundaries_never_auto_join(change):
+    item = continuation_candidate()
+    items, versions, decisions = [item], dict(VERSIONS), []
+    if change == "page":
+        item["evidence"][1]["page"] = 7
+    elif change == "source":
+        item["evidence"][1]["sourceId"] = "source-2"
+        versions["source-2"] = VERSIONS["source-1"]
+    elif change == "reverse":
+        item["evidence"].reverse()
+    elif change == "gap":
+        item["evidence"][1]["spanIds"] = ["vision-gemini-3"]
+    elif change == "prefix":
+        item["evidence"][1]["spanIds"] = ["other-2"]
+    elif change == "overlap":
+        other = candidate("ambiguous", "다른 인용문입니다.")
+        other["evidence"] = [{**item["evidence"][1], "quote": "다른 인용문입니다."}]
+        items.append(other)
+    elif change == "decision":
+        original = plan(items)
+        decisions = [{"bindingHash": original["passages"][1]["bindingHash"], "action": "KEEP"}]
+    elif change == "full_sentence":
+        item["evidence"][0]["quote"] = "과육을 드세요."
+    elif change == "heading":
+        item["evidence"][1]["quote"] = "먹는 방법"
+    elif change == "option":
+        item["evidence"][1]["quote"] = "옵션 2: 중과를 선택해 주세요."
+    elif change == "numeric_option":
+        item["evidence"][1]["quote"] = "2kg 가정용 감귤입니다."
+    elif change == "topic":
+        item["evidence"][1]["quote"] = "보관은 서늘한 곳에 해 주세요."
+    elif change == "missing":
+        item["evidence"].pop()
+    elif change == "comma":
+        item["evidence"][0]["quote"] = "과육을 드세요,"
+    result = plan(items, versions=versions, decisions=decisions)
+    assert all("assembly" not in row for module in result["modules"] for row in module["texts"])
+    assert all("autoRepair" not in passage for passage in result["passages"])
+    if change != "full_sentence":
+        fragment = next(
+            p for p in result["passages"] if "POSSIBLE_FRAGMENT" in p["reasonCodes"]["COPY_EDIT"]
+        )
+        assert fragment["reviewPending"] is True
+        assert any("없는 뒷문장" in text for text in fragment["reviewExplanations"])
+
+
+def test_AC_SRC_10_join_clears_only_fragment_and_preserves_other_reviews():
+    item = continuation_candidate(first="올해 표면을 살펴보듯이")
+    result = plan([item])
+    left = result["passages"][0]
+    assert "autoRepair" in left
+    assert "POSSIBLE_FRAGMENT" not in left["reasonCodes"]["COPY_EDIT"]
+    assert "RELATIVE_TIME" in left["reasonCodes"]["OWNER_CONFIRMATION"]
+    assert left["reviewPending"] is True
+
+
+def test_AC_SRC_10_overflow_does_not_claim_a_fragment_was_repaired():
+    item = continuation_candidate(first="가" * 2990 + " 배출하듯이")
+    result = plan([item])
+    assert result["modules"] == []
+    left = result["passages"][0]
+    assert "POSSIBLE_FRAGMENT" in left["reasonCodes"]["COPY_EDIT"]
+    assert "autoRepair" not in left
+    assert left["includedInDraft"] is False
+
+
+def test_AC_SRC_10_cross_candidate_module_continuation_preserves_original_provenance():
+    left = candidate(
+        "appearance",
+        "쉽게 상자를 열 수 있습니다.\n겉면이 고르지 않지만",
+        field="appearanceFaq",
+    )
+    left["evidence"][0].update(page=10, spanIds=["vision-gemini-2", "vision-gemini-3"])
+    right = candidate("taste", "6~7월에만 만날 수 있는\n산뜻한 과일입니다!", field="taste")
+    right["evidence"][0].update(page=10, spanIds=["vision-gemini-4", "vision-gemini-5"])
+    # Candidate order is taxonomy order; numeric source span order is separate.
+    result = plan([right, left])
+    assert len(result["modules"]) == 1
+    module = result["modules"][0]
+    assert module["module"] == "appearanceFaq"
+    assert len(module["texts"]) == 1
+    row = module["texts"][0]
+    assert row["value"] == left["evidence"][0]["quote"] + " " + right["evidence"][0]["quote"]
+    assert row["candidateIds"] == ["appearance", "taste"]
+    by_cid = {p["candidateIds"][0]: p for p in result["passages"]}
+    assert by_cid["taste"]["module"] == "taste"
+    assert by_cid["appearance"]["module"] == "appearanceFaq"
+    assert row["passageIds"] == [by_cid["appearance"]["id"], by_cid["taste"]["id"]]
+    assert all(p["autoRepair"]["module"] == "appearanceFaq" for p in result["passages"])
+    assert by_cid["appearance"]["status"] == "PENDING"
+    assert all("CONTINUATION_CONTEXT" in p["reasonCodes"]["COPY_EDIT"] for p in result["passages"])
+    assert row["assembly"]["contextReviewRequired"] is True
+    assert "SEASON_OR_AVAILABILITY" in by_cid["taste"]["reasonCodes"]["OWNER_CONFIRMATION"]
+    assert by_cid["taste"]["reviewPending"] is True
+    assert result["summary"]["inputEvidence"] == result["summary"]["includedInDraft"] == 2
+
+
+def test_AC_SRC_10_cross_module_continuation_is_not_relocated_after_explicit_decision():
+    item = continuation_candidate()
+    left = {**item, "fieldKey": "appearanceFaq", "evidence": item["evidence"][:1]}
+    right = {**item, "id": "right", "fieldKey": "taste", "evidence": item["evidence"][1:]}
+    original = plan([left, right])
+    decided = plan(
+        [left, right],
+        decisions=[
+            {
+                "bindingHash": original["passages"][1]["bindingHash"],
+                "action": "EDIT",
+                "value": "생산자가 직접 쓴 맛 설명입니다.",
+                "note": "직접 편집",
+            }
+        ],
+    )
+    assert len(decided["modules"]) == 2
+    assert all("assembly" not in row for m in decided["modules"] for row in m["texts"])
+    assert decided["passages"][0]["reviewPending"] is True
+
+
+def test_AC_SRC_10_reversed_recorded_span_ids_do_not_establish_continuation_order():
+    item = continuation_candidate()
+    item["evidence"][0]["spanIds"] = ["vision-gemini-2", "vision-gemini-1"]
+    item["evidence"][1]["spanIds"] = ["vision-gemini-3"]
+    result = plan([item])
+    assert len(result["modules"][0]["texts"]) == 2
+    assert "POSSIBLE_FRAGMENT" in result["passages"][0]["reasonCodes"]["COPY_EDIT"]
+    assert "autoRepair" not in result["passages"][0]
+
+
+def test_AC_SRC_10_unrelated_cross_field_adjacent_copy_requires_context_review():
+    left = candidate("appearance", "껍질이 얇지만", field="appearanceFaq", span_id="vision-1")
+    right = candidate("farm", "농장 이름은 푸른들입니다.", field="farmStory", span_id="vision-2")
+    result = plan([left, right])
+    row = result["modules"][0]["texts"][0]
+    assert row["value"] == "껍질이 얇지만 농장 이름은 푸른들입니다."
+    assert row["assembly"]["contextReviewRequired"] is True
+    for passage in result["passages"]:
+        assert "CONTINUATION_CONTEXT" in passage["reasonCodes"]["COPY_EDIT"]
+        assert passage["reviewPending"] is True
+        assert passage["status"] == "PENDING"
+        assert any("서로 다른 추출 항목" in reason for reason in passage["reviewExplanations"])
+        assert all("없는 뒷문장" not in reason for reason in passage["reviewExplanations"])
+
+
+def test_AC_SRC_10_same_candidate_assembly_has_no_cross_context_warning():
+    result = plan([continuation_candidate()])
+    assert result["modules"][0]["texts"][0]["assembly"]["contextReviewRequired"] is False
+    assert all(p["reviewPending"] is False for p in result["passages"])
+
+
+def test_AC_SRC_2_option_blocks_group_properties_once_and_keep_global_notes():
+    header = "01 실속형 감귤 4kg"
+    values = [
+        ("head", header, "composition", ["option-1"]),
+        ("size", header + "\n사이즈 : 중소과", "specification", ["option-1", "option-2"]),
+        ("count", header + "\n수량 : 9~20과", "pieceCount", ["option-1", "option-3"]),
+        ("pack", header + "\n포장 : 벌크포장", "delivery", ["option-1", "option-4"]),
+        ("note", "과실 크기는 참고용입니다.", "specification", ["option-5"]),
+    ]
+    candidates = []
+    for cid, quote, field, spans in values:
+        row = candidate(cid, quote, field=field)
+        row["evidence"][0]["spanIds"] = spans
+        candidates.append(row)
+    result = plan(candidates)
+    modules = {m["module"]: m["texts"] for m in result["modules"]}
+    assert modules["composition"][0]["value"] == (
+        header + "\n사이즈 : 중소과\n수량 : 9~20과\n포장 : 벌크포장"
+    )
+    assert len(modules["composition"]) == 1
+    assert modules["specification"][0]["value"] == "과실 크기는 참고용입니다."
+    assert "pieceCount" not in modules and "delivery" not in modules
+    assert len(modules["composition"][0]["passageIds"]) == 4
+    assert sum(t["value"].count(header) for m in result["modules"] for t in m["texts"]) == 1
+    assert result["summary"]["includedInDraft"] == 5
+    assert len(result["accounting"]) == 5
+    assert all(p["value"] == p["originalValue"] for p in result["passages"])
+
+
+def test_AC_SRC_5_option_blocks_preserve_member_owner_confirmation():
+    header = "옵션 A 4kg"
+    rows = [candidate("head", header, field="composition", span_id="option-1")]
+    row = candidate("term", header + "\n2027년 12월 수확", field="specification")
+    row["evidence"][0]["spanIds"] = ["option-1", "option-2"]
+    rows.append(row)
+    result = plan(rows)
+    assert len(result["modules"]) == 1
+    assert result["modules"][0]["module"] == "composition"
+    assert result["summary"]["reviewPending"] == 1
+    conditional = next(p for p in result["passages"] if p["candidateIds"] == ["term"])
+    assert conditional["includedInDraft"] and conditional["reviewPending"]
+    assert "DATED_OR_HISTORICAL" in conditional["reasonCodes"]["OWNER_CONFIRMATION"]
+
+
+def test_AC_SRC_11_option_group_never_overrides_explicit_owner_placement():
+    head = candidate("head", "옵션 A 4kg", field="composition", span_id="option-1")
+    body = candidate("body", "옵션 A 4kg\n포장 : 상자", field="composition")
+    body["evidence"][0]["spanIds"] = ["option-1", "option-2"]
+    initial = plan([head, body])
+    passage = next(p for p in initial["passages"] if p["candidateIds"] == ["body"])
+    decided = plan(
+        [head, body],
+        decisions=[
+            {
+                "bindingHash": passage["bindingHash"],
+                "action": "KEEP",
+                "module": "delivery",
+                "note": "Owner selected a separate shipping section.",
+            }
+        ],
+    )
+    modules = {m["module"]: m["texts"] for m in decided["modules"]}
+    assert modules["delivery"][0]["value"] == body["evidence"][0]["quote"]
+    assert modules["composition"][0]["value"] == head["evidence"][0]["quote"]
+    assert not any(
+        t.get("assembly", {}).get("type") == "SOURCE_OPTION_BLOCK"
+        for m in decided["modules"]
+        for t in m["texts"]
+    )

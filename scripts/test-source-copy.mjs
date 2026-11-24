@@ -169,3 +169,19 @@ test("DEV-452 AC-SRC-5: generic platform, policy and money warning allow explici
     assert.deepEqual(h.events, ["flush", "get", "save", "reload"]);
   }
 });
+
+test("DEV-452 AC-SRC-2/5: adjacent-source joins are counted once and context review stays visible", () => {
+  const p = passage([]); p.autoRepair = { type: "SOURCE_ADJACENT_CONTINUATION", passageIds: ["one", "two"], module: "delivery", contextReviewRequired: true };
+  p.queueKinds = ["COPY_EDIT"]; p.reasonCodes.COPY_EDIT = ["CONTINUATION_CONTEXT"];
+  const h = harness(p);h.data.plan.passages.push({...p,id:"second",bindingHash:"binding-two"});
+  const notice = h.all().find((n) => n.type === "T" && Array.isArray(n.props.children) && n.props.children[0] === "인접한 원문 ");
+  assert.equal(notice.props.children[1], 1);
+  assert.match(JSON.stringify(h.all()), /서로 다른 항목에서 가져온 문구/);
+});
+
+test("DEV-452 AC-SRC-11: confirming a grouped option uses its current assembled section", () => {
+  const p = passage(["PRICE_OR_FEE"]);p.optionAssembly = {type:"SOURCE_OPTION_BLOCK", module:"composition", passageIds:["passage"]};
+  const h = harness(p);h.press("원문 그대로 사용");
+  const choices = h.slots.find((s) => s?.binding?.action === "KEEP");
+  assert.equal(choices.binding.module, "composition");
+});

@@ -345,3 +345,5 @@ FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
 FEAT-03/04/07 · AC-SRC-2/3/5/6/7/10/11 · M-11/13/18. 원문 보존은 명시적 batch 정책이며 기존 자동 정리와 분리한다. 전체 현재 검증 후보 근거를 입력으로 하고 생산자가 고친 칸을 보존한다. 원문 위치/revision/가림 version/인용/대상/규칙 version에 묶인 항목별 확인은 전용 테이블에 저장한다. API 저장은 현재 계획 및 검토 버전을 검사하며 공개는 기존 명시 적용 경로만 따른다. 상세 범위/소유권은 server/tasks/DEV-452.md.
 
 2026-11-25 DEV-452: 사용자 지시로 검토 대기 문구도 비공개 초안에 보존한다. 포함 상태와 확인 상태를 분리하고 설명을 표시하며 공개 반영 전에 확인한다. source-preserving-drafts.md와 DEV-452 최신 결정이 종전 보류 정책을 대체한다.
+
+2026-11-25 DEV-452/453: source-preserving-v4-source-blocks는 과도한 홍보만 경고하고 순서 검증 인접 문장/동일 제목 span 옵션을 조립한다. 원래 passage/ID/문구·owner 배치를 보존하며 다른 추출 항목 간 연결은 문맥 확인을 유지한다. historical non-story TEXT 허용은 trusted sourcecopy batch에 한정하고 모든 다른 검증과 policy-sensitive cache/write fence를 유지한다. 기존 run 자동 backfill 없음.

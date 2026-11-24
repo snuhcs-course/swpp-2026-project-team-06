@@ -86,7 +86,7 @@ test-source-final: ## Offline stage-2 evaluator and final-text scorer tests (DEV
 .PHONY: test-source-preserving
 test-source-preserving: ## Source-first planning, owner decisions and editor regressions (DEV-452)
 	@$(LOCAL_DB_ONLY)
-	$(SERVER) uv run pytest tests/test_source_preserving.py tests/test_source_copy_publication.py tests/test_source_copy_service.py tests/test_source_editor.py tests/test_source_refine.py
+	$(SERVER) uv run pytest tests/test_source_preserving.py tests/test_source_options.py tests/test_source_review_extraction.py tests/test_source_copy_publication.py tests/test_source_copy_service.py tests/test_source_editor.py tests/test_source_refine.py
 	node --test scripts/test-source-copy.mjs
 
 test-server: ## pytest + alembic check (CI server job; run make db first)

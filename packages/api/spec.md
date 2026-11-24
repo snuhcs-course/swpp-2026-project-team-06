@@ -137,3 +137,5 @@ AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달�
 sourceCopyEnabled가 있는 서버에만 검토 UI를 노출한다. 새 composer workspace 생성에만 명시 opt-in을 전달한다. source-copy GET은 {plan,reviewVersion,enabled}, 결정 PUT은 현재 planHash/reviewVersion 및 항목 bindingHash를 보내며, 기존 batch 전환은 enable POST다. 수동 편집 flush와 별도로 결정의 최초 서버값을 비교해 폴링을 통한 동시 쓰기 우회를 막는다. FEAT-03/04/07 · AC-SRC-2/3/5/7/11.
 
 2026-11-25 DEV-452: 사용자 지시로 검토 대기 문구도 비공개 초안에 보존한다. 포함 상태와 확인 상태를 분리하고 설명을 표시하며 공개 반영 전에 확인한다. source-preserving-drafts.md와 DEV-452 최신 결정이 종전 보류 정책을 대체한다.
+
+DEV-452 원문 조립 metadata를 표시하고 확인 기본 모듈은 실제 조립 위치를 따른다. 명시적 owner 위치 선택은 옵션 조립이 덮어쓰지 않는다. 날짜/가격 확인과 비공개 저장/명시 공개 경계는 유지한다.

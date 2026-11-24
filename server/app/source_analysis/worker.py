@@ -25,6 +25,7 @@ from app.ai.source_ocr import (
     crops,
     transcribe,
 )
+from app.ai.source_refine import PHOTO_FIELDS
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.farms import models as _farm_models  # noqa: F401
@@ -179,6 +180,13 @@ def page_scope(pages):
     }
 
 
+SOURCE_COPY_EXTRACTION_POLICY = "source-copy-historical-text-v1"
+
+
+def extraction_policy(allow_historical_fields):
+    return SOURCE_COPY_EXTRACTION_POLICY if allow_historical_fields else "legacy"
+
+
 def enqueue_extraction(db, source, run, item, pages):
     if source.original_photo:
         item.status = "SUCCEEDED"
@@ -215,6 +223,12 @@ def enqueue_extraction(db, source, run, item, pages):
             )
         )
     )
+    # A policy switch must not reuse a successful job validated under the old mode.
+    # Missing diagnostics identify legacy jobs; do not invalidate legacy caches globally.
+    policy = extraction_policy(db.get(Batch, run.batch_id).source_copy_enabled)
+    previous = [
+        old for old in previous if old.diagnostics.get("extractionPolicy", "legacy") == policy
+    ]
     if run.mode == "openrouter" and source.mime != "text/plain":
         # The job owns the document; OCR uses crops and extraction packs bounded pages.
         requests = [
@@ -291,7 +305,7 @@ def canonical_quote(quote, source):
     return source[tokens[start].start() : tokens[start + len(wanted) - 1].end()]
 
 
-def validate(extraction, chunk, allowed_targets):
+def validate(extraction, chunk, allowed_targets, *, allow_historical_fields=False):
     span_map = {(p["number"], s["id"]): s["text"] for p in chunk["pages"] for s in p["spans"]}
     for candidate_index, candidate in enumerate(extraction.candidates):
         quotes = "\n".join(e.quote for e in candidate.evidence)
@@ -313,7 +327,11 @@ def validate(extraction, chunk, allowed_targets):
             candidate.target_id = None
         if scrub(candidate.value) != candidate.value:
             raise ExtractionError("UNSUPPORTED_PRIVATE_VALUE")
-        if candidate.historical and candidate.field_key != "historicalSales":
+        if (
+            candidate.historical
+            and candidate.field_key != "historicalSales"
+            and not (allow_historical_fields and candidate.field_key not in PHOTO_FIELDS)
+        ):
             raise ExtractionError("HISTORICAL_FIELD")
         for evidence in candidate.evidence:
             if evidence.source_id != chunk["sourceId"] or (
@@ -339,13 +357,15 @@ def validate(extraction, chunk, allowed_targets):
     return extraction
 
 
-def validate_candidates(extraction, chunk, allowed_targets):
+def validate_candidates(extraction, chunk, allowed_targets, *, allow_historical_fields=False):
     """Keep strict per-candidate checks; a bad quote cannot discard unrelated facts."""
     accepted, rejected = [], []
     for index, candidate in enumerate(extraction.candidates):
         single = extraction.model_copy(update={"candidates": [candidate.model_copy(deep=True)]})
         try:
-            validate(single, chunk, allowed_targets)
+            validate(
+                single, chunk, allowed_targets, allow_historical_fields=allow_historical_fields
+            )
         except ExtractionError as exc:
             rejected.append(
                 {
@@ -421,8 +441,7 @@ def store_candidates(db, batch, item, extraction):
                     page_level
                     or evidence.get("spanIds")
                     and all(
-                        (evidence["page"], sid) in succeeded_scope
-                        for sid in evidence["spanIds"]
+                        (evidence["page"], sid) in succeeded_scope for sid in evidence["spanIds"]
                     )
                 )
                 for evidence in candidate.evidence
@@ -756,7 +775,9 @@ def _extract_results(chunk, targets, model, call, extract_part):
                 yield index, part, result
 
 
-def extract_vision_chunks(chunk, targets, model, call, extract_part, diagnostics):
+def extract_vision_chunks(
+    chunk, targets, model, call, extract_part, diagnostics, *, allow_historical_fields=False
+):
     """Keep independent paid chunk results; never replay failed requests."""
     candidates, photo_requests, rejected, seen = [], [], [], set()
     usage, request_id, first_failure = {}, None, None
@@ -778,7 +799,10 @@ def extract_vision_chunks(chunk, targets, model, call, extract_part, diagnostics
                 continue
             succeeded += 1
             accepted, checked = validate_candidates(
-                response.extraction, part, {t["id"] for t in targets}
+                response.extraction,
+                part,
+                {t["id"] for t in targets},
+                allow_historical_fields=allow_historical_fields,
             )
             for candidate in accepted.candidates:
                 signature = candidate.model_dump_json(by_alias=True)
@@ -835,7 +859,9 @@ def save_vision_diagnostics(item_id, token, chunk, diagnostics):
         db.commit()
 
 
-def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
+def vision_extraction(
+    item_id, token, chunk, targets, mode, model, page_images, *, allow_historical_fields=False
+):
     diagnostics = {}
     try:
         diagnostics = transcribe_pages(
@@ -850,6 +876,7 @@ def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
             lambda *args: paid_vision_call(item_id, token, *args),
             lambda part: extract(mode, model, part, targets, []),
             diagnostics,
+            allow_historical_fields=allow_historical_fields,
         )
     except ExtractionError as exc:
         diagnostics = exc.details.get("ocrDiagnostics", diagnostics)
@@ -962,6 +989,8 @@ def process(item_id, token):
             selected_targets = [
                 {"id": t["id"], "name": scrub(t.get("name") or "")} for t in selected_targets
             ]
+            # Trusted batch state only: neither source payload nor provider output opts in.
+            allow_historical_fields = batch.source_copy_enabled
             mode, model = run.mode, run.model
             if mode != "mock" and not use_vision_ocr:
                 from app.source_analysis.budget import reserve
@@ -1030,7 +1059,14 @@ def process(item_id, token):
         try:
             if use_vision_ocr:
                 response, diagnostics = vision_extraction(
-                    item_id, token, chunk, selected_targets, mode, model, page_images
+                    item_id,
+                    token,
+                    chunk,
+                    selected_targets,
+                    mode,
+                    model,
+                    page_images,
+                    allow_historical_fields=allow_historical_fields,
                 )
             else:
                 response = extract(mode, model, chunk, selected_targets, images)
@@ -1048,7 +1084,10 @@ def process(item_id, token):
             accounting.commit()
         extraction = response.extraction
         if not use_vision_ocr:
-            extraction, diagnostics = validate_candidates(extraction, chunk, allowed)
+            extraction, diagnostics = validate_candidates(
+                extraction, chunk, allowed, allow_historical_fields=allow_historical_fields
+            )
+        diagnostics["extractionPolicy"] = extraction_policy(allow_historical_fields)
         with get_sessionmaker()() as db:
             # Account for completed provider usage even if cancellation fenced the result.
             context = lock_context(db, item_id, token)
@@ -1059,7 +1098,9 @@ def process(item_id, token):
                 current.duration_ms = int((time.monotonic() - started) * 1000)
             if context:
                 batch, source, run, item = context
-                if source.sanitization_version != item.sanitization_version or (
+                if batch.source_copy_enabled != allow_historical_fields:
+                    item.status, item.error = "CANCELLED", "SOURCE_CHANGED"
+                elif source.sanitization_version != item.sanitization_version or (
                     mode != "mock" and not source.privacy_approved
                 ):
                     item.status, item.error = "CANCELLED", "PRIVACY_CHANGED"
