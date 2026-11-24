@@ -61,7 +61,7 @@ export default function SupportChat() {
         send={(text, _ids, key) => messaging.supportSend(text, key)}
         peer={{ name: "farmclub", avatar: <SupportAvatar size={36} /> }}
         copy={copyText}
-        // 주의·제재 안내 띠는 위 안내 아래 한 줄로(DEV-475). 이미 운영팀 방이라 ‘운영팀에 알리기’는 없다
+        // 주의·제재 안내 띠는 위 안내 아래 한 줄(DEV-475, onSupport null이면 ChatNotice가 한 줄로 그린다). 이미 운영팀 방이라 ‘운영팀에 알리기’는 없다
         notice={{ onSupport: null }}
       />
     </Screen>

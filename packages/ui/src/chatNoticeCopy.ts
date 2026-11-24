@@ -9,7 +9,8 @@ export type ChatNoticeSide = "consumer" | "producer";
 export const CHAT_NOTICE_BAND =
   "욕설·비방·음란·광고는 제재돼요. 결제·개인정보는 채팅으로 알리지 마세요.";
 
-/** 작은 화면에서 키보드가 떠 있을 때 접은 한 줄. 세 가지(제재·결제·개인정보)는 빼지 않는다 */
+/** 한 줄 띠: 운영팀 방(보드 2번 ‘기존 줄 아래 한 줄로’)과, 작은 화면에서 키보드가 떠 있을 때.
+ *  세 가지(제재·결제·개인정보)는 빼지 않는다. 화면 읽기는 늘 CHAT_NOTICE_BAND 전체 */
 export const CHAT_NOTICE_COMPACT = "욕설·음란·광고는 제재 · 결제·개인정보 공유 금지";
 
 export const CHAT_NOTICE_TITLE = "채팅 이용 안내";
@@ -27,7 +28,8 @@ export function chatNoticeLines(side: ChatNoticeSide, support: boolean): string[
   ];
 }
 
-/** 띠를 한 줄로 접을지. 키보드가 뜬 작은 화면(높이 720 미만, 예: 360×640)과 아주 낮은 창(500 미만)에서만 */
-export function chatNoticeCompact(keyboardShown: boolean, windowHeight: number): boolean {
-  return (keyboardShown && windowHeight < 720) || windowHeight < 500;
+/** 띠를 한 줄로 그릴지. 운영팀 방은 늘(기존 안내 아래 한 줄), 다른 방은 키보드가 뜬 작은 화면
+ *  (높이 720 미만, 예: 360×640)과 아주 낮은 창(500 미만)에서만 */
+export function chatNoticeCompact(keyboardShown: boolean, windowHeight: number, supportRoom = false): boolean {
+  return supportRoom || (keyboardShown && windowHeight < 720) || windowHeight < 500;
 }
