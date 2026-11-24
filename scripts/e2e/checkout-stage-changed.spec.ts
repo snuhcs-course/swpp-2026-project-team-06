@@ -146,11 +146,11 @@ test("DEV-337 AC-05-5: returning to home refreshes its current price without a r
   await loginConsumer(page);
   await page.goto(consumerUrl);
   const card = page.getByRole("link", { name: "하우스 감귤 5kg / 10kg 상품 상세", exact: true });
-  await expect(card.getByText("29,000원", { exact: true })).toBeVisible();
+  await expect(card.getByText("29,000원~", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "내 정보" }).click();
   await setStagePrice(request, 30000);
   await page.getByRole("tab", { name: "발견" }).click();
-  await expect(card.getByText("30,000원", { exact: true })).toBeVisible();
+  await expect(card.getByText("30,000원~", { exact: true })).toBeVisible();
   assertClean();
 });
 

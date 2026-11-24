@@ -164,7 +164,7 @@ def test_AC_06_10_ops_tester_producer_farm_is_test_farm(client, viewers):
     assert client.get("/api/products/mine", headers=producer).status_code == 200
 
 
-# ---- 경로 × 보는 사람 (AC-06-11, AC-07-11, AC-15-15) ----
+# ---- 경로 × 보는 사람 (AC-06-11, AC-07-12, AC-15-15) ----
 # (이름, 메서드, 경로, 본문, 로그인 필요, 숨김일 때 메시지 — None이면 없는 자원과 같은 404만 본다)
 ROUTES = [
     ("farm_detail", "GET", "/api/farms/f-kang", None, False, FARM_GONE),
@@ -396,7 +396,7 @@ def test_AC_06_11_owner_producer_app_unchanged(client, production):
     assert halla["shareUrl"].endswith("/s/farms/f-halla")
 
 
-def test_AC_07_11_public_photo_follows_approval_only(client, production):
+def test_AC_07_12_public_photo_follows_approval_only(client, production):
     """공개 사진은 <img>가 인증 헤더를 보내지 않아 보는 사람을 모른다. 승인 상태만 본다(의도)."""
     from app.catalog.models import Product
 

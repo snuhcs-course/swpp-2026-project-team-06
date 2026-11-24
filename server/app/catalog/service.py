@@ -103,8 +103,8 @@ def load_products(db: Session, products: list[Product]) -> list[Loaded]:
     return [loaded[i] for i in ids]
 
 
-def load_product(db: Session, product_id: str) -> Loaded | None:
-    product = db.get(Product, product_id)
+def load_product(db: Session, product_id: str, *, for_update: bool = False) -> Loaded | None:
+    product = db.get(Product, product_id, with_for_update=for_update, populate_existing=for_update)
     return load_products(db, [product])[0] if product else None
 
 
@@ -281,7 +281,7 @@ def published_cards(
     """판매 중 상품 카드(공개 농가만, DEV-472). 농가를 주면 그 농가들만."""
     from app.farms import service as farms
 
-    query = select(Product).where(Product.status == "PUBLISHED")
+    query = select(Product).where(Product.status == "PUBLISHED", Product.is_hidden.is_(False))
     if farm_ids is not None:
         query = query.where(Product.farm_id.in_(farm_ids))
     products = list(db.scalars(query.order_by(Product.id)))
@@ -305,7 +305,7 @@ def product_detail(db: Session, product_id: str, *, viewer: "Viewer") -> Product
     from app.farms import service as farms
 
     item = load_product(db, product_id)
-    if item is None or item.product.status != "PUBLISHED":
+    if item is None or item.product.status != "PUBLISHED" or item.product.is_hidden:
         return None
     p = item.product
     farm = farms.public_farm(db, p.farm_id, viewer)
@@ -359,7 +359,11 @@ def published_varieties(db: Session, farm_ids: list[str]) -> dict[str, list[str]
     grouped: dict[str, list[str]] = defaultdict(list)
     rows = db.execute(
         select(Product.farm_id, Product.variety)
-        .where(Product.status == "PUBLISHED", Product.farm_id.in_(farm_ids))
+        .where(
+            Product.status == "PUBLISHED",
+            Product.is_hidden.is_(False),
+            Product.farm_id.in_(farm_ids),
+        )
         .order_by(Product.id)
     )
     for farm_id, variety in rows:
@@ -1277,5 +1281,7 @@ def farm_products(db: Session, farm_id: str) -> list[Loaded]:
 
 
 def published_products_of_farm(db: Session, farm_id: str) -> list[Product]:
-    query = select(Product).where(Product.farm_id == farm_id, Product.status == "PUBLISHED")
+    query = select(Product).where(
+        Product.farm_id == farm_id, Product.status == "PUBLISHED", Product.is_hidden.is_(False)
+    )
     return list(db.scalars(query.order_by(Product.id)))

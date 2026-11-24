@@ -54,6 +54,7 @@ class Product(Base):
     approved_supply_grams: Mapped[int] = mapped_column(Integer, default=0)
     sales_limit_grams: Mapped[int] = mapped_column(Integer, default=0)
     sales_paused: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     version: Mapped[int] = mapped_column(Integer, default=1)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

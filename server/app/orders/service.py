@@ -267,10 +267,11 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
     from app.catalog import service as catalog
     from app.farms import service as farms
 
-    item = catalog.load_product(db, body.product_id)
+    item = catalog.load_product(db, body.product_id, for_update=True)
     if (
         item is None
         or item.product.status != "PUBLISHED"
+        or item.product.is_hidden
         # 공개 상품만(R-29, DEV-472): 일반 소비자가 테스트 농가 상품으로 주문하면 없는 상품과 같다
         or farms.public_farm(db, item.product.farm_id, consumer) is None
     ):

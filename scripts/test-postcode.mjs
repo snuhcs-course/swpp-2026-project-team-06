@@ -1,7 +1,7 @@
 // DEV-314 (FEAT-08, screens.md 결정 27, AC-08-4): 배송지 입력의 ‘우편번호 찾기’(카카오 우편번호 서비스)
 // apps/consumer/src/lib/postcode.ts. 고른 결과에서 5자리 우편번호와 주소(도로명 먼저, 없으면 지번)를 꺼내고,
 // 형식이 틀리면 입력칸을 바꾸지 않는다(null → 직접 입력). 채운 값으로도 도서산간 판정이 직접 입력과 같다.
-// 웹은 레이어(postcodeSearch.ts), 앱은 전체 화면 웹뷰(postcodeSearch.native.tsx)가 같은 규칙으로 칸을 채운다.
+// 웹은 레이어(postcodeSearch.tsx), 앱은 전체 화면 웹뷰(postcodeSearch.native.tsx)가 같은 규칙으로 칸을 채운다.
 // 앱 웹뷰 메시지(parsePostcodeMessage)는 깨진 JSON·빈 값·5자리가 아닌 우편번호를 걸러 낸다.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -97,7 +97,7 @@ test("test_AC_08_4_remote_rule_matches_server: 화면 판정 규칙이 서버 �
 test("test_DEV_314_script_and_platforms: 공식 스크립트, 웹은 레이어·앱은 웹뷰, 직접 입력 유지", () => {
   // 키 없는 공식 주소. 질의 문자열을 붙이면 서비스가 잘못된 호출로 본다
   assert.equal(POSTCODE_SCRIPT_URL, "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js");
-  const web = read("apps/consumer/src/lib/postcodeSearch.ts");
+  const web = read("apps/consumer/src/lib/postcodeSearch.tsx");
   assert.match(web, /\.embed\(/, "팝업 대신 레이어로 연다");
   assert.doesNotMatch(web, /preloadPostcode|useEffect\(\(\) => \{\s*loadPostcode/, "누르기 전에는 카카오 스크립트를 부르지 않는다(처리방침 제2조)");
   assert.doesNotMatch(web, /react-native-webview/, "웹 번들은 웹뷰를 가져오지 않는다");

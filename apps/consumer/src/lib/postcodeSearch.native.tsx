@@ -1,4 +1,4 @@
-// 우편번호 찾기 — iOS·Android(DEV-314). 웹은 postcodeSearch.ts(레이어 embed).
+// 우편번호 찾기 — iOS·Android(DEV-314). 웹은 postcodeSearch.tsx(레이어 embed).
 // 전체 화면 모달에 웹뷰(react-native-webview)를 띄우고, 웹과 같은 공식 스크립트를 넣은 HTML(postcodeWebViewHtml)을 연다.
 // 웹뷰가 보낸 결과는 lib/postcode.ts의 같은 규칙(5자리 우편번호, 도로명 → 지번)으로 읽는다.
 // 닫기·Android 뒤로는 칸을 바꾸지 않고 닫는다. 못 띄우거나 10초 안에 안 뜨면 직접 입력 안내(onError("load")).

@@ -10,7 +10,7 @@ test("DEV-113 R-16: consumer home and login show the legal footer and open /priv
   const footer = page.getByTestId("legal-footer");
   await footer.scrollIntoViewIfNeeded();
   await expect(footer).toBeVisible();
-  // 로컬 Mock 빌드에는 사업자 정보 값이 없어 ‘테스트 서비스’만 보인다
+  // 로컬 Mock 빌드에는 사업자 정보 값이 없어 ‘테스트 서비스’만 보인다(스토어 빌드는 값이 비면 멈춘다, DEV-476)
   await expect(footer.getByText("farmclub · 테스트 서비스")).toBeVisible();
   await expect(footer.getByText(/통신판매중개자/)).toBeVisible();
 

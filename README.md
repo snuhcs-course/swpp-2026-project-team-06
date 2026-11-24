@@ -416,7 +416,7 @@ selected; a manual run always deploys the current `main`.
 The business values are public on the live site but must never be committed (they are
 personal/company details and the repository is mirrored publicly). Each one maps to
 `EXPO_PUBLIC_<NAME>` at export time; an empty variable is left out of the footer, and with
-none set the footer shows "farmclub · 테스트 서비스". After changing them, run the workflow
+none set the footer shows "farmclub · 테스트 서비스" (local and mock builds only: an EAS build with any profile but `development` stops in `apps/<app>/app.config.js` when any value but `BUSINESS_MAIL_ORDER_NO` is empty, DEV-476). After changing them, run the workflow
 by hand so both apps are rebuilt. These variables only reach the web build. The Android
 and iOS apps read the same values from EAS, so keep a copy in EAS as well (see
 [Native apps with EAS](#native-apps-with-eas-dev-33)); every row except
@@ -515,6 +515,13 @@ is not set yet, as on GitHub). The `internal` profile also builds with the `prev
 build log says "Resolved preview environment"). When you change a business value on GitHub, change
 it in EAS too. The values are JS-only, so an `eas update` reaches installed builds on the same
 runtime version; builds from before a runtime change (such as the app rename in DEV-377) need a new build.
+Since DEV-476 `apps/<app>/app.config.js` stops any build except the `development` profile (any name or
+case, so a new store profile is covered too) on the EAS build server (`EAS_BUILD=true`) when any of those seven variables is empty; the error lists the missing
+names only. `EXPO_PUBLIC_BUSINESS_MAIL_ORDER_NO` only warns until it is issued. Local `expo start`/`export`,
+CI, `eas update` and the local config read before `eas build` are not checked because only the build
+server sets `EAS_BUILD` and `EAS_BUILD_PROFILE`, so check the environment before an update:
+`npx eas-cli@latest env:list --environment <environment>` (names and values; do not paste the output into
+issues or PRs). Which EAS environment a profile uses is printed in the build log ("Resolved … environment"). The file loads no other module, so it does not change the runtime fingerprint.
 The temporary evaluator build flag used for the 11/4 heuristic evaluation was removed from
 both projects on 2026-11-04. DEV-367 retires its client behavior and the old evaluator query/storage
 entry. Internal/release reviewers now use operator-created ID/password accounts; do not enable a

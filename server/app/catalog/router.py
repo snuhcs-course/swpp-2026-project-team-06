@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.accounts.schemas import KindFilter
+from app.admin.product_visibility import VisibilityInput, VisibilityView, set_visibility
 from app.catalog import service
 from app.catalog.schemas import (
     AdminCapacityRequest,
@@ -322,3 +323,10 @@ def admin_capacity_requests(
     kind는 농가 주인 계정 필터(DEV-307): 기본 real(시드 테스트·운영 검증 계정 제외), test, all.
     """
     return service.list_capacity_requests(db, None if status == "ALL" else status, kind)
+
+
+@admin_router.post("/{product_id}/visibility", response_model=VisibilityView)
+def admin_product_visibility(
+    db: Db, admin: Admin, product_id: str, body: VisibilityInput, key: IdempotencyKey = None
+):
+    return set_visibility(db, admin.id, product_id, body, key)

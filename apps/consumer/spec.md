@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-473 화면 오류 경계
+`lib/ScreenBoundary.tsx`. 화면 한 장 경계는 레이아웃 prop `unstable_screenErrorBoundary`(루트 Stack = 탭 밖 화면 `StackScreenBoundary`, `(tabs)/_layout`의 Tabs와 탭 폴더 Stack = `TabScreenBoundary`). Tabs prop이 레이아웃 없는 탭 화면과 앞으로 `(tabs)` 바로 아래에 더할 화면을 받으므로 화면 파일에 경계를 따로 내보내지 않는다(배치는 `scripts/test-screen-error.mjs`가 검사). 받는 것은 그리기·effect 중 예외뿐이고 이벤트 핸들러·비동기 콜백 예외는 못 받는다. expo-router가 죽은 화면만 장면 안에서 감싸 스택·탭 바가 남고 ‘다시 시도’는 그 화면만 다시 그린다. 탭 폴더 `_layout`의 `export ErrorBoundary`는 Stack째 갈려 하위 상태가 지워지므로 쓰지 않는다. 루트 `_layout`의 `export ErrorBoundary`(`RootBoundary`)는 세션·탭 레이아웃이 죽을 때의 마지막 그물이라 세션·내비게이터 없이 움직인다(웹은 `location.replace`). ‘홈으로’는 죽은 화면이 든 스택을 첫 화면으로 되돌리고, 웹은 그 주소 변화를 본 다음(최대 1초) `router.replace`(뒤로 가기로 돌아오지 않음). 죽은 화면이 운영팀 방이면 ‘운영팀에 알리기’를 숨긴다. 홈 `/`, 운영팀 `/chats/support`(비로그인은 관문 시트). `scripts/e2e/screen-error-boundary.spec.ts`.
+
 ## DEV-440 내 정보 계정 출처
 - FEAT-01 AC-01-38: SCR-17의 계정 출처는 `lib/meSummary.ts`의 accountLabel에서 username 우선, 없을 때 isTestAccount로 결정한다. ID 발급 뒤 시드 테스트 분류를 유지하는 AC-01-37과 맞춘다. 역할 접미사·프로필·비밀번호 메뉴 조건은 바꾸지 않는다.
 
@@ -14,7 +17,7 @@
 홈 카드 가격·취소선은 main 그대로(`productPrices`의 `referencePrice`), 상품 상세도 `referencePrice`를 넘겨 옵션 줄에 ‘지금 예약가 ~~비교 가격~~’(11/17 PM 결정으로 취소선 유지). 카드 메타는 ‘이 가격 D-n’ 한 줄 + ‘n명 예약’ 한 줄, 개념 상자는 추천 상품이 있을 때만. 상품 상세 판매자 줄의 ‘팬 n명’은 상품 응답에 없어 `farms.get(farmId)`를 한 번 더 읽고, 실패하면 수만 뺀다. 소식방 머리도 ‘팬 N명’(버튼·공개 범위 이름 ‘팔로워 전용’은 그대로). FEAT-06 AC-06-9, FEAT-07 AC-07-9·10.
 
 ## DEV-314 우편번호 찾기
-배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.ts`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
+배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.tsx`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 두 파일은 확장자가 같아야 한다: Metro는 확장자마다 `.android`→`.native`→무접미사 순으로 찾고 `ts`를 `tsx`보다 먼저 보므로, 웹이 `.ts`이고 앱이 `.native.tsx`이면 앱 번들에 웹 파일이 들어간다(DEV-474, `scripts/test-native-pairs.mjs`가 Metro 순서를 흉내 내 검사). 웹은 `.native`를 보지 않으므로(`preferNativePlatform: false`) 웹 번들은 `.tsx` 웹 파일을 그대로 잡는다. 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
 
 ## DEV-252 권한 확인 뒤 읽기 위치 복구
 SessionProvider는 auth 이벤트마다 메모리 scope를 동기 폐기한다. 같은 토큰 문자열로 다시 로그인해도 새 generation이고, 같은 세션 auth.me 성공은 기존 scope를 유지한다. event/request serial은 이전 세션·늦은 사용자 응답을 버린다. 일시적인 auth.me 실패는 UI만 숨기며 안전한 geometry는 재시도까지 유지한다.
@@ -214,3 +217,6 @@ Conversation headers use goBackOr with roomBackTarget as the direct-entry fallba
 
 ## DEV-454 UAT cycle 2
 The checkout uses a dedicated condition-change modal while preserving the existing submission and deposit-recovery path. Dismissal does not acknowledge a reservation; the footer reopens the prompt.
+
+## DEV-476 정식 서비스 전환 문구 (2026-11-24)
+주문서·입금 안내 머리 아래 ‘테스트 서비스’ 띠는 지웠고(`TestBand`는 `packages/ui`에서 뺐다), 가입 동의 시트는 ‘버전 ○’만, 로그인 하단 안내는 ‘· 테스트 서비스’ 꼬리 없이 둔다. 약관 요지는 ‘입금은 농가 계좌로 직접 하고, farmclub은 거래를 중개해요.’로 끝난다. `app.config.js`는 app.json을 그대로 돌려주고, EAS 빌드 서버에서 `development`가 아닌 모든 프로필(이름·대소문자와 상관없이 제외 목록으로 본다)에서 사업자 정보 필수 값이 비면 던져서 빌드를 멈춘다. 생산자 앱과 글자까지 같은 파일이고, fingerprint가 바뀌지 않게 다른 파일을 require하지 않는다(`scripts/test-store-business-check.mjs`).

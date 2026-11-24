@@ -38,6 +38,7 @@ import { Price, type ShelfProduct } from "./Storefront";
 import { FanReplySheet, type FanReplyPageData, type FanReplyRow } from "./FanReplySheet";
 import { broadcastStats } from "./fanReplies";
 import { NEWS_CARD_GAP, NEWS_PHOTO_GAP, newsCardWidth, newsPhotoRows } from "./newsCard";
+import { ChatNotice, type ChatNoticeConfig } from "./ChatNotice";
 
 const quotePreview = (body: string) => body.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[이메일 가림]");
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
@@ -114,6 +115,8 @@ type Props = {
   fanReplies?: (broadcastId: string, cursor?: string) => Promise<FanReplyPageData>;
   /** 생산자: 시트에서 본 답장을 읽음으로(DEV-297) */
   readFanReplies?: (broadcastId: string, lastReadMessageId: string) => Promise<unknown>;
+  /** 머리 아래 주의·제재 안내 띠(DEV-475, AC-12-19). onSupport는 운영팀 대화방을 연다 */
+  notice: ChatNoticeConfig;
 };
 const VIDEO = /^data:video|\.(mp4|webm)$/;
 const reasonOf = (e: unknown) =>
@@ -136,11 +139,15 @@ export function RoomMedia({ uri }: { uri: string }) {
     // 앱(iOS·Android)에는 영상 재생 라이브러리가 없어 사진으로 그리면 깨진다. 포스터를 누르면 기기 플레이어로 연다(DEV-291)
     // 포스터 모양은 Figma 11:133 ④: 세로 230×300, 가운데 흰 원 재생 버튼(DEV-295). API에 첫 장면·길이가 없어
     // 어두운 면 위 재생 버튼만 그린다(첫 장면·길이 표시는 서버가 주면 후속, expo-video 바로 재생도 후속)
+    // 기기 플레이어로 열 수 없는 주소(data: 영상 — 브라우저 Mock·옛 인라인 저장분)는 흐린 재생 버튼만 남긴다.
+    // 웹에서 보라는 글자 띠는 미완성으로 읽혀 지웠다(DEV-475, DEV-473 보드 4번). 누를 수 없고 화면 읽기는 ‘영상을 열 수 없어요’
     const openable = /^https?:/.test(uri);
     return (
       <Pressable
+        testID={openable ? "room-video" : "room-video-unavailable"}
         accessibilityRole="button"
-        accessibilityLabel={openable ? "소식 영상 보기" : "소식 영상, 웹에서 볼 수 있어요"}
+        accessibilityLabel={openable ? "소식 영상 보기" : "영상을 열 수 없어요"}
+        accessibilityState={{ disabled: !openable }}
         disabled={!openable}
         onPress={() => void Linking.openURL(uri).catch(() => undefined)}
         style={{
@@ -168,22 +175,6 @@ export function RoomMedia({ uri }: { uri: string }) {
             ▶
           </T>
         </View>
-        {openable ? null : (
-          <View
-            style={{
-              position: "absolute",
-              bottom: 12,
-              paddingHorizontal: 8,
-              paddingVertical: 2,
-              borderRadius: tokens.radius.sm,
-              backgroundColor: "rgba(0,0,0,0.6)",
-            }}
-          >
-            <T variant="caption" color="#FFFFFF">
-              웹에서 볼 수 있어요
-            </T>
-          </View>
-        )}
       </Pressable>
     );
   }
@@ -213,6 +204,7 @@ export function NewsRoom({
   readFanReplies,
   upload,
   loadPhoto,
+  notice,
 }: Props) {
   const [canReply, setCanReply] = useState(producer);
   const access = useRef<boolean | null>(null);
@@ -605,6 +597,7 @@ export function NewsRoom({
       {...PRIVATE_AREA}
       style={{ flex: 1, minHeight: 0, backgroundColor: tokens.color.surface }}
     >
+      <ChatNotice side={producer ? "producer" : "consumer"} onSupport={notice.onSupport} />
       {lapsed ? (
         <View
           testID="room-lapsed-banner"

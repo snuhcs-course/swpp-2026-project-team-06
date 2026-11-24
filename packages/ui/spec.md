@@ -1,5 +1,8 @@
 # packages/ui spec
 
+## DEV-473 화면 오류 안내
+`ScreenError({error, retry, home, support, aboveTabs})`는 expo-router 오류 경계가 그리는 화면이다(screens.md 3장 ‘화면 오류’). 모양은 `EmptyState`·`LoadError`와 같은 결(아이콘 `alert` 32, 제목 18 굵게, 보조 14)이고 하단에 ‘다시 시도’(주요, 강조색 하나)·‘홈으로’(테두리 48), 본문 아래 글자 링크 ‘운영팀에 알리기’(`support`가 없으면 숨김). 문구와 개발 한 줄은 순수 모듈 `screenErrorText.ts`(`ScreenError.tsx`와 대소문자만 달라 이름을 달리함): `__DEV__`에서만 `error.message` 첫 줄 120자, 이름·스택은 그리지 않는다. `aboveTabs`면 하단 여백을 탭 바 높이만큼 올린다. 안내 묶음은 `accessibilityRole="alert"`·live region, 앱은 처음 그릴 때 `announceForAccessibility`로 제목을 읽히고, 본문은 ScrollView라 큰 글자에서도 버튼과 겹치지 않는다. 경로를 모르는 부품이라 이동은 앱의 `lib/ScreenBoundary.tsx`가 넘긴다. `scripts/test-screen-error.mjs`.
+
 ## DEV-379 알아 둘 세 줄 '이미 예약했어요'
 `ProductPageBody`의 선택 값 `myReservation`(`MyReservation`)이 `TrustRows` 첫 줄 보조 줄을 바꾼다. 없으면 'n번째'(생산자 미리보기 그대로), `checking`이면 글 없이 보조 줄 높이만, `reserved`면 '이미 예약했어요 · 내 예약 보기' + › 로 줄 전체가 링크(FEAT-07 AC-07-10). 품절이면 보조 줄 없음은 그대로.
 
@@ -120,7 +123,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 | 결정 | 이유 |
 | --- | --- |
 | 문안은 `src/legalContent.ts` 한 곳(지울 수 있는 타입만, import 없음). `LegalFooter`·`LegalDocument`(`src/Legal.tsx`)와 `scripts/legal-pages.mjs`(Node type stripping으로 직접 import)가 같이 쓴다 | SPA라 JS 없이 읽히는 정적 HTML이 따로 필요하고, 두 벌로 쓰면 문안이 어긋난다 |
-| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’ | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장. 웹은 GitHub Actions 변수, 네이티브는 두 EAS 프로젝트의 `preview`·`production` 환경 변수에서 온다(DEV-131) |
+| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’(로컬·Mock·값 없는 웹 배포만. 스토어용 EAS 빌드는 필수 값이 비면 `app.config.js`가 빌드를 멈춘다, DEV-476) | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장. 웹은 GitHub Actions 변수, 네이티브는 두 EAS 프로젝트의 `preview`·`production` 환경 변수에서 온다(DEV-131) |
 | `LegalFooter`는 링크를 직접 열지 않고 `onOpen(path)`로 앱 라우터에 맡긴다 | ui 패키지는 expo-router에 의존하지 않는다 |
 | 파일 이름은 `Legal.tsx`와 `legalContent.ts`. `legal.ts`는 macOS(대소문자 무시)에서 `Legal.tsx`와 충돌한다 | TS1149 |
 | (DEV-116) 푸터는 `<Scroll footer={<LegalFooter … />}>` 슬롯으로 둔다. footer가 있으면 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'` + 위 여백 section(40)으로 붙인다 | 내용 바로 뒤에 두면 짧은 화면(카카오 운영 로그인)에서 푸터가 화면 중간에 뜬다. flexGrow는 footer가 있을 때만 켜 다른 화면에 영향이 없다 |
@@ -218,3 +221,9 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 ## DEV-468 이모티콘
 
 AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달한다. 공통 카탈로그 ID 외 값과 혼합 메시지는 거부한다. UI는 공통 + 도구·160px 투명 그림·독립 전송 초안 보존을 사용한다. 이모티콘만 보낸 소비자 메시지는 AI를 호출하지 않고, 기존 권한·멱등성·비공개 답장을 유지한다. 상세는 tasks/DEV-468.md.
+
+## DEV-475 채팅방 주의·제재 안내 (원스토어 공지 29889)
+- `ChatNotice`(`ChatNotice.tsx`)는 띠 + ‘채팅 이용 안내’ 시트(기존 `Sheet`). 문구·접기 조건은 순수 함수 파일 `chatNoticeCopy.ts`(대소문자만 다른 이름은 macOS에서 부딪혀 `Copy`를 붙임). 테스트 `scripts/test-chat-notice.mjs`(react-native-web + react-dom/server로 실제로 그리고, 띠가 루트의 조건 없는 직접 자식인지 TypeScript AST로 본다). 시트 안쪽은 `ChatNoticeSheetBody`로 따로 둬 Modal 없이 그려 본다.
+- `ChatThread`·`NewsRoom`은 필수 prop `notice: { onSupport: (() => void) | null }`를 받아 루트 맨 위(스크롤 밖)에 띠를 그린다. 시트 셋째 줄은 `producer`로 고르고, `onSupport`가 null(운영팀 방)이면 넷째 줄과 ‘운영팀에 알리기’를 뺀다.
+- 띠는 `surface` 면 + 아래 테두리, 14/20 두 줄(높이 57, `minHeight` 48). 운영팀 방(`onSupport` null)은 늘, 다른 방은 키보드가 뜬 높이 720 미만 창이나 높이 500 미만 창에서 12/16 한 줄로 그린다(앱 높이 33 + hitSlop 8로 터치 48, 웹은 hitSlop이 없어 `minHeight` 48). 화면 읽기 이름은 늘 전체 문구 + ‘채팅 이용 안내 보기’.
+- `RoomMedia`의 앱 영상 포스터는 열 수 없는 주소(`https?:` 아님 — `data:` 영상)에 글자 띠 없이 흐린 재생 원만 두고 ‘영상을 열 수 없어요’로 읽힌다.

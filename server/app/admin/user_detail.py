@@ -84,6 +84,8 @@ class UserProduct(CamelModel):
     product_id: str
     name: str
     status: ProductStatus
+    is_hidden: bool
+    version: int
     availability: str  # catalog `SalesState.availability`(AVAILABLE·PERIOD_SOLD_OUT 등)
     reject_reason: str | None
     approved_supply_grams: int
@@ -228,6 +230,8 @@ def _products(db: Session, farm_id: str) -> list[UserProduct]:
                 product_id=p.id,
                 name=p.name,
                 status=p.status,
+                is_hidden=p.is_hidden,
+                version=p.version,
                 availability=state.availability,
                 reject_reason=p.reject_reason,
                 approved_supply_grams=p.approved_supply_grams,
