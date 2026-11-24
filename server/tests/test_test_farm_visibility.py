@@ -1,21 +1,36 @@
-"""DEV-472 · R-29: 테스트 계정 농가는 테스트 계정에게만 공개 경로에 나온다.
+"""DEV-472 · R-29: 테스트 계정 농가는 테스트 계정에게만 공개 경로에 나오고 주문된다.
 
 시드에서 강씨네 귤밭(f-kang)의 주인 u-kang은 시드 테스트 계정이고, 한라네(f-halla)의 주인
-u-halla는 실사용자다. 테스트가 기본으로 켜 두는 시드 선택 로그인(MOCK_LOGIN_ENABLED)을 끈
-운영과 같은 조건에서 본다. 토큰은 issue_token으로 바로 만든다.
+u-halla는 실사용자다. 실사용자 소비자 u-buyer-park는 시드에서 f-kang을 팔로우하고 대화·주문(o-35)이
+있다. 테스트가 기본으로 켜 두는 시드 선택 로그인(MOCK_LOGIN_ENABLED)을 끈 운영과 같은 조건에서
+본다. 토큰은 issue_token으로 바로 만든다.
 """
 
+import uuid
+
 import pytest
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from app.accounts.models import User
+from app.accounts.schemas import CONSENT_VERSION, REQUIRED_CONSENTS
 from app.core import config
 from app.core.db import get_sessionmaker
 from app.core.security import issue_token
+from app.messaging.models import Thread
+from app.source_analysis.models import PublicPhoto
+from app.source_analysis.storage import Storage
+from tests.test_orders import order_body
+from tests.test_settings_inquiries import png, upload
+
+FARM_GONE = "찾을 수 없는 농가예요."
 
 
 def bearer(user_id: str, role: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {issue_token(user_id, role)}"}
+
+
+def key() -> dict[str, str]:
+    return {"Idempotency-Key": str(uuid.uuid4())}
 
 
 def set_flags(user_id: str, **values) -> None:
@@ -23,24 +38,72 @@ def set_flags(user_id: str, **values) -> None:
         session.execute(update(User).where(User.id == user_id).values(**values))
 
 
+def thread_id(farm_id: str, consumer_id: str) -> str:
+    with get_sessionmaker()() as session:
+        return session.scalar(
+            select(Thread.id).where(Thread.farm_id == farm_id, Thread.consumer_id == consumer_id)
+        )
+
+
+def onboard(client, user_id: str) -> dict[str, str]:
+    """실사용자 소비자의 가입 온보딩(닉네임·연락처·필수 동의)을 마친다."""
+    set_flags(user_id, nickname=f"닉{user_id[-3:]}", phone="010-0000-0000")
+    headers = bearer(user_id, "CONSUMER")
+    consents = [{"kind": kind, "version": CONSENT_VERSION} for kind in REQUIRED_CONSENTS]
+    saved = client.post("/api/auth/me/consents", json={"consents": consents}, headers=headers)
+    assert saved.status_code == 200, saved.text
+    return headers
+
+
+def producer_consented(client, user_id: str) -> dict[str, str]:
+    """실사용자 생산자(u-halla)는 지금 버전 약관 동의가 있어야 생산자 API를 쓴다(DEV-113)."""
+    from app.accounts.schemas import REQUIRED_PRODUCER_CONSENTS
+
+    headers = bearer(user_id, "PRODUCER")
+    consents = [{"kind": k, "version": CONSENT_VERSION} for k in REQUIRED_PRODUCER_CONSENTS]
+    saved = client.post("/api/auth/me/consents", json={"consents": consents}, headers=headers)
+    assert saved.status_code == 200, saved.text
+    return headers
+
+
+def seed_env(monkeypatch, on: bool) -> None:
+    monkeypatch.setattr(config.get_settings(), "mock_login_enabled", on)
+
+
 @pytest.fixture
 def production(monkeypatch):
-    monkeypatch.setattr(config.get_settings(), "mock_login_enabled", False)
+    seed_env(monkeypatch, False)
 
 
-# 보는 사람: 비로그인, 실사용자 소비자(u-buyer-park), 시드 테스트 소비자(u-minji),
-# 운영 검증 표시한 실사용자 소비자(u-buyer-choi)
-ANON: dict[str, str] = {}
+@pytest.fixture
+def viewers(client, monkeypatch):
+    """보는 사람 넷. 운영 검증 소비자(u-buyer-choi)는 f-kang을 팔로우하고 대화를 연 상태로 만든다.
 
-
-def viewers():
+    실사용자(u-buyer-park)는 온보딩을 마쳐 관문(403)이 아니라 농가 확인(404)에 걸린다.
+    """
     set_flags("u-buyer-choi", ops_tester=True)
+    real = onboard(client, "u-buyer-park")
+    ops = onboard(client, "u-buyer-choi")
+    seed_env(monkeypatch, False)
+    started = client.post("/api/messaging/chats", headers=ops | key(), json={"farmId": "f-kang"})
+    assert started.status_code == 200, started.text
+    asked = client.post(
+        "/api/messaging/chats/f-kang/messages", headers=ops | key(), json={"text": "안녕하세요"}
+    )
+    assert asked.status_code == 200, asked.text
     return {
-        "anon": ANON,
-        "real": bearer("u-buyer-park", "CONSUMER"),
+        "anon": {},
+        "real": real,
         "seed_test": bearer("u-minji", "CONSUMER"),
-        "ops_tester": bearer("u-buyer-choi", "CONSUMER"),
+        "ops_tester": ops,
     }
+
+
+HIDDEN_TO = ("anon", "real")
+SHOWN_TO = ("seed_test", "ops_tester")
+
+
+# ---- 목록·검색·추천 (AC-06-10) ----
 
 
 def home_ids(client, headers):
@@ -54,58 +117,154 @@ def list_ids(client, headers, q=None):
     return {c["farmId"] for c in body["items"]}
 
 
-def test_AC_06_10_home_list_and_search_hide_test_farms_from_anon_and_real(client, production):
-    v = viewers()
-    for name in ("anon", "real"):
-        farms, recommended = home_ids(client, v[name])
-        assert "f-kang" not in farms, name
-        assert "f-kang" not in recommended, name
-        assert "f-halla" in farms, name
-        assert "f-kang" not in list_ids(client, v[name]), name
-        # 농가명·상품명 검색으로도 나오지 않는다
-        assert list_ids(client, v[name], "강씨네") == set(), name
-        assert "f-kang" not in list_ids(client, v[name], "하우스"), name
+@pytest.mark.parametrize("name", HIDDEN_TO)
+def test_AC_06_10_home_list_and_search_hide_test_farms(client, viewers, name):
+    farms, recommended = home_ids(client, viewers[name])
+    assert "f-kang" not in farms and "f-kang" not in recommended
+    assert "f-halla" in farms
+    assert "f-kang" not in list_ids(client, viewers[name])
+    assert list_ids(client, viewers[name], "강씨네") == set()
+    assert "f-kang" not in list_ids(client, viewers[name], "하우스")
 
 
-def test_AC_06_10_test_viewers_see_test_farms(client, production):
-    v = viewers()
-    for name in ("seed_test", "ops_tester"):
-        farms, recommended = home_ids(client, v[name])
-        assert {"f-kang", "f-halla"} <= farms, name
-        assert "f-kang" in recommended, name
-        assert list_ids(client, v[name], "강씨네") == {"f-kang"}, name
+@pytest.mark.parametrize("name", SHOWN_TO)
+def test_AC_06_10_test_viewers_see_test_farms(client, viewers, name):
+    farms, recommended = home_ids(client, viewers[name])
+    assert {"f-kang", "f-halla"} <= farms
+    assert "f-kang" in recommended
+    assert list_ids(client, viewers[name], "강씨네") == {"f-kang"}
 
 
-def test_AC_06_10_ops_tester_producer_farm_is_test_farm(client, production):
+def test_AC_06_10_home_hero_caption_hides_test_farm_name(client, viewers):
+    """히어로 문구는 히어로 상품(p-house, 강씨네 귤밭)의 이름이다."""
+    for name in HIDDEN_TO:
+        hero = client.get("/api/home", headers=viewers[name]).json()["hero"]
+        assert hero["productId"] is None and hero["caption"] == "", name
+        assert hero["title"] and hero["photo"], name
+    for name in SHOWN_TO:
+        hero = client.get("/api/home", headers=viewers[name]).json()["hero"]
+        assert hero["productId"] == "p-house" and "강씨네" in hero["caption"], name
+
+
+def test_AC_06_10_ops_tester_producer_farm_is_test_farm(client, viewers):
     set_flags("u-halla", ops_tester=True)
-    v = viewers()
+    for name in HIDDEN_TO:
+        assert "f-halla" not in list_ids(client, viewers[name]), name
+        assert client.get("/api/farms/f-halla", headers=viewers[name]).status_code == 404
+        assert client.get("/api/products/p-noji", headers=viewers[name]).status_code == 404
+    for name in SHOWN_TO:
+        assert "f-halla" in list_ids(client, viewers[name]), name
+        assert client.get("/api/products/p-noji", headers=viewers[name]).status_code == 200
 
-    assert "f-halla" not in list_ids(client, v["anon"])
-    assert "f-halla" not in list_ids(client, v["real"])
-    assert client.get("/api/farms/f-halla").status_code == 404
-    assert client.get("/api/products/p-noji").status_code == 404
-    assert "f-halla" in list_ids(client, v["seed_test"])
-    assert client.get("/api/products/p-noji", headers=v["ops_tester"]).status_code == 200
+    # 그 생산자 본인의 생산자 앱은 그대로, 공유 링크만 비운다(누구에게나 404인 링크라서)
+    producer = producer_consented(client, "u-halla")
+    mine = client.get("/api/farms/me", headers=producer)
+    assert mine.status_code == 200
+    assert mine.json()["status"] == "APPROVED" and mine.json().get("shareUrl") is None
+    assert client.get("/api/products/mine", headers=producer).status_code == 200
 
 
-def test_AC_06_11_farm_detail_and_follow_are_404_for_non_testers(client, production):
-    v = viewers()
-    for name in ("anon", "real"):
-        response = client.get("/api/farms/f-kang", headers=v[name])
-        assert response.status_code == 404, name
-        assert response.json()["code"] == "NOT_FOUND"
-    # 정지 농가와 같은 404: 존재를 드러내지 않는다
+# ---- 경로 × 보는 사람 (AC-06-11, AC-07-11, AC-15-12) ----
+# (이름, 메서드, 경로, 본문, 로그인 필요, 숨김일 때 메시지 — None이면 없는 자원과 같은 404만 본다)
+ROUTES = [
+    ("farm_detail", "GET", "/api/farms/f-kang", None, False, FARM_GONE),
+    ("product_detail", "GET", "/api/products/p-house", None, False, "판매 중이 아닌 상품이에요."),
+    ("farm_news", "GET", "/api/messaging/farms/f-kang/news", None, False, FARM_GONE),
+    (
+        "room_read",
+        "GET",
+        "/api/messaging/rooms/f-kang/messages",
+        None,
+        False,
+        "지금은 이 농가의 소식방을 열 수 없어요.",
+    ),
+    ("follow", "PUT", "/api/farms/f-kang/follow", None, True, FARM_GONE),
+    ("unfollow", "DELETE", "/api/farms/f-kang/follow", None, True, FARM_GONE),
+    ("chat_start", "POST", "/api/messaging/chats", {"farmId": "f-kang"}, True, FARM_GONE),
+    ("chat_page", "GET", "/api/messaging/chats/f-kang/messages", None, True, FARM_GONE),
+    (
+        "chat_send",
+        "POST",
+        "/api/messaging/chats/f-kang/messages",
+        {"text": "언제 보내 주세요?"},
+        True,
+        FARM_GONE,
+    ),
+    ("chat_read", "PUT", "/api/messaging/chats/f-kang/read", "LAST_CHAT", True, FARM_GONE),
+    ("chat_report", "POST", "/api/messaging/chats/f-kang/messages/m-x/report", None, True, None),
+    (
+        "room_send",
+        "POST",
+        "/api/messaging/rooms/f-kang/messages",
+        {"text": "응원해요"},
+        True,
+        "지금은 이 농가의 소식방을 열 수 없어요.",
+    ),
+    (
+        "room_mark_read",
+        "PUT",
+        "/api/messaging/rooms/f-kang/read",
+        {"lastReadMessageId": "n-2"},
+        True,
+        "지금은 이 농가의 소식방을 열 수 없어요.",
+    ),
+    ("like", "PUT", "/api/messaging/news/n-2/reaction", None, True, "볼 수 없는 소식이에요."),
+    ("unlike", "DELETE", "/api/messaging/news/n-2/reaction", None, True, "볼 수 없는 소식이에요."),
+    ("order", "POST", "/api/orders", "ORDER", True, "판매 중이 아닌 상품이에요."),
+]
+
+
+def call(client, method, path, body, headers):
+    if body == "ORDER":
+        body = order_body(recipientName="박구매")
+    if body == "LAST_CHAT":
+        page = client.get("/api/messaging/chats/f-kang/messages", headers=headers).json()
+        items = page.get("items") or []
+        body = {"lastReadMessageId": items[0]["messageId"] if items else "m-x"}
+    kwargs = {"headers": headers | (key() if method != "GET" else {})}
+    if body is not None:
+        kwargs["json"] = body
+    return client.request(method, path, **kwargs)
+
+
+@pytest.mark.parametrize("name", HIDDEN_TO)
+@pytest.mark.parametrize("route", ROUTES, ids=[r[0] for r in ROUTES])
+def test_AC_06_11_routes_answer_404_to_non_testers(client, viewers, route, name):
+    label, method, path, body, needs_login, message = route
+    response = call(client, method, path, body, viewers[name])
+    if needs_login and name == "anon":
+        # 로그인이 필요한 경로는 농가 확인 전에 권한 관문(401)에서 멈춘다
+        assert response.status_code == 401, (label, response.text)
+        return
+    assert response.status_code == 404, (label, response.text)
+    if message is not None:
+        assert response.json()["message"] == message, label
+
+
+@pytest.mark.parametrize("name", SHOWN_TO)
+@pytest.mark.parametrize(
+    "route",
+    [r for r in ROUTES if r[0] != "chat_report"],
+    ids=[r[0] for r in ROUTES if r[0] != "chat_report"],
+)
+def test_AC_06_11_routes_work_for_test_accounts(client, viewers, route, name):
+    label, method, path, body, _, _ = route
+    response = call(client, method, path, body, viewers[name])
+    assert response.status_code == 200 or response.status_code == 204, (label, response.text)
+
+
+def test_AC_06_11_hidden_answer_matches_missing_resource(client, viewers):
+    """숨김은 없는 자원과 같은 응답이라 존재를 드러내지 않는다."""
     assert client.get("/api/farms/f-kang").json() == client.get("/api/farms/f-nope").json()
-    assert client.put("/api/farms/f-kang/follow", headers=v["real"]).status_code in (403, 404)
-    assert client.delete("/api/farms/f-kang/follow", headers=v["real"]).status_code == 404
+    real = viewers["real"]
+    hidden = client.post("/api/orders", headers=real | key(), json=order_body())
+    missing = client.post("/api/orders", headers=real | key(), json=order_body(productId="p-nope"))
+    assert hidden.status_code == missing.status_code == 404
+    assert hidden.json() == missing.json()
 
-    for name in ("seed_test", "ops_tester"):
-        assert client.get("/api/farms/f-kang", headers=v[name]).status_code == 200, name
 
-
-def test_AC_06_11_real_consumer_history_with_test_farm_matches_suspended_farm(client, production):
-    """u-buyer-park(실사용자)는 시드에서 f-kang을 팔로우하고 대화·주문(o-35)이 있다."""
-    headers = bearer("u-buyer-park", "CONSUMER")
+def test_AC_06_11_real_consumer_history_matches_suspended_farm(client, viewers):
+    headers = viewers["real"]
 
     following = client.get("/api/farms/following", headers=headers).json()["items"]
     assert "f-kang" not in {f["farmId"] for f in following}
@@ -115,16 +274,60 @@ def test_AC_06_11_real_consumer_history_with_test_farm_matches_suspended_farm(cl
     assert "f-kang" not in {r["farmId"] for r in rooms}
     news = client.get("/api/messaging/news", headers=headers).json()["items"]
     assert all(n["farmId"] != "f-kang" for n in news)
-    assert client.get("/api/messaging/chats/f-kang/messages", headers=headers).status_code == 404
 
-    # 주문 기록은 그대로 보인다(보수적으로, 주문 모듈은 바꾸지 않음)
+    # 주문 기록·지난 문의는 그대로 보이고, 새 주문 문의는 정지 농가처럼 404
     orders = client.get("/api/orders", headers=headers).json()["items"]
     assert "o-35" in {o["orderId"] for o in orders}
     assert client.get("/api/orders/o-35", headers=headers).status_code == 200
+    assert client.get("/api/orders/o-35/inquiries", headers=headers).status_code == 200
+    inquiry = client.post(
+        "/api/orders/o-35/inquiries",
+        headers=headers | key(),
+        json={"type": "DAMAGE", "text": "받은 상자가 찌그러졌어요"},
+    )
+    assert inquiry.status_code == 404
+    assert inquiry.json()["message"] == "지금은 이 농가에 문의할 수 없어요."
+
+
+def test_AC_06_11_same_history_is_listed_in_seed_environment(client, viewers, monkeypatch):
+    """위 검사가 빈 목록을 보고 통과한 것이 아님을 확인한다: 거르지 않으면 f-kang이 있다."""
+    seed_env(monkeypatch, True)
+    headers = viewers["real"]
+    following = client.get("/api/farms/following", headers=headers).json()["items"]
+    assert "f-kang" in {f["farmId"] for f in following}
+    chats = client.get("/api/messaging/chats", headers=headers).json()["items"]
+    assert "f-kang" in {c.get("farmId") for c in chats}
+    rooms = client.get("/api/messaging/rooms", headers=headers).json()["items"]
+    assert "f-kang" in {r["farmId"] for r in rooms}
+
+
+def test_AC_06_11_chat_attachment_of_hidden_farm(client, monkeypatch):
+    """대화에 보낸 사진: 일반 소비자는 404, 테스트 소비자는 그대로 본다."""
+    real = onboard(client, "u-buyer-park")
+    tester = bearer("u-minji", "CONSUMER")
+    sent = {}
+    for name, headers, consumer in (("real", real, "u-buyer-park"), ("test", tester, "u-minji")):
+        photo = upload(client, headers, png(), threadId=thread_id("f-kang", consumer))
+        assert photo.status_code == 200, photo.text
+        aid = photo.json()["attachmentId"]
+        message = client.post(
+            "/api/messaging/chats/f-kang/messages",
+            headers=headers | key(),
+            json={"text": "사진이에요", "attachmentIds": [aid]},
+        )
+        assert message.status_code == 200, message.text
+        sent[name] = aid
+    seed_env(monkeypatch, False)
+
+    hidden = client.get(f"/api/messaging/attachments/{sent['real']}", headers=real)
+    missing = client.get("/api/messaging/attachments/att-nope", headers=real)
+    assert hidden.status_code == 404 and hidden.json() == missing.json()
+    shown = client.get(f"/api/messaging/attachments/{sent['test']}", headers=tester)
+    assert shown.status_code == 200
 
 
 def test_AC_06_11_test_consumers_keep_uat_flow(client, production):
-    """시드 테스트 소비자끼리는 보기·팔로우·대화가 그대로다."""
+    """시드 테스트 소비자끼리는 보기·팔로우·대화·주문이 그대로다."""
     headers = bearer("u-seojun", "CONSUMER")
 
     assert client.delete("/api/farms/f-kang/follow", headers=headers).status_code == 200
@@ -133,8 +336,9 @@ def test_AC_06_11_test_consumers_keep_uat_flow(client, production):
     assert "f-kang" in {f["farmId"] for f in following}
     chats = client.get("/api/messaging/chats", headers=headers).json()["items"]
     assert "f-kang" in {c.get("farmId") for c in chats}
-    assert client.get("/api/messaging/chats/f-kang/messages", headers=headers).status_code == 200
-    assert client.get("/api/products/p-house", headers=headers).status_code == 200
+    order = client.post("/api/orders", headers=headers | key(), json=order_body())
+    assert order.status_code == 200, order.text
+    assert client.get(f"/api/orders/{order.json()['orderId']}", headers=headers).status_code == 200
 
 
 def test_AC_06_11_owner_producer_app_unchanged(client, production):
@@ -143,34 +347,32 @@ def test_AC_06_11_owner_producer_app_unchanged(client, production):
     mine = client.get("/api/farms/me", headers=producer)
     assert mine.status_code == 200
     assert mine.json()["status"] == "APPROVED"
+    # 공유 페이지는 로그인 없이 열려 테스트 농가는 누구에게나 404다. 그런 링크는 주지 않는다
+    assert mine.json().get("shareUrl") is None
     assert client.get("/api/products/mine", headers=producer).status_code == 200
     assert client.get("/api/messaging/producer/chats", headers=producer).status_code == 200
+    assert client.get("/api/orders/producer/dashboard", headers=producer).status_code == 200
     # 주인은 테스트 계정이라 소비자 공개 화면에서도 자기 농가를 본다
     assert client.get("/api/farms/f-kang", headers=producer).status_code == 200
+    # 실사용자 농가의 공유 링크는 그대로
+    halla = client.get("/api/farms/me", headers=producer_consented(client, "u-halla")).json()
+    assert halla["shareUrl"].endswith("/s/farms/f-halla")
 
 
-def test_AC_07_11_product_detail_is_404_for_non_testers(client, production):
-    v = viewers()
-    for name in ("anon", "real"):
-        response = client.get("/api/products/p-house", headers=v[name])
-        assert response.status_code == 404, name
-    assert client.get("/api/products/p-noji").status_code == 200
-    for name in ("seed_test", "ops_tester"):
-        assert client.get("/api/products/p-house", headers=v[name]).status_code == 200, name
+def test_AC_07_11_public_photo_follows_approval_only(client, production):
+    """공개 사진은 <img>가 인증 헤더를 보내지 않아 보는 사람을 모른다. 승인 상태만 본다(의도)."""
+    from app.catalog.models import Product
 
-
-def test_AC_15_12_news_and_room_of_test_farm_are_hidden(client, production):
-    v = viewers()
-    for name in ("anon", "real"):
-        assert client.get("/api/messaging/farms/f-kang/news", headers=v[name]).status_code == 404
-        room = client.get("/api/messaging/rooms/f-kang/messages", headers=v[name])
-        assert room.status_code == 404, name
-    # 좋아요 해제(소비자 역할만 필요)도 없는 소식으로 본다
-    assert client.delete("/api/messaging/news/n-2/reaction", headers=v["real"]).status_code == 404
-    for name in ("seed_test", "ops_tester"):
-        news = client.get("/api/messaging/farms/f-kang/news", headers=v[name])
-        assert news.status_code == 200, name
-        assert [n["broadcastId"] for n in news.json()["items"]] == ["n-2"]
+    with get_sessionmaker()() as db:
+        photo = PublicPhoto(product_id="p-house", storage_key=Storage().put(png()))
+        db.add(photo)
+        db.flush()
+        product = db.get(Product, "p-house")
+        product.photos = [f"/api/source-media/{photo.id}", *product.photos]
+        uri = product.photos[0]
+        db.commit()
+    assert client.get("/api/products/p-house").status_code == 404
+    assert client.get(uri).status_code == 200
 
 
 def test_AC_19_4_share_page_of_test_farm_is_404(client, production):
@@ -180,9 +382,27 @@ def test_AC_19_4_share_page_of_test_farm_is_404(client, production):
     assert client.get("/s/farms/f-halla").status_code == 200
 
 
-def test_R_29_seed_login_environment_shows_demo_farms(client):
-    """시드 선택 로그인이 켜진 로컬·데모·CI는 데모 농가 주인부터 테스트 계정이라 숨기지 않는다."""
-    assert config.get_settings().mock_login_enabled is True
-    farms, _ = home_ids(client, ANON)
+# ---- 거르지 않는 환경 (R-29) ----
+
+
+def test_R_29_local_seed_login_environment_shows_demo_farms(client):
+    """로컬이면서 시드 선택 로그인이 켜진 환경(pytest·데모·Playwright)은 거르지 않는다."""
+    settings = config.get_settings()
+    assert settings.app_env == "local" and settings.mock_login_enabled is True
+    farms, _ = home_ids(client, {})
     assert "f-kang" in farms
     assert client.get("/api/products/p-house").status_code == 200
+    assert client.get("/api/farms/me", headers=bearer("u-kang", "PRODUCER")).json()["shareUrl"]
+
+
+def test_R_29_production_filters_even_with_seed_login_on(client, monkeypatch):
+    """운영(APP_ENV=production)은 UAT 때 MOCK_LOGIN_ENABLED를 켜도(DEV-305) 거른다."""
+    monkeypatch.setattr(config.get_settings(), "app_env", "production")
+    assert config.get_settings().mock_login_enabled is True
+    farms, _ = home_ids(client, {})
+    assert "f-kang" not in farms
+    assert client.get("/api/products/p-house").status_code == 404
+    assert (
+        client.get("/api/products/p-house", headers=bearer("u-minji", "CONSUMER")).status_code
+        == 200
+    )
