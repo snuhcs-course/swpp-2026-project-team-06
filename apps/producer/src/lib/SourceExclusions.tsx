@@ -3,13 +3,45 @@ import {
   hasMoney,
   hasPlatformText,
   hasPeriodText,
+  readStore,
+  writeStore,
   type SourceRefinementResult,
 } from "@farmclub/api";
 import { Button, safe, T, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSession } from "./session";
 import { groupSourceExclusions, sourceExclusionReasons } from "./sourceExclusionReasons";
+
+// 제외 안내를 본 버전. 웹은 예전처럼 localStorage(예전 세션 키는 sessionStorage에서 옮김), 앱에는 둘 다 없어(DEV-471)
+// 공용 저장소(readStore/writeStore, SecureStore)에 둔다. 저장하지 못해도 화면 안 기억(acknowledgedExclusions)은 남는다.
+function readSeen(key: string): string | null {
+  if (Platform.OS !== "web") return readStore(key);
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function writeSeen(key: string, version: string) {
+  if (Platform.OS !== "web") return writeStore(key, version);
+  try {
+    localStorage.setItem(key, version);
+  } catch {
+    /* Session fallback. */
+  }
+}
+/** 예전(웹) 세션 키에 본 기록이 있었는지 읽고 지운다. 앱에는 예전 키가 없다 */
+function takeLegacySeen(key: string): boolean {
+  if (Platform.OS !== "web") return false;
+  try {
+    const previous = sessionStorage.getItem(key);
+    sessionStorage.removeItem(key);
+    return !!previous;
+  } catch {
+    return false;
+  }
+}
 
 export const AI_POLICY_NOTE = "가격·배송비·받는 시기는 다음 단계에서 직접 입력해요";
 
@@ -70,20 +102,11 @@ export function SourceExclusions({
       seen.current.set(storageKey, version);
       if (acknowledgedExclusions.get(storageKey) === version) continue;
       const legacyKey = `farmclub-producer:excluded-seen:${batchId}:${version}`;
-      if (!legacySeen.has(legacyKey)) {
-        try {
-          const previous = sessionStorage.getItem(legacyKey);
-          legacySeen.set(legacyKey, !!previous);
-          sessionStorage.removeItem(legacyKey);
-        } catch { legacySeen.set(legacyKey, false); }
-      }
-      let acknowledged = legacySeen.get(legacyKey) ?? false;
-      try {
-        acknowledged = localStorage.getItem(storageKey) === version || acknowledged;
-      } catch { /* In-memory fallback still works when storage is unavailable. */ }
+      if (!legacySeen.has(legacyKey)) legacySeen.set(legacyKey, takeLegacySeen(legacyKey));
+      const acknowledged = readSeen(storageKey) === version || (legacySeen.get(legacyKey) ?? false);
       if (acknowledged) {
         acknowledgedExclusions.set(storageKey, version);
-        try { localStorage.setItem(storageKey, version); } catch { /* Session fallback. */ }
+        writeSeen(storageKey, version);
         continue;
       }
       pending.push(key);
@@ -96,7 +119,7 @@ export function SourceExclusions({
   const acknowledge = () => {
     if (opened) {
       acknowledgedExclusions.set(opened.storageKey, opened.version);
-      try { localStorage.setItem(opened.storageKey, opened.version); } catch { /* Session fallback. */ }
+      writeSeen(opened.storageKey, opened.version);
     }
     dismiss();
   };
