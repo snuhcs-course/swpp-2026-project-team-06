@@ -1,6 +1,6 @@
 // 배송지 입력 화면 본문(SCR-10 하위 /checkout/:productId/address, SCR-17 하위 배송지 추가·수정) — design: s-10-address
 // ‘우편번호 찾기’(카카오 우편번호 서비스)로 우편번호·도로명 주소를 채우고 상세 주소 칸으로 넘어간다.
-// 웹은 화면 위 레이어, 앱은 전체 화면 웹뷰(postcodeSearch.ts / .native.tsx). 직접 입력은 그대로 둔다
+// 웹은 화면 위 레이어, 앱은 전체 화면 웹뷰(postcodeSearch.tsx / .native.tsx). 직접 입력은 그대로 둔다
 // (못 불러오면 안내). screens.md 결정 27, DEV-314.
 import { ApiError, auth, type Address, type Recipient } from "@farmclub/api";
 import {

@@ -1,6 +1,6 @@
 // 우편번호 찾기 결과 → 배송지 입력칸 (FEAT-08, screens.md 결정 27, DEV-314)
 // 카카오(다음) 우편번호 서비스가 돌려준 값에서 우편번호(zonecode)와 주소를 꺼낸다. 화면·DOM과 무관한 순수 함수라
-// Node 테스트(scripts/test-postcode.mjs)가 그대로 읽는다. 스크립트를 불러 여는 쪽은 postcodeSearch.ts(웹)·.native.tsx(앱 웹뷰).
+// Node 테스트(scripts/test-postcode.mjs)가 그대로 읽는다. 스크립트를 불러 여는 쪽은 postcodeSearch.tsx(웹)·.native.tsx(앱 웹뷰).
 
 /** 공식 스크립트(키 없음). daumcdn 주소는 같은 파일의 예전 주소다. 질의 문자열을 붙이면 서비스가 잘못된 호출로 본다 */
 export const POSTCODE_SCRIPT_URL =
