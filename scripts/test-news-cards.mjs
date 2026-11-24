@@ -69,8 +69,16 @@ test("AC-15-12 the card's reply action picks that post and the send passes its b
 });
 
 test("AC-15-13 consumer photo replies reuse the private photo picker and render with tap-to-zoom", () => {
-  assert.match(src, /tool=\{!producer && upload \?/);
-  assert.match(src, /<PrivatePhotos[^]*?upload=\{upload\}/);
+  // 왼쪽 ‘+’는 늘 첨부(토글 × 아님)이고 숨긴 파일 칸을 바로 연다. 1:1의 PrivatePhotos(보이는 파일 칸·큰 미리보기)는 쓰지 않는다
+  assert.match(src, /tool=\{!producer && upload \? \{\s*icon: "plus",\s*label: "사진 첨부",\s*onPress: attach\.open/);
+  assert.doesNotMatch(src, /<PrivatePhotos/);
+  assert.match(src, /<AttachedPhotoRow/);
+  const photos = readFileSync(new URL("../packages/ui/src/PrivatePhotos.tsx", import.meta.url), "utf8");
+  const compact = photos.slice(photos.indexOf("export function usePhotoAttach"));
+  assert.match(compact, /style: \{ display: "none" \}/);
+  assert.match(compact, /width: 72, height: 72/);
+  assert.match(compact, /accessibilityLabel=\{`첨부 사진 \$\{i \+ 1\} 삭제`\}/);
+  assert.match(compact, /hitSlop=\{12\}/);
   assert.match(src, /m\.attachmentIds\?\.map\(\(id\) => \(\s*<PrivatePhoto /);
   const sheet = readFileSync(new URL("../packages/ui/src/FanReplySheet.tsx", import.meta.url), "utf8");
   assert.match(sheet, /reply\.attachmentIds\.map\(\(id\) => <PrivatePhoto /);

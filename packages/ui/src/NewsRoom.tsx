@@ -29,7 +29,7 @@ import { chatDay, seoulDay, time, won } from "./format";
 import { chatGroups } from "./chatGroups";
 import { ProfileAvatar } from "./Messenger";
 import { Composer, copyToClipboard, FloatingPill, ToolChip } from "./composer";
-import { PrivatePhoto, PrivatePhotos, ViewablePhoto } from "./PrivatePhotos";
+import { AttachedPhotoRow, PrivatePhoto, ViewablePhoto, usePhotoAttach } from "./PrivatePhotos";
 import type { PickedPhoto } from "./pickPhoto";
 import { Price, type ShelfProduct } from "./Storefront";
 import { FanReplySheet, type FanReplyPageData, type FanReplyRow } from "./FanReplySheet";
@@ -226,8 +226,14 @@ export function NewsRoom({
   // 소비자: 소식 카드 ‘농가에 답장’으로 고른 소식과 붙인 비공개 사진(DEV-467)
   const [replyPost, setReplyPost] = useState<Message | null>(null);
   const [photoIds, setPhotoIds] = useState<string[]>([]);
-  const [photosOpen, setPhotosOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // ‘+’가 숨긴 파일 칸을 바로 연다(DEV-467). 고른 사진은 입력줄 위 72×72 한 줄
+  const attach = usePhotoAttach({
+    count: photoIds.length,
+    upload: upload ?? (() => Promise.reject(new Error("사진을 붙일 수 없어요"))),
+    onAdd: (id) => { if (alive.current) setPhotoIds((prev) => [...prev, id]); },
+    onBusy: (next) => { if (alive.current) setUploading(next); },
+  });
   const [editTarget, setEditTarget] = useState<Message | null>(null);
   const [menuTarget, setMenuTarget] = useState<Message | null>(null);
   const [menuPoint, setMenuPoint] = useState<MenuPoint | null>(null);
@@ -429,7 +435,6 @@ export function NewsRoom({
       setReplyTarget(null);
       setReplyPost(null);
       setPhotoIds([]);
-      setPhotosOpen(false);
       pending.current = null;
       if (producer) {
         setConfirming(false);
@@ -771,11 +776,10 @@ export function NewsRoom({
             busy={busy}
             // 소비자 답장 사진(1:1과 같은 ‘+’ 도구, DEV-467). 생산자는 아래 ‘사진·영상’ 칩
             tool={!producer && upload ? {
-              icon: photosOpen ? "close" : "plus",
-              label: photosOpen ? "사진 첨부 닫기" : "사진 첨부",
-              expanded: photosOpen,
-              onPress: () => setPhotosOpen(!photosOpen),
-              disabled: !ready || busy,
+              icon: "plus",
+              label: "사진 첨부",
+              onPress: attach.open,
+              disabled: !ready || busy || uploading || attach.full,
             } : undefined}
             above={<>
               {replyPost ? (
@@ -788,15 +792,18 @@ export function NewsRoom({
                   <Pressable accessibilityRole="button" accessibilityLabel="소식 선택 취소" disabled={busy} onPress={() => setReplyPost(null)} style={{width: 48, height: 48, alignItems: "center", justifyContent: "center"}}><Icon name="close" size={18} /></Pressable>
                 </View>
               ) : null}
-              {!producer && upload && loadPhoto && photosOpen ? (
-                <PrivatePhotos
-                  ids={photoIds}
-                  onChange={(next) => { if (alive.current) setPhotoIds(next); }}
-                  upload={upload}
-                  load={loadPhoto}
-                  disabled={busy || !ready}
-                  onBusy={(next) => { if (alive.current) setUploading(next); }}
-                />
+              {!producer && upload && loadPhoto ? (
+                <>
+                  {attach.input}
+                  <AttachedPhotoRow
+                    ids={photoIds}
+                    load={loadPhoto}
+                    busy={attach.busy}
+                    error={attach.error}
+                    disabled={busy}
+                    onRemove={(id) => setPhotoIds((prev) => prev.filter((v) => v !== id))}
+                  />
+                </>
               ) : null}
               {copied ? <T variant="caption" muted center>메시지를 복사했어요</T> : null}
               {replyTarget ? <View style={{flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent}}>

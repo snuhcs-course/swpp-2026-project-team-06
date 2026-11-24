@@ -93,7 +93,7 @@ export { useAsync, type AsyncState } from "./useAsync";
 export { NewsRoom, RoomMedia, RoomShelf } from "./NewsRoom";
 
 export { ChatThread } from "./ChatThread";
-export { PrivatePhoto, PrivatePhotos, PhotoViewer, ViewablePhoto } from "./PrivatePhotos";
+export { AttachedPhotoRow, PrivatePhoto, PrivatePhotos, PhotoViewer, ViewablePhoto, usePhotoAttach } from "./PrivatePhotos";
 
 export {
   ProfileAvatar,
