@@ -146,11 +146,14 @@ test("DEV-337 AC-05-5: returning to home refreshes its current price without a r
   await loginConsumer(page);
   await page.goto(consumerUrl);
   const card = page.getByRole("link", { name: "하우스 감귤 5kg / 10kg 상품 상세", exact: true });
-  await expect(card.getByText("29,000원", { exact: true })).toBeVisible();
+  // 홈 카드는 /api/home 목록 값(‘29,000원’)을 잠깐 그린 뒤 상품 상세로 채운 값(‘29,000원~’, DEV-348 priceFrom)으로 바뀐다.
+  // 잠깐 보이는 목록 값은 수십 ms라 그것을 기다리면 잡히기도 하고 놓치기도 한다. 다 채운 뒤의 글자를 기다린다
+  // (conversation-ui.spec.ts와 같은 ‘29,000원~’).
+  await expect(card.getByText("29,000원~", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "내 정보" }).click();
   await setStagePrice(request, 30000);
   await page.getByRole("tab", { name: "발견" }).click();
-  await expect(card.getByText("30,000원", { exact: true })).toBeVisible();
+  await expect(card.getByText("30,000원~", { exact: true })).toBeVisible();
   assertClean();
 });
 
