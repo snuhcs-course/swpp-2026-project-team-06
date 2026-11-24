@@ -267,10 +267,11 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
     from app.catalog import service as catalog
     from app.farms import service as farms
 
-    item = catalog.load_product(db, body.product_id)
+    item = catalog.load_product(db, body.product_id, for_update=True)
     if (
         item is None
         or item.product.status != "PUBLISHED"
+        or item.product.is_hidden
         or farms.get_approved_farm(db, item.product.farm_id) is None
     ):
         raise not_found("판매 중이 아닌 상품이에요.")
