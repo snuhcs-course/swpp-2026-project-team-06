@@ -291,6 +291,17 @@ evaluator mark and evaluator build flag no longer enable seed selection in relea
 Development builds retain seed selection when Kakao is disabled/unavailable; explicit app Mock
 mode retains it alongside Kakao. The old UAT seed rows below are retained fixture history.
 
+**Review farms stay out of the public app (DEV-472, R-29).** A farm whose producer is a seed test
+account or an ops tester (operator web, Users, "운영 검증 표시") is shown only to signed-in test or
+ops-tester accounts. Signed-out visitors and regular consumers get the suspended-farm behaviour:
+the farm, its products and news are missing from lists, details and orders answer 404, and the
+farm's share link (`/s/farms/<id>`) is a 404 for everyone, so the producer app shows no share link
+for it. Mark the producer-app review account as an ops tester so its farm stays hidden while the
+reviewer can still use the producer app; do not mark the consumer-app review account, or it sees
+the hidden farms. ID accounts are created as regular accounts. The filter is off only when
+`APP_ENV=local` and `MOCK_LOGIN_ENABLED=true` (local seed, demo, CI), because the demo farms
+belong to seed test accounts.
+
 **Historical UAT fixture procedure (DEV-305; superseded by DEV-363/367).**
 The following records the earlier seeded session, including its data setup and cleanup.
 These steps are not prerequisites for current ID-account UAT; do not purge production data or

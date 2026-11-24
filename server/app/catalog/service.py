@@ -5,6 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from typing import TYPE_CHECKING
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
@@ -50,6 +51,9 @@ from app.core.clock import days_until, now, today
 from app.core.detail import DetailDraft, DetailDraftInput, detail_content
 from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
+
+if TYPE_CHECKING:
+    from app.farms.service import Viewer
 
 
 @dataclass
@@ -271,15 +275,17 @@ def _reserved_people(db: Session, product_ids: list[str]) -> dict[str, int]:
     return orders.reserved_people(db, product_ids)
 
 
-def published_cards(db: Session, farm_ids: list[str] | None = None) -> list[ProductCard]:
-    """판매 중 상품 카드(승인된 농가만). 농가를 주면 그 농가들만."""
+def published_cards(
+    db: Session, farm_ids: list[str] | None = None, *, viewer: "Viewer"
+) -> list[ProductCard]:
+    """판매 중 상품 카드(공개 농가만, DEV-472). 농가를 주면 그 농가들만."""
     from app.farms import service as farms
 
     query = select(Product).where(Product.status == "PUBLISHED", Product.is_hidden.is_(False))
     if farm_ids is not None:
         query = query.where(Product.farm_id.in_(farm_ids))
     products = list(db.scalars(query.order_by(Product.id)))
-    approved = farms.approved_farm_names(db, list({p.farm_id for p in products}))
+    approved = farms.public_farm_names(db, list({p.farm_id for p in products}), viewer)
     products = [p for p in products if p.farm_id in approved]
     people = _reserved_people(db, [p.id for p in products])
     return [
@@ -293,15 +299,16 @@ def by_deadline(cards: list[ProductCard]) -> list[ProductCard]:
     return sorted(cards, key=lambda c: (c.sold_out, c.d_day if c.d_day is not None else 10**6))
 
 
-def product_detail(db: Session, product_id: str) -> ProductDetail | None:
-    """소비자 상품 상세(FEAT-07). 판매 중 상품만. 최신 소식 칸은 없다(screens.md 결정 26)."""
+def product_detail(db: Session, product_id: str, *, viewer: "Viewer") -> ProductDetail | None:
+    """소비자 상품 상세(FEAT-07). 공개 농가의 판매 중 상품만(DEV-472). 최신 소식 칸은 없다
+    (screens.md 결정 26)."""
     from app.farms import service as farms
 
     item = load_product(db, product_id)
     if item is None or item.product.status != "PUBLISHED" or item.product.is_hidden:
         return None
     p = item.product
-    farm = farms.get_approved_farm(db, p.farm_id)
+    farm = farms.public_farm(db, p.farm_id, viewer)
     if farm is None:
         return None
     base = card(db, item, farm.name, _reserved_people(db, [p.id]).get(p.id, 0))

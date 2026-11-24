@@ -97,7 +97,7 @@ def post_news(db: Db, producer: ApprovedProducer, body: NewsInput, key: Idempote
 @router.get("/farms/{farm_id}/news", response_model=Paged[NewsItem])
 def farm_news(db: Db, farm_id: str, user: OptionalUser, limit: Limit, cursor: str | None = None):
     """농가 공개 소식(FEAT-15). 로그인한 소비자면 내 좋아요를 표시한다."""
-    farm = farms.get_approved_farm(db, farm_id)
+    farm = farms.public_farm(db, farm_id, user)
     if farm is None:
         raise not_found("찾을 수 없는 농가예요.")
     return service.farm_public_news(db, farm, user.id if user else None, cursor, limit)

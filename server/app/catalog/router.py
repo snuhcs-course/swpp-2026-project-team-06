@@ -33,7 +33,7 @@ from app.core.errors import forbidden, not_found
 from app.core.idempotency import run_idempotent
 from app.core.pagination import decode_cursor, encode_cursor, page_limit
 from app.core.schemas import Paged
-from app.core.security import Admin, ApprovedProducer, CurrentUser
+from app.core.security import Admin, ApprovedProducer, CurrentUser, OptionalUser
 
 router = APIRouter(prefix="/products", tags=["catalog"])
 admin_router = APIRouter(prefix="/admin/products", tags=["admin"])
@@ -98,9 +98,9 @@ def create_product(db: Db, producer: ApprovedProducer, body: CreateProductInput)
 
 
 @router.get("/{product_id}", response_model=ProductDetail)
-def product_detail(db: Db, product_id: str):
-    """상품 상세(SCR-04, FEAT-07). 판매 중이 아니면 404."""
-    detail = service.product_detail(db, product_id)
+def product_detail(db: Db, product_id: str, user: OptionalUser):
+    """상품 상세(SCR-04, FEAT-07). 판매 중이 아니거나 공개 농가가 아니면 404(DEV-472)."""
+    detail = service.product_detail(db, product_id, viewer=user)
     if detail is None:
         raise not_found("판매 중이 아닌 상품이에요.")
     return detail

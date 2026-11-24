@@ -272,7 +272,8 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
         item is None
         or item.product.status != "PUBLISHED"
         or item.product.is_hidden
-        or farms.get_approved_farm(db, item.product.farm_id) is None
+        # 공개 상품만(R-29, DEV-472): 일반 소비자가 테스트 농가 상품으로 주문하면 없는 상품과 같다
+        or farms.public_farm(db, item.product.farm_id, consumer) is None
     ):
         raise not_found("판매 중이 아닌 상품이에요.")
     p = item.product

@@ -38,6 +38,7 @@ Implementation reference for I4: [`77b2be33`](https://github.com/snuhcs-course/s
 | 3.1 | 2026-11-10 | Team 6 | DEV-300: producer dashboard, product cards and sales settings show each weight option's current box price and reserved+shipped boxes (farmer feedback and 11/10 producer interview: per-option price and boxes first, total kg secondary); the product list API returns these option rows, and sales limits remain in kg |
 | 4.0 | 2026-11-19 | Team 6 | I4 scope reconciled for login, orders, fulfillment, producer editing and known acceptance boundaries |
 | 4.1 | 2026-11-24 | Team 6 | DEV-475: fixed chat safety notice and chat guide sheet in all six chat rooms (ONE store notice 29889, M-25, AC-12-19, 20 and 23) |
+| 4.2 | 2026-11-24 | Team 6 | DEV-472: farms owned by seed test or ops-tester accounts, with their products and news, only show to and can be ordered by signed-in test accounts; everyone else gets the suspended-farm behaviour (R-29). Not applied only when APP_ENV is local and seed login is on (local, demo, CI) |
 
 ## 1. Project Abstract
 
@@ -393,6 +394,19 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **AND** product cards show the current price ("29,000 won~" when there are several options and it is the cheapest) with the struck-through final-period price when valid (unchanged rule), then "This price D-n" and, on the next line, "n reserved"
 - **AND** consumer screens call a farm's follower count "N fans"; the Follow button keeps its name
 
+**AC-06-10: Test-account farms stay out of public lists (DEV-472)**
+- **GIVEN** an approved farm whose owner is a seed test account or an account the operator marked as an ops tester
+- **WHEN** a signed-out visitor or a regular consumer opens home or the farm list, or searches for the farm or its product
+- **THEN** neither the farm nor its products appear, and the home hero caption (the hero product's farm and name) is empty
+- **AND** a consumer signed in with a test or ops-tester account still sees them as before
+
+**AC-06-11: Test-account farms act like suspended farms for everyone else (DEV-472)**
+- **GIVEN** the same test farm
+- **WHEN** a signed-out visitor or a regular consumer opens its page, follows it, starts or continues a chat, replies in its news room or orders its product
+- **THEN** they get the same 404 as for a farm or product that does not exist (401 first where sign-in is required)
+- **AND** a regular consumer who followed or chatted with it earlier no longer sees it in followed farms, chats, news rooms or followed news, and chat photos and new order inquiries answer 404, but their orders and past inquiries stay visible
+- **AND** test accounts keep seeing, following, chatting with and ordering from each other, and the owner's producer app is unchanged
+
 ### FEAT-07: Product information
 
 **As a** consumer, **I want to** see quality, price and delivery timing, **so that** I can decide whether to reserve.
@@ -439,6 +453,11 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **WHEN** I read the product page
 - **THEN** the full story is shown with images in their original proportions
 - **AND** the legal disclosures and Reserve button stay reachable
+
+**AC-07-12: Test-farm products are not found (DEV-472)**
+- **GIVEN** a product on sale from a test farm
+- **WHEN** a signed-out visitor or a regular consumer opens it, including from a deep link
+- **THEN** they get the same 404 as for a product that is not on sale, and ordering it by ID gets the same 404; test accounts still see and order it
 
 ### FEAT-08: Checkout
 
@@ -785,6 +804,11 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 - **WHEN** the producer taps "답장 2 ›"
 - **THEN** the sheet shows "전체 2 / 안 읽음 2", the "예약 고객" tag and unread dots; reopening shows "안 읽음 0"; quoting a reply with "모두에게 답장" marks it "모두에게 답장함 ✓" and "1:1 채팅" opens that consumer's private chat; other farms and consumers cannot read the list
 
+**AC-15-15: Test-farm news is hidden (DEV-472)**
+- **GIVEN** a public post from a test farm
+- **WHEN** a signed-out visitor or a regular consumer opens the farm's news or public room, or likes the post
+- **THEN** they get 404; test accounts still see it
+
 ### FEAT-17: Order lookup and shipment
 
 **As a** producer, **I want to** inspect reservations and ship preparing orders, **so that** buyers can follow their order accurately.
@@ -856,6 +880,12 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 - **GIVEN** an approved farm's link
 - **WHEN** it is pasted into a KakaoTalk chat
 - **THEN** the preview shows the farm name and main photo
+
+**AC-19-4: Test-farm links (DEV-472)**
+- **GIVEN** a test farm's share link
+- **WHEN** anyone opens it (the share page has no sign-in)
+- **THEN** it shows the same not-found page as a farm that is no longer approved, with no farm name or photo in the preview
+- **AND** the owner's producer app gets no share link for that farm, so the link row and share bar are hidden
 
 ### FEAT-32: AI settings
 

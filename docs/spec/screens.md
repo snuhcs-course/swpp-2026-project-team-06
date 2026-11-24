@@ -665,6 +665,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 **farms** (`/api/home`, `/api/farms`, `/s`)
 
+'공개' 경로(로그인 선택)는 토큰이 있으면 보는 사람을 알아낸다. 테스트 농가(R-29)와 그 상품·소식은 테스트 계정 토큰에만 나오고, 비로그인·일반 사용자에게는 목록에서 빠지며 상세·주문은 404다(DEV-472). 아래 표의 농가·상품·소식 공개 경로, 소비자 팔로우·채팅·소식방 경로, 주문 생성 `POST /api/orders`가 모두 같은 조건(`server/app/farms/service.py`의 `public_farm_clause`)을 쓴다. 홈 `hero.caption`은 히어로 상품이 보는 사람에게 공개가 아니면 빈 문자열이고, 테스트 농가의 `GET /api/farms/me`에는 `shareUrl`이 없다.
+
 | 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GET /api/home` | 공개 | SCR-01 | — | 시즌 히어로(설정 값), 추천 상품 상위 N개(마감 임박순, `reservedCount` 포함), 농가 둘러보기(농가 카드: 사진, 농가명, 지역, 팔로워 수) | FEAT-06 | Must |
@@ -763,7 +765,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /admin/id-accounts` | 운영자, `Idempotency-Key` | — | `{app, username, nickname?, phone?}`(소비자 닉네임 2~12 필수·휴대폰 선택, 생산자 이름 선택). 계정(`mustChangePassword=true`)과 서버가 만든 12자 `temporaryPassword`를 한 번만 돌려준다(`no-store`, 같은 키 재시도는 비밀번호 없음). 400 `fields`(`username`·`nickname`·`phone`). 감사 `id_account.create`(평문 없음) (DEV-363, PM 11/18) | FEAT-01 AC-01-22 | Must |
 | `POST /admin/users/{userId}/temporary-password` | 운영자 | — | 아이디 계정에 서버가 만든 12자 임시 비밀번호를 한 번만 돌려준다(`temporaryPassword`, `no-store`). 옛 비밀번호·토큰을 끊고 `mustChangePassword=true`, 로그인 잠금 해제. 멱등 기록을 쓰지 않고 감사 `user.temporary_password`만 남긴다(평문 없음). 아이디 계정이 아니면 409 `NOT_PASSWORD_ACCOUNT`(DEV-363) | FEAT-01 AC-01-31 | Must |
 | `POST /admin/users/{userId}/id-credentials` | 운영자 | `{username}` | 연결 농가가 있는 활성 시드 테스트 PRODUCER이며 카카오·username·password hash가 없는 기존 계정만 허용. user ID·role·테스트 분류·farm link는 그대로 두고 정규화한 username·argon2id hash, `mustChangePassword=true`, 토큰 버전 +1만 저장한다. 12자 `temporaryPassword`를 한 번만 반환(`no-store`), 로그인 잠금을 해제하고 감사 `user.id_credentials_provisioned`에 대상·행위자·`ISSUED`만 남긴다. 멱등 기록은 만들지 않으며 재시도는 409 `ID_CREDENTIALS_ALREADY_PROVISIONED`. 첫 비밀번호 변경 뒤 생산자 필수 동의를 받는다. 이 작업은 농가 상태를 바꾸지 않으며 승인 상태가 `APPROVED`가 아니면 producer farm/product API를 쓸 수 없다(DEV-439) | FEAT-01 AC-01-37 | Must |
-| `POST /admin/users/{userId}/mark-tester`·`POST /admin/users/{userId}/unmark-tester` | 운영자, `Idempotency-Key` | — | 운영 검증 계정 표시(`opsTester`) 켜기·끄기. 테스트 농가 숨기기의 실사용자 주문 검사에서 테스트로 센다. 로그인·온보딩·앱 화면은 바뀌지 않는다. 운영자 계정·시드 테스트 계정은 409(`ADMIN_ACCOUNT`·`SEED_TEST_ACCOUNT`) (DEV-107) | — | Should |
+| `POST /admin/users/{userId}/mark-tester`·`POST /admin/users/{userId}/unmark-tester` | 운영자, `Idempotency-Key` | — | 운영 검증 계정 표시(`opsTester`) 켜기·끄기. 테스트 농가 숨기기의 실사용자 주문 검사에서 테스트로 센다. 공개 범위(R-29, DEV-472)에서도 테스트 계정이다: 켠 생산자의 농가는 일반 사용자에게 숨고, 켠 소비자는 테스트 농가를 본다. 로그인·온보딩은 바뀌지 않는다. 운영자 계정·시드 테스트 계정은 409(`ADMIN_ACCOUNT`·`SEED_TEST_ACCOUNT`) (DEV-107) | — | Should |
 | `GET /admin/support` | 운영자 | `kind`(`real` 기본·`test`·`all`, 문의한 계정, DEV-307) | farmclub 문의 대화방 목록. 행마다 `accountKind`·`withdrawn`(DEV-307). 생산자 방(`kind = PRODUCER`, `targetId` = 농가 ID)과 소비자 방(`kind = CONSUMER`, `targetId` = 사용자 ID, DEV-150, 소비자 메시지가 한 번이라도 있는 방만)을 함께 내려 준다. 행마다 이름·설명, 최근 메시지와 보낸 사람, 운영자가 안 읽은 문의 수, `waiting` = 마지막 메시지가 문의. 답변 대기를 먼저, 그다음 최근 순. 관리자 페이지 문의함이 쓴다 | M-22 | Should |
 | `GET /admin/support/{farmId}/messages` | 운영자 | — | 그 농가 대화방 전체 메시지(`OPERATOR`·`PRODUCER`), 안 읽은 수. 대화방이 없으면 404 | M-22 | Should |
 | `POST /admin/support/{farmId}/messages` | 운영자, `Idempotency-Key` | `text`(1~1,000자) | 운영팀 답장(`senderType = OPERATOR`). 운영자 감사 기록을 남긴다. 읽음 위치는 바꾸지 않는다(읽음은 `/read`만) | M-22 | Should |
