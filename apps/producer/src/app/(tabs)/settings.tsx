@@ -21,10 +21,6 @@ import { View } from "react-native";
 import { HelpButton } from "../../lib/Tour";
 import { useSession } from "../../lib/session";
 import { LoadError, openConsumerFarm } from "../../lib/views";
-
-// DEV-473: 레이아웃이 없는 탭 화면이라 화면 파일에서 경계를 내보낸다. 죽으면 이 화면만 오류 안내(탭 바는 남는다)
-export { TabScreenBoundary as ErrorBoundary } from "../../lib/ScreenBoundary";
-
 export default function Settings() {
   const router = useRouter(),
     { refresh, user } = useSession();

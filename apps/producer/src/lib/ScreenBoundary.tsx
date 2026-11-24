@@ -1,8 +1,10 @@
 // 화면 오류 경계(DEV-473, screens.md 3장 ‘화면 오류’). 화면이 그리다 예외로 죽으면 빈 화면 대신 ScreenError를 그린다.
 // 경계는 두 겹이다(apps/producer/tasks/DEV-473.md 결정 사항).
-// - 화면 한 장: 탭 폴더 Stack의 unstable_screenErrorBoundary(TabScreenBoundary), 레이아웃 없는 탭 화면(현황·설정)의
-//   export ErrorBoundary(TabScreenBoundary), 탭 밖 화면(출하·소식 보내기·정지 안내 등)은 루트 Stack의
-//   unstable_screenErrorBoundary(StackScreenBoundary). 죽은 화면 하나만 바뀌어 탭 바·스택은 그대로다.
+// - 화면 한 장: 레이아웃 prop unstable_screenErrorBoundary. (tabs)/_layout의 Tabs와 탭 폴더 Stack은 TabScreenBoundary,
+//   탭 밖 화면(출하·소식 보내기·정지 안내 등)은 루트 Stack의 StackScreenBoundary. expo-router가 죽은 화면 하나만 장면 안에서 감싸서
+//   탭 바·스택은 그대로고, ‘다시 시도’는 그 화면만 다시 그린다.
+// - 받는 것: 그리기(render)와 effect 안에서 바로 던진 예외. 이벤트 핸들러(onPress 등)와 then·setTimeout 같은 비동기
+//   콜백의 예외는 React 경계 밖이라 어떤 경계도 받지 못한다(screens.md ‘화면 오류’).
 // - 마지막 그물: 루트 _layout의 export ErrorBoundary(RootBoundary). 세션·탭 레이아웃 자체가 죽은 경우.
 import { SUPPORT_ID, type User } from "@farmclub/api";
 import { ScreenError } from "@farmclub/ui";
@@ -35,9 +37,10 @@ export function supportPathFor(user: User | null): string {
  * 탭 첫 화면(현황·설정)은 스택이 아니라 그대로 둔다 */
 export function useLeaveDeadStack() {
   const navigation = useNavigation();
-  return () => {
+  /** 죽은 화면을 스택에서 꺼냈으면(주소가 바뀌면) true */
+  return (): boolean => {
     const state = navigation.getState();
-    if (state?.type !== "stack") return;
+    if (state?.type !== "stack") return false;
     const first = state.routes[0];
     navigation.dispatch({
       ...CommonActions.reset({
@@ -49,6 +52,27 @@ export function useLeaveDeadStack() {
       } as Parameters<typeof CommonActions.reset>[0]),
       target: state.key,
     });
+    return state.index > 0;
+  };
+}
+
+/** 죽은 화면을 스택에서 꺼낸 뒤 go()로 홈에 간다.
+ * 웹은 주소 기록이 있다. expo-router(useLinking)는 상태가 바뀔 때마다 그때의 전체 상태를 읽어 기록을 고치는데,
+ * 꺼내기와 홈 이동이 한 번에 읽히면 ‘탭 바꿈 = 새 기록 push’로만 보여 죽은 화면 기록이 홈 앞에 남는다(뒤로 가기로
+ * 다시 열림). 그래서 꺼내기가 기록 이동(history.go)으로 끝나 주소가 바뀐 것을 본 다음에 홈으로 바꿔 쓴다.
+ * 1초 안에 안 바뀌면 그대로 간다. 앱은 주소 기록이 없어 바로 간다 */
+function useAfterLeave() {
+  const leave = useLeaveDeadStack();
+  return (go: () => void) => {
+    const web = Platform.OS === "web" && typeof window !== "undefined";
+    const dead = web ? window.location.pathname : "";
+    if (!leave() || !web) return go();
+    const started = Date.now();
+    const wait = () => {
+      if (window.location.pathname !== dead || Date.now() - started > 1000) go();
+      else requestAnimationFrame(wait);
+    };
+    requestAnimationFrame(wait);
   };
 }
 
@@ -58,13 +82,11 @@ function useGoHome(retry: ErrorBoundaryProps["retry"]) {
   const r = useRouter();
   const pathname = usePathname();
   const { user } = useSession();
-  const leave = useLeaveDeadStack();
+  const afterLeave = useAfterLeave();
   return () => {
     const home = homeFor(user).home;
     if (pathname === home) return void retry();
-    leave();
-    // 스택을 되돌린 기록 이동(웹은 history.go)이 끝난 뒤에 홈으로 가야 죽은 화면 기록이 남지 않는다
-    setTimeout(() => r.replace(home as never), 0);
+    afterLeave(() => r.replace(home as never));
   };
 }
 
@@ -76,16 +98,21 @@ function ScreenBoundary({
   const r = useRouter();
   const home = useGoHome(retry);
   const { user } = useSession();
-  // 로그인 전·확인 중(가입 신청·심사 중) 농가는 운영팀 방이 없어 링크를 숨긴다
-  const status = user?.farmStatus;
+  const pathname = usePathname();
+  const support = supportPathFor(user);
+  // 관문이 지금 상태에서 그 방을 열어 주는지(로그인 전·가입 신청·심사 중·비밀번호 변경·약관 동의 대기면 곧바로
+  // 되돌리므로 숨김), 그리고 죽은 화면이 운영팀 방 자신이면 같은 방을 또 열어 다시 죽으므로 숨긴다
   const canSupport =
-    status === "APPROVED" || status === "SUSPENDED" || status === "REJECTED";
+    !!user &&
+    homeFor(user).allowed(support) &&
+    pathname !== ERROR_SUPPORT_APPROVED &&
+    pathname !== ERROR_SUPPORT_OTHER;
   return (
     <ScreenError
       error={error}
       retry={retry}
       home={home}
-      support={canSupport ? () => r.push(supportPathFor(user) as never) : undefined}
+      support={canSupport ? () => r.push(support as never) : undefined}
       aboveTabs={aboveTabs}
     />
   );

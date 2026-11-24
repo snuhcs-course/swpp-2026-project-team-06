@@ -37,7 +37,15 @@ const { ScreenError } = require("../packages/ui/src/ScreenError.tsx");
 const { SCREEN_ERROR_TEXT, devErrorLine } = require("../packages/ui/src/screenErrorText.ts");
 
 const noop = () => {};
-const markup = (props) => renderToStaticMarkup(createElement(ScreenError, { error: new Error("x"), retry: noop, home: noop, dev: false, ...props }));
+/** dev: 개발 빌드 여부. 부품은 그릴 때 전역 __DEV__를 읽는다 */
+const markup = ({ dev = false, ...props }) => {
+  globalThis.__DEV__ = dev;
+  try {
+    return renderToStaticMarkup(createElement(ScreenError, { error: new Error("x"), retry: noop, home: noop, ...props }));
+  } finally {
+    globalThis.__DEV__ = false;
+  }
+};
 const decode = (s) => s.replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 /** 보이는 글자 줄(태그 사이) */
 const lines = (html) =>
@@ -102,6 +110,16 @@ test("DEV_473 support link is hidden when the app gives no support route", () =>
   assert.deepEqual(text.slice(-2), [SCREEN_ERROR_TEXT.retry, SCREEN_ERROR_TEXT.home]);
 });
 
+test("DEV_473 the notice is announced and its body scrolls apart from the buttons", () => {
+  const html = markup({ support: noop });
+  // 안내 묶음은 role="alert"(+ 앱 live region), 본문은 스크롤 영역 안, 버튼은 그 밖
+  assert.match(html, /role="alert"[^>]*data-testid="screen-error"|data-testid="screen-error"[^>]*role="alert"/);
+  // react-native-web ScrollView는 세로 스크롤 클래스(r-overflowY-…)를 단다
+  const scroll = html.indexOf("r-overflowY");
+  assert.ok(scroll >= 0 && scroll < html.indexOf("screen-error"), "본문이 스크롤 영역 안에 있어야 한다");
+  assert.ok(html.indexOf('aria-label="다시 시도"') > html.indexOf("운영팀에 알리기"));
+});
+
 test("DEV_473 inside a tab the buttons sit above the tab bar", () => {
   const pad = (html) => html.match(/padding-bottom:calc\((\d+)px/)?.[1];
   assert.equal(pad(markup({ aboveTabs: true })), String(tokens.height.tabBar + 14));
@@ -117,4 +135,21 @@ test("DEV_473 devErrorLine: store builds get nothing, dev builds one trimmed lin
   const long = devErrorLine(new Error("a".repeat(300)), true);
   assert.equal(long.length, 120);
   assert.ok(long.endsWith("…"));
+});
+
+test("DEV_473 every navigator layout passes a screen error boundary (new tab screens are covered too)", () => {
+  const { readdirSync } = require("node:fs");
+  for (const app of ["consumer", "producer"]) {
+    const root = `apps/${app}/src/app`;
+    const rootLayout = readFileSync(`${root}/_layout.tsx`, "utf8");
+    assert.match(rootLayout, /unstable_screenErrorBoundary=\{StackScreenBoundary\}/, `${app} root Stack`);
+    assert.match(rootLayout, /export \{ RootBoundary as ErrorBoundary \}/, `${app} root last net`);
+    // (tabs) 바로 아래 화면(레이아웃 없는 탭 화면, 앞으로 더할 화면 포함)은 Tabs prop 하나가 받는다
+    assert.match(readFileSync(`${root}/(tabs)/_layout.tsx`, "utf8"), /unstable_screenErrorBoundary=\{TabScreenBoundary\}/, `${app} Tabs`);
+    for (const dir of readdirSync(`${root}/(tabs)`, { withFileTypes: true }).filter((d) => d.isDirectory())) {
+      const layout = `${root}/(tabs)/${dir.name}/_layout.tsx`;
+      if (!existsSync(layout)) continue;
+      assert.match(readFileSync(layout, "utf8"), /unstable_screenErrorBoundary=\{TabScreenBoundary\}/, layout);
+    }
+  }
 });

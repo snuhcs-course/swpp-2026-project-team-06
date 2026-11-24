@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, AppState } from "react-native";
 
 import { useSession } from "../../lib/session";
+import { TabScreenBoundary } from "../../lib/ScreenBoundary";
 
 // 생산자 하단 탭 4개: 현황 · 상품 · 채팅 · 설정 (screens.md 결정 2, DEV-294에서 '환경설정' → '설정'). 채팅에 안 읽은 메시지 + AI 답변 확인 요청(DEV-296) 배지.
 const TABS: { name: string; label: string; icon: IconName }[] = [
@@ -95,6 +96,9 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      // DEV-473: 탭 안 화면이 죽으면 그 화면만 오류 안내로 바꾼다(탭 바는 남는다). 레이아웃 없는 탭 화면(현황·설정)과
+      // 앞으로 (tabs) 바로 아래에 더할 화면도 여기서 받는다. 탭 폴더 Stack은 각자 같은 경계를 다시 둔다
+      unstable_screenErrorBoundary={TabScreenBoundary}
       key={user?.userId ?? "guest"}
       backBehavior="history"
       screenOptions={{
