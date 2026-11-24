@@ -37,3 +37,5 @@ Scorer31pure controls and migration10invented controls passed independently (41t
 Final related command: `DATABASE_URL=<isolated farmclub_dev448> make test-text-scoring` →1094backend/evaluator tests passed(103.96s), followed by10migration tests passed(0.01s). The41pure review controls overlap this suite and are not additional independent cases. Ruff/diff and independent review passed; findings on critical-flag preservation, private reason redaction and unknown overrides were corrected without weakening numeric/negation controls.
 
 Final format-binding controls: migration13passed + evaluator31passed =44pure checks(0.06s), overlap related suite except3new format controls. Explicit development manifest supplies all47format labels without mutating historical input. Final artifacts use r003 hashes; symmetric scores unchanged.
+
+CI follow-up: server job stopped before tests on Ruff I001 (one missing import-group blank line in existing quality test). Fixed formatting only. Whole-server `.venv/bin/ruff check .` passed; isolated `pytest tests/test_source_copy_quality.py -q --tb=short`20passed(1.94s). CI rerun remains pending; prior failure retained.

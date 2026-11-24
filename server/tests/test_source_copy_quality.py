@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+
 from app.source_analysis import voice_polish
 
 ROOT = Path(__file__).resolve().parents[2]
