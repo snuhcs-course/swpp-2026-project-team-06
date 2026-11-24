@@ -71,7 +71,7 @@ export function siteLines(info: BusinessInfo = business): [string, string][] {
 /** 약관·처리방침에서 회사를 부르는 말. 상호가 있으면 상호를 쓴다 */
 const OPERATOR = business.name ? `${business.name}(farmclub 운영자)` : "farmclub 운영자";
 
-/** 사업자 정보를 넣기 전(로컬·Mock·값 없는 배포)에 사업자 정보 자리에 보이는 글 */
+/** 사업자 정보를 넣기 전(로컬·Mock·값 없는 웹 배포)에 사업자 정보 자리에 보이는 글. 스토어용 EAS 빌드는 값이 비면 멈춘다(DEV-476, scripts/store-business-check.cjs) */
 export const TEST_SERVICE = "farmclub · 테스트 서비스";
 
 /** 연락처가 하나도 없을 때(처리방침 제12조·계정 삭제 안내) */
@@ -134,6 +134,8 @@ const POSTCODE_NOTICE_EFFECTIVE = "2026년 11월 19일";
 const TERMS_EFFECTIVE = "2026년 11월 13일";
 /** 2026년 11월 17일 변경분(입금자명, DEV-342)의 시행일: 배포일 바로(PM 11/17, 실제 소비자 이용자가 아직 없어 사전 공지 기간을 두지 않음) */
 const DEPOSIT_CODE_EFFECTIVE = "2026년 11월 17일";
+/** 2026년 11월 24일 변경분(제10조 앱의 로그인 토큰 저장 위치, DEV-476)의 시행일: 제14조대로 고지 7일 뒤. 바로 시행할지는 PM 결정 */
+const TOKEN_STORAGE_NOTICE_EFFECTIVE = "2026년 12월 1일";
 
 /** 처리방침 제3조 표에서 탈퇴 뒤에도 남는 행([정보, 보유 기간, 근거]). 처리방침 표와 계정 삭제 안내(DEV-423)가 같은 배열을 쓴다.
  * 처리방침 본문이다: 바꾸면 처리방침 시행일과 제14조 변경 이력도 고친다(안내에서만 다르게 쓸 말은 RETAINED_PERIOD_SHORT로). test-legal.mjs가 글자를 고정해 확인한다 */
@@ -372,7 +374,7 @@ export const privacyPolicy: LegalDoc = {
     {
       title: "제10조 (자동 수집 장치의 설치·운영과 거부)",
       body: [
-        "서비스는 로그인 상태를 유지하기 위해 브라우저 저장소(localStorage)에 로그인 토큰을 저장합니다.",
+        `서비스는 로그인 상태를 유지하기 위해 로그인 토큰을 이용자의 기기에 저장합니다. 웹 화면에서는 브라우저 저장소(localStorage)에, iOS·Android 앱에서는 기기의 보안 저장소(iOS 키체인, Android Keystore로 암호화한 저장소)에 저장하고, 로그아웃하면 지웁니다(앱 부분은 ${TOKEN_STORAGE_NOTICE_EFFECTIVE}부터 시행).`,
         "공식 주소(farmclub.kr, farm.farmclub.kr)의 웹 화면에서는 이용 통계 도구 PostHog(제6조)가 쿠키와 브라우저 저장소에 익명 ID를 저장하고, 이용 기록과 세션 녹화(화면의 구성과 움직임. 입력칸과 개인정보 글자는 *로 가림)를 PostHog로 보냅니다. 로그인하면 기록을 서비스 내부 회원 ID로 묶습니다. 다른 주소(미리보기·데모 등)에서는 보내지 않습니다.",
         "브라우저 설정에서 쿠키·저장소를 막거나 지울 수 있습니다. 막으면 로그인이 유지되지 않을 수 있습니다. 쿠키·저장소를 막아도 PostHog 전송은 이어질 수 있으니, 전송을 막으려면 제6조의 방법을 쓰세요.",
       ],
@@ -423,7 +425,8 @@ export const privacyPolicy: LegalDoc = {
         "2026년 11월 17일 변경: 입금자명을 주문 번호 대신 농가 화면에 보이는 이름(닉네임 등) 앞 3글자와 숫자로 만든 짧은 입금 코드로 바꿔 제2조 ‘주문’ 항목의 문구를 고쳤습니다. 닉네임은 이미 농가 화면에 보이는 항목이라 수집하는 항목, 판매자에게 주는 항목, 동의를 받는 항목은 바뀌지 않아 다시 동의를 받지 않습니다.",
         `${POSTCODE_NOTICE_EFFECTIVE} 변경: 배송지 입력의 ‘우편번호 찾기’가 카카오(다음) 우편번호 서비스를 쓰고, 그 화면에서 입력한 검색어와 접속 정보를 카카오가 받는다는 안내를 제2조에 더했습니다. 회사가 수집하는 항목과 동의를 받는 항목은 바뀌지 않아 다시 동의를 받지 않습니다.`,
         `${PRIVACY_EFFECTIVE} 변경: 회사가 앱 마켓 심사·서비스 테스트를 위해 만드는 아이디 계정의 아이디와 비밀번호(복원할 수 없는 방식으로 암호화해 저장)를 처리 항목에 더하고(제1조·제2조·제3조), 비밀번호 보호 조치를 적었습니다(제9조). 기존 회원은 다음 이용 때 다시 동의를 받습니다.`,
-        `이 처리방침은 ${PRIVACY_EFFECTIVE}부터 시행합니다. 그 전 처리방침은 2026년 11월 13일부터 시행했고, ${POSTCODE_NOTICE_EFFECTIVE} 변경분(제2조 ‘우편번호 찾기’ 안내)은 ${POSTCODE_NOTICE_EFFECTIVE}부터, 2026년 11월 17일 변경분(제2조 입금자명)은 ${DEPOSIT_CODE_EFFECTIVE}부터 시행했습니다.`,
+        `2026년 11월 24일 변경: 제10조의 로그인 토큰 저장 위치에 iOS·Android 앱의 기기 보안 저장소(iOS 키체인, Android Keystore)를 더해 실제 동작에 맞췄습니다. 수집하는 항목과 동의를 받는 항목은 바뀌지 않아 다시 동의를 받지 않습니다.`,
+        `이 처리방침은 ${PRIVACY_EFFECTIVE}부터 시행합니다. 그 전 처리방침은 2026년 11월 13일부터 시행했고, ${POSTCODE_NOTICE_EFFECTIVE} 변경분(제2조 ‘우편번호 찾기’ 안내)은 ${POSTCODE_NOTICE_EFFECTIVE}부터, 2026년 11월 17일 변경분(제2조 입금자명)은 ${DEPOSIT_CODE_EFFECTIVE}부터 시행했습니다. 2026년 11월 24일 변경분(제10조 앱의 로그인 토큰 저장 위치)은 ${TOKEN_STORAGE_NOTICE_EFFECTIVE}부터 시행합니다.`,
       ],
     },
   ],
