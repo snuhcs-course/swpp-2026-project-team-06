@@ -457,11 +457,18 @@ export function Checkbox({
   onPress,
   label,
   children,
+  inline = false,
 }: {
   checked: boolean;
   onPress?: () => void;
   label?: string;
   children?: ReactNode;
+  /**
+   * 가로로 여러 개를 늘어놓는 줄(flexWrap)에 둘 때. 글자 칸이 글자 폭만큼만 차지한다.
+   * 기본(flex: 1)은 폭이 정해진 줄을 채우는데, 폭이 글자에 맞춰지는 줄에서는 앱(Yoga)이 글자 칸을 0으로 계산해
+   * 체크 네모만 보였다(웹은 보임, DEV-477 판매 조건 중량 옵션).
+   */
+  inline?: boolean;
 }) {
   return (
     <Pressable
@@ -486,7 +493,7 @@ export function Checkbox({
       >
         {checked ? <Icon name="check" size={16} color="#FFFFFF" /> : null}
       </View>
-      <View style={{ flex: 1 }}>
+      <View style={inline ? { flexShrink: 1 } : { flex: 1 }}>
         {children ?? (label ? <T variant="body">{label}</T> : null)}
       </View>
     </Pressable>
