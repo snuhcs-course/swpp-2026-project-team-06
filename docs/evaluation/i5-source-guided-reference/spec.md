@@ -23,3 +23,10 @@ Root generates ignored local-only consumer preview route that imports real @farm
 
 ## Verification
 Meaningful pure validation tests with invented source/diagram fixture; typecheck allworkspaces; relevant mock suite/default source-detail compatibility checks; browser widths360/390/430/desktop inspect actual component,5sourcevisuals in intended sections, preserved full sizegraphic, exact saved35text items, image aspect/contrast/nooverflow and hide/sparse/invalid fallback. All counts actual, preserve failures. No paid product-model call, holdout, production mutation, merge/deploy or acceptance claim. Human code review and scope release remain pending. Figma follow-up DEV430, not silently skipped.
+
+## Bounded implementation decisions
+
+Unsupported pre-existing illustrationId deliberately rejects the opt-in and falls back to existing ModuleStory, rather than silently dropping or manufacturing hand artwork. The private reference fixture has saved text only; all visuals come from source-bound design.media. Existing module photos remain visible. In options layout only composition entries form cards; pieceCount fragments stay ordered readable paragraphs. Source captions/failure surfaces use explicit paper backgrounds to retain contrast inside accent sections.
+
+### Browser-discovered viewer fix scope
+The complete size-guide opens and the close button works, but Escape immediately after open failed in actual Chromium because keyboard focus remained outside the existing PhotoViewer keydown ancestor. Extend medium Sol ownership to packages/ui/src/PrivatePhotos.tsx only for focused viewer keyboard/focus correction and meaningful existing-pattern regression. Preserve generic viewer behavior and source image pixels. This decision precedes that code edit; retest actual open/close/Escape and full affected suite before completion.

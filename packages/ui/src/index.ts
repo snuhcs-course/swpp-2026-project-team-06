@@ -107,7 +107,9 @@ export { useLiveList } from "./useLiveList";
 
 export { DetailStory, StoryImage } from "./DetailStory";
 
-export { ModuleStory, SOURCE_MODULES } from "./ModuleStory";
+export { ModuleStory, SOURCE_MODULES, type StoryModule } from "./ModuleStory";
+export { SourceGuidedStory } from "./SourceGuidedStory";
+export { SOURCE_STORY_THEME, getSourceStoryDesign, type SourceStoryDesign, type SourceStorySection, type SourceStoryMedia } from "./sourceStoryDesign";
 
 export { BrixReading } from "./BrixReading";
 export {

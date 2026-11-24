@@ -1,0 +1,101 @@
+import type { StoryModule } from "./ModuleStory";
+
+export type SourceStoryMedia = {
+  uri: string; alt: string; width: number; height: number;
+  kind: "photo" | "comparison";
+  sourceId: string; sourceSha256: string; sourceRegionId: string; caption?: string;
+};
+export type SourceStorySection = {
+  id: string;
+  group: "intro" | "composition" | "taste" | "production" | "packing" | "storage" | "faq" | "farm" | "updates";
+  layout: "hero" | "options" | "editorial" | "figure" | "prose";
+  tone: "paper" | "cream" | "accent";
+  moduleIds: string[]; mediaIds: string[]; title?: string;
+};
+export type SourceStoryDesign = {
+  version: 1; theme: "citrus-warm";
+  sections: SourceStorySection[]; media: Record<string, SourceStoryMedia>;
+};
+
+/** Bounded, source-inspired palette. Small text uses ink/muted on light surfaces,
+ * or accentInk on orange; accent itself is a surface, never small text. */
+export const SOURCE_STORY_THEME = {
+  ink: "#29251F", muted: "#65584A", accent: "#C34C08",
+  accentInk: "#FFFFFF", paper: "#FFFCF6", cream: "#F4E8D5", border: "#D9C8AF",
+} as const;
+
+const moduleGroups: Record<string, SourceStorySection["group"]> = {
+  hero: "intro", summary: "intro", composition: "composition", pieceCount: "composition",
+  taste: "taste", specification: "taste", sizePhoto: "taste", crossSectionPhoto: "taste",
+  qualityEvidence: "production", productionProcess: "production", packagePhoto: "packing",
+  delivery: "packing", storage: "storage", appearanceFaq: "faq", support: "faq",
+  farmStory: "farm", farmPhotos: "farm", farmUpdates: "updates",
+};
+const object = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object" && !Array.isArray(v) &&
+  (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
+const keys = (v: Record<string, unknown>, allowed: string[]) => Object.keys(v).every(k => allowed.includes(k));
+const string = (v: unknown, max = 500): v is string =>
+  typeof v === "string" && !!v.trim() && v.length <= max && !/[\u0000-\u001f\u007f]/.test(v);
+const id = (v: unknown): v is string => string(v, 80) && /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(v);
+function safeUri(v: unknown): v is string {
+  if (!string(v, 2048)) return false;
+  let decoded = v;
+  try {
+    for (let i = 0; i < 4; i++) {
+      if (/[\\\u0000-\u0020\u007f]/.test(decoded) || decoded.startsWith("//")) return false;
+      if (decoded.split(/[/?#]/).some(part => part === "." || part === "..")) return false;
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      if (i === 3) return false;
+      decoded = next;
+    }
+    if (decoded.startsWith("/")) return true;
+    const url = new URL(decoded);
+    return ["http:", "https:"].includes(url.protocol) && !!url.hostname && !url.username && !url.password;
+  } catch { return false; }
+}
+const contentful = (m: StoryModule) => m.texts.some(t => t.value.trim()) || m.photos.length > 0 || !!m.illustrationId;
+
+/** Explicit local opt-in only. Invalid plans leave ModuleStory on its established path. */
+export function getSourceStoryDesign(modules: readonly StoryModule[], candidate: unknown): SourceStoryDesign | null {
+  if (!object(candidate) || !keys(candidate, ["version", "theme", "sections", "media"]) ||
+      candidate.version !== 1 || candidate.theme !== "citrus-warm" ||
+      !Array.isArray(candidate.sections) || !candidate.sections.length || candidate.sections.length > 24 ||
+      !object(candidate.media) || Object.keys(candidate.media).length > 20) return null;
+  const supplied = new Map<string, StoryModule>();
+  for (const m of modules) {
+    if (m.illustrationId || !id(m.id) || !Object.prototype.hasOwnProperty.call(moduleGroups, m.id) || supplied.has(m.id)) return null;
+    supplied.set(m.id, m);
+  }
+  if (!modules.some(contentful)) return null;
+  for (const [key, m] of Object.entries(candidate.media)) {
+    if (!id(key) || !object(m) || !keys(m, ["uri", "alt", "width", "height", "kind", "sourceId", "sourceSha256", "sourceRegionId", "caption"]) ||
+        !safeUri(m.uri) || !string(m.alt) || !string(m.sourceId, 200) || !string(m.sourceRegionId, 200) ||
+        typeof m.sourceSha256 !== "string" || !/^[a-f0-9]{64}$/.test(m.sourceSha256) ||
+        !["photo", "comparison"].includes(m.kind as string) ||
+        typeof m.width !== "number" || !Number.isSafeInteger(m.width) || m.width <= 0 ||
+        typeof m.height !== "number" || !Number.isSafeInteger(m.height) || m.height <= 0 || m.width * m.height > 40_000_000 ||
+        (m.caption !== undefined && !string(m.caption, 1000))) return null;
+  }
+  const sections = new Set<string>(), usedModules = new Set<string>(), usedMedia = new Set<string>();
+  for (const s of candidate.sections) {
+    if (!object(s) || !keys(s, ["id", "group", "layout", "tone", "moduleIds", "mediaIds", "title"]) ||
+        !id(s.id) || sections.has(s.id) || !Object.values(moduleGroups).includes(s.group as SourceStorySection["group"]) ||
+        !["hero", "options", "editorial", "figure", "prose"].includes(s.layout as string) ||
+        !["paper", "cream", "accent"].includes(s.tone as string) ||
+        !Array.isArray(s.moduleIds) || s.moduleIds.length > 18 || !Array.isArray(s.mediaIds) || s.mediaIds.length > 20 ||
+        (!s.moduleIds.length && !s.mediaIds.length) || (s.title !== undefined && !string(s.title, 200))) return null;
+    sections.add(s.id);
+    for (const moduleId of s.moduleIds) {
+      if (!id(moduleId) || !supplied.has(moduleId) || usedModules.has(moduleId) || moduleGroups[moduleId] !== s.group) return null;
+      usedModules.add(moduleId);
+    }
+    for (const mediaId of s.mediaIds) {
+      if (!id(mediaId) || !Object.prototype.hasOwnProperty.call(candidate.media, mediaId) || usedMedia.has(mediaId)) return null;
+      usedMedia.add(mediaId);
+    }
+  }
+  if (modules.some(m => contentful(m) && !usedModules.has(m.id)) || usedMedia.size !== Object.keys(candidate.media).length) return null;
+  return candidate as SourceStoryDesign;
+}

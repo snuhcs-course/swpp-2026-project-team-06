@@ -9,6 +9,8 @@ import { T } from "./Text";
 import { SourcePhoto } from "./SourcePhoto";
 import { IllustrationBackdrop } from "./IllustrationBackdrop";
 import { tokens } from "./tokens";
+import { SourceGuidedStory } from "./SourceGuidedStory";
+import { getSourceStoryDesign } from "./sourceStoryDesign";
 export const SOURCE_MODULES = [
   ["hero", "상품 소개"],
   ["summary", "상품 소개 보충"],
@@ -258,11 +260,15 @@ export function ModuleStory({
   content,
   mediaUrl = (uri: string) => uri,
   editing,
+  design,
 }: {
   editing?: StoryEditing;
+  design?: unknown;
   content: { modules: StoryModule[]; hiddenSectionIds?: string[] };
   mediaUrl?: (uri: string) => string;
 }) {
+  const sourceDesign = !editing && design !== undefined ? getSourceStoryDesign(content.modules, design) : null;
+  if (sourceDesign) return <SourceGuidedStory content={content} design={sourceDesign} mediaUrl={mediaUrl} />;
   const hidden = editing?.hiddenSectionIds ?? content.hiddenSectionIds ?? [];
   const introHidden = hidden.includes("intro");
   const introDim =
