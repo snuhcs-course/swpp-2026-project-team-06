@@ -56,7 +56,7 @@ type Session = {
   user: User | null;
   ready: boolean;
   refresh: () => Promise<void>;
-  /** 탭 레이아웃 key. 인증 이벤트(로그인·로그아웃·토큰 교체)에서만 바뀌고 auth/me 답으로는 안 바뀐다(DEV-481, tabsKey.ts) */
+  /** 탭 레이아웃 key. 계정이 바뀔 때(로그인·로그아웃·토큰 교체, 확인된 사용자가 달라짐)만 바뀌고 같은 사용자의 auth/me 답으로는 안 바뀐다(DEV-481, tabsKey.ts) */
   tabsKey: number;
   /** Verified consumer/auth generation. Private chat routes must also check its active lease. */
   chatViewScope: ChatViewScope | null;
@@ -99,7 +99,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const chatSession = useRef<ChatSessionController | null>(null);
   const tabs = useRef<TabsKey | null>(null);
   if (!tabs.current) tabs.current = new TabsKey();
-  const [tabsKey, setTabsKey] = useState(0);
+  const [tabsKey, setTabsKey] = useState(() => tabs.current!.key);
   if (!chatSession.current) chatSession.current = new ChatSessionController(chatViewState);
   const [gate, setGate] = useState<Resume | null>(null);
   // 시트가 닫히는 동안에도 본문·요약이 비지 않게 마지막 관문을 기억한다(본문은 원래 고정 문장이었다)
@@ -143,7 +143,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const u = await auth.me();
       const scope = controller.authorize(ticket, getToken(), u.userId);
       if (scope) {
-        tabs.current!.confirm();
+        setTabsKey(tabs.current!.confirm(u.userId));
         setChatViewScope(scope);
         setUser(u);
       }
