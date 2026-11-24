@@ -20,6 +20,7 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 
 import { useSession } from "../lib/session";
+import { copyText } from "../lib/views";
 
 const NOTE: Record<string, string> = {
   SUSPENDED: "계정이 정지된 동안에는 이 대화방만 쓸 수 있어요",
@@ -83,6 +84,7 @@ export default function Support() {
         upload={(f) => uploadAttachment(f, { threadId })}
         send={(text, ids, key) => messaging.producerSupportSend(text, ids, key)}
         placeholder="운영팀에 문의 남기기"
+        copy={copyText}
       />
     </Screen>
   );
