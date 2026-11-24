@@ -249,9 +249,12 @@ export function aiCheckRequests(d: DB, t: Thread) {
 }
 /** 메시지 응답의 reported·checkState(DEV-296). 저장된 메시지는 바꾸지 않는다 */
 export function withCheckState(d: DB, m: ChatMessage): ChatMessage {
-  if (m.senderType !== "AI") return { ...m, checkState: null };
+  if (m.senderType !== "AI") return { ...m, checkState: null,
+    replyRequested: m.senderType === "CONSUMER" && d.escalations.some(e =>
+      e.questionMessageId === m.messageId && !e.reportedMessageId && e.status === "OPEN"),
+  };
   const e = d.escalations.find((x) => x.reportedMessageId === m.messageId);
-  return e ? { ...m, reported: true, checkState: checkState(e) } : { ...m, checkState: null };
+  return e ? { ...m, replyRequested: false, reported: true, checkState: checkState(e) } : { ...m, replyRequested: false, checkState: null };
 }
 /** 농가 답장으로 닫는 요청(DEV-296): 확인 요청이면 바로잡기(CORRECTED) */
 export function closeByReply(e: EscalationRec, answer: string, by: string) {
@@ -687,7 +690,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
           });
       } else message.needsHuman = true;
     }
-    return { message, reply };
+    return { message: withCheckState(ctx.db, message), reply: reply ? withCheckState(ctx.db, reply) : null };
   });
 }
 export function editMessageText(ctx: Ctx, row: {body: string; replyTo?: {body: string} | null; masked?: boolean; editedAt?: string | null; editVersion?: number; photos?: string[]; videos?: string[]; attachmentIds?: string[]}, limit: number, redactEmail = false) {
@@ -712,7 +715,7 @@ register({
       const old = message.editVersion ?? 0;
       editMessageText(ctx, message, 1000);
       if (old !== (message.editVersion ?? 0)) t.version++;
-      return {...message, editedAt: message.editedAt ?? null, editVersion: message.editVersion ?? 0};
+      return {...withCheckState(ctx.db, message), editedAt: message.editedAt ?? null, editVersion: message.editVersion ?? 0};
     });
   },
   "GET /api/messaging/chats": (ctx) => {

@@ -151,6 +151,8 @@ class ChatMessage(CamelModel):
     handoff_status: Literal["FORWARDED"] | None
     masked: bool
     reported: bool = False
+    # 자동 전달된 원래 소비자 질문의 미답변 요청. 기존 Escalation 상태로 계산한다.
+    reply_requested: bool = False
     # 소비자 확인 요청 깃발(DEV-296). REQUESTED = 농가 확인 전, CONFIRMED = 농가가 '답이 맞아요',
     # CORRECTED = 농가가 이 답변을 인용해 바로잡음. 확인 요청이 없는 메시지는 null
     check_state: Literal["REQUESTED", "CONFIRMED", "CORRECTED"] | None = None

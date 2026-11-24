@@ -805,6 +805,8 @@ export type ChatMessage = {
   sourceRefs?: string[];
   settingsVersion?: number | null;
   needsHuman?: boolean;
+  /** 자동 전달된 소비자 질문에 열린 답장 요청이 있는지 */
+  replyRequested?: boolean;
   /** AI 근거 요약 */
   sourceSummary: string | null;
   handoffStatus: "FORWARDED" | null;
