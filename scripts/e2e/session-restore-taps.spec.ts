@@ -25,20 +25,22 @@ async function holdNextMe(page: Page) {
   const url = /\/api\/auth\/me(\?|$)/;
   let held = false;
   let pending = true;
-  let release!: () => void;
-  const released = new Promise<void>((r) => (release = r));
+  let release!: (response: Promise<import("@playwright/test").Response>) => void;
+  const released = new Promise<Promise<import("@playwright/test").Response>>((r) => (release = r));
   await page.route(url, async (route) => {
     if (held || route.request().method() !== "GET") return route.fallback();
     held = true;
     await new Promise((r) => setTimeout(r, HOLD_MS));
     pending = false;
+    // 늦춘 바로 그 요청의 응답. 보내기 전에 기다리기 시작해 놓치지 않는다(못 받으면 실패)
+    const request = route.request();
+    const response = page.waitForResponse((r) => r.request() === request);
     await route.fallback();
-    release();
+    release(response);
   });
   const answered = (async () => {
-    await released;
-    const response = await page.waitForResponse(url).catch(() => null);
-    await response?.finished();
+    const response = await (await released);
+    await response.finished();
   })();
   return { pending: () => pending, answered };
 }
