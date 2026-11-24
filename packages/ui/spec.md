@@ -206,3 +206,7 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 
 ## DEV-454 UAT cycle 2
 자동 전달 질문의 replyRequested는 생산자 1:1에서 원래 소비자 질문 말풍선 하단의 답장 요청 글자 액션으로 표시하고, 누르면 그 질문을 인용·포커스한다. 성공/실패 처리와 메시지 메뉴는 기존 인용 작성 흐름을 따른다(FEAT-13 DEV-454).
+
+## DEV-464 opt-in source-guided reference
+
+Implementation contracts: docs/evaluation/i5-source-guided-reference/spec.md. ModuleStory gains only an explicit optional design prop for a local readonly reference; default/editor paths stay unchanged. Shared renderer/typed plan use bounded citrus theme and source-bound visual roles. No server persistence or automatic source-design inference.
