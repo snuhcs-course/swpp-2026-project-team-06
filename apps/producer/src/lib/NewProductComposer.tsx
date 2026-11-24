@@ -16,7 +16,9 @@ import {
   farms,
   newIdempotencyKey,
   productWorkspace,
+  readStore,
   uploadSource,
+  writeStore,
   sourceAnalysis as api,
   type DraftStage,
   type MyProduct,
@@ -336,10 +338,12 @@ const isFresh = (d: SourceDraft, reviewVersion: number, batchVersion: number) =>
   // 서버 apply와 같은 판정: batchVersion 없는 초안은 최신이 아니다.
   (d.snapshot.batchVersion ?? -1) === batchVersion;
 // 이 상품에 마지막으로 반영한 초안(id:version). 같은 초안을 다시 apply하면 서버가 대표사진을 또 복사하므로
-// 새로고침 뒤에도 알 수 있게 세션 저장소에 둔다. 초안이 바뀌면(사진만 바뀌어도 새 버전) 다시 반영한다.
+// 새로고침 뒤에도 알 수 있게 웹은 세션 저장소에 둔다. 앱에는 sessionStorage가 없어(DEV-471) 공용 저장소
+// (readStore/writeStore, SecureStore)에 둔다. 초안이 바뀌면(사진만 바뀌어도 새 버전) 다시 반영한다.
 const appliedKey = (productId: string) =>
   `farmclub-producer:applied-draft:${productId}`;
 const readApplied = (productId: string) => {
+  if (Platform.OS !== "web") return readStore(appliedKey(productId)) ?? "";
   try {
     return sessionStorage.getItem(appliedKey(productId)) ?? "";
   } catch {
@@ -347,6 +351,7 @@ const readApplied = (productId: string) => {
   }
 };
 const writeApplied = (productId: string, value: string) => {
+  if (Platform.OS !== "web") return writeStore(appliedKey(productId), value);
   try {
     sessionStorage.setItem(appliedKey(productId), value);
   } catch {
