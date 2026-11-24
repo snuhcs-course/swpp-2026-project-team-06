@@ -20,6 +20,7 @@ from app.core.errors import ApiError, conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
 from app.core.pagination import decode_cursor, encode_cursor
 from app.core.schemas import Paged
+from app.messaging.emoticons import message_text
 from app.messaging.models import (
     Broadcast,
     Escalation,
@@ -124,6 +125,7 @@ def _news_items(db: Session, rows: list[Broadcast], user_id: str | None) -> list
             farm_photo=found[b.farm_id].photo,
             created_at=b.created_at,
             body=b.body,
+            emoticon_id=b.emoticon_id,
             photos=[*b.photos, *b.videos],
             visibility=b.visibility,
             reaction_count=b.reaction_count,
@@ -214,7 +216,7 @@ def set_reaction(db: Session, consumer_id: str, broadcast_id: str, on: bool) -> 
 
 def post_news(db: Session, farm, body: NewsInput) -> NewsPosted:
     """소식 올리기(FEAT-12). 사진 5장·영상 1개까지, 연락처는 가려 저장한다(M-16)."""
-    if not body.body.strip() and not body.photos and not body.videos:
+    if not body.body.strip() and not body.photos and not body.videos and not body.emoticon_id:
         raise invalid({"body": "글이나 사진 중 하나는 넣어 주세요"})
     if len(body.body) > 2000:
         raise invalid({"body": "2,000자까지 입력해 주세요"})
@@ -222,11 +224,12 @@ def post_news(db: Session, farm, body: NewsInput) -> NewsPosted:
         raise ApiError(413, "PAYLOAD_TOO_LARGE", "사진은 5장, 영상은 1개까지 올릴 수 있어요.")
     from app.farms import service as farms
 
-    text, _ = mask(body.body.strip())
+    text, _ = mask(message_text(body.body.strip(), [*body.photos, *body.videos], body.emoticon_id))
     b = Broadcast(
         id=new_id("n"),
         farm_id=farm.id,
         body=text,
+        emoticon_id=body.emoticon_id,
         photos=body.photos,
         videos=body.videos,
         visibility=body.visibility,
@@ -364,6 +367,7 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                     sender_name=farm.name,
                     sender_role="PRODUCER",
                     body=r.body,
+                    emoticon_id=r.emoticon_id,
                     photos=[p for p in r.photos if not _VIDEO.search(p)],
                     videos=[*r.videos, *(p for p in r.photos if _VIDEO.search(p))],
                     created_at=r.created_at,
@@ -393,6 +397,7 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                     ),
                     sender_role="CONSUMER",
                     body=r.body,
+                    emoticon_id=r.emoticon_id,
                     photos=[],
                     videos=[],
                     created_at=r.created_at,
@@ -493,6 +498,7 @@ def send_room(
     *,
     broadcast_id: str | None = None,
     attachment_ids: list[str] | None = None,
+    emoticon_id: str | None = None,
 ) -> NewsRoomMessage:
     """생산자는 팔로워 전용 방송, 소비자는 본인과 농가만 보는 답장(글·비공개 사진).
 
@@ -518,9 +524,9 @@ def send_room(
         raise invalid(fields)
     limit = 2000 if user.role == "PRODUCER" else 1000
     text = text.strip()
-    if (not text and not attachment_ids) or len(text) > limit:
+    if (not text and not attachment_ids and not emoticon_id) or len(text) > limit:
         raise invalid({"text": f"1~{limit:,}자로 적어 주세요."})
-    body, _ = mask(text)
+    body, _ = mask(message_text(text, attachment_ids, emoticon_id))
     quote = None
     if reply_to_message_id is not None:
         if user.role != "PRODUCER":
@@ -537,7 +543,7 @@ def send_room(
                 "STALE_VERSION", "원문이 수정됐어요. 답장을 취소하고 다시 선택해 주세요."
             )
         quote = {"senderType": "CONSUMER", "body": _broadcast_reply_text(target.body)}
-        body = _broadcast_reply_text(text)
+        body = _broadcast_reply_text(body)
         # 모두에게 답했으면 생산자가 읽은 답장이다(DEV-297 팬 답장 '안 읽음')
         if target.producer_read_at is None:
             target.producer_read_at = now()
@@ -548,6 +554,7 @@ def send_room(
             id=new_id("n"),
             farm_id=farm.id,
             body=body,
+            emoticon_id=emoticon_id,
             photos=[],
             videos=[],
             visibility="FOLLOWERS",
@@ -586,6 +593,7 @@ def send_room(
             farm_id=farm.id,
             consumer_id=user.id,
             body=body,
+            emoticon_id=emoticon_id,
             created_at=now(),
             broadcast_id=target_id,
         )
@@ -777,6 +785,7 @@ def fan_replies(
                 consumer_id=r.consumer_id,
                 sender_name=accounts.public_name(names.get(r.consumer_id)),
                 body=r.body,
+                emoticon_id=r.emoticon_id,
                 created_at=r.created_at,
                 edit_version=r.edit_version,
                 unread=r.producer_read_at is None,
@@ -873,6 +882,7 @@ def _message_view(
         sequence=m.seq,
         sender_type=m.sender_type,
         body=m.body,
+        emoticon_id=m.emoticon_id,
         photos=m.photos,
         created_at=m.created_at,
         attachment_ids=m.attachment_ids,
@@ -1484,7 +1494,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     # 잠그지 않고 읽는다. AI 호출이 끝난 뒤 저장 직전에 잠근다(DEV-180).
     thread = _consumer_thread(db, consumer.id, farm_id)
     text = body.text.strip()
-    if (not text and not body.attachment_ids) or len(text) > 1000:
+    if (not text and not body.attachment_ids and not body.emoticon_id) or len(text) > 1000:
         raise invalid({"text": "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요"})
     context = None
     if body.order_id:
@@ -1505,7 +1515,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     reply_target = _reply_target(db, thread, body.reply_to_message_id)
     settings = farms.ai_settings(db, farm_id)
     captured = (_effective_mode(thread), thread.version, settings.enabled, settings.version)
-    masked_text, was_masked = mask(text)
+    masked_text, was_masked = mask(message_text(text, body.attachment_ids, body.emoticon_id))
     created = now()
     answer = None
     if _effective_mode(thread) == "AUTO" and settings.enabled and text:
@@ -1533,6 +1543,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
         thread_id=thread.id,
         sender_type="CONSUMER",
         body=masked_text,
+        emoticon_id=body.emoticon_id,
         photos=[],
         attachment_ids=[a.id for a in attachments],
         order_id=body.order_id,
@@ -1541,7 +1552,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
         # AI 답이 저장되지 않는 질문은 모두 직접 응대 대상이다: HUMAN·OFF, 사진만 보낸 메시지(M-21),
         # 그리고 AI 작업 중 모드·설정이 바뀌어 답을 버린 경우(AC-13-6). 시작 때 HUMAN이었다가
         # 저장 전에 AUTO로 돌아온 질문도 AI 답이 없으므로 여기에 남는다.
-        needs_human=not (answer is not None and unchanged),
+        needs_human=not body.emoticon_id and not (answer is not None and unchanged),
         created_at=created,
     )
     db.add(message)
@@ -1723,6 +1734,7 @@ def _producer_reply(
     uploader_id: str | None = None,
     reply_to_message_id: str | None = None,
     actor_id: str | None = None,
+    emoticon_id: str | None = None,
 ) -> ThreadMessage:
     """생산자 답변. 저장과 HUMAN 전환을 같은 트랜잭션에서 한다(M-09).
 
@@ -1733,7 +1745,7 @@ def _producer_reply(
     """
     text = text.strip()
     attachment_ids = attachment_ids or []
-    if (not text and not attachment_ids) or len(text) > 1000:
+    if (not text and not attachment_ids and not emoticon_id) or len(text) > 1000:
         raise invalid({"text": "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요"})
     target = _reply_target(db, thread, reply_to_message_id)
     escalations = (
@@ -1768,7 +1780,7 @@ def _producer_reply(
         target = db.get(ThreadMessage, corrected[0])
         reply_to_message_id = target.id
     attachments = bind_attachments(db, uploader_id or "", attachment_ids, thread, None)
-    masked_text, was_masked = mask(text)
+    masked_text, was_masked = mask(message_text(text, attachment_ids, emoticon_id))
     message = ThreadMessage(
         reply_to_message_id=reply_to_message_id,
         reply_to=_quote(target),
@@ -1776,6 +1788,7 @@ def _producer_reply(
         thread_id=thread.id,
         sender_type="PRODUCER",
         body=masked_text,
+        emoticon_id=emoticon_id,
         photos=[],
         attachment_ids=[a.id for a in attachments],
         source_refs=[],
@@ -1818,6 +1831,7 @@ def producer_send(
         farm.producer_id,
         body.reply_to_message_id,
         actor_id=farm.producer_id,
+        emoticon_id=body.emoticon_id,
     )
     return ProducerSendResult(message=_message_view(message), thread=_thread_view(thread))
 
@@ -2218,6 +2232,8 @@ def _require_message_editor(db: Session, user) -> None:
 def _edit_text(row, body, limit: int, has_photos: bool = False):
     if row.edit_version != body.version:
         raise conflict("STALE_VERSION", "다른 곳에서 수정됐어요. 닫고 다시 열어 주세요.")
+    if getattr(row, "emoticon_id", None):
+        raise invalid({"text": "이모티콘 메시지는 수정할 수 없어요."})
     value = body.text.strip()
     has_media = bool(
         has_photos

@@ -64,13 +64,17 @@ test("AC-15-12 the card's reply action picks that post and the send passes its b
   assert.match(src, /onReply=\{!userId \? onLogin : canReply \? \(\) => \{ setReplyPost\(m\);/);
   assert.match(src, /broadcastId: replyPost\?\.broadcastId \?\? undefined, attachmentIds: ids/);
   // 생산자 방송은 고른 소식·사진을 보내지 않는다
-  assert.match(src, /producer \? undefined : \{ broadcastId/);
+  assert.match(src, /!producer \? \{ broadcastId/);
   assert.match(src, /소식에 답장 · 농가만 봐요/);
 });
 
 test("AC-15-13 consumer photo replies reuse the private photo picker and render with tap-to-zoom", () => {
-  // 왼쪽 ‘+’는 늘 첨부(토글 × 아님)이고 숨긴 파일 칸을 바로 연다. 1:1의 PrivatePhotos(보이는 파일 칸·큰 미리보기)는 쓰지 않는다
-  assert.match(src, /tool=\{!producer && upload \? \{\s*icon: "plus",\s*label: "사진 첨부",\s*onPress: attach\.open/);
+  // DEV-468: 공통 + 메뉴의 사진 동작은 기존 숨긴 파일 칸을 연다. 작은 첨부 행·확대 보기는 유지한다.
+  assert.match(src, /tool=\{tools\.tool\}/);
+  assert.match(src, /onPhoto: producer \? onAttach : upload \? attach\.open : undefined/);
+  const tools = readFileSync(new URL("../packages/ui/src/ComposerTools.tsx", import.meta.url), "utf8");
+  assert.match(tools, /onPress: \(\) => setMode/);
+  assert.match(tools, /onPhoto\(\)/);
   assert.doesNotMatch(src, /<PrivatePhotos/);
   assert.match(src, /<AttachedPhotoRow/);
   const photos = readFileSync(new URL("../packages/ui/src/PrivatePhotos.tsx", import.meta.url), "utf8");
