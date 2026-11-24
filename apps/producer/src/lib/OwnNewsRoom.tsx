@@ -2,6 +2,7 @@ import {
   farms,
   messaging,
   newIdempotencyKey,
+  privateImage,
   productPrices,
   SUPPORT_ID,
 } from "@farmclub/api";
@@ -79,6 +80,8 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
           // 소식별 ‘답장 N ›’ 팬 답장 시트(DEV-297, Figma 7:93)
           fanReplies={fanReplies}
           readFanReplies={readFanReplies}
+          // 소비자 답장의 비공개 사진(DEV-467): 소식방 말풍선·팬 답장 시트
+          loadPhoto={privateImage}
           onPrivateReply={async (consumerId, replyId) => {
             try {
               await messaging.producerStart(consumerId, replyId);

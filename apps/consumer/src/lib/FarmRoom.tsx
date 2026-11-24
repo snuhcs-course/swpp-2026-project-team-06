@@ -2,7 +2,9 @@ import {
   farms,
   messaging,
   newIdempotencyKey,
+  privateImage,
   productPrices,
+  uploadAttachment,
 } from "@farmclub/api";
 import {
   Button,
@@ -180,7 +182,10 @@ export default function FarmRoom() {
           load={load}
           makeKey={newIdempotencyKey}
           edit={(id, text, version, key) => messaging.editRoomMessage(farmId, id, text, version, key)}
-          send={(body, key) => messaging.sendRoom(farmId, body, key)}
+          // 고른 소식·비공개 사진을 함께 보낸다(DEV-467). 사진은 1:1과 같은 비공개 저장
+          send={(body, key, _replyId, _version, extra) => messaging.sendRoom(farmId, body, key, undefined, undefined, extra)}
+          upload={(file) => uploadAttachment(file, { roomFarmId: farmId })}
+          loadPhoto={privateImage}
           react={(id, liked) =>
             liked ? messaging.unreact(id) : messaging.react(id)
           }

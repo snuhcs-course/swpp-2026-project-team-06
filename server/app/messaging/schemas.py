@@ -76,6 +76,8 @@ class NewsRoomMessage(CamelModel):
     # 소유 생산자의 방송에만 숫자(DEV-297). 소비자·비로그인과 답장 행은 None
     read_count: int | None = None
     reply_count: int | None = None
+    # 소비자 답장의 비공개 사진(DEV-467). 답장 쓴 소비자와 그 농가 생산자만 받는다. 방송은 빈 배열
+    attachment_ids: list[str] = []
 
 
 class NewsRoomPage(CamelModel):
@@ -108,6 +110,8 @@ class FanReply(CamelModel):
     reserved_customer: bool
     # 이 답장을 인용한 소식(모두에게 답장)이 있음
     quoted: bool
+    # 비공개 사진(DEV-467)
+    attachment_ids: list[str] = []
 
 
 class FanReplyPage(CamelModel):
@@ -124,6 +128,10 @@ class RoomSendInput(CamelModel):
     text: str = ""
     reply_to_message_id: str | None = None
     reply_to_version: int | None = Field(default=None, ge=0)
+    # 소비자 답장이 답한 소식(DEV-467). 없으면 보낸 순간의 가장 최근 소식(AC-15-10)
+    broadcast_id: str | None = None
+    # 소비자 답장의 비공개 사진(DEV-467). 1:1 대화와 같은 업로드, 3장까지
+    attachment_ids: list[str] = Field(default_factory=list)
 
 
 class TextInput(CamelModel):

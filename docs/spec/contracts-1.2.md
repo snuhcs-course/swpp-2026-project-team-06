@@ -29,6 +29,7 @@
 - GET /api/messaging/rooms/{farmId}/messages → {room,items,nextCursor}.
 - items: {messageId,farmId,senderId,senderName,senderRole,body,photos,videos,createdAt,broadcastId,reactionCount,myReaction,visibility}. visibility는 방송의 PUBLIC/FOLLOWERS, 소비자 답장은 null(DEV-210).
 - photos/videos는 방송에 연결된 기존 미디어 배열이며 텍스트 답장은 빈 배열이다. 소비자 답장의 broadcastId는 null, reactionCount=0, myReaction=false이다.
+- (DEV-467) `POST /api/messaging/rooms/{farmId}/messages` 소비자 본문에 선택 `broadcastId`(답한 소식, 그 농가의 지우지 않은 소식만, 아니면 404, 없으면 보낸 순간의 가장 최근 소식)와 `attachmentIds`(비공개 사진 3장까지, 사진이 있으면 text는 비어도 됨)를 받는다. 생산자가 보내면 400. 사진은 `POST /api/messaging/attachments`에 `roomFarmId`(그 농가 팔로워 소비자만)로 올린다. 응답 NewsRoomMessage·FanReply에 `attachmentIds`(답장 쓴 소비자와 그 농가 생산자만, 방송은 빈 배열)가 붙고, 사진 읽기도 그 둘만이다.
 - 생산자는 자기 농가의 방송+모든 답장, 소비자는 방송+본인 답장만 받는다. 요약·cursor에도 같은 필터. 소비자 이름은 생산자 응답에서 앞 글자+○○.
 - POST 같은 messages 경로: {text}, 소비자 1~1000자/생산자 1~2000자 → 저장된 메시지. 생산자는 FOLLOWERS 방송, 소비자는 텍스트 비공개 답장. AI/1:1 대화에는 넣지 않는다.
 - 사진·영상 방송은 기존 POST /api/messaging/news로 작성. FOLLOWERS가 기본, PUBLIC은 농가 공개 목록에도 노출한다. 본문 <=2000자, 사진 최대5장(각10MB), 영상1개(60초/100MB). Idempotency-Key 필수.

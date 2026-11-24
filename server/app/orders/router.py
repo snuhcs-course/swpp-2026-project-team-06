@@ -4,13 +4,15 @@ from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.errors import not_found
 from app.core.idempotency import run_idempotent
 from app.core.pagination import decode_cursor, encode_cursor, page_limit
 from app.core.schemas import Paged
 from app.core.security import Admin, ApprovedProducer, Consumer, CurrentUser, OnboardedConsumer
 from app.messaging import service as messaging
 from app.messaging.schemas import InquiryCreated, InquiryInput, InquiryView
-from app.orders import service
+from app.orders import service, undo
+from app.orders.models import Order
 from app.orders.schemas import (
     AdminRefundInput,
     Changed,
@@ -28,6 +30,7 @@ from app.orders.schemas import (
     RejectDepositInput,
     ShipInput,
     TrackingInput,
+    UndoOrderInput,
 )
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -134,26 +137,47 @@ def deposit_reported(db: Db, user: Consumer, order_id: str):
 @router.post("/{order_id}/confirm-deposit", response_model=ProducerOrder)
 def confirm_deposit(db: Db, producer: ApprovedProducer, order_id: str):
     """생산자가 통장과 대조한 뒤 입금을 확인한다(AC-09-8). 입금 대기 → 예약 완료."""
-    _, farm = producer
-    order = service.confirm_deposit(db, order_id, farm_id=farm.id, confirmed_by="PRODUCER")
+    user, farm = producer
+    result = undo.record_action(
+        db,
+        farm.id,
+        user.id,
+        order_id,
+        "confirm_deposit",
+        lambda: service.confirm_deposit(db, order_id, farm_id=farm.id, confirmed_by="PRODUCER"),
+    )
     db.commit()
-    return service.producer_order_view(db, order)
+    return result
 
 
 @router.post("/{order_id}/reject-deposit", response_model=ProducerOrder)
 def reject_deposit(db: Db, producer: ApprovedProducer, order_id: str, body: RejectDepositInput):
     """입금 미승인(DEV-68). 사유 필수. cancel이면 주문 취소, 아니면 입금 대기로 둔다."""
-    _, farm = producer
-    order = service.reject_deposit(db, farm.id, order_id, body.reason, cancel=body.cancel)
+    user, farm = producer
+    result = undo.record_action(
+        db,
+        farm.id,
+        user.id,
+        order_id,
+        "cancel_deposit" if body.cancel else "reject_deposit",
+        lambda: service.reject_deposit(db, farm.id, order_id, body.reason, cancel=body.cancel),
+    )
     db.commit()
-    return service.producer_order_view(db, order)
+    return result
 
 
 @router.post("/{order_id}/refund-issue", response_model=ProducerOrder)
 def refund_issue(db: Db, producer: ApprovedProducer, order_id: str, body: RefundIssueInput):
     """환불 미승인(DEV-68). 아직 송금하지 못한 사유를 남긴다. 사유 필수."""
-    _, farm = producer
-    result = service.refund_issue(db, farm.id, order_id, body.reason)
+    user, farm = producer
+    result = undo.record_action(
+        db,
+        farm.id,
+        user.id,
+        order_id,
+        "refund_issue",
+        lambda: service.refund_issue(db, farm.id, order_id, body.reason),
+    )
     db.commit()
     return result
 
@@ -161,8 +185,15 @@ def refund_issue(db: Db, producer: ApprovedProducer, order_id: str, body: Refund
 @router.post("/{order_id}/refund-settled", response_model=ProducerOrder)
 def refund_settled(db: Db, producer: ApprovedProducer, order_id: str):
     """농가가 입금했던 계좌로 환불 송금을 마쳤다고 표시한다(AC-17-7)."""
-    _, farm = producer
-    result = service.settle_refund(db, farm.id, order_id)
+    user, farm = producer
+    result = undo.record_action(
+        db,
+        farm.id,
+        user.id,
+        order_id,
+        "refund_settled",
+        lambda: service.settle_refund(db, farm.id, order_id),
+    )
     db.commit()
     return result
 
@@ -210,10 +241,41 @@ def ship_order(
     order_id: str,
     body: ShipInput,
 ):
-    _, farm = producer
-    result = service.ship_order(db, farm.id, order_id, body.tracking_number, body.carrier)
+    user, farm = producer
+    result = undo.record_action(
+        db,
+        farm.id,
+        user.id,
+        order_id,
+        "ship",
+        lambda: service.ship_order(db, farm.id, order_id, body.tracking_number, body.carrier),
+    )
     db.commit()
     return result
+
+
+@router.post("/{order_id}/undo", response_model=ProducerOrder)
+def undo_producer_action(
+    db: Db,
+    producer: ApprovedProducer,
+    order_id: str,
+    body: UndoOrderInput,
+    key: IdempotencyKey = None,
+):
+    user, farm = producer
+    # Cache only an acknowledgment, never a historical private order response.
+    run_idempotent(
+        db,
+        user.id,
+        f"order-undo:{order_id}",
+        key,
+        body,
+        lambda: undo.undo_action(db, farm.id, user.id, order_id, body.action_id),
+    )
+    order = db.get(Order, order_id)
+    if order is None or not service.order_belongs_to_farm(db, order, farm.id):
+        raise not_found("주문을 찾을 수 없어요.")
+    return service.producer_order_view(db, order)
 
 
 @router.patch("/{order_id}/tracking", response_model=ProducerOrder)
