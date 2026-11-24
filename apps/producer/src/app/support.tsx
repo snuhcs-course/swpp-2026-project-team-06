@@ -85,6 +85,7 @@ export default function Support() {
         send={(text, ids, key) => messaging.producerSupportSend(text, ids, key)}
         placeholder="운영팀에 문의 남기기"
         copy={copyText}
+        notice={{ onSupport: null }}
       />
     </Screen>
   );

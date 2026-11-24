@@ -795,23 +795,6 @@ export function Notice({
   );
 }
 
-/** 테스트 서비스 띠: 12 한 줄(DEV-293) */
-export function TestBand({ text }: { text: string }) {
-  return (
-    <View
-      style={{
-        minHeight: 32,
-        paddingVertical: 8,
-        justifyContent: "center",
-        paddingHorizontal: tokens.space.gutter,
-        backgroundColor: tokens.color.surface,
-      }}
-    >
-      <T variant="caption">{text}</T>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   outer: {
     flex: 1,

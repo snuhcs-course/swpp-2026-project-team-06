@@ -21,13 +21,13 @@
 //     가장 가까운 함수만 보면 Tour.tsx의 `tick`처럼 분기한 effect 안 콜백이 걸려서, 바깥 함수까지 본다.
 // 대상 파일: apps/*/src, packages/ui·api·analytics/src의 .ts·.tsx. *.web.*은 앱에 안 들어가서, 같은 이름의
 // 플랫폼 파일이 Metro 순서로 android·ios 모두에서 먼저 잡히는 웹 파일도 빼고, .native·.android·.ios 파일은
-// 앱 전용이라 분기를 인정하지 않고 바로 건다. 짝 판정은 DEV-474 scripts/test-native-pairs.mjs와 같은 Metro 순서다
-// (두 PR 중 늦게 머지되는 쪽에서 resolveLikeMetro를 하나로 합친다).
+// 앱 전용이라 분기를 인정하지 않고 바로 건다. 짝 판정은 scripts/metro-resolve.mjs(DEV-474 검사와 함께 씀).
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import ts from "typescript";
+import { appRole } from "./metro-resolve.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const read = (p) => readFileSync(path.join(root, p), "utf8");
@@ -38,24 +38,6 @@ const files = (dir) =>
     if (statSync(path.join(root, rel)).isDirectory()) return files(rel);
     return /\.tsx?$/.test(f) && !/\.web\.tsx?$/.test(f) && !f.endsWith(".d.ts") ? [rel] : [];
   });
-
-// ---- Metro 해석 순서(DEV-474와 같은 규칙) ----
-const SOURCE_EXTS = ["ts", "tsx", "mjs", "js", "jsx", "json"];
-const TAG = /^(.*?)(?:\.(native|android|ios|web))?\.(tsx?)$/;
-export function resolveLikeMetro(base, platform, exists) {
-  for (const ext of SOURCE_EXTS)
-    for (const suffix of [`.${platform}`, ...(platform === "web" ? [] : [".native"]), ""])
-      if (exists(`${base}${suffix}.${ext}`)) return `${base}${suffix}.${ext}`;
-  return null;
-}
-/** 앱(android·ios) 번들에 들어가는지, 들어가면 앱 전용 파일인지 */
-export function appRole(rel, exists) {
-  const [, base, tag] = rel.match(TAG) ?? [];
-  if (tag === "web") return "none";
-  if (tag) return "native";
-  const inApp = ["android", "ios"].some((p) => resolveLikeMetro(base, p, exists) === rel);
-  return inApp ? "shared" : "none";
-}
 
 // ---- 무엇이 웹 전용인가 ----
 const MISSING_GLOBALS = new Set([
@@ -187,19 +169,12 @@ export function unguardedWebGlobals(rel, source, role = "shared") {
   return hits;
 }
 
-// 다른 PR에서 고치는 중인 곳. 허용 목록이 아니라 기한이 있는 표시다: 그 PR이 머지되어 파일이 없어지면
-// 아래 테스트가 실패하므로 이 줄을 지운다(늦게 머지되는 쪽에서 정리).
-export const PENDING = new Map([
-  ["apps/consumer/src/lib/postcodeSearch.ts", "DEV-474(#830): postcodeSearch.tsx로 이름을 바꿔 앱 번들에서 빠진다"],
-]);
-
 /** 저장소 전체 */
 export function scanRepo() {
   const exists = (rel) => existsSync(path.join(root, rel));
   const hits = [];
   for (const dir of ROOTS)
     for (const f of files(dir)) {
-      if (PENDING.has(f)) continue;
       const role = appRole(f, exists);
       if (role !== "none") hits.push(...unguardedWebGlobals(f, read(f), role));
     }
@@ -208,15 +183,6 @@ export function scanRepo() {
 
 test("DEV-471 앱 번들 코드의 웹 전용 전역·window 멤버·DOM 요소는 웹 분기 안에서만 쓴다", () => {
   assert.deepEqual(scanRepo(), []);
-});
-
-test("DEV-471 PENDING 표시는 아직 고치지 않은 곳에만 있다(고쳐지면 지운다)", () => {
-  const exists = (rel) => existsSync(path.join(root, rel));
-  for (const [f, why] of PENDING) {
-    assert.ok(exists(f), `${f}가 없다(${why}) → PENDING에서 지운다`);
-    assert.equal(appRole(f, exists), "shared", `${f}가 앱 번들에서 빠졌다(${why}) → PENDING에서 지운다`);
-    assert.ok(unguardedWebGlobals(f, read(f)).length > 0, `${f}에 걸리는 곳이 없다 → PENDING에서 지운다`);
-  }
 });
 
 const u = (src, role) => unguardedWebGlobals("x.tsx", src, role);
