@@ -38,7 +38,7 @@ test('AC-SRC-1/2/5/7/9/11: renders exact inventory across candidates and outcome
 
 test('AC-SRC-2/9: escapes hostile text and rejects unsafe image paths', () => {
   const hostile = `</title><script>alert('x')</script>&"`;
-  const paths = ['/etc/passwd', '../outside.png', '%2e%2e/out.png', 'assets/%2f%2fevil', 'javascript:alert(1)', 'https://example.test/x.png', 'C:\\secret.png', '\\\\host\\share.png', 'assets\\x.png'];
+  const paths = ['/etc/passwd', '../outside.png', '%2e%2e/out.png', 'assets/%2f%2fevil', 'javascript:alert(1)', 'https://example.test/x.png', '\thttps://evil.example/a.png', '\nhttps://evil.example/a.png', ' https://evil.example/a.png', 'https://evil.example/a.png ', 'assets/\timage.png', 'assets/%09image.png', 'assets/%0aimage.png', 'assets/%0dimage.png', 'assets/%3fquery.png', 'assets/%23fragment.png', 'C:\\secret.png', '\\\\host\\share.png', 'assets\\x.png'];
   const html = renderContactSheet([manifest(hostile, 'PARTIAL', paths.map((imagePath, index) => occurrence({ id: String(index), imagePath, reasonCodes: [hostile] })))], { title: hostile });
   assert.doesNotMatch(html, /<script>alert/);
   assert.match(html, /&lt;\/title&gt;&lt;script&gt;/);
