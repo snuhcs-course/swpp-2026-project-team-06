@@ -43,6 +43,7 @@ CI의 첫 job `changes`가 이벤트와 바뀐 파일로 길을 고르고(`scrip
 
 - Playwright는 CI에서만 1회 재시도한다(`playwright.config.ts`, `CI` 환경 변수). 재시도로 통과한 테스트는 보고서에 flaky로 남는다. 로컬은 재시도 없음.
 - 재시도로도 자주 빨개지는 테스트는 **격리**: 고칠 이슈를 먼저 만들고 `scripts/ci/quarantine.json`의 `specs`(파일) 또는 `tests`(제목 일부)에 `issue`·`since`·`reason`과 함께 넣는다. `playwright.config.ts`가 CI·로컬 모두에서 빼고, `classify.mjs`가 샤드에서 뺀다. 격리한 것까지 돌리려면 `FARMCLUB_INCLUDE_QUARANTINE=1 make test-integration`. 고친 PR에서 지운다. nightly도 격리 목록을 따르므로 오래 두지 않는다.
+- 화면이 응답마다 두 번 이상 그려지면(목록 값 → 상세로 채운 값) 중간 값을 기다리지 않는다. 수십 ms만 보이는 값은 확인 간격에 따라 잡히기도 놓치기도 한다. 다 그린 뒤의 값을 기다린다(DEV-482 홈 카드 '30,000원' → '30,000원~', DEV-381 줄 밀림).
 - Mock 서버 포트 충돌(DEV-221)은 별도 이슈다.
 
 ## 머지 큐와 배포
