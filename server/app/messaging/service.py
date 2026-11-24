@@ -2057,7 +2057,10 @@ def _may_see_room_reply(db: Session, user, reply_id: str) -> bool:
     if reply is None:
         return False
     if user.role == "CONSUMER":
-        return reply.consumer_id == user.id
+        # 소식방이 열리는 농가에서만(R-29, DEV-472). 정지·테스트 농가는 소식방이 404라 사진도 404
+        if reply.consumer_id != user.id:
+            return False
+        return farms.public_farm(db, reply.farm_id, user) is not None
     if user.role == "PRODUCER":
         own = farms.get_farm_of_producer(db, user.id)
         return own is not None and own.id == reply.farm_id

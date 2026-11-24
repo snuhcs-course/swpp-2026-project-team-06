@@ -326,6 +326,43 @@ def test_AC_06_11_chat_attachment_of_hidden_farm(client, monkeypatch):
     assert shown.status_code == 200
 
 
+def test_AC_15_15_room_reply_photo_of_hidden_farm(client, monkeypatch):
+    """소식방 비공개 답장 사진(DEV-467): 올리기·보기 모두 일반 소비자 404, 테스트 소비자 그대로."""
+    real = onboard(client, "u-buyer-park")
+    tester = bearer("u-minji", "CONSUMER")
+    sent = {}
+    for name, headers in (("real", real), ("test", tester)):
+        photo = upload(client, headers, png(), roomFarmId="f-kang")
+        assert photo.status_code == 200, photo.text
+        aid = photo.json()["attachmentId"]
+        reply = client.post(
+            "/api/messaging/rooms/f-kang/messages",
+            headers=headers | key(),
+            json={"text": "", "broadcastId": "n-1", "attachmentIds": [aid]},
+        )
+        assert reply.status_code == 200, reply.text
+        sent[name] = aid
+    seed_env(monkeypatch, False)
+
+    hidden = client.get(f"/api/messaging/attachments/{sent['real']}", headers=real)
+    missing = client.get("/api/messaging/attachments/att-nope", headers=real)
+    assert hidden.status_code == 404 and hidden.json() == missing.json()
+    assert (
+        client.get(f"/api/messaging/attachments/{sent['test']}", headers=tester).status_code == 200
+    )
+    # 농가 생산자(테스트 계정)는 자기 소식방 답장 사진을 그대로 본다
+    producer = bearer("u-kang", "PRODUCER")
+    assert (
+        client.get(f"/api/messaging/attachments/{sent['real']}", headers=producer).status_code
+        == 200
+    )
+
+    blocked = upload(client, real, png(), roomFarmId="f-kang")
+    assert blocked.status_code == 404
+    assert blocked.json()["message"] == "지금은 이 농가의 소식방을 열 수 없어요."
+    assert upload(client, tester, png(), roomFarmId="f-kang").status_code == 200
+
+
 def test_AC_06_11_test_consumers_keep_uat_flow(client, production):
     """시드 테스트 소비자끼리는 보기·팔로우·대화·주문이 그대로다."""
     headers = bearer("u-seojun", "CONSUMER")
