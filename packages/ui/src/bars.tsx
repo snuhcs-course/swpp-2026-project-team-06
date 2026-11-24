@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,7 @@ import {
 } from "react-native";
 
 import { Icon, type IconName } from "./Icon";
-import { useKeyboardShown } from "./keyboard";
+import { KeyboardRoot, useKeyboardShown } from "./keyboard";
 import { leaveSheet, sheetAnimation } from "./sheetLeave";
 import { T } from "./Text";
 import { tokens } from "./tokens";
@@ -311,6 +312,8 @@ export function Fab({
 
 /* ---------------- Sheet ---------------- */
 
+const nativeApp = Platform.OS === "ios" || Platform.OS === "android";
+
 /**
  * 시트 안 버튼으로 다른 화면으로 갈 때 쓴다(DEV-225). `leave(close, go)`는 시트를 애니메이션 없이 닫고
  * 같은 틱에 이동하므로 새 화면 위에 시트가 남지 않는다. `instant`를 그 시트의 `Sheet`에 넘긴다.
@@ -351,30 +354,39 @@ export function Sheet({
       animationType={sheetAnimation(instant)}
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          accessibilityLabel="닫기"
-          onPress={onClose}
-        />
-        <View style={[styles.sheet, sheetGlass]} accessibilityViewIsModal>
-          <View style={styles.handle} />
-          {title ? (
-            <View style={styles.sheetHead}>
-              <T variant="heading" style={{ flex: 1 }}>
-                {title}
-              </T>
-              <IconButton icon="close" label="닫기" onPress={onClose} />
-            </View>
-          ) : null}
-          <ScrollView
-            style={{ maxHeight: 640 }}
-            contentContainerStyle={{ gap: 12 }}
+      {/* Modal은 앱 루트와 다른 창이라 루트의 KeyboardRoot가 닿지 않는다. 시트 안에서 한 번 더 감싸
+          입력칸·저장 버튼이 키보드 위로 올라오게 한다(DEV-477). 웹은 감싸지 않는다 */}
+      <KeyboardRoot>
+        <View style={[styles.overlay, nativeApp && styles.overlayApp]}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessibilityLabel="닫기"
+            onPress={onClose}
+          />
+          <View
+            style={[styles.sheet, sheetGlass, nativeApp && styles.sheetApp]}
+            accessibilityViewIsModal
           >
-            {children}
-          </ScrollView>
+            <View style={styles.handle} />
+            {title ? (
+              <View style={styles.sheetHead}>
+                <T variant="heading" style={{ flex: 1 }}>
+                  {title}
+                </T>
+                <IconButton icon="close" label="닫기" onPress={onClose} />
+              </View>
+            ) : null}
+            <ScrollView
+              style={{ maxHeight: 640 }}
+              contentContainerStyle={{ gap: 12 }}
+              // 키보드가 떠 있어도 시트 안 버튼(저장 등)이 첫 탭에 눌린다(앱). 웹은 영향 없음
+              keyboardShouldPersistTaps="handled"
+            >
+              {children}
+            </ScrollView>
+          </View>
         </View>
-      </View>
+      </KeyboardRoot>
     </Modal>
   );
 }
@@ -565,6 +577,9 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
   },
+  // 앱: 키보드로 남은 높이가 시트보다 작으면 시트가 줄고 안이 스크롤된다(위쪽이 상태 표시줄 밑으로 넘치지 않게)
+  overlayApp: { paddingTop: safe("top", 16) },
+  sheetApp: { flexShrink: 1 },
   sheet: {
     width: "100%",
     maxWidth: tokens.maxWidth,
