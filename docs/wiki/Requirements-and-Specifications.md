@@ -1090,7 +1090,7 @@ Rules that apply on every screen:
 - Buttons lock while a request is being processed, and an order or payment is never processed twice even if the user taps again or the connection drops.
 - When a save fails (network, validation or conflict), what the user typed and the photos they picked are kept, including after a detour to login.
 - If the user is not allowed to see a screen, it shows "You can't view this screen" with a link to the first screen.
-- If a screen crashes while drawing, the app shows "We couldn't open this screen" instead of a blank page, says saved data is kept, and offers Retry (redraws the same screen), Home and a link to the farmclub support chat. Inside a tab only that screen is replaced and the tab bar stays; error names and stack traces are never shown (DEV-473).
+- If a screen crashes while drawing, the app shows "We couldn't open this screen" instead of a blank page, says saved data is kept, and offers Retry (redraws the same screen), Home and a link to the farmclub support chat. Inside a tab only that screen is replaced and the tab bar stays; error names and stack traces are never shown. This covers errors thrown while drawing a screen or in its effects; errors inside button handlers or asynchronous callbacks are not caught (DEV-473).
 - Network errors show "Your connection is unstable" with Retry. Success messages appear as a short toast.
 
 ### 7.6 Operator screens (I2)
