@@ -181,6 +181,9 @@ test("links: only the canonical repo form, existing files and headings", () => {
   assert.deepEqual(bad(`http://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md`), ["sections"]);
   assert.deepEqual(bad(`${REPO_URL}/blob/dev/AGENTS.md`), ["sections"]);
   assert.deepEqual(bad("../../AGENTS.md"), ["sections"]);
+  // 바뀌지 않는 기록은 형태만 본다
+  for (const r of ["pull/768", "pull/768#issuecomment-7081111085", "issues/762", "actions/runs/45036911656", "commit/4a76c3cc71827208e242cf013940a35a7372b909"]) assert.deepEqual(bad(`${REPO_URL}/${r}`), [], r);
+  for (const r of ["pull/768/files", "actions/runs/abc", "commit/xyz", "pulls"]) assert.deepEqual(bad(`${REPO_URL}/${r}`), ["sections"], r);
   assert.deepEqual(bad("#nowhere"), ["sections"]);
   assert.deepEqual(keysOf(run({ html: swap(HTML, `<a href="${ok}/AGENTS.md#브랜치커밋pr">원문</a>`, `<a href='${ok}/AGENTS.md#없음'>원문</a>`) })), ["sections"]);
   assert.deepEqual(keysOf(run({ html: HTML.replace(/<a href="https:\/\/github[^>]*>[^<]*<\/a>/g, "") })), ["sections"]);

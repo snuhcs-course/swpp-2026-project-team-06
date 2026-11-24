@@ -15,6 +15,7 @@
 //    한계: CSS로 숨긴 요소(display:none 등)는 알아보지 못한다. 설명 문장은 검사하지 않는다.
 // 2) 링크(checkLinks, 보고 키 sections): 저장소를 가리키는 링크는 https://github.com/<repo>/(blob|tree|commits)/main/<경로>
 //    형태만 허용하고, 경로가 있는지·#앵커가 그 파일 제목의 GitHub 앵커와 같은지 본다. 페이지 안 #앵커는 id가 있어야 한다.
+//    바뀌지 않는 기록 링크(/pull/<n>, /issues/<n>, /actions/runs/<n>, /commit/<sha>)는 형태만 본다.
 //    상대 경로·http://·다른 브랜치처럼 Pages에서 깨지거나 main과 갈라지는 링크는 실패다.
 // 규칙을 바꾸면 같은 PR에서 페이지도 고친다. 값 키를 늘리려면 KEYS에 한 줄, test-check-guide.mjs에 fixture 시나리오를 더한다.
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -237,7 +238,10 @@ export function checkLinks(html, readRepoFile) {
   const src = stripComments(html);
   const errors = [];
   const ids = new Set([...src.matchAll(/\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)].map((m) => m[1] ?? m[2]));
-  const ok = new RegExp(`^${REPO_URL.replace(/[.]/g, "\\.")}/(blob|tree|commits)/main/([^#?]+)(?:#(.*))?$`);
+  const repo = REPO_URL.replace(/[.]/g, "\\.");
+  const ok = new RegExp(`^${repo}/(blob|tree|commits)/main/([^#?]+)(?:#(.*))?$`);
+  // 바뀌지 않는 기록(PR·이슈·실행·커밋)은 형태만 본다. 내용은 오프라인으로 확인할 수 없다.
+  const record = new RegExp(`^${repo}/(?:(?:pull|issues)/\\d+(?:#issuecomment-\\d+)?|actions/runs/\\d+|commit/[0-9a-f]{7,40})$`);
   let links = 0;
   for (const m of src.matchAll(/\shref\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
     const href = decodeEntities(m[1] ?? m[2]);
@@ -248,6 +252,7 @@ export function checkLinks(html, readRepoFile) {
       continue;
     }
     if (/^(https:\/\/|mailto:)/i.test(href) && !href.toLowerCase().includes("snuhcs-course/swpp-2026-project-team-06")) continue;
+    if (record.test(href)) continue;
     const r = ok.exec(href);
     if (!r) {
       bad(`저장소 링크는 ${REPO_URL}/blob/main/<경로>(#앵커) 형태로 쓴다(상대 경로·http·다른 브랜치는 Pages나 main과 어긋난다)`);
