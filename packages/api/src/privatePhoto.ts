@@ -4,6 +4,9 @@
 //   느리지만 계속 받는 큰 사진(예: DEV-328 이전에 올린 원본 크기 PNG)은 끝까지 받는다.
 //   조각 읽기를 못 하는 환경(React Native fetch 등)은 전체 시간 제한(넉넉히 120초)만 둔다.
 // - 실패한 요청은 기억하지 않아 다시 시도할 수 있다.
+// - 받은 조각으로 Blob을 만들 수 없는 환경(앱: Expo 57의 fetch는 조각 읽기를 주지만 React Native의 Blob은
+//   바이트로 만들 수 없다)은 조각 읽기를 쓰지 않고 res.blob()으로 받는다(DEV-477). 예전에는 앱에서 여기서 늘 실패해
+//   첨부 칸 썸네일이 '준비 중'으로 남았다.
 // 주소마다 Blob을 공유하고, 화면은 각자 blobUrl로 주소를 만들어 자기가 해제한다.
 import { ApiError, getToken, onAuthChange } from "./client";
 
@@ -13,6 +16,20 @@ const LIMIT = 60;
 const shared = new Map<string, Promise<Blob>>();
 // 로그인이 바뀌거나 로그아웃하면 받아 둔 비공개 사진을 메모리에서 지운다
 onAuthChange(() => shared.clear());
+
+let bytesToBlob: boolean | undefined;
+/** 바이트 조각으로 Blob을 만들 수 있는지(웹·Node는 됨, React Native의 Blob은 예외를 던진다). 한 번만 잰다 */
+function canBuildBlobFromBytes(): boolean {
+  if (bytesToBlob === undefined) {
+    try {
+      new Blob([new Uint8Array(0)]);
+      bytesToBlob = true;
+    } catch {
+      bytesToBlob = false;
+    }
+  }
+  return bytesToBlob;
+}
 
 export class PhotoTimeoutError extends Error {
   constructor() {
@@ -49,7 +66,7 @@ async function download(
     ]);
     if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => ({})));
     const type = res.headers.get("content-type") ?? "";
-    const reader = res.body?.getReader?.();
+    const reader = canBuildBlobFromBytes() ? res.body?.getReader?.() : undefined;
     if (!reader) {
       arm(totalMs);
       return await Promise.race([res.blob(), aborted]);
@@ -96,7 +113,8 @@ export function privatePhotoBlob(
   return pending;
 }
 
-/** 테스트용: 기억한 사진을 모두 지운다. */
+/** 테스트용: 기억한 사진을 모두 지운다(Blob 지원 여부도 다시 잰다). */
 export function clearPrivatePhotos() {
   shared.clear();
+  bytesToBlob = undefined;
 }
