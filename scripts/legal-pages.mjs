@@ -28,7 +28,7 @@ const esc = (s) =>
   );
 
 function businessHtml() {
-  // 사업자 정보(값 있는 것만) + 호스팅서비스 제공자. 사업자 정보가 없으면 '테스트 서비스'를 앞에 둔다
+  // 사업자 정보(값 있는 것만) + 호스팅서비스 제공자. 사업자 정보가 없으면(로컬·값 없는 웹 배포) '테스트 서비스'를 앞에 둔다
   const lines = siteLines();
   const test = lines.length === 1 ? `<p>${esc(TEST_SERVICE)}</p>` : "";
   return `${test}<dl class="biz">${lines.map(([l, v]) => `<div><dt>${esc(l)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
