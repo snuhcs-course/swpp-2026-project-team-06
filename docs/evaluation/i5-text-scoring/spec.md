@@ -9,3 +9,12 @@ Implement opt-in versioned evaluator, never modify legacy final_score.py. score(
 
 ## Current sequence
 DEV447 targeted contract/pilot + DEV448 evaluator highestpriority; then offline saved-output comparison; DEV453 extraction; DEV449 sourceinventory; DEV450 textassembly; DEV451 boundedcomparison; DEV452 ownerworkflow. DEV446 superseded; DEV456-464visualbacklog. Existing5USDcap includesuncertainty, no paidcallsinthiswave. No highSol.
+
+Coordinator scope extension beforecode: docs/evaluation/i5-text-scoring/compare.py (offline JSON-enveloped controls/saved-outputs CLI), server/tests/test_text_score_compare.py; exclusive private outputs, developmentonly input, preserve raw legacy/new reports. No provider/DBcalls.
+
+## DEV-449 parallel source-preservation boundary
+Allowed mediumSol sourceworker paths ONLY server/app/source_analysis/source_inventory.py and server/tests/test_source_inventory.py. Root owns server/tasks/DEV-449.md. Pure module preserving accepted source candidates' exact values, quotes/source revision/target scope before any rewrite. Do not claim automatic atomic semantic fact extraction: source units are not gold facts. Stable deterministic identities; no deletion through canonicalization; exact duplicates retain all evidence; differentproduct/option/qualifier/time notmerged; candidate values and quotes kept separately. Plan/disposition validator requires every unit once, permittedsection or explicitreason/review; selected raw unsafe candidates notrescued. Coverage accounting does notprove downstreammeaning. Regression: producerdescriptor preserved beforewriter, merged duplicates preserveallrefs, unknown/conflicting scope needsreview, stale revisions/omission/unknownIDs rejected. No provider/DB/dependencies/legacyedits. No productpath adoption yet.
+
+Coordinator also owns probe_controls.py reproducible55inventedcontrols reporting using existingparse_controls/scorer_inputs unchanged; no injectedsemanticjudgments from expectedlabels, expectedstatuses observationalonly.
+
+Review-driven boundary beforefix: fact-level judgments must bind canonical current gold Source hash as goldSha256, in addition output/safe evidence; samefactID aftergoldedit cannotreuse support. Sentence semantic judgments likewisebind currentgoldcontext. A matching sentence with a preceding product/sample/time heading must notautoPASS when context is omitted; unresolvable scopeUNKNOWN. Regressionforboth.
