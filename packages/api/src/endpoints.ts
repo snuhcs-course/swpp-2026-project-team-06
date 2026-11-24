@@ -273,6 +273,10 @@ export const orders = {
   /** 생산자가 입금했던 계좌로 환불 송금을 마쳤다고 표시 */
   refundSettled: (orderId: string) =>
     request<A.ProducerOrder>("POST", `/api/orders/${orderId}/refund-settled`),
+  undoProducerAction: (orderId: string, actionId: string, idempotencyKey: string = newIdempotencyKey()) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/undo`, {
+      body: { actionId }, idempotencyKey,
+    }),
   /** 내 주문. productId를 주면 그 상품 주문만(상품 상세 '이미 예약했어요', DEV-379) */
   list: (q: A.PageQuery & { productId?: string } = {}) =>
     request<A.Paged<A.Order>>("GET", "/api/orders", { query: q }),

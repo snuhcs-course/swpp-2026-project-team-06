@@ -173,6 +173,7 @@ export type RoomReadRec = {
   at: string;
 };
 export type OrderRec = Recipient & {
+  producerActionHistory?: ProducerOrderActionRec[];
   trackingVersion?: number;
   unitWeightGrams: number;
   releasedQuantity: number;
@@ -207,6 +208,20 @@ export type OrderRec = Recipient & {
   refundSettledAt: string | null;
   depositIssue?: string | null;
   refundIssue?: string | null;
+};
+export type ProducerOrderState = Pick<OrderRec,
+  "status" | "paidAt" | "shippedAt" | "deliveredAt" | "refundedAt" | "refundReason" |
+  "releasedQuantity" | "quantity" | "depositCode" | "depositDueAt" | "depositReportedAt" |
+  "cancelReason" | "refundSettledAt" | "depositIssue" | "refundIssue" | "carrier" |
+  "trackingNumber" | "trackingVersion" | "deliveryWindow" | "proposedDeliveryWindow"
+>;
+export type ProducerOrderActionRec = {
+  actionId: string;
+  kind: "confirm_deposit" | "reject_deposit" | "cancel_deposit" | "ship" | "refund_issue" | "refund_settled";
+  status: "SUCCEEDED" | "SUPERSEDED" | "UNDONE";
+  createdAt: string;
+  before: ProducerOrderState;
+  after: ProducerOrderState;
 };
 export type EscalationRec = {
   escalationId: string;
