@@ -75,7 +75,7 @@ export function OrderCard({
         paddingLeft: 10,
         paddingRight: onStatus ? 6 : 10,
         borderRadius: tokens.radius.sm,
-        backgroundColor: strong ? "#FDECE2" : tokens.color.surface,
+        backgroundColor: strong ? tokens.color.accentSoft : tokens.color.surface,
       }}
     >
       <T variant="caption" weight="semibold" color={strong ? tokens.color.accent : tokens.color.textMuted}>

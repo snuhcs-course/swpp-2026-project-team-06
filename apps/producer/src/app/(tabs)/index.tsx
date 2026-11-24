@@ -73,7 +73,7 @@ function TodoRow({
             paddingHorizontal: tokens.space.sm,
             paddingVertical: 2,
             borderRadius: 6,
-            backgroundColor: "#FDECE2",
+            backgroundColor: tokens.color.accentSoft,
           }}
         >
           <T variant="caption" weight="semibold" color={tokens.color.accent}>
