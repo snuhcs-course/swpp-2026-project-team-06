@@ -68,14 +68,14 @@ const period = (
   s: { startsAt: string; endsAt: string } | null | undefined,
 ) => (s ? `${f.md(s.startsAt)}~${f.md(s.endsAt)} ` : "");
 
-/** 지금 기간에 이 옵션이 남았는지 */
-const optionLeft = (ctx: Ctx, optionId: string) => {
-  const stage = ctx.product.stages.find(
-    (s) => s.stageId === ctx.product.currentStageId,
-  );
-  const v = stage?.options[optionId];
-  return !!v && v.quantity - v.reservedCount > 0;
-};
+/** 전체 중량과 현재 기간의 옵션 재고를 함께 적용한 최대 수량. */
+export function availableQuantity(product: Ctx["product"], optionId: string): number {
+  const weight = product.options.find(o => o.optionId === optionId)?.weightKg ?? 0;
+  const row = product.stages.find(s => s.stageId === product.currentStageId)?.options[optionId];
+  return weight > 0 && row ? Math.max(0, Math.min(
+    Math.floor(product.remainingGrams / (weight * 1000)), row.quantity - row.reservedCount,
+  )) : 0;
+}
 
 const blocked = (
   title: string,
@@ -198,43 +198,14 @@ export function conflictView(
         `예약을 다시 열면 이 주문서에서 그대로 예약할 수 있어요. ${KEEP}`,
         { inline: { label: "다시 확인하기", action: "recheck" } },
       );
-    case "SOLD_OUT": {
-      const others = ctx.product.options.filter(
-        (o) => o.optionId !== ctx.optionId && optionLeft(ctx, o.optionId),
-      );
-      if (!others.length)
-        return ended(
-          "이번 기간 물량이 다 팔렸어요",
-          "다음 예약 기간이 열리면 다시 예약해 주세요.",
-        );
-      const names = others.map((o) => o.label).join("·");
-      return blocked(
-        `${label}${eunNeun(label)} 이번 기간 물량이 다 팔렸어요`,
-        `${names}${eunNeun(names)} 아직 예약할 수 있어요. ${KEEP}`,
-        {
-          inline: { label: "옵션 바꾸기", action: "changeOption" },
-          summary: "다른 옵션을 고르면 예약할 수 있어요",
-        },
-      );
-    }
+    case "SOLD_OUT":
     case "TOTAL_LIMIT_REACHED": {
-      const weight =
-        (ctx.product.options.find((o) => o.optionId === ctx.optionId)
-          ?.weightKg ?? 0) * 1000;
-      if (
-        ctx.quantity > 1 &&
-        weight > 0 &&
-        ctx.product.remainingGrams >= weight
-      )
-        return blocked(
-          "남은 예약 물량이 부족해요",
-          "수량을 줄이면 예약할 수 있어요.",
-          {
-            inline: { label: "수량 바꾸기", action: "changeQuantity" },
-            summary: "수량을 줄이면 예약할 수 있어요",
-          },
-        );
-      return ended("예약 물량이 다 찼어요", "이번 예약은 모두 끝났어요.");
+      const maximum = availableQuantity(ctx.product, ctx.optionId);
+      return ended(
+        maximum > 0 ? "남은 예약 물량이 부족해요" : c.reason === "SOLD_OUT"
+          ? "선택한 옵션이 품절됐어요" : "예약 물량이 다 찼어요",
+        "상품 화면에서 남은 수량과 다른 옵션을 확인해 주세요.",
+      );
     }
     case "QUANTITY_LIMIT":
       return blocked(

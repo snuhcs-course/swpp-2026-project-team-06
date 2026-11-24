@@ -41,12 +41,13 @@ import {
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Modal, Pressable, View } from "react-native";
 
 import {
   availabilityConflict,
   clearsOnSelection,
   conflictView,
+  availableQuantity,
   mismatchStep,
   recheckedConflict,
   reserveDisabledHint,
@@ -86,6 +87,11 @@ export default function Checkout() {
     seenUnitPrice?: string;
   }>();
   const router = useRouter();
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    return () => setFocused(false);
+  }, []));
   const { user, ready, chatViewScope, pendingRecipient, setPendingRecipient } = useSession();
   const product = useAsync(
     () => catalog.product(params.productId),
@@ -229,9 +235,12 @@ export default function Checkout() {
   const allAgreed = agreed === consentTotal;
   // 예약할 수 있나는 서버 soldOut 대신 availability로 본다(soldOut은 판매 중지를 보지 않음, DEV-215 전).
   // 409 안내가 없거나 기한 만료 복귀 안내만 있을 때는 상품 availability가 앞선다
+  const selectionConflict: CheckoutConflict | null = p && opt &&
+    p.availability === "AVAILABLE" && qty > availableQuantity(p, opt.optionId)
+    ? { reason: "SOLD_OUT", details: { optionId: opt.optionId } } : null;
   const shown =
     p && (!conflict || conflict.reason === "EXPIRED")
-      ? (availabilityConflict(p) ?? conflict)
+      ? (availabilityConflict(p) ?? selectionConflict ?? conflict)
       : conflict;
   const view = p
     ? conflictView(
@@ -240,6 +249,9 @@ export default function Checkout() {
         { md, won },
       )
     : null;
+  const stockBlocked = focused && !!user && !placed && !recovering && !control.placed && !control.recovery &&
+    !!shown && ["SOLD_OUT", "TOTAL_LIMIT_REACHED"].includes(shown.reason);
+
   const leaving = view?.primary.action === "backToProduct";
   const canPay =
     recovering || leaving ||
@@ -281,7 +293,7 @@ export default function Checkout() {
   }, [p]);
 
   function backToProduct() {
-    router.replace(`/products/${params.productId}`);
+    router.dismissTo(`/products/${params.productId}`);
   }
 
   // '다시 확인하기': 상품을 다시 읽어 예약할 수 있으면 안내를 지운다. 가격도 바뀌었으면 가격 안내로
@@ -476,7 +488,7 @@ export default function Checkout() {
             body={`${won(Number(params.seenUnitPrice))} → ${won(unit)} · 아래 총 입금액을 확인해 주세요.`}
           />
         ) : null}
-        {view ? (
+        {view && !stockBlocked ? (
           <Notice
             style={{ margin: tokens.space.gutter, marginBottom: 0 }}
             title={view.title}
@@ -487,6 +499,7 @@ export default function Checkout() {
                   <Button
                     label={view.inline.label}
                     variant="text"
+                    compact
                     onPress={() =>
                       view.inline?.action === "recheck"
                         ? void recheck()
@@ -902,6 +915,15 @@ export default function Checkout() {
         onSubmit={() => setSheet(null)}
         submitLabel="바꾸기"
       />
+      <Modal visible={stockBlocked} transparent animationType="fade" onRequestClose={backToProduct}>
+        <View style={{ flex: 1, backgroundColor: tokens.color.overlay, justifyContent: "center", alignItems: "center", padding: tokens.space.gutter }}>
+          <View accessibilityViewIsModal accessibilityRole="alert" style={{ width: "100%", maxWidth: 360, borderRadius: tokens.radius.md, padding: tokens.space.lg, gap: tokens.space.md, backgroundColor: tokens.color.background }}>
+            <T variant="heading" accessibilityRole="header">{view?.title}</T>
+            <T>{view?.body}</T>
+            <Button label="확인" onPress={backToProduct} />
+          </View>
+        </View>
+      </Modal>
       {toast.node}
       <Sheet
         visible={sheet === "address"}
