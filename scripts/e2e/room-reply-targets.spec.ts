@@ -59,8 +59,9 @@ test("AC-15-13 a consumer attaches a private photo to a reply and the farm sees 
   // 다른 spec이 더 최근 소식을 올렸을 수 있어 n-1 카드에서 답장한다(고른 소식 + 사진)
   await card(page, N1).getByRole("button", { name: "농가에 답장", exact: true }).click();
   await expect(page.getByTestId("room-reply-post")).toContainText(N1.slice(0, 10));
-  // 왼쪽 ‘+’가 숨긴 파일 칸을 연다(보이는 파일 칸 없음). 고른 사진은 입력줄 위 72px 썸네일과 ‘1/3’
-  await expect(page.getByRole("button", { name: "사진 첨부", exact: true })).toBeVisible();
+  // DEV-468: + 메뉴의 사진 동작이 숨긴 파일 칸을 연다. 고른 사진은 기존72px 썸네일.
+  await page.getByRole("button", { name: "사진·이모티콘", exact: true }).click();
+  await expect(page.getByRole("button", { name: "사진", exact: true })).toBeVisible();
   await expect(page.getByLabel("비공개 사진 첨부", { exact: true })).toBeHidden();
   await page.getByLabel("비공개 사진 첨부", { exact: true }).setInputFiles(
     path.join(process.cwd(), "packages/ui/assets/source/icons/send.png"),
@@ -73,7 +74,8 @@ test("AC-15-13 a consumer attaches a private photo to a reply and the farm sees 
   // 내 답장 말풍선에 사진이 붙고 ‘농가만 봐요’가 함께 보인다. 눌러 크게 본다
   const mine = page.getByText(reply, { exact: true });
   await expect(mine).toBeVisible();
-  await expect(page.getByRole("button", { name: "사진 첨부", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "사진·이모티콘", exact: true }).click();
+  await expect(page.getByRole("button", { name: "사진", exact: true })).toBeVisible();
   const photo = page.getByRole("img", { name: "답장 사진", exact: true }).last();
   await expect(photo).toBeVisible();
   await page.getByRole("button", { name: "사진 크게 보기" }).last().click();

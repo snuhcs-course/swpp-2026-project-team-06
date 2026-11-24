@@ -7,12 +7,14 @@ from pydantic import Field
 
 from app.core.detail import MediaUri
 from app.core.schemas import CamelModel
+from app.messaging.emoticons import EmoticonId
 
 # OPERATOR는 farmclub 문의 대화방의 운영팀 메시지(DEV-111, M-22)
 SenderType = Literal["CONSUMER", "PRODUCER", "AI", "OPERATOR"]
 
 
 class NewsItem(CamelModel):
+    emoticon_id: EmoticonId | None = None
     reply_to: dict | None = None
     edited_at: datetime | None = None
     edit_version: int = 0
@@ -29,6 +31,7 @@ class NewsItem(CamelModel):
 
 
 class NewsInput(CamelModel):
+    emoticon_id: EmoticonId | None = None
     body: str = ""
     photos: list[MediaUri] = Field(default_factory=list)
     videos: list[MediaUri] = Field(default_factory=list)
@@ -56,6 +59,7 @@ class NewsRoomSummary(CamelModel):
 
 
 class NewsRoomMessage(CamelModel):
+    emoticon_id: EmoticonId | None = None
     reply_to: dict | None = None
     edited_at: datetime | None = None
     edit_version: int = 0
@@ -96,6 +100,7 @@ class FanReplyBroadcast(CamelModel):
 
 
 class FanReply(CamelModel):
+    emoticon_id: EmoticonId | None = None
     """소식 하나에 연결된 소비자 답장 한 줄(DEV-297). 이름은 생산자 방과 같은 가린 이름."""
 
     message_id: str
@@ -125,6 +130,7 @@ class FanReplyPage(CamelModel):
 
 
 class RoomSendInput(CamelModel):
+    emoticon_id: EmoticonId | None = None
     text: str = ""
     reply_to_message_id: str | None = None
     reply_to_version: int | None = Field(default=None, ge=0)
@@ -139,6 +145,7 @@ class TextInput(CamelModel):
 
 
 class ChatMessage(CamelModel):
+    emoticon_id: EmoticonId | None = None
     edited_at: datetime | None = None
     edit_version: int = 0
     reply_to: dict | None = None
@@ -309,6 +316,7 @@ class ProducerStartInput(CamelModel):
 
 
 class SendInput(CamelModel):
+    emoticon_id: EmoticonId | None = None
     reply_to_message_id: str | None = None
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
@@ -323,6 +331,7 @@ class SendResult(CamelModel):
 
 
 class ProducerSendInput(CamelModel):
+    emoticon_id: EmoticonId | None = None
     reply_to_message_id: str | None = None
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)

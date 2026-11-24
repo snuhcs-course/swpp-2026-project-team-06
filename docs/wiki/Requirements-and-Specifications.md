@@ -37,7 +37,7 @@ Implementation reference for I4: [`77b2be33`](https://github.com/snuhcs-course/s
 | 3.0 | 2026-11-06 | Minsun Kim; existing Team 6 and owner contributions retained | DEV-158: I3 scope and status, paid-order entry and private reading-position criteria, current room permissions, source-workflow limits, and separate reproducible demo/evaluation references |
 | 3.1 | 2026-11-10 | Team 6 | DEV-300: producer dashboard, product cards and sales settings show each weight option's current box price and reserved+shipped boxes (farmer feedback and 11/10 producer interview: per-option price and boxes first, total kg secondary); the product list API returns these option rows, and sales limits remain in kg |
 | 4.0 | 2026-11-19 | Team 6 | I4 scope reconciled for login, orders, fulfillment, producer editing and known acceptance boundaries |
-| 4.1 | 2026-11-24 | Team 6 | DEV-475: fixed chat safety notice and chat guide sheet in all six chat rooms (ONE store notice 29889, M-25, AC-12-19 to 21) |
+| 4.1 | 2026-11-24 | Team 6 | DEV-475: fixed chat safety notice and chat guide sheet in all six chat rooms (ONE store notice 29889, M-25, AC-12-19, 20 and 23) |
 
 ## 1. Project Abstract
 
@@ -676,7 +676,7 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 - **THEN** the sheet "채팅 이용 안내" lists the sanction rule with Terms Article 13, the masking of phone and account numbers, a third line for my side (consumers: pay only to the farm account shown in the order's deposit guide; producers: do not ask buyers for accounts or contacts), and "Tell the team" plus "OK"
 - **AND** the support rooms have no "Tell the team" line or button
 
-**AC-12-21: Unplayable news video in the app**
+**AC-12-23: Unplayable news video in the app**
 - **GIVEN** a news video in the iOS or Android app whose address the device player cannot open (a `data:` address)
 - **WHEN** I view the room
 - **THEN** it shows the dark poster with a dimmed play circle and no "watch on the web" caption, cannot be pressed, and screen readers hear "영상을 열 수 없어요"; openable videos still open in the device player

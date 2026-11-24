@@ -112,6 +112,7 @@ export default function Chat() {
         </>
       )}
       <ChatThread
+        emoticons={!support}
         key={consumerId}
         producer
         prefill={prefill}
@@ -138,7 +139,7 @@ export default function Chat() {
         // 주의·제재 안내 띠(DEV-475). 운영팀 방 자신은 한 줄 띠이고 ‘운영팀에 알리기’가 없다
         notice={{ onSupport: support ? null : () => router.push(`/chats/${SUPPORT_ID}`) }}
         // 보낸 뒤 다시 불러오기는 ChatThread가 한다. 여기서 기다리면 재조회 실패가 전송 실패('다시 보내기')로 보인다(DEV-291)
-        send={async (text, ids, key, replyToMessageId) => {
+        send={async (text, ids, key, replyToMessageId, emoticonId) => {
           // 보내기 전 상태로 종류를 정한다(서버가 인용한 전달을 답장과 함께 닫으므로). 본문·소비자 ID는 보내지 않는다
           const kind = replyKind(
             replyToMessageId ? seen.current.get(replyToMessageId) : undefined,
@@ -151,6 +152,7 @@ export default function Chat() {
             [],
             key,
             replyToMessageId,
+            emoticonId,
           );
           // farmclub 문의방 답장은 소비자 문의 응대가 아니라 세지 않는다
           if (!support) track("producer_reply_sent", { kind });

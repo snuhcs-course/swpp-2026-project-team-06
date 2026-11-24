@@ -1,3 +1,4 @@
+import { emoticonMessage } from "./emoticons";
 import { editMessageText, messagePage } from "./conversations";
 import type { FanReply, NewsRoomMessage, NewsRoomSummary } from "../types";
 import { nextId, nowIso, type DB, type RoomReplyRec } from "./db";
@@ -98,6 +99,7 @@ function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
         senderName: farm.name,
         senderRole: "PRODUCER",
         body: n.body,
+        emoticonId: n.emoticonId ?? null,
         photos: n.photos.filter(
           (uri) => !/^data:video|\.(mp4|webm)$/.test(uri),
         ),
@@ -213,14 +215,15 @@ register({
         ...(target != null ? { broadcastId: "소비자 답장에만 쓸 수 있어요." } : {}),
         ...(photoIds.length ? { attachmentIds: "소비자 답장에만 쓸 수 있어요." } : {}),
       });
-    if ((!text && !photoIds.length) || text.length > max)
+    const emoji = emoticonMessage(ctx.body.emoticonId, text, photoIds);
+    if ((!emoji.text && !photoIds.length) || text.length > max)
       invalid({ text: `1~${max}자로 적어 주세요.` });
     if (photoIds.length > 3 || new Set(photoIds).size !== photoIds.length)
       invalid({ attachmentIds: "사진은 서로 다른 3장까지 첨부해 주세요" });
     if (ctx.body.replyToVersion != null && (!Number.isInteger(ctx.body.replyToVersion) || Number(ctx.body.replyToVersion) < 0)) invalid({replyToVersion: "원문 버전을 확인해 주세요."});
     if (ctx.body.replyToMessageId != null && typeof ctx.body.replyToMessageId !== "string") invalid({replyToMessageId: "원문을 확인해 주세요."});
     return idempotent(ctx, `room:${farmId}`, () => {
-      let body = mask(text).text;
+      let body = mask(emoji.text).text;
       let replyTo = null;
       if (ctx.body.replyToMessageId != null) {
         if (user?.role !== "PRODUCER") fail(403, "FORBIDDEN", "농가만 소식방 인용 답장을 보낼 수 있어요.");
@@ -228,7 +231,7 @@ register({
         if (!target) notFound("이 소식방의 소비자 글에만 답장할 수 있어요.");
         if (ctx.body.replyToVersion != null && ctx.body.replyToVersion !== (target.editVersion ?? 0)) conflict("STALE_VERSION", "원문이 수정됐어요. 답장을 취소하고 다시 선택해 주세요.");
         replyTo = {senderType: "CONSUMER", body: maskBroadcastReply(target.body)};
-        body = maskBroadcastReply(text);
+        body = maskBroadcastReply(body);
         // 모두에게 답했으면 생산자가 읽은 답장이다(DEV-297)
         target.producerReadAt ??= nowIso();
       }
@@ -238,6 +241,7 @@ register({
           broadcastId: nextId("n"),
           farmId,
           body,
+          emoticonId: emoji.emoticonId,
           photos: [],
           videos: [],
           createdAt: nowIso(),
@@ -265,6 +269,7 @@ register({
         messageId,
         farmId,
         body,
+        emoticonId: emoji.emoticonId,
         photos: [],
         videos: [],
         createdAt: nowIso(),
@@ -325,6 +330,7 @@ register({
         // 탈퇴한 소비자(Mock 탈퇴는 tomb 사용자 deleted)는 publicName이 ‘탈퇴한 회원’을 준다(서버 public_name과 같음)
         senderName: u ? publicName(u) : `${r.senderName.slice(0, 1)}○○`,
         body: r.body,
+        emoticonId: r.emoticonId ?? null,
         createdAt: r.createdAt,
         editVersion: r.editVersion ?? 0,
         unread: !r.producerReadAt,
@@ -337,6 +343,7 @@ register({
       broadcast: {
         broadcastId: n.broadcastId,
         body: n.body,
+        emoticonId: n.emoticonId ?? null,
         mediaCount: n.photos.length,
         createdAt: n.createdAt,
       },

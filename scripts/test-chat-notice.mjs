@@ -1,4 +1,4 @@
-// DEV-475 (FEAT-12 AC-12-19·20·21, M-25): 원스토어 공지 29889 — 채팅방 여섯 곳에 주의·제재 안내를 고정해 보인다.
+// DEV-475 (FEAT-12 AC-12-19·20·23, M-25): 원스토어 공지 29889 — 채팅방 여섯 곳에 주의·제재 안내를 고정해 보인다.
 // 문구·조건은 packages/ui/src/chatNoticeCopy.ts를 직접 읽고, 부품은 react-native-web + react-dom/server로 실제로 그려 보며,
 // ChatThread·NewsRoom에서 띠가 조건 없이 그려지는지는 TypeScript AST로, 방 배선은 소스로 확인한다(방 하나라도 빠지면 실패).
 import assert from "node:assert/strict";
@@ -121,7 +121,7 @@ test("DEV-475 AC-12-19: no other ChatThread/NewsRoom room exists without being i
   assert.deepEqual(out.trim().split("\n").sort(), ROOMS.map(([f]) => f).sort());
 });
 
-test("DEV-475 AC-12-21: news video poster no longer says it can be watched on the web", () => {
+test("DEV-475 AC-12-23: news video poster no longer says it can be watched on the web", () => {
   const src = read("packages/ui/src/NewsRoom.tsx");
   assert.ok(!src.includes("웹에서 볼 수 있어요"));
   assert.match(src, /accessibilityLabel=\{openable \? "소식 영상 보기" : "영상을 열 수 없어요"\}/);
