@@ -342,3 +342,6 @@ FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
 
 ## DEV-463 automatic source-design experiment
 Contract and allowed paths: docs/evaluation/i5-automatic-source-design/spec.md. Offline raster-first, strict bounded vision plan, exact pixel crops, frozen copy, cumulative existing budget. No production route/exposure.
+
+## DEV-450 source-grounded copy experiment
+Contract: docs/evaluation/i5-source-copy/spec.md. Typed source-bound option tuples + guarded narrative editing, separate private evidence, unchanged automatic images/design, no default/product integration.

@@ -40,3 +40,6 @@ Claude API 호출 어댑터. 상품 초안, 문의 응답 두 작업(I2에 출�
 
 ## DEV-463 automatic source-design experiment
 Contract and allowed paths: docs/evaluation/i5-automatic-source-design/spec.md. Offline raster-first, strict bounded vision plan, exact pixel crops, frozen copy, cumulative existing budget. No production route/exposure.
+
+## DEV-450 source-grounded copy experiment
+Contract: docs/evaluation/i5-source-copy/spec.md. Typed source-bound option tuples + guarded narrative editing, separate private evidence, unchanged automatic images/design, no default/product integration.
