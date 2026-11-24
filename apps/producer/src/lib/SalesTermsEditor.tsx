@@ -308,6 +308,7 @@ export function SalesTermsEditor({
             {weightChoices.map((c) => (
               <Checkbox
                 key={c.key}
+                inline
                 label={c.label}
                 checked={t.options.some((o) => o.weightKg === c.weightKg)}
                 onPress={() => !off && toggleWeight(c.weightKg)}

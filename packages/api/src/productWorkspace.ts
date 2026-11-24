@@ -1,4 +1,4 @@
-import { request, apiUrl, getToken } from "./client";
+import { ApiError, request, apiUrl, getToken } from "./client";
 import { blobUrl } from "./objectUrl";
 import { PhotoTimeoutError, privatePhotoBlob } from "./privatePhoto";
 import { appendFile, type UploadFile } from "./upload";
@@ -114,7 +114,14 @@ export const productWorkspace = {
     const blob = await privatePhotoBlob(
       `${apiUrl}${base}/${productId}/photos/${photoId}`,
     ).catch((e) => {
-      throw e instanceof PhotoTimeoutError ? e : new Error("사진을 불러오지 못했어요.");
+      if (e instanceof PhotoTimeoutError) throw e;
+      // 화면 문구는 그대로 두고 HTTP 상태는 남긴다: 자료 칸은 404를 '썸네일 없음'으로 본다(DEV-477)
+      if (e instanceof ApiError)
+        throw new ApiError(e.status, {
+          ...(e.body as object),
+          message: "사진을 불러오지 못했어요.",
+        });
+      throw new Error("사진을 불러오지 못했어요.");
     });
     return blobUrl(blob);
   },

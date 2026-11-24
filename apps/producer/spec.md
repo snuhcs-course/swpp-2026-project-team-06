@@ -287,3 +287,8 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 상품 사진은 `catalog.mine` 목록의 대표 사진을 `productId`로 맞춘다(홈 화면과 같은 방식). 주문 응답에 사진 필드를 더하지 않았고, 받지 못하면 기본 사진이다.
 - 상태 칩 선택지는 화면이 정한 다음 처리 API(`confirmDeposit`·`rejectDeposit`·`ship`·`refundSettled`·`refundIssue`)와 응답의 `undoAction`만 쓴다. 실행 취소 요청 키는 처리(`actionId`)마다 하나를 연결이 끊긴 재시도에 다시 쓴다.
 - 읽기 라벨은 기존 e2e가 쓰는 것을 유지한다(`<주문 번호> 입금 승인`, `<주문 번호> 송장 수정`, `<주문 번호> <누구> 송장 입력`, `<주문 번호> 채팅하기`, `<주문 번호> <누구> 고르기`). 새 라벨: `<주문 번호> 상태 <상태>, 변경`, 머리 `실행 취소`, 목록 `<주문 번호> <처리> 되돌리기`.
+
+## DEV-477 앱에서 막히는 작은 곳 (2026-11-24)
+- 자료 칸(`lib/SourceAttachments.tsx`)은 썸네일 상태를 받는 중·받음·없음·실패로 나눈다. 받는 중은 면색 칸, 없음(쪽이 아직 없거나 404)은 아이콘 + 'PDF · n쪽'/'PDF'/'사진', 실패는 '미리보기를 불러오지 못했어요'. '준비 중' 문구는 쓰지 않는다. 앱에서 썸네일이 늘 실패하던 원인은 `packages/api/src/privatePhoto.ts`(React Native Blob, `packages/api/tasks/DEV-477.md`).
+- '소비자 앱에서 내 농가 보기'(SCR-30·SCR-33)는 `shareUrl`이 있을 때만 둔다. 승인 전·숨긴 농가(DEV-472)는 소비자 앱에서 404라서. 두 화면 모두 `lib/consumerFarmLink.ts`의 `consumerFarmTarget`으로 정하고, 농가 정보를 받기 전·조회 실패면 줄이 없다(눌러도 반응 없는 줄을 두지 않음).
+- 운영팀 대화방 `/support`도 다른 대화방처럼 `ChatThread`에 `copy={copyText}`(expo-clipboard)를 넘긴다. 앱에는 웹 클립보드가 없어 넘기지 않으면 '복사'가 아무 일도 하지 않는다.

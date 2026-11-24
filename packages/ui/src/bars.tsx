@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,23 +11,34 @@ import {
 } from "react-native";
 
 import { Icon, type IconName } from "./Icon";
-import { useKeyboardShown } from "./keyboard";
+import { KeyboardRoot, useKeyboardShown } from "./keyboard";
 import { leaveSheet, sheetAnimation } from "./sheetLeave";
 import { T } from "./Text";
 import { tokens } from "./tokens";
 import { focusRing, safe, showFocus } from "./web";
 
-// 웹 전용 흐림. react-native-web이 CSS로 그대로 넘긴다.
-const glass = {
-  backgroundColor: tokens.color.glass,
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-} as unknown as ViewStyle;
-const sheetGlass = {
-  backgroundColor: tokens.color.sheet,
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-} as unknown as ViewStyle;
+const nativeApp = Platform.OS === "ios" || Platform.OS === "android";
+
+// 웹: 흰 반투명 + 흐림(react-native-web이 CSS로 그대로 넘긴다).
+// 앱: backdropFilter가 없어 반투명이면 뒤 화면 글자가 그대로 비친다. 흰 불투명 면으로 그린다(DEV-477).
+const glass = (
+  nativeApp
+    ? { backgroundColor: tokens.color.background }
+    : {
+        backgroundColor: tokens.color.glass,
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }
+) as unknown as ViewStyle;
+const sheetGlass = (
+  nativeApp
+    ? { backgroundColor: tokens.color.background }
+    : {
+        backgroundColor: tokens.color.sheet,
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }
+) as unknown as ViewStyle;
 
 /* ---------------- Header ---------------- */
 
@@ -344,6 +356,9 @@ export function Sheet({
   instant?: boolean;
   children: ReactNode;
 }) {
+  // 앱에서 키보드가 떠 있으면 시트 아래 여백의 하단 안전 영역을 뺀다. 키보드가 그 자리를 덮어
+  // 남겨 두면 키보드 위에 빈 띠(28 + 인셋)가 생긴다(ChatThread 입력줄과 같은 규칙, DEV-477)
+  const keyboardShown = useKeyboardShown();
   return (
     <Modal
       visible={visible}
@@ -351,30 +366,44 @@ export function Sheet({
       animationType={sheetAnimation(instant)}
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          accessibilityLabel="닫기"
-          onPress={onClose}
-        />
-        <View style={[styles.sheet, sheetGlass]} accessibilityViewIsModal>
-          <View style={styles.handle} />
-          {title ? (
-            <View style={styles.sheetHead}>
-              <T variant="heading" style={{ flex: 1 }}>
-                {title}
-              </T>
-              <IconButton icon="close" label="닫기" onPress={onClose} />
-            </View>
-          ) : null}
-          <ScrollView
-            style={{ maxHeight: 640 }}
-            contentContainerStyle={{ gap: 12 }}
+      {/* Modal은 앱 루트와 다른 창이라 루트의 KeyboardRoot가 닿지 않는다. 시트 안에서 한 번 더 감싸
+          입력칸·저장 버튼이 키보드 위로 올라오게 한다(DEV-477). 웹은 감싸지 않는다 */}
+      <KeyboardRoot>
+        <View style={[styles.overlay, nativeApp && styles.overlayApp]}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessibilityLabel="닫기"
+            onPress={onClose}
+          />
+          <View
+            style={[
+              styles.sheet,
+              sheetGlass,
+              nativeApp && styles.sheetApp,
+              keyboardShown && styles.sheetKeyboard,
+            ]}
+            accessibilityViewIsModal
           >
-            {children}
-          </ScrollView>
+            <View style={styles.handle} />
+            {title ? (
+              <View style={styles.sheetHead}>
+                <T variant="heading" style={{ flex: 1 }}>
+                  {title}
+                </T>
+                <IconButton icon="close" label="닫기" onPress={onClose} />
+              </View>
+            ) : null}
+            <ScrollView
+              style={{ maxHeight: 640 }}
+              contentContainerStyle={{ gap: 12 }}
+              // 키보드가 떠 있어도 시트 안 버튼(저장 등)이 첫 탭에 눌린다(앱). 웹은 영향 없음
+              keyboardShouldPersistTaps="handled"
+            >
+              {children}
+            </ScrollView>
+          </View>
         </View>
-      </View>
+      </KeyboardRoot>
     </Modal>
   );
 }
@@ -565,6 +594,10 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
   },
+  // 앱: 키보드로 남은 높이가 시트보다 작으면 시트가 줄고 안이 스크롤된다(위쪽이 상태 표시줄 밑으로 넘치지 않게)
+  overlayApp: { paddingTop: safe("top", 16) },
+  sheetApp: { flexShrink: 1 },
+  sheetKeyboard: { paddingBottom: 16 },
   sheet: {
     width: "100%",
     maxWidth: tokens.maxWidth,

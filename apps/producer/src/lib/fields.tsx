@@ -1,7 +1,7 @@
 // 생산자 편집 화면용 입력: 웹 날짜 칸, 숫자 칸(천 단위 + 단위), 기간 선택 달력 시트(D-27).
 import { Button, Icon, IconButton, Sheet, T, md, tokens } from "@farmclub/ui";
 import { useEffect, useState, type CSSProperties } from "react";
-import { Platform, Pressable, TextInput, View } from "react-native";
+import { Keyboard, Platform, Pressable, TextInput, View } from "react-native";
 
 /** 웹 기본 날짜 고르기(휴대폰에서는 OS 달력이 뜬다) */
 export function DateInput({
@@ -29,7 +29,10 @@ export function DateInput({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${label}: ${value ? md(value) : "비어 있음"}`}
-          onPress={() => setOpen(true)}
+          onPress={() => {
+            Keyboard.dismiss(); // 판매 조건 시트에서 키보드를 띄운 채 누르면 날짜 시트가 키보드와 겹치지 않게(DEV-477)
+            setOpen(true);
+          }}
           style={{
             height: 48,
             justifyContent: "center",
