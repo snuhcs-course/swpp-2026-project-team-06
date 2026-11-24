@@ -4,19 +4,17 @@
 // 그래서 웹이 `postcodeSearch.ts`, 앱이 `postcodeSearch.native.tsx`이면 `ts` 단계에서 웹 파일이 먼저 잡혀
 // 앱 번들에 웹 구현이 들어갔다(소비자 '우편번호 찾기'가 document 참조로 빈 화면).
 // 이 검사는 확장자 문자열을 비교하지 않고 Metro 순서를 그대로 흉내 내어 플랫폼마다 잡히는 파일을 계산한다.
+// Metro 순서 함수는 scripts/metro-resolve.mjs에 두고 DEV-471 scripts/test-app-web-globals.mjs와 함께 쓴다.
 import assert from "node:assert/strict";
 import { readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { test } from "node:test";
+import { PLATFORMS, PLATFORM_FILE as SUFFIX, SOURCE_EXTS, resolveLikeMetro } from "./metro-resolve.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const ROOTS = ["apps/consumer/src", "apps/producer/src", "packages"];
 const SKIP = new Set(["node_modules", "dist", ".expo"]);
-/** Expo 57 기본 sourceExts(아래 테스트가 실제 metro 설정과 같은지 확인한다) */
-export const SOURCE_EXTS = ["ts", "tsx", "mjs", "js", "jsx", "json", "cjs", "scss", "sass", "css"];
-const PLATFORMS = ["android", "ios", "web"];
-const SUFFIX = /^(.*?)(?:\.(native|android|ios|web))?\.([a-z]+)$/;
 
 const walk = (dir) =>
   readdirSync(path.join(root, dir)).flatMap((f) => {
@@ -24,17 +22,6 @@ const walk = (dir) =>
     const rel = `${dir}/${f}`;
     return statSync(path.join(root, rel)).isDirectory() ? walk(rel) : [rel];
   });
-
-/** Metro처럼 `base`(확장자 없는 경로)를 platform에서 해석한 파일. 없으면 null */
-export function resolveLikeMetro(base, platform, exists, exts = SOURCE_EXTS) {
-  for (const ext of exts)
-    for (const suffix of [`.${platform}`, platform === "web" ? null : ".native", ""]) {
-      if (suffix === null) continue;
-      const file = `${base}${suffix}.${ext}`;
-      if (exists(file)) return file;
-    }
-  return null;
-}
 
 /** 플랫폼 전용 파일이 있는데 그 플랫폼이 더 덜 구체적인 파일을 잡는 곳 */
 export function misresolved(files, exts = SOURCE_EXTS) {
