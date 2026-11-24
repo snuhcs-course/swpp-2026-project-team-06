@@ -116,6 +116,8 @@ def matching_refinement(db, batch_id, target_id, candidates):
 
 def enqueue(db, batch, run, items):
     """Called under the batch lock, before declaring the extraction run complete."""
+    if batch.source_copy_enabled:
+        return
     if any(i.phase == "REFINE" for i in items) or any(
         not (
             i.status == "SUCCEEDED"
@@ -331,9 +333,9 @@ def empty_reason(candidates, target_id, modules, *, target_count=0):
 
 def check_inputs(db, context):
     batch, _, run, item = context
-    candidates = current_candidates(
-        db, batch.id, item.target_ids[0], target_count=len(run.targets)
-    )
+    if batch.source_copy_enabled:
+        raise RefineError("SOURCE_COPY_ENABLED")
+    candidates = current_candidates(db, batch.id, item.target_ids[0], target_count=len(run.targets))
     if (
         item.refinement["version"] != PROMPT_VERSION
         or item.refinement["safetyListsHash"] != SAFETY_LISTS_HASH

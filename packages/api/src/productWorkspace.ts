@@ -126,7 +126,7 @@ export const productWorkspace = {
     composer?: boolean,
   ) =>
     request<ProductWorkspace>("POST", base, {
-      body: { productId, discardChanges, version, ...(composer ? { composer } : {}) },
+      body: { productId, discardChanges, version, ...(composer ? { composer, sourceCopyEnabled: true } : {}) },
       idempotencyKey: key,
     }),
   save: (

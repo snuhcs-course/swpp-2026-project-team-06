@@ -48,6 +48,7 @@ class OpenWorkspace(Input):
     # DEV-346: the caller opens the page in the composer. Opt-in so the legacy editor
     # (and older apps) never trigger the page migration below.
     composer: bool = False
+    source_copy_enabled: bool = False
 
 
 class PageText(Input):
@@ -168,7 +169,10 @@ def open_workspace(db, farm, body):
     batch = s.create_batch(
         db,
         farm.id,
-        BatchCreate(targets=[Target(name=product.name or "새 상품", product_id=product.id)]),
+        BatchCreate(
+            targets=[Target(name=product.name or "새 상품", product_id=product.id)],
+            source_copy_enabled=body.source_copy_enabled,
+        ),
     )
     snap = published(product)
     row = ProductWorkspace(
@@ -239,10 +243,14 @@ def matching_draft(db, batch, row, product):
 
 def fresh_batch(db, product, row):
     """A deleted workspace batch is replaced, never written to."""
+    previous = db.get(Batch, row.batch_id)
     created = s.create_batch(
         db,
         product.farm_id,
-        BatchCreate(targets=[Target(name=product.name or "새 상품", product_id=product.id)]),
+        BatchCreate(
+            targets=[Target(name=product.name or "새 상품", product_id=product.id)],
+            source_copy_enabled=bool(previous and previous.source_copy_enabled),
+        ),
     )
     row.batch_id, row.target_id = created["id"], created["targets"][0]["id"]
     row.page_source = row.page_draft_id = None

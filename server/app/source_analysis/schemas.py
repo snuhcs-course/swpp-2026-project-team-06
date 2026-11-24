@@ -97,6 +97,7 @@ class Target(Input):
 
 
 class BatchCreate(Input):
+    source_copy_enabled: bool = False
     targets: list[Target] = Field(min_length=1, max_length=10)
 
 
@@ -218,3 +219,20 @@ class ApplyDraft(Input):
     product_id: Id
     product_version: int = Field(ge=1)
     draft_version: int = Field(ge=1)
+
+
+class SourceCopyVersion(Input):
+    review_version: int = Field(ge=1)
+
+
+class SourceCopyChoice(Input):
+    binding_hash: str = Field(min_length=64, max_length=64, pattern=r"^[a-f0-9]{64}$")
+    action: Literal["KEEP", "EDIT", "OMIT", "TRANSFER_TO_SETTINGS", "ACCEPT_REPAIR"]
+    value: str | None = Field(default=None, max_length=3000)
+    note: str | None = Field(default=None, max_length=1000)
+    module: str | None = Field(default=None, max_length=64)
+
+
+class SourceCopySave(SourceCopyVersion):
+    plan_hash: str = Field(min_length=64, max_length=64)
+    decisions: list[SourceCopyChoice] = Field(max_length=3000)

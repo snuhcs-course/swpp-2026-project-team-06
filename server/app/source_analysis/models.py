@@ -25,6 +25,7 @@ class Batch(Base):
     targets: Mapped[list] = mapped_column(JSON)
     version: Mapped[int] = mapped_column(default=1)
     review_version: Mapped[int] = mapped_column(default=1)
+    source_copy_enabled: Mapped[bool] = mapped_column(default=False, server_default="false")
     deleted: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -195,3 +196,24 @@ class ProductWorkspace(Base):
     # DEV-361: private product-field and sales-term changes of a buyer-visible product, applied to
     # the product only by apply-all: {"values": {...}, "base": {...}, "savedAt": ...}.
     product_draft: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class SourceCopyDecision(Base):
+    """Private owner decisions bound to source identity, never candidate row identity."""
+
+    __tablename__ = "source_copy_decisions"
+    __table_args__ = (UniqueConstraint("batch_id", "target_id", "binding_hash"),)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    batch_id: Mapped[str] = mapped_column(ForeignKey("source_batches.id"), index=True)
+    target_id: Mapped[str] = mapped_column(String(64))
+    binding_hash: Mapped[str] = mapped_column(String(64))
+    action: Mapped[str] = mapped_column(String(32))
+    value: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
+    module: Mapped[str | None] = mapped_column(String(64))
+    actor_id: Mapped[str] = mapped_column(String(64))
+    source_binding: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

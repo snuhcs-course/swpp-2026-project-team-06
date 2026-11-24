@@ -38,6 +38,7 @@ export type SourceBatch = {
   id: string;
   version: number;
   reviewVersion: number;
+  sourceCopyEnabled?: boolean;
   targets: SourceTarget[];
   sources: SourceAsset[];
 };
@@ -104,6 +105,7 @@ export type SourceReview = {
   refinementResults?: Record<string, SourceRefinementResult>;
   editorFields: SourceEditorField[];
   reviewVersion: number;
+  sourceCopyEnabled?: boolean;
   targets: SourceTarget[];
   fields: SourceField[];
   candidates: SourceCandidate[];
@@ -117,6 +119,40 @@ export type SourceReview = {
     fieldKey: string;
     candidateIds: string[];
   }[];
+};
+export type SourceCopyAction = "KEEP" | "EDIT" | "OMIT" | "TRANSFER_TO_SETTINGS" | "ACCEPT_REPAIR";
+export type SourceCopyDecision = {
+  bindingHash: string;
+  action: SourceCopyAction;
+  value?: string;
+  note?: string;
+  module?: string;
+};
+export type SourceCopyPassage = {
+  id: string;
+  bindingHash: string;
+  module: string | null;
+  value: string;
+  originalValue: string;
+  candidateIds: string[];
+  evidence: SourceEvidence[];
+  queueKinds: string[];
+  reasonCodes: Record<"COPY_EDIT" | "OWNER_CONFIRMATION" | "PLACEMENT" | "SAFETY", string[]>;
+  repairValue: string | null;
+  status: "READY" | "PENDING" | "EXCLUDED" | "BLOCKED";
+  decision: SourceCopyDecision | null;
+};
+export type SourceCopyReview = {
+  reviewVersion: number;
+  enabled: boolean;
+  plan: {
+    version: string;
+    planHash: string;
+    targetId: string;
+    passages: SourceCopyPassage[];
+    modules: unknown[];
+    accounting: unknown;
+  };
 };
 export type SourceRun = {
   inputs?: { id: string; revision: number; description: string }[];
@@ -205,7 +241,7 @@ export const sourceAnalysis = {
     }),
   create: (targets: { name: string; productId?: string }[], key: string) =>
     request<SourceBatch>("POST", base, {
-      body: { targets },
+      body: { targets, sourceCopyEnabled: true },
       idempotencyKey: key,
     }),
   setRepresentative: (
@@ -254,6 +290,15 @@ export const sourceAnalysis = {
       idempotencyKey: key,
     }),
   review: (bid: string) => request<SourceReview>("GET", `${at(bid)}/review`),
+  sourceCopy: (bid: string, targetId: string) =>
+    request<SourceCopyReview>("GET", `${at(bid)}/source-copy`, { query: { targetId } }),
+  saveSourceCopy: (
+    bid: string,
+    targetId: string,
+    body: { reviewVersion: number; planHash: string; decisions: SourceCopyDecision[] },
+  ) => request<SourceCopyReview>("PUT", `${at(bid)}/source-copy/${encodeURIComponent(targetId)}`, { body }),
+  enableSourceCopy: (bid: string, reviewVersion: number) =>
+    request<SourceReview>("POST", `${at(bid)}/source-copy/enable`, { body: { reviewVersion } }),
   saveReview: (bid: string, reviewVersion: number, fields: SourceField[]) =>
     request<SourceReview>("PATCH", `${at(bid)}/review`, {
       body: { reviewVersion, fields },

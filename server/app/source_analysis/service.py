@@ -22,6 +22,7 @@ from app.source_analysis.models import (
     RequestRecord,
     ReviewedField,
     Run,
+    SourceCopyDecision,
     new_id,
 )
 from app.source_analysis.preprocess import PreparationError, identify, redact
@@ -142,7 +143,11 @@ def targets(db, farm_id, inputs, current=None):
 
 
 def create_batch(db, farm_id, body):
-    row = Batch(farm_id=farm_id, targets=targets(db, farm_id, body.targets))
+    row = Batch(
+        farm_id=farm_id,
+        targets=targets(db, farm_id, body.targets),
+        source_copy_enabled=body.source_copy_enabled,
+    )
     db.add(row)
     db.flush()
     return json_row(row)
@@ -264,6 +269,9 @@ def upload(db, row, data, filename, ids, common, expected, original):
 
 
 def invalidate(db, row, source):
+    from app.source_analysis.source_copy_service import invalidate_source
+
+    invalidate_source(db, row.id, source.id)
     item_ids = select(Item.id).where(Item.asset_id == source.id)
     db.execute(update(Candidate).where(Candidate.item_id.in_(item_ids)).values(outdated=True))
     db.execute(
@@ -347,6 +355,9 @@ def privacy(db, row, source, body):
             p.redacted_spans = safe
             p.redactions = boxes
     if changed:
+        from app.source_analysis.source_copy_service import invalidate_source
+
+        invalidate_source(db, row.id, source.id)
         source.sanitization_version += 1
         # Waiting privacy items can adopt this revision; already-started results cannot.
         running_ids = list(
@@ -690,7 +701,8 @@ def review(db, row):
     from app.source_analysis.refinement import current_refinements, review_results
 
     result = {
-        "refinementResults": review_results(db, row),
+        "sourceCopyEnabled": row.source_copy_enabled,
+        "refinementResults": {} if row.source_copy_enabled else review_results(db, row),
         "reviewVersion": row.review_version,
         "targets": row.targets,
         "candidates": list(unique.values()),
@@ -726,11 +738,32 @@ def review(db, row):
     }
 
     from app.source_analysis.editor import suggestions
+    from app.source_analysis.source_copy_service import refinements as source_copy_refinements
 
     result["editorFields"] = suggestions(
-        {**result, "refinements": current_refinements(db, row)},
+        {
+            **result,
+            "refinements": (
+                source_copy_refinements(db, row)
+                if row.source_copy_enabled
+                else current_refinements(db, row)
+            ),
+        },
         list(db.scalars(select(Asset).where(Asset.batch_id == row.id))),
     )
+    if row.source_copy_enabled:
+        # The shared editor can refresh basic-info suggestions. Source review must keep
+        # any explicitly producer-authored/confirmed/excluded field byte-for-byte.
+        protected = {
+            (f["targetId"], f["fieldKey"]): f
+            for f in result["fields"]
+            if f["state"] in {"CONFIRMED", "EXCLUDED"}
+            or f["provenance"] == "PRODUCER"
+            and any(f[k] for k in ("value", "candidateIds", "photoAssetIds", "illustrationId"))
+        }
+        from app.source_analysis.source_copy_service import decorate_editor_fields
+
+        decorate_editor_fields(db, row, result["editorFields"], protected)
     return result
 
 
@@ -742,6 +775,10 @@ def patch_review(db, row, body, *, inactive=frozenset()):
     refined_records = (
         stored_fields(db, row.id) if any(f.provenance == "REFINED" for f in body.fields) else set()
     )
+    if row.source_copy_enabled:
+        from app.source_analysis.source_copy_service import stored_fields as source_copy_fields
+
+        refined_records |= source_copy_fields(db, row)
     current_ids = {
         tid: {c.id for c in current_candidates(db, row.id, tid)}
         for tid in {f.target_id for f in body.fields if f.provenance == "REFINED"}
@@ -997,6 +1034,7 @@ def save_drafts(db, row, body, *, editor=False, migrated=False):
 def delete_batch(db, row):
     for run in db.scalars(select(Run).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
         cancel(db, run)
+    db.execute(delete(SourceCopyDecision).where(SourceCopyDecision.batch_id == row.id))
     db.execute(delete(Draft).where(Draft.batch_id == row.id))
     db.execute(
         delete(RequestRecord).where(

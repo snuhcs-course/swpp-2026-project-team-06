@@ -208,6 +208,7 @@ RULES: dict[str, Rule] = {
     "source_runs": lambda k: _in(_t("source_runs").c.batch_id, k.batches),
     "source_drafts": lambda k: _in(_t("source_drafts").c.batch_id, k.batches),
     "source_reviewed_fields": lambda k: _in(_t("source_reviewed_fields").c.batch_id, k.batches),
+    "source_copy_decisions": lambda k: _in(_t("source_copy_decisions").c.batch_id, k.batches),
     "source_candidates": lambda k: _in(_t("source_candidates").c.batch_id, k.batches),
     "source_items": lambda k: _t("source_items").c.run_id.in_(
         select(_t("source_runs").c.id).where(_in(_t("source_runs").c.batch_id, k.batches))

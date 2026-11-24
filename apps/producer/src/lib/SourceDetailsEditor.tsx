@@ -1,3 +1,4 @@
+import { SourceCopyReview } from "./SourceCopyReview";
 import { PageCanvas } from "./PageCanvas";
 import { chooseSourceFiles } from "./sourceFiles";
 import { sourcePhotoUrl } from "./sourcePhoto";
@@ -134,6 +135,9 @@ export function SourceDetailsEditor({
   onSaved: (draft: SourceDraft) => Promise<void>;
   onReload: () => Promise<void>;
 }) {
+  const [copyBusy, setCopyBusy] = useState(false);
+  const sourceCopyRefresh = useRef(false);
+  const sourceCopyModules = useRef<Record<string, string[]>>({});
   const [entries, setEntries] = useState<SourceEditorField[]>(
     review.editorFields,
   );
@@ -264,7 +268,23 @@ export function SourceDetailsEditor({
   useEffect(() => {
     if (!dirty) {
       setEntries(review.editorFields);
-      setEnabled(initialSelection(batch, review, drafts));
+      const nextSelection = initialSelection(batch, review, drafts);
+      if (sourceCopyRefresh.current && review.sourceCopyEnabled) {
+        for (const target of batch.targets) {
+          const added = SOURCE_MODULES.filter(([id]) =>
+            review.editorFields.some((e) => e.field.targetId === target.id &&
+              keys(id).includes(e.field.fieldKey) && e.status === "ready" &&
+              e.field.state === "UNREVIEWED" && filled(e.field)) &&
+            !entries.some((e) => e.field.targetId === target.id &&
+              keys(id).includes(e.field.fieldKey) && e.status === "ready" && filled(e.field)),
+          ).map(([id]) => id);
+          sourceCopyModules.current[target.id] = [...new Set([...(sourceCopyModules.current[target.id] ?? []), ...added])];
+        }
+        sourceCopyRefresh.current = false;
+      }
+      setEnabled(Object.fromEntries(batch.targets.map((t) => [t.id,
+        [...new Set([...(nextSelection[t.id] ?? []), ...(sourceCopyModules.current[t.id] ?? [])])],
+      ])));
       setHidden(initialHidden(drafts));
       version.current = review.reviewVersion;
       base.current = { fields: review.editorFields, choices: draftChoices(drafts) };
@@ -380,7 +400,7 @@ export function SourceDetailsEditor({
   };
   useEffect(() => {
     saveRef.current = (fresh, name, freshDrafts) =>
-      busy || uploading ? Promise.resolve(false) : save(fresh, name, freshDrafts);
+      busy || uploading || copyBusy ? Promise.resolve(false) : save(fresh, name, freshDrafts);
     return () => {
       saveRef.current = null;
     };
@@ -392,7 +412,7 @@ export function SourceDetailsEditor({
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Icon name="alert" size={18} color={tokens.color.error} />
             <T variant="caption" color={tokens.color.error} style={{ flex: 1 }}>{error}</T>
-            <Button label="다시 불러오기" accessibilityLabel="판매페이지 다시 불러오기" variant="text" compact disabled={busy || locked} onPress={() => setConfirmReload(true)} />
+            <Button label="다시 불러오기" accessibilityLabel="판매페이지 다시 불러오기" variant="text" compact disabled={busy || locked || copyBusy} onPress={() => setConfirmReload(true)} />
           </View>
           <T variant="caption" muted>입력한 내용은 그대로 남아 있어요.</T>
         </View>
@@ -458,6 +478,13 @@ export function SourceDetailsEditor({
           골라 주세요.
         </T>
       ) : null}
+      {!preview && typeof review.sourceCopyEnabled === "boolean" && batch.targets.map((target) => (
+        <SourceCopyReview key={`copy-${batch.id}-${target.id}`} batchId={batch.id} targetId={target.id}
+          enabled={!!review.sourceCopyEnabled} reviewVersion={review.reviewVersion}
+          locked={busy || locked || uploading || copyBusy}
+          beforeMutation={() => saveRef.current?.() ?? Promise.resolve(false)}
+          onReload={async () => { sourceCopyRefresh.current = true; await onReload(); }} onBusy={(value) => { setCopyBusy(value); onBusy(value); }} />
+      ))}
       {batch.targets.map((target) => (
         <PageCanvas
           key={target.id}
@@ -468,7 +495,7 @@ export function SourceDetailsEditor({
             setHidden((old) => ({ ...old, [target.id]: ids }));
             setDirty(true);
           }}
-          busy={busy || locked}
+          busy={busy || locked || copyBusy}
           onUploading={(v) => {
             setUploading(v);
             onBusy(v);
@@ -576,6 +603,7 @@ export function SourceDetailsEditor({
             return added;
           }}
           onChange={(modules) => {
+            delete sourceCopyModules.current[target.id];
             setEnabled((old) => ({
               ...old,
               [target.id]: modules.filter((m) => m.enabled).map((m) => m.id),
@@ -638,7 +666,7 @@ export function SourceDetailsEditor({
                     </T>
                     {e.status === "conflict" && e.field.value ? (
                       <Button
-                        disabled={busy || locked}
+                        disabled={busy || locked || copyBusy}
                         label={e.field.value}
                         variant="outline"
                         onPress={() => change({ ...e.field, state: "CONFIRMED" })}
@@ -657,7 +685,7 @@ export function SourceDetailsEditor({
                       e.status === "conflict" ? e.field.value : "",
                     ).map((c) => (
                         <Button
-                          disabled={busy || locked}
+                          disabled={busy || locked || copyBusy}
                           key={c.id}
                           label={c.value}
                           variant="outline"

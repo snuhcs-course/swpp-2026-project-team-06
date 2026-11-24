@@ -32,3 +32,6 @@
 | 2026-11-23 | 기존 테스트 생산자 ID 로그인은 별도 `POST /admin/users/{userId}/id-credentials`에서만 설정한다. 연결 농가가 있는 활성 `is_test_account` PRODUCER이며 username/hash와 Kakao ID가 없어야 한다. user/farm/product/order 상태는 건드리지 않는다. one-time password 응답은 `no-store`, 감사만 기록하고 idempotency는 사용하지 않는다. 반복은 409 | DEV-439 | FEAT-01 AC-01-37 |
 
 | 2026-11-24 | 상품별 공개 제어는 catalog admin router → product_visibility로 위임한다. 별도 is_hidden 플래그와 상품 행 잠금/버전 검사를 쓰며 run_manager_action으로 멱등·감사를 처리한다. 관리자 사용자 상세에 isHidden/version을 내린다. | DEV-479, FEAT-23 AC-23-13~15 |
+
+### DEV-452 원문 보존 검토의 정리 범위 (2026-11-25)
+`purge_except.RULES`의 `source_copy_decisions`는 소유 batch가 남는 농가에 속할 때만 보존한다. 생산자 수정 문구·확인 이유·근거 version/인용·actor 감사 정보는 하나의 비공개 검토 기록으로 함께 남거나 지워진다. actor가 운영자 등 보존 계정이어도 지울 batch의 결정을 구제하지 않는다. 기존 농가 선택·미리보기·명시 실행·백업 확인 정책은 그대로다. FEAT-03/04/07 · AC-SRC-6/11 · M-18.

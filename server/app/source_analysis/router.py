@@ -33,6 +33,8 @@ from app.source_analysis.schemas import (
     Retry,
     ReviewPatch,
     RunStart,
+    SourceCopySave,
+    SourceCopyVersion,
     SourceEdit,
     Version,
 )
@@ -544,6 +546,27 @@ def cancel(bid: str, rid: str, who: ApprovedProducer, db: DB):
 @router.get("/batches/{bid}/review")
 def review(bid: str, who: ApprovedProducer, db: DB):
     return s.review(db, s.batch(db, who[1].id, bid, False))
+
+
+@router.get("/batches/{bid}/source-copy")
+def source_copy(bid: str, targetId: str, who: ApprovedProducer, db: DB):
+    from app.source_analysis import source_copy_service as copy
+
+    return copy.get(db, s.batch(db, who[1].id, bid, False), targetId)
+
+
+@router.put("/batches/{bid}/source-copy/{target_id}")
+def source_copy_save(bid: str, target_id: str, body: SourceCopySave, who: ApprovedProducer, db: DB):
+    from app.source_analysis import source_copy_service as copy
+
+    return commit(db, copy.save(db, s.batch(db, who[1].id, bid), target_id, body, who[0].id))
+
+
+@router.post("/batches/{bid}/source-copy/enable")
+def source_copy_enable(bid: str, body: SourceCopyVersion, who: ApprovedProducer, db: DB):
+    from app.source_analysis import source_copy_service as copy
+
+    return commit(db, copy.enable(db, s.batch(db, who[1].id, bid), body))
 
 
 @router.patch("/batches/{bid}/review")

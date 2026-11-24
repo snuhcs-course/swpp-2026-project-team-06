@@ -131,3 +131,7 @@ AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달�
 
 ## DEV-455 생산자 마지막 작업 실행 취소
 주문 처리 결과에 마지막 실행 취소 토큰을 제공하고, 같은 농가의 해당 작업만 현재 주문·결제·환불 스냅샷이 같을 때 복구한다. 감사 기록과 역전 기록을 보존한다. 목록의 `undoAction`은 실제 실행 취소와 같은 사전 조건(입금 기한·입금자명 겹침·미승인 취소의 판매 중 여부)을 통과할 때만 준다. Mock `orderRestoreBlocker`가 서버 `_restore_blocker`와 같은 규칙이다. 상세 동작은 FEAT-09/17 DEV-455 절을 따른다.
+
+
+## DEV-452 원문 보존 검토 계약
+sourceCopyEnabled가 있는 서버에만 검토 UI를 노출한다. 새 composer workspace 생성에만 명시 opt-in을 전달한다. source-copy GET은 {plan,reviewVersion,enabled}, 결정 PUT은 현재 planHash/reviewVersion 및 항목 bindingHash를 보내며, 기존 batch 전환은 enable POST다. 수동 편집 flush와 별도로 결정의 최초 서버값을 비교해 폴링을 통한 동시 쓰기 우회를 막는다. FEAT-03/04/07 · AC-SRC-2/3/5/7/11.
