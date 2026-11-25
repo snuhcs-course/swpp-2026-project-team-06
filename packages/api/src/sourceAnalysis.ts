@@ -147,6 +147,15 @@ export type SourceCopyPassage = {
   reviewExplanations: string[];
   decision: SourceCopyDecision | null;
 };
+export type SourceCopyPresentation = {
+  status: "PENDING" | "APPLIED" | "FALLBACK" | "STALE" | "DISABLED";
+  reason?: string;
+  baselineWordingRetained?: number;
+};
+export type SourceCopyModule = {
+  module: string;
+  texts: { value: string; candidateIds: string[]; passageIds?: string[] }[];
+};
 export type SourceCopyReview = {
   reviewVersion: number;
   enabled: boolean;
@@ -155,7 +164,8 @@ export type SourceCopyReview = {
     planHash: string;
     targetId: string;
     passages: SourceCopyPassage[];
-    modules: unknown[];
+    modules: SourceCopyModule[];
+    presentation?: SourceCopyPresentation;
     accounting: unknown;
   };
 };

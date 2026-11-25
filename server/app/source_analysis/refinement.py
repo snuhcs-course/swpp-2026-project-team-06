@@ -117,6 +117,9 @@ def matching_refinement(db, batch_id, target_id, candidates):
 def enqueue(db, batch, run, items):
     """Called under the batch lock, before declaring the extraction run complete."""
     if batch.source_copy_enabled:
+        from app.source_analysis.source_presentation import enqueue as enqueue_presentation
+
+        enqueue_presentation(db, batch, run, items)
         return
     if any(i.phase == "REFINE" for i in items) or any(
         not (

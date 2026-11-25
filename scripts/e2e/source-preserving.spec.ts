@@ -9,7 +9,7 @@ const confirmedDate = "2026년 12월에 감귤을 수확할 예정입니다.";
 const warmCopy = "정성으로 키운 감귤을 전해요.";
 const price = "선물 3kg은 30,000원입니다.";
 const material = [warmCopy, originalDate, price, "서늘한 곳에 보관해 주세요."].join("\n");
-function work() {
+function work(failPresentation = false) {
   const cwd = path.resolve("server");
   execFileSync(path.join(cwd, ".venv/bin/python"), ["-c", `
 from app.source_analysis import worker
@@ -26,13 +26,22 @@ def reply(mode, model, chunk, targets, images, **kwargs):
     rows.append(dict(targetId=targets[0]['id'],fieldKey=mapping[text],value=text,historical=False,evidence=[dict(sourceId=chunk['sourceId'],sourceRevision=chunk['sourceRevision'],page=page['number'],spanIds=[span['id']],quote=text)]))
  return ExtractionResponse(Extraction(candidates=rows,photo_requests=[]),{'mock':True},None)
 worker.extract=reply
+if ${failPresentation ? "True" : "False"}:
+ from app.source_analysis import source_presentation
+ from app.ai.source_analysis import ExtractionError
+ def fail_presentation(*args, **kwargs):
+  raise ExtractionError('REQUEST_UNCERTAIN')
+ source_presentation.generate=fail_presentation
 for _ in range(100):
  if not worker.run_once(): break
 `], {cwd, env:process.env, timeout:120000, stdio:"pipe"});
 }
 
-test("DEV-452 AC-SRC-2/3/5/7/11: original copy, owner dates, private save/reopen and explicit apply", async ({page, request}, info) => {
+test.describe.configure({ mode: "serial" });
+for (const failPresentation of [false, true]) {
+test(`DEV-452 AC-SRC-2/3/5/7/11: ${failPresentation ? "presentation failure keeps original" : "original copy and presentation"}, owner review/save/reopen/apply`, async ({page, request}, info) => {
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires isolated local source stack");
+  test.skip(failPresentation && process.env.SOURCE_PRESENTATION_ENABLED !== "true", "Requires presentation-enabled local source stack");
   test.setTimeout(120000);
   await page.setViewportSize({width:390,height:900});
   const clean = monitor(page);
@@ -66,9 +75,12 @@ with get_sessionmaker()() as db,db.begin():
   expect(uploaded.status(),await uploaded.text()).toBe(201);
   batch=await (await request.get(base,{headers})).json();
   const run=await request.post(`${base}/runs`,{headers:key(),data:{batchVersion:batch.version}});expect(run.status()).toBe(202);
-  work();
+  work(failPresentation);
   const state=await (await request.get(`${base}/source-copy?targetId=${tid}`,{headers})).json();
   expect(state.plan.passages).toHaveLength(4);
+  if (process.env.SOURCE_PRESENTATION_ENABLED === "true") {
+    expect(state.plan.presentation.status).toBe(failPresentation ? "FALLBACK" : "APPLIED");
+  }
   expect(state.plan.modules.flatMap((m:any)=>m.texts.map((t:any)=>t.value))).toContain(warmCopy);
   const date=state.plan.passages.find((p:any)=>p.originalValue===originalDate);
   const priced=state.plan.passages.find((p:any)=>p.originalValue===price);
@@ -125,3 +137,5 @@ with get_sessionmaker()() as db,db.begin():
   await page.setViewportSize({width:1365,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   clean();
 });
+
+}

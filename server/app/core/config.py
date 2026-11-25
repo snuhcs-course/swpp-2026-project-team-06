@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     # 저장·전달 처리 여유를 두고 7.5초로 끊는다(DEV-180, I3-AIGUARD-03에서 8.02초 관측).
     ai_answer_timeout_seconds: float = 7.5
 
+    source_presentation_enabled: bool = False
     source_analysis_enabled: bool = False
     source_analysis_provider: str = "mock"
     source_analysis_model: str = "google/gemini-3-flash-preview"
@@ -92,6 +93,12 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _source_settings(self) -> "Settings":
         if self.source_analysis_enabled:
+            if (
+                self.source_presentation_enabled
+                and self.source_analysis_provider != "mock"
+                and not self.openrouter_api_key
+            ):
+                raise ValueError("OPENROUTER_API_KEY is required for source presentation")
             if self.source_analysis_provider not in ("mock", "openai", "openrouter"):
                 raise ValueError("Invalid source analysis provider")
             if not (

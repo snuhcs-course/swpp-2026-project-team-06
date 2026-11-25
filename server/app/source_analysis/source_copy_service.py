@@ -28,7 +28,7 @@ def choice(row):
     }
 
 
-def plan(db, batch, target_id, *, choices=None):
+def baseline_plan(db, batch, target_id, *, choices=None):
     from app.source_analysis.source_preserving import build_plan
 
     target = next((t for t in batch.targets if t["id"] == target_id), None)
@@ -55,6 +55,14 @@ def plan(db, batch, target_id, *, choices=None):
     return build_plan(target, candidates, **arguments, decisions=choices)
 
 
+def plan(db, batch, target_id, *, choices=None):
+    base = baseline_plan(db, batch, target_id, choices=choices)
+    from app.source_analysis.source_presentation import resolve
+
+    target = next(t for t in batch.targets if t["id"] == target_id)
+    return resolve(db, batch, target, base)
+
+
 def get(db, batch, target_id):
     return {
         "plan": plan(db, batch, target_id),
@@ -77,6 +85,22 @@ def save(db, batch, target_id, body, actor_id):
     passages = {p["bindingHash"]: p for p in current["passages"]}
     if set(keys) - passages.keys():
         raise conflict("SOURCE_PLAN_CHANGED", "현재 원문 항목만 확인할 수 있어요.")
+    # KEEP may merely acknowledge the presentation's already-visible placement.
+    # Do not turn its implicit UI default into a new baseline placement decision:
+    # that would invalidate the same presentation while the owner only confirmed it.
+    if current.get("presentation", {}).get("status") == "APPLIED":
+        for entry in incoming:
+            passage = passages.get(entry["bindingHash"])
+            if entry["action"] != "KEEP" or passage is None:
+                continue
+            shown = {
+                module["module"]
+                for module in current["modules"]
+                for text in module["texts"]
+                if passage["id"] in text.get("passageIds", [])
+            }
+            if len(shown) == 1 and entry.get("module") in shown:
+                entry["module"] = passage["module"]
     existing = {r.binding_hash: r for r in decisions(db, batch, target_id)}
     proposed = {k: choice(r) for k, r in existing.items() if k in passages}
     proposed.update({c["bindingHash"]: c for c in incoming})
@@ -134,6 +158,11 @@ def save(db, batch, target_id, body, actor_id):
 def enable(db, batch, body):
     s.version(batch.review_version, body.review_version)
     if batch.source_copy_enabled:
+        from app.source_analysis.source_presentation import enqueue_completed
+
+        if enqueue_completed(db, batch):
+            batch.review_version += 1
+            s.refresh_runs(db, batch.id)
         return s.review(db, batch)
     items = list(
         db.scalars(
@@ -152,6 +181,9 @@ def enable(db, batch, body):
     for item in items:
         item.status, item.error = "CANCELLED", "SOURCE_COPY_ENABLED"
     batch.source_copy_enabled = True
+    from app.source_analysis.source_presentation import enqueue_completed
+
+    enqueue_completed(db, batch)
     batch.review_version += 1
     db.flush()
     s.refresh_runs(db, batch.id)

@@ -499,7 +499,18 @@ def store_candidates(db, batch, item, extraction):
 
 
 def paid_vision_call(
-    item_id, token, stage, model, chunk, targets, images, fn, output_tokens=None, *, guard=None
+    item_id,
+    token,
+    stage,
+    model,
+    chunk,
+    targets,
+    images,
+    fn,
+    output_tokens=None,
+    *,
+    guard=None,
+    reservation_mode=None,
 ):
     """Fence every individual request, reserve before sending, settle even after cancellation."""
     from app.source_analysis.budget import reserve, settle
@@ -516,7 +527,7 @@ def paid_vision_call(
         reservation = reserve(
             db,
             item,
-            run.mode,
+            reservation_mode or run.mode,
             model,
             chunk,
             targets,
@@ -892,6 +903,10 @@ def vision_extraction(
 
 def process(item_id, token):
     with get_sessionmaker()() as lookup:
+        if lookup.get(Item, item_id).phase == "ASSEMBLE":
+            from app.source_analysis.source_presentation import process as present_target
+
+            return present_target(item_id, token)
         if lookup.get(Item, item_id).phase == "REFINE":
             from app.source_analysis.refinement import process as refine_target
 
@@ -1146,7 +1161,7 @@ def fail(item_id, token, exc):
         if context:
             batch, source, run, item = context
             retry_after = getattr(exc, "retry_after", None)
-            if retry_after is not None and item.attempt < 3:
+            if item.phase != "ASSEMBLE" and retry_after is not None and item.attempt < 3:
                 item.status = "QUEUED"
                 item.available_at = utcnow() + timedelta(
                     seconds=retry_after * 2 ** (item.attempt - 1)

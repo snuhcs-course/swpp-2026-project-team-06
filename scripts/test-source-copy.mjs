@@ -12,15 +12,15 @@ const code = ts.transpileModule(readFileSync(filename, "utf8"), {
 }).outputText;
 const passage = (reasons = []) => ({ id: "passage", bindingHash: "binding", module: "delivery", value: "원문", originalValue: "원문", candidateIds: [], evidence: [], queueKinds: ["OWNER_CONFIRMATION"], reasonCodes: { OWNER_CONFIRMATION: reasons, COPY_EDIT: [], PLACEMENT: [], SAFETY: [] }, repairValue: null, status: "PENDING", includedInDraft: true, reviewPending: true, reviewExplanations: [], decision: null });
 function harness(p = passage(), saveSucceeds = true, flush = true) {
-  const data = { enabled: true, reviewVersion: 3, plan: { planHash: "hash", passages: [p] } };
+  const data = { enabled: true, reviewVersion: 3, plan: { planHash: "hash", passages: [p], modules: [] } };
   let latestData = data;
   const slots = []; let cursor = 0;
-  const events = [];
+  const events = [], saves = [];
   const exports = {};
   const element = (type, props) => ({ type, props });
   const api = {
     sourceCopy: async () => { events.push("get"); return latestData; },
-    saveSourceCopy: async () => { events.push("save"); if (!saveSucceeds) throw new Error("저장 실패"); return data; },
+    saveSourceCopy: async (_batch, _target, input) => { saves.push(input); events.push("save"); if (!saveSucceeds) throw new Error("저장 실패"); return data; },
   };
   const fakeRequire = (id) => {
     if (id === "react/jsx-runtime") return { jsx: element, jsxs: element, Fragment: "Fragment" };
@@ -34,7 +34,7 @@ function harness(p = passage(), saveSucceeds = true, flush = true) {
       useEffect: () => {},
     };
     if (id === "@farmclub/api") return { sourceAnalysis: api };
-    if (id === "@farmclub/ui") return { Button: "Button", Input: "Input", T: "T", SOURCE_MODULES: [["delivery", "배송 안내"]], tokens: { space: { gutter: 16 }, color: { border: "gray", error: "red" }, radius: { sm: 4 } } };
+    if (id === "@farmclub/ui") return { Button: "Button", Input: "Input", T: "T", SOURCE_MODULES: [["delivery", "배송 안내"], ["composition", "상품 구성"], ["farmStory", "농가 이야기"], ["summary", "상품 소개"]], tokens: { space: { gutter: 16 }, color: { border: "gray", error: "red" }, radius: { sm: 4 } } };
     if (id === "react-native") return { View: "View" };
     throw new Error(id);
   };
@@ -47,7 +47,7 @@ function harness(p = passage(), saveSucceeds = true, flush = true) {
   const nodes = (node) => !node || typeof node !== "object" ? [] : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
   const all = () => nodes(render());
   const press = (label) => { const button = all().find((n) => n.type === "Button" && n.props.label === label); assert.ok(button, label); button.props.onPress(); };
-  return { all, press, events, slots, setLatest: (next, poll = false) => { latestData = next; if (poll) slots[0] = next; }, data, settle: async () => { for (let n = 0; n < 10; n++) await new Promise(setImmediate); } };
+  return { all, press, events, saves, slots, setLatest: (next, poll = false) => { latestData = next; if (poll) slots[0] = next; }, data, settle: async () => { for (let n = 0; n < 10; n++) await new Promise(setImmediate); } };
 }
 test("DEV-452 AC-SRC-5: price and relative time allow explicit acknowledgment without changing settings", () => {
   const price = harness(passage(["PRICE_OR_FEE"]));
@@ -184,4 +184,142 @@ test("DEV-452 AC-SRC-11: confirming a grouped option uses its current assembled 
   const h = harness(p);h.press("원문 그대로 사용");
   const choices = h.slots.find((s) => s?.binding?.action === "KEEP");
   assert.equal(choices.binding.module, "composition");
+});
+
+
+for (const [status, expected] of [
+  ["PENDING", "비공개 초안이 준비됐어요"],
+  ["APPLIED", "문장과 배치를 정리했어요"],
+  ["FALLBACK", "원문 초안을 그대로 보존했어요"],
+  ["STALE", "자료나 수정 내용이 바뀌어 현재 원문 초안을 유지했어요"],
+]) {
+  test(`DEV-452 AC-SRC-2/5: ${status} presentation explains status and retains all source review`, () => {
+    const p = passage(["DATED_OR_HISTORICAL", "PRICE_OR_FEE"]);
+    p.originalValue = "2024년 첫 수확 때에는 상자마다 7~9과를 담았습니다.";
+    p.value = p.originalValue;
+    const h = harness(p);
+    h.data.plan.presentation = { status, reason: "INTERNAL_PROVIDER_CODE_ASTRA_BUDGET", baselineWordingRetained: 2 };
+    const nodes = h.all();
+    const statusBox = nodes.find((n) => n.props?.testID === "source-copy-presentation-status");
+    assert.ok(statusBox);
+    assert.match(JSON.stringify(statusBox), new RegExp(expected));
+    assert.doesNotMatch(JSON.stringify(nodes), /INTERNAL_PROVIDER|ASTRA|BUDGET/);
+    assert.ok(nodes.some((n) => n.type === "T" && n.props.children === p.originalValue));
+    assert.match(JSON.stringify(nodes), /과거 연도나 이력이 포함돼 있어요/);
+    assert.match(JSON.stringify(nodes), /실제 판매 설정의 금액과 일치하는지/);
+    const count = nodes.find((n) => n.type === "T" && Array.isArray(n.props.children) && n.props.children[0] === "공개 전 확인 대기 · ");
+    assert.equal(count.props.children[1], 1);
+    assert.equal(p.reviewPending, true);
+    assert.deepEqual(p.reasonCodes.OWNER_CONFIRMATION, ["DATED_OR_HISTORICAL", "PRICE_OR_FEE"]);
+    assert.deepEqual(h.events, []);
+  });
+}
+
+test("DEV-452 AC-SRC-2: absent or disabled presentation adds no product UI", () => {
+  const h = harness();
+  assert.equal(h.all().some((n) => n.props?.testID === "source-copy-presentation-status"), false);
+  h.data.plan.presentation = { status: "DISABLED", reason: "INTERNAL_DISABLED" };
+  assert.equal(h.all().some((n) => n.props?.testID === "source-copy-presentation-status"), false);
+  assert.doesNotMatch(JSON.stringify(h.all()), /INTERNAL_DISABLED/);
+});
+
+test("DEV-452 AC-SRC-11: KEEP persists actual presentation placement ahead of baseline metadata", async () => {
+  const p = passage(["RELATIVE_TIME"]);
+  p.optionAssembly = { type: "SOURCE_OPTION_BLOCK", module: "composition", passageIds: [p.id] };
+  p.autoRepair = { type: "SOURCE_ADJACENT_CONTINUATION", module: "delivery", passageIds: [p.id] };
+  const h = harness(p);
+  h.data.plan.presentation = { status: "APPLIED" };
+  h.data.plan.modules = [{ module: "summary", texts: [{ value: "현재 표현", candidateIds: [], passageIds: [p.id, "another"] }] }];
+  h.press("원문 그대로 사용");
+  h.all().find((n) => n.type === "Input" && n.props.label === "현재도 맞는지 확인한 내용").props.onChangeText("현재 기준 시점 확인");
+  h.press("검토 선택 저장"); await h.settle();
+  assert.equal(h.saves[0].decisions[0].module, "summary");
+});
+
+test("DEV-452 AC-SRC-11: historical owner confirmation keeps actual narrative farmStory location", async () => {
+  const p = passage(["DATED_OR_HISTORICAL"]);
+  p.module = "farmStory";
+  p.originalValue = p.value = "2024년에 처음 과수원을 열었습니다.";
+  const h = harness(p);
+  h.data.plan.presentation = { status: "APPLIED" };
+  h.data.plan.modules = [{ module: "farmStory", texts: [{ value: p.value, candidateIds: [], passageIds: [p.id] }] }];
+  h.press("원문 그대로 사용");
+  h.all().find((n) => n.type === "Input" && n.props.label === "현재도 맞는지 확인한 내용").props.onChangeText("과거 농가 이력으로 확인");
+  h.press("검토 선택 저장"); await h.settle();
+  assert.equal(h.saves[0].decisions[0].module, "farmStory");
+});
+
+test("DEV-452 AC-SRC-11: unsaved explicit placement survives presentation polling and action changes", () => {
+  const p = passage();
+  p.queueKinds = ["PLACEMENT"];
+  p.reasonCodes.PLACEMENT = ["AMBIGUOUS_MODULE_ROUTING"];
+  const h = harness(p);
+  h.data.plan.modules = [{ module: "composition", texts: [{ value: p.value, candidateIds: [], passageIds: [p.id] }] }];
+  h.press("직접 수정");
+  h.press("배송 안내");
+  const changed = structuredClone(h.data);
+  changed.reviewVersion = 4;
+  changed.plan.presentation = { status: "APPLIED" };
+  changed.plan.modules[0].module = "summary";
+  h.setLatest(changed, true);
+  h.press("본문에서 제외");
+  h.press("직접 수정");
+  const choices = h.slots.find((slot) => slot?.binding?.action === "EDIT");
+  assert.equal(choices.binding.module, "delivery");
+});
+
+
+test("DEV-452 AC-SRC-11: delayed presentation rebases only implicit KEEP placement at save", async () => {
+  const p = passage(["RELATIVE_TIME"]);
+  const h = harness(p);
+  h.press("원문 그대로 사용");
+  h.all().find((n) => n.type === "Input" && n.props.label === "현재도 맞는지 확인한 내용").props.onChangeText("현재 시점 확인");
+  const latest = structuredClone(h.data);
+  latest.reviewVersion = 4;
+  latest.plan.planHash = "organized-plan";
+  latest.plan.presentation = { status: "APPLIED" };
+  latest.plan.modules = [{ module: "summary", texts: [{ value: p.value, candidateIds: [], passageIds: [p.id] }] }];
+  h.setLatest(latest);
+  h.press("검토 선택 저장"); await h.settle();
+  assert.deepEqual(h.events, ["flush", "get", "save", "reload"]);
+  assert.equal(h.saves[0].reviewVersion, 4);
+  assert.equal(h.saves[0].planHash, "organized-plan");
+  assert.equal(h.saves[0].decisions[0].module, "summary");
+  assert.equal(h.saves[0].decisions[0].action, "KEEP");
+  assert.equal(h.saves[0].decisions[0].note, "현재 시점 확인");
+});
+
+test("DEV-452 AC-SRC-11: delayed presentation never rebases explicit owner placement", async () => {
+  const p = passage();
+  p.queueKinds = ["PLACEMENT"];
+  p.reasonCodes.PLACEMENT = ["AMBIGUOUS_MODULE_ROUTING"];
+  const h = harness(p);
+  h.press("직접 수정");
+  h.press("상품 구성");
+  h.all().find((n) => n.type === "Input" && n.props.label === "사용할 문구").props.onChangeText("생산자가 정리한 구성 설명");
+  h.all().find((n) => n.type === "Input" && n.props.label === "수정한 이유와 확인한 내용").props.onChangeText("구성 항목에 직접 배치");
+  const latest = structuredClone(h.data);
+  latest.reviewVersion = 4;
+  latest.plan.presentation = { status: "APPLIED" };
+  latest.plan.modules = [{ module: "summary", texts: [{ value: p.value, candidateIds: [], passageIds: [p.id] }] }];
+  h.setLatest(latest);
+  h.press("검토 선택 저장"); await h.settle();
+  assert.equal(h.saves[0].decisions[0].module, "composition");
+  assert.equal(h.saves[0].decisions[0].value, "생산자가 정리한 구성 설명");
+  assert.equal(h.saves[0].decisions[0].note, "구성 항목에 직접 배치");
+});
+
+test("DEV-452 AC-SRC-11: cancelling explicit placement restores implicit latest placement", async () => {
+  const p = passage(); p.queueKinds = ["PLACEMENT"];
+  p.reasonCodes.PLACEMENT = ["AMBIGUOUS_MODULE_ROUTING"];
+  const h = harness(p);
+  h.press("직접 수정"); h.press("상품 구성"); h.press("저장 전 선택 취소");
+  p.queueKinds = ["COPY_EDIT"]; p.reasonCodes.COPY_EDIT = ["POSSIBLE_SPACING"];
+  p.reasonCodes.PLACEMENT = [];
+  h.press("원문 그대로 사용");
+  const latest = structuredClone(h.data);
+  latest.plan.modules = [{ module: "summary", texts: [{ value: p.value, candidateIds: [], passageIds: [p.id] }] }];
+  h.setLatest(latest);
+  h.press("검토 선택 저장"); await h.settle();
+  assert.equal(h.saves[0].decisions[0].module, "summary");
 });

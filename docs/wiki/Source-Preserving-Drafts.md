@@ -33,3 +33,13 @@ All models receive the same saved OCR; OCR is not rerun. Models group related wh
 
 ## Same-facts Astra assembly comparison (DEV-451)
 An explicit experiment freezes the exact106assembled texts of the87/94review draft, then asks Astra to organize and minimally edit them. No additional OCR, extraction, source passages or gold hints reach the model. The122source passages remain independent provenance. Every input text ID is accounted for; cited IDs alone do not establish semantic preservation. Diagnostics retain missing/unknown IDs, excluded content, actual wording changes, numbers/ranges/privacy warnings and inherited owner flags computed server-side. The experiment changes neither the default worker nor publication policy.
+
+
+## Optional assembly integration (DEV-452)
+The persisted ASSEMBLE phase is separately controlled by source_presentation_enabled, default false. The broad comparison found the retention gain already in deterministic source preservation; the additional model does not improve pagewide coverage. Keep assembly optional. Enabled source-copy batches queue one bounded job per target after extraction; explicitly enabling a completed batch is duplicate-safe. There are no automatic paid retries. Mock mode uses no provider.
+
+All input IDs and original source evidence remain accounted for. Related nonadjacent blocks may be grouped with independent references. Only verifiable bounded spacing/punctuation edits are admitted; other wording returns to its exact baseline text. Missing, unknown, repeated or excluded IDs, structural overflow, field-length overflow, or more than 100 candidate references in a field cause whole-target baseline fallback without truncation. Historical groups retain their original module and narrative order. Original passages and inherited review flags remain authoritative.
+
+Source, decisions and every editor field/state/provenance/media snapshot are checked before sending and before activating a response. Late results cannot overwrite owner work. Activation increments reviewVersion. GET, review save, editor and publication share the same resolver. Actual wording/location/source changes invalidate prior assembly; acknowledgement alone preserves the displayed placement, while explicit owner placement wins. Korean status messages explain pending/applied/fallback/stale states. Owner review and explicit public apply remain required.
+
+Full 47-case evidence and limits: [November 25 comparison](../evaluation/source-preserving-integration/COMPARISON-2026-11-25.md). These are known-case lexical diagnostics, not unseen-farm accuracy or release approval.

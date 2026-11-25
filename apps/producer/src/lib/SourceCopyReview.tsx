@@ -1,4 +1,4 @@
-import { sourceAnalysis, type SourceCopyAction, type SourceCopyDecision, type SourceCopyPassage, type SourceCopyReview } from "@farmclub/api";
+import { sourceAnalysis, type SourceCopyAction, type SourceCopyDecision, type SourceCopyPassage, type SourceCopyPresentation, type SourceCopyReview } from "@farmclub/api";
 import { Button, Input, SOURCE_MODULES, T, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
@@ -36,6 +36,13 @@ const reasonMessages: Record<string, string> = {
   OTHER_PRODUCT: "다른 상품 설명이 섞였을 수 있어요. 현재 상품에 맞게 수정하거나 제외해 주세요.",
 };
 
+const presentationMessages: Partial<Record<SourceCopyPresentation["status"], string>> = {
+  PENDING: "비공개 초안이 준비됐어요. 원문을 살려 문장과 배치를 정리하고 있어요.",
+  APPLIED: "원문을 살려 문장과 배치를 정리했어요. 아래 확인 항목은 공개 전에 검토해 주세요.",
+  FALLBACK: "원문 초안을 그대로 보존했어요. 아래 확인 항목을 검토해 주세요.",
+  STALE: "자료나 수정 내용이 바뀌어 현재 원문 초안을 유지했어요. 아래 확인 항목을 검토해 주세요.",
+};
+
 const decisionSnapshot = (decision: SourceCopyPassage["decision"]) => JSON.stringify(decision ? [
   decision.action, decision.value ?? null, decision.note ?? null, decision.module ?? null,
 ] : null);
@@ -57,8 +64,10 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
   const operation = useRef(false), alive = useRef(true);
   // Keep the persisted decision seen at FIRST selection, even when polling refreshes data.
   const decisionBases = useRef(new Map<string, string>());
+  const explicitPlacements = useRef(new Set<string>());
   const cancelChoice = (binding: string) => {
     decisionBases.current.delete(binding);
+    explicitPlacements.current.delete(binding);
     setChoices((old) => Object.fromEntries(Object.entries(old).filter(([key]) => key !== binding)));
   };
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -72,15 +81,21 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
     return () => { active = false; };
   }, [batchId, targetId, enabled, reviewVersion]);
   const disabled = locked || busy;
+  const currentModuleFor = (p: SourceCopyPassage, plan = data?.plan) => plan?.modules?.find((module) =>
+    module.texts.some((text) => text.passageIds?.includes(p.id)))?.module
+    ?? p.optionAssembly?.module ?? p.autoRepair?.module ?? p.module;
   const choose = (p: SourceCopyPassage, action: SourceCopyAction) => {
     setNotice("");
     if (!decisionBases.current.has(p.bindingHash))
       decisionBases.current.set(p.bindingHash, decisionSnapshot(p.decision));
-    const currentModule = p.optionAssembly?.module ?? p.autoRepair?.module ?? p.module;
-    setChoices((old) => ({ ...old, [p.bindingHash]: { ...old[p.bindingHash], bindingHash: p.bindingHash, action,
-      ...(action === "EDIT" ? { value: old[p.bindingHash]?.value ?? p.value } : {}),
-      ...(currentModule ? { module: currentModule } : {}),
-    } }));
+    const currentModule = currentModuleFor(p);
+    setChoices((old) => {
+      const module = old[p.bindingHash]?.module ?? currentModule;
+      return { ...old, [p.bindingHash]: { ...old[p.bindingHash], bindingHash: p.bindingHash, action,
+        ...(action === "EDIT" ? { value: old[p.bindingHash]?.value ?? p.value } : {}),
+        ...(module ? { module } : {}),
+      } };
+    });
   };
   const mutate = async (enable = false) => {
     if (disabled || operation.current) return;
@@ -113,13 +128,22 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
           if (alive.current) setData(latest);
           throw new Error("다른 화면에서 검토 선택이 바뀌었어요. 입력은 남아 있어요. 현재 저장된 선택을 확인하고 ‘저장 전 선택 취소’를 누른 뒤 다시 선택해 주세요.");
         }
+        // Presentation may finish while a choice is unsaved. Follow its current
+        // placement only when the owner has not explicitly selected a section.
+        const currentDecisions = decisions.map((choice) => {
+          if (explicitPlacements.current.has(choice.bindingHash) ||
+            ["OMIT", "TRANSFER_TO_SETTINGS"].includes(choice.action)) return choice;
+          const passage = latest.plan.passages.find((p) => p.bindingHash === choice.bindingHash)!;
+          const module = currentModuleFor(passage, latest.plan);
+          return module ? { ...choice, module } : choice;
+        });
         const next = await sourceAnalysis.saveSourceCopy(batchId, targetId, {
-          reviewVersion: latest.reviewVersion, planHash: latest.plan.planHash, decisions,
+          reviewVersion: latest.reviewVersion, planHash: latest.plan.planHash, decisions: currentDecisions,
         });
         saved = next;
       }
       await onReload();
-      if (alive.current && saved) { setData(saved); setChoices({}); decisionBases.current.clear(); }
+      if (alive.current && saved) { setData(saved); setChoices({}); decisionBases.current.clear(); explicitPlacements.current.clear(); }
       if (alive.current) setNotice("비공개 검토 내용을 저장했어요. 상품에 반영하려면 기존 반영 절차를 진행해 주세요.");
     } catch (e) {
       if (alive.current) setError(e instanceof Error ? e.message : "저장하지 못했어요. 입력 내용은 남아 있어요.");
@@ -140,6 +164,7 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
   const automaticJoins = new Set(data?.plan.passages.filter((p) => p.autoRepair?.type === "SOURCE_ADJACENT_CONTINUATION").map((p) => p.autoRepair!.passageIds.join("/"))).size;
   const pending = data?.plan.passages.filter((p) => p.queueKinds.length > 0 || choices[p.bindingHash]) ?? [];
   const pendingCount = data?.plan.passages.filter((p) => p.reviewPending).length ?? 0;
+  const presentationMessage = data?.plan.presentation && presentationMessages[data.plan.presentation.status];
   return <View style={{ gap: 12, padding: tokens.space.gutter }} testID="source-copy-review">
     <T weight="semibold">원문을 살려 상세 채우기</T>
     {!enabled ? <>
@@ -147,6 +172,9 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
       <Button label="원문 유지 방식 사용" disabled={disabled} loading={busy} onPress={() => void mutate(true)} />
     </> : <>
       <T variant="sub" muted>자료의 문구를 비공개 초안에 담았어요. 아래에서 공개 전에 확인할 이유를 보고 원문 유지·수정·제외를 선택해 주세요. 선택은 ‘검토 선택 저장’을 눌러야 저장돼요.</T>
+      {presentationMessage ? <View accessibilityLiveRegion="polite" testID="source-copy-presentation-status">
+        <T variant="sub" muted>{presentationMessage}</T>
+      </View> : null}
       {optionBlocks ? <T variant="sub" muted>옵션 {optionBlocks}개의 크기·수량·포장을 한곳에 묶었어요. 원문의 옵션별 관계는 그대로 유지해요.</T> : null}
       {automaticJoins ? <T variant="sub" muted>인접한 원문 {automaticJoins}곳을 자동으로 연결했어요. 단어·수치·조건은 그대로 유지해요. 문맥 확인이 필요한 연결은 아래에 표시해요.</T> : null}
       {data ? <View accessibilityRole="alert" style={{ gap: 4 }} testID="source-copy-publication-warning">
@@ -160,6 +188,7 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
           <T variant="caption" muted>{hint}</T>
           {passages.map((p, index) => {
             const choice = choices[p.bindingHash];
+            const currentModule = currentModuleFor(p);
             const action = choice?.action;
             const price = p.reasonCodes.OWNER_CONFIRMATION.includes("PRICE_OR_FEE") || p.reasonCodes.SAFETY.includes("MONEY_AMOUNT");
             const blocked = p.reasonCodes.SAFETY.some((reason) => ["PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"].includes(reason));
@@ -175,13 +204,13 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
               {p.repairValue && p.repairValue !== p.originalValue ? <><T variant="caption" muted>최소 수정 제안</T><T>{p.repairValue}</T></> : null}
               {price ? <T variant="sub">가격·배송비도 초안에 포함돼요. 원문을 유지하려면 현재 가격과 실제 판매 설정이 일치하는지 확인한 내용을 적어 주세요. 검토 선택을 저장해도 실제 판매 설정은 바뀌지 않아요.</T> : null}
               <>
-                {!blocked && p.module !== null && kind !== "PLACEMENT" ? <Button compact variant="outline" label={label("원문 그대로 사용", "KEEP")} disabled={disabled} onPress={() => choose(p, "KEEP")} /> : null}
-                {!blocked && p.module !== null && p.repairValue && !p.reasonCodes.OWNER_CONFIRMATION.length && !p.reasonCodes.SAFETY.length ? <Button compact variant="outline" label={label("최소 수정 사용", "ACCEPT_REPAIR")} disabled={disabled} onPress={() => choose(p, "ACCEPT_REPAIR")} /> : null}
+                {!blocked && currentModule !== null && kind !== "PLACEMENT" ? <Button compact variant="outline" label={label("원문 그대로 사용", "KEEP")} disabled={disabled} onPress={() => choose(p, "KEEP")} /> : null}
+                {!blocked && currentModule !== null && p.repairValue && !p.reasonCodes.OWNER_CONFIRMATION.length && !p.reasonCodes.SAFETY.length ? <Button compact variant="outline" label={label("최소 수정 사용", "ACCEPT_REPAIR")} disabled={disabled} onPress={() => choose(p, "ACCEPT_REPAIR")} /> : null}
                 <Button compact variant="outline" label={label("직접 수정", "EDIT")} disabled={disabled} onPress={() => choose(p, "EDIT")} />
               </>
               {action === "EDIT" ? <>
                 <Input label="사용할 문구" multiline value={choice.value ?? ""} editable={!disabled} onChangeText={(value) => setChoices((old) => ({ ...old, [p.bindingHash]: { ...choice, value } }))} />
-                {(kind === "PLACEMENT" || p.module === null) ? <View style={{ gap: 4 }}><T variant="sub">넣을 항목</T>{SOURCE_MODULES.filter(([id]) => !["sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"].includes(id)).map(([id, title]) => <Button key={id} compact variant="outline" disabled={disabled} label={`${choice.module === id ? "선택됨 · " : ""}${title}`} onPress={() => setChoices((old) => ({ ...old, [p.bindingHash]: { ...choice, module: id } }))} />)}</View> : null}
+                {(kind === "PLACEMENT" || currentModule === null) ? <View style={{ gap: 4 }}><T variant="sub">넣을 항목</T>{SOURCE_MODULES.filter(([id]) => !["sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"].includes(id)).map(([id, title]) => <Button key={id} compact variant="outline" disabled={disabled} label={`${choice.module === id ? "선택됨 · " : ""}${title}`} onPress={() => { explicitPlacements.current.add(p.bindingHash); setChoices((old) => ({ ...old, [p.bindingHash]: { ...choice, module: id } })); }} />)}</View> : null}
               </> : null}
               {choice && (action === "EDIT" || (action === "KEEP" && requiresNote(p))) ? <Input
                 label={action === "EDIT" ? "수정한 이유와 확인한 내용" : "현재도 맞는지 확인한 내용"}

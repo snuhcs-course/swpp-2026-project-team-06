@@ -472,7 +472,7 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
         ids = [t["id"] for t in row.targets] if source.common else source.target_ids
         if previous and source.id not in reparsed:
             for old in previous:
-                if old.phase in {"PLACE_PHOTOS", "REFINE"}:
+                if old.phase in {"PLACE_PHOTOS", "REFINE", "ASSEMBLE"}:
                     continue  # Placement/refinement jobs are rebuilt once for the new run.
                 if old.revision != source.revision:
                     raise conflict("SOURCE_CHANGED", "자료가 바뀌었으니 새 분석을 시작해 주세요.")
@@ -661,6 +661,11 @@ def retry(db, row, run, body):
         i.status not in ("FAILED", "PARTIAL") for i in items
     ):
         raise invalid({"itemIds": "실패하거나 일부 완료된 항목만 다시 분석할 수 있어요."})
+    if any(i.phase == "ASSEMBLE" for i in items):
+        raise conflict(
+            "PRESENTATION_RETRY_DISABLED",
+            "문장 구성은 자동으로 다시 요청하지 않아요. 원문 초안을 사용해 주세요.",
+        )
     if any(i.error == "REQUEST_UNCERTAIN" for i in items) and not body.acknowledge_uncertain:
         raise conflict(
             "RETRY_ACK_REQUIRED", "재호출 비용이 생길 수 있어요. 확인 후 재시도해 주세요."
