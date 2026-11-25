@@ -50,6 +50,7 @@ import {
   Scroll,
   Sheet,
   Skeleton,
+  Toast,
   T,
   md,
   tokens,
@@ -1747,12 +1748,17 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     setTermsInvalid({});
     setTermsOpen(true);
   };
+  // 판매 조건 시트 위 토스트(DEV-486). 앱 토스트는 시트(Modal) 뒤에 그려져 보이지 않는다
+  const [termsToast, setTermsToast] = useState<string | null>(null);
+  const hideTermsToast = useCallback(() => setTermsToast(null), []);
   /** 판매 조건 시트 '수정 담기': 화면 안 초안에만(서버 저장은 '임시 저장'·'상품에 반영' 때, C-6). 빈 칸은 누르면 강조(C-19) */
   const takeTerms = () => {
     if (!termsEdit) return;
     const problem = checkTerms(termsEdit);
     if (problem) {
       setTermsInvalid({ [problem.field]: problem.message });
+      // 문구는 시트 위 토스트로 한 번만(DEV-486). 칸 강조는 termsInvalid가 한다
+      setTermsToast(problem.message);
       return;
     }
     setTerms(termsEdit);
@@ -2519,7 +2525,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       ) : null}
 
       {/* 판매 조건 시트(C-6). 판매 종료 상품은 읽기 전용(C-11) */}
-      <Sheet visible={termsOpen} onClose={() => setTermsOpen(false)} title="판매 조건">
+      <Sheet visible={termsOpen} onClose={() => setTermsOpen(false)} title="판매 조건"
+        overlay={<Toast message={termsToast} tone="error" onHide={hideTermsToast} />}>
         <FieldFeedbackContext.Provider value={{ fields: termsInvalid, clear: () => {} }}>
           {product && termsEdit ? (
             live ? (
@@ -2537,12 +2544,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                   editable
                   busy={busy}
                   product={product}
+                  notify={setTermsToast}
                 />
-                {Object.values(termsInvalid)[0] ? (
-                  <View accessibilityRole="alert">
-                    <T variant="caption" color={tokens.color.error}>{Object.values(termsInvalid)[0]}</T>
-                  </View>
-                ) : null}
                 <Button label="수정 담기" size="producer" disabled={busy} onPress={takeTerms} />
               </View>
             ) : (
