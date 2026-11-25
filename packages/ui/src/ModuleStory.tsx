@@ -261,14 +261,16 @@ export function ModuleStory({
   mediaUrl = (uri: string) => uri,
   editing,
   design,
+  reviewNotes,
 }: {
   editing?: StoryEditing;
   design?: unknown;
+  reviewNotes?: Readonly<Record<string, readonly string[]>>;
   content: { modules: StoryModule[]; hiddenSectionIds?: string[] };
   mediaUrl?: (uri: string) => string;
 }) {
   const sourceDesign = !editing && design !== undefined ? getSourceStoryDesign(content.modules, design) : null;
-  if (sourceDesign) return <SourceGuidedStory content={content} design={sourceDesign} mediaUrl={mediaUrl} />;
+  if (sourceDesign) return <SourceGuidedStory content={content} design={sourceDesign} mediaUrl={mediaUrl} reviewNotes={reviewNotes} />;
   const hidden = editing?.hiddenSectionIds ?? content.hiddenSectionIds ?? [];
   const introHidden = hidden.includes("intro");
   const introDim =

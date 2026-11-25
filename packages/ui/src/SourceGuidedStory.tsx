@@ -21,8 +21,18 @@ const icons = {
 };
 const titles = { intro: "상품 소개", composition: "받으실 구성", taste: "맛과 크기", production: "재배와 선별", packing: "포장과 배송", storage: "보관 방법", faq: "구매 전 확인", farm: "농가 이야기", updates: "농가 소식" };
 
+type ReviewNotes = Readonly<Record<string, readonly string[]>>;
+function ReviewNote({ textRef, notes }: { textRef: string; notes?: ReviewNotes }) {
+  const messages = notes?.[textRef];
+  if (!messages?.length) return null;
+  return <View testID={`source-review-note-${textRef}`} style={{ padding: 12, gap: 5, backgroundColor: "#FFF3CD", borderColor: "#D7B762", borderWidth: 1, borderRadius: 8 }}>
+    <Text style={[body, { color: "#614500", fontSize: 14, lineHeight: 22, fontWeight: "700" }]}>공개 전 확인이 필요해요</Text>
+    {messages.map((message, index) => <Text key={index} style={[body, { color: "#614500", fontSize: 14, lineHeight: 22 }]}>{message}</Text>)}
+  </View>;
+}
+
 /** Keep the complete source region visible; even small source images stay at native width. */
-function SourceMedia({ id, media, mediaUrl, hideCaption, boundCaption }: { id: string; media: SourceStoryMedia; mediaUrl: (uri: string) => string; hideCaption: boolean; boundCaption?: { moduleId: string; textIndex: number; value: string } }) {
+function SourceMedia({ id, media, mediaUrl, hideCaption, boundCaption, reviewNotes }: { id: string; media: SourceStoryMedia; mediaUrl: (uri: string) => string; hideCaption: boolean; boundCaption?: { moduleId: string; textIndex: number; value: string }; reviewNotes?: ReviewNotes }) {
   const uri = mediaUrl(media.uri);
   const [failed, setFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -42,6 +52,7 @@ function SourceMedia({ id, media, mediaUrl, hideCaption, boundCaption }: { id: s
       <Text style={[body, { color: theme.muted }]}>{media.alt}</Text>
     </View> : media.kind === "comparison" ? <ViewablePhoto uri={uri}>{image}</ViewablePhoto> : image}
     {boundCaption ? <Text testID={`source-caption-${id}`} nativeID={`sg-text-${boundCaption.moduleId}-${boundCaption.textIndex}`} style={[body, { color: theme.ink, paddingHorizontal: 16, paddingBottom: 12 }]}>{boundCaption.value}</Text> : null}
+    {boundCaption ? <ReviewNote textRef={`${boundCaption.moduleId}:${boundCaption.textIndex}`} notes={reviewNotes} /> : null}
     {media.sourceRef ? <View style={{ flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, paddingBottom: 12, gap: 12 }}>{media.sourceRef.pages.map(page => <Pressable key={page} accessibilityRole="link" testID={`source-link-${id}-${page}`} onPress={() => Linking.openURL(`${mediaUrl(media.sourceRef!.uri)}#page=${page}`)} style={{ minHeight: 44, justifyContent: "center" }}><Text style={[body, { fontSize: 14, color: theme.muted, textDecorationLine: "underline" }]}>원문 {page}쪽 ↗</Text></Pressable>)}</View> : null}
     {media.caption && !hideCaption ? <Text style={[body, { color: theme.ink, paddingHorizontal: 20 }]}>{media.caption}</Text> : null}
     {media.kind === "comparison" ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: true }} onPress={() => setExpanded(false)} style={{ padding: 12, minHeight: 48 }}><Text style={[body, { fontSize: 14, color: theme.muted, textAlign: "center" }]}>크기 비교 그림 접기</Text></Pressable> : null}
@@ -64,7 +75,7 @@ function SavedPhoto({ uri, alt }: { uri: string; alt: string }) {
     style={{ width: "100%", maxWidth: size.width, aspectRatio: size.width / size.height, alignSelf: "center" }} />;
 }
 
-function SavedModule({ module, section, mediaUrl, presentation, supplement, captionRefs, renderAfterText }: { module: StoryModule; section: SourceStorySection; mediaUrl: (uri: string) => string; presentation: Map<string, TextPresentation>; supplement?: StoryModule; captionRefs: ReadonlySet<string>; renderAfterText?: (moduleId: string, textIndex: number) => ReactNode }) {
+function SavedModule({ module, section, mediaUrl, presentation, supplement, captionRefs, renderAfterText, reviewNotes }: { module: StoryModule; section: SourceStorySection; mediaUrl: (uri: string) => string; presentation: Map<string, TextPresentation>; supplement?: StoryModule; captionRefs: ReadonlySet<string>; renderAfterText?: (moduleId: string, textIndex: number) => ReactNode; reviewNotes?: ReviewNotes }) {
   const accent = section.tone === "accent";
   const options = section.layout === "options" && module.id === "composition";
   const hero = section.layout === "hero" && module.id === "hero";
@@ -82,7 +93,8 @@ function SavedModule({ module, section, mediaUrl, presentation, supplement, capt
             hero && (text.fieldKey === "name" || index === 0) ? { fontSize: 34, lineHeight: 44, fontWeight: "800", letterSpacing: -1.1 } : null]}>
           {parts ? <><Text style={{ fontSize: 16, lineHeight: 29, fontWeight: "600" }}>{parts.prefix}</Text><Text style={{ fontSize: 28, lineHeight: 38, fontWeight: "800", color: theme.accent }}>{parts.weight}</Text>{parts.rows.map((row, i) => <Text key={i} style={{ fontSize: 16, lineHeight: 29, fontWeight: "400" }}>{"\n"}{row}</Text>)}</> : text.value}
         </Text>
-        {supplement ? <SavedModule module={supplement} section={{ ...section, layout: "prose" }} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} renderAfterText={renderAfterText} /> : null}
+        <ReviewNote textRef={`${module.id}:${index}`} notes={reviewNotes} />
+        {supplement ? <SavedModule module={supplement} section={{ ...section, layout: "prose" }} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} renderAfterText={renderAfterText} reviewNotes={reviewNotes} /> : null}
         {renderAfterText?.(module.id, index)}
       </View>)}
     </View>
@@ -91,10 +103,11 @@ function SavedModule({ module, section, mediaUrl, presentation, supplement, capt
 }
 
 /** Read-only, explicitly supplied local plan. This is deliberately not a page builder or API adapter. */
-export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
+export function SourceGuidedStory({ content, design, mediaUrl = uri => uri, reviewNotes }: {
   content: { modules: StoryModule[]; hiddenSectionIds?: string[] };
   design: SourceStoryDesign;
   mediaUrl?: (uri: string) => string;
+  reviewNotes?: ReviewNotes;
 }) {
   const hidden = content.hiddenSectionIds ?? [];
   const moduleMap = new Map(content.modules.map(module => [module.id, module]));
@@ -126,7 +139,7 @@ export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
       const hero = section.layout === "hero";
       const figure = section.layout === "figure";
       const backgroundColor = accent ? theme.accent : section.tone === "cream" ? theme.cream : theme.paper;
-      const renderMedia = (id: string) => <SourceMedia key={id} id={id} media={design.media[id]} mediaUrl={mediaUrl} boundCaption={design.media[id].captionRef ? {
+      const renderMedia = (id: string) => <SourceMedia key={id} id={id} media={design.media[id]} mediaUrl={mediaUrl} reviewNotes={reviewNotes} boundCaption={design.media[id].captionRef ? {
         ...design.media[id].captionRef!, value: moduleMap.get(design.media[id].captionRef!.moduleId)!.texts[design.media[id].captionRef!.textIndex].value,
       } : undefined} hideCaption={!!design.media[id].caption && renderedText.has(design.media[id].caption!.trim().replace(/\s+/g, " "))} />;
       const media = section.mediaIds.filter(id => mediaPresentation.get(id) && !design.media[id].afterTextRef).map(renderMedia);
@@ -150,7 +163,7 @@ export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
           {section.moduleIds.map(id => {
             const module = moduleMap.get(id);
             if (supplement && id === "pieceCount") return null;
-            return module ? <SavedModule key={id} module={module} section={section} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} renderAfterText={renderAfterText} supplement={id === "composition" ? supplement : undefined} /> : null;
+            return module ? <SavedModule key={id} module={module} section={section} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} renderAfterText={renderAfterText} reviewNotes={reviewNotes} supplement={id === "composition" ? supplement : undefined} /> : null;
           })}
         </View>
       </View>;

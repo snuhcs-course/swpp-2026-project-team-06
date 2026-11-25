@@ -218,3 +218,5 @@ DEV-464: web PhotoViewer focuses its close button on modal show so the existing 
 DEV-464: optional source photo captionRef points to one same-section saved text index; sourceRef carries validated source URI/pages. Display bound caption once beneath its photo, preserve on image failure, respect hidden sections and retain exact source text/provenance. Invalid references reject the opt-in plan; explicit caption identity is excluded from narrative duplicate merging.
 
 DEV-464: bounded photo treatments full/inset/mark preserve aspect/native-size limits. Optional same-section afterTextRef anchors interleave photos with saved narrative; caption/option anchors rejected, anchor text protected from presentation dedup, and existing text order/failure/hidden behavior preserved.
+
+DEV-484: optional readonly reviewNotes are owner-preview annotations on SourceGuidedStory only, including bound captions. ModuleStory forwards them only on explicit valid design opt-in. No default consumer/editor/persistence behavior changes or annotation text mixed into source value nodes.
