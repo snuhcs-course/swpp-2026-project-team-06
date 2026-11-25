@@ -113,4 +113,4 @@ DEV-58 PR113 최종 리뷰: PageSnapshot 대표 URI는 필수 키/nullable이고
 
 ## DEV-465 Customer engagement
 - AC-ENG-1~5 구현은 app/engagement가 담당한다. Farm 팔로우 행 잠금·Order 검증 행 잠금을 재사용하며 기존 주문 상태 전이를 바꾸지 않는다.
-- models/migration0038: 실제 Follow 기반 번호 backfill, 주문당별점, 농가 신고. seed는 장식 follower_count 대신 실제 Follow 쌍만 receipt로 만든다.
+- models/migration0040: 실제 Follow 기반 번호 backfill, 주문당별점, 농가 신고. seed는 장식 follower_count 대신 실제 Follow 쌍만 receipt로 만든다.

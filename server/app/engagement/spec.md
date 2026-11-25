@@ -9,5 +9,5 @@ Source: docs/spec/customer-engagement.md, AC-ENG-1~6; extends FEAT-06/12/15.
 - Temperature and report farm lookups use farms.public_farm_clause with the current viewer (R-29); hidden test farms return the same 404 as missing farms. Report lookups retain FOR UPDATE with populate_existing so serialization uses fresh Farm state.
 - Achievements have no persistence table or write route: EXISTS over current authoritative evidence per authenticated consumer. JSON progress is always0/1, with five fixed task ids.
 
-- ADMIN GET /engagement/reports uses the existing20/default50/max page limit and validated offset cursor, returning reasons only to admins. No consumer identifier appears in this queue response. Moderation changes appear on the next temperature read.
+- ADMIN GET /engagement/reports uses the existing default 20 / maximum 50 page limit and validated offset cursor, returning reasons only to admins. No consumer identifier appears in this queue response. Moderation changes appear on the next temperature read.
 - Achievement action routes use current IA: /farms, /chats?view=news, /chats, /orders.
