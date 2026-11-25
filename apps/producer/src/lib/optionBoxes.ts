@@ -1,4 +1,4 @@
-// DEV-300 (FEAT-14 AC-14-3, SCR-22·23·물량·판매 설정): 중량 옵션마다 '5kg  32,000원   24박스 / 72박스'.
+// DEV-300 (FEAT-14 AC-14-3, SCR-22·23·물량·판매 설정): 중량 옵션마다 '5kg  32,000원   24박스 예약'(DEV-487 전에는 '/ 72박스'까지).
 // 11/10 생산자 인터뷰: 옵션별 박스당 가격과 박스 수가 주이고 kg 총량은 보조다.
 // 옵션끼리는 더하지 않는다(박스 무게가 달라 합치면 공유 물량을 두 번 센다, DEV-292). 박스는 기간을 모두 더한다.
 // 박스 수는 기간·옵션별 `reservedCount`(예약+출하, 출하해도 줄지 않음)라 예약 중/출하 완료로 나누지 않는다.
@@ -125,10 +125,6 @@ export function optionBoxesText(row: OptionBoxes): string {
   return `${n(row.sold)}박스 예약`;
 }
 
-/** 판매 박스 대비 예약+출하 비율 0~1(막대용). 판매 박스가 0이면 0 */
-export function optionBoxesRatio(row: OptionBoxes): number {
-  return row.quantity > 0 ? Math.min(1, row.sold / row.quantity) : 0;
-}
 
 /** 화면 읽기: '5kg 32,000원, 예약·출하 24박스'(가격이 없으면 가격을 뺀다). 판매 박스는 읽지 않는다(DEV-487) */
 export function optionBoxesLabel(row: OptionBoxes): string {

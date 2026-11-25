@@ -1,4 +1,4 @@
-// DEV-300 (FEAT-14 AC-14-3, SCR-22·23·물량·판매 설정): 중량 옵션별 '5kg  32,000원   예약+출하 N박스 / 판매 M박스'.
+// DEV-300 (FEAT-14 AC-14-3, SCR-22·23·물량·판매 설정): 중량 옵션별 '5kg  32,000원   N박스 예약'(DEV-487 전에는 '/ 판매 M박스'까지).
 // apps/producer/src/lib/optionBoxes.ts 순수 함수만 본다. 옵션끼리 더하지 않고 기간은 모두 더한다. 가격은 지금 판매 기간의 박스당 가격.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -8,7 +8,6 @@ import {
   optionBoxesFromDashboard,
   optionBoxesFromProduct,
   optionBoxesLabel,
-  optionBoxesRatio,
   optionBoxesText,
   optionPriceText,
 } from "../apps/producer/src/lib/optionBoxes.ts";
@@ -61,8 +60,6 @@ test("AC-14-3 DEV-300: an option missing from a period counts 0 there, and an op
       ["20kg", null, 0, 0],
     ],
   );
-  // 판매 박스가 0이면 막대는 0(나눗셈 없음)
-  assert.equal(optionBoxesRatio(rows[2]), 0);
   // 기간이 하나도 없으면 옵션마다 0박스
   assert.deepEqual(
     optionBoxesFromProduct(options, [], CURRENT).map((r) => [r.sold + r.quantity, r.price]),
@@ -131,9 +128,6 @@ test("AC-14-3 DEV-300: text keeps each option separate in boxes and never adds o
   assert.equal(optionBoxesLabel(rows[0]), "5kg 32,000원, 예약·출하 24박스");
   // 가격이 없으면 가격을 빼고 읽는다
   assert.equal(optionBoxesLabel(rows[1]), "10kg 예약·출하 1,800박스");
-  assert.equal(optionBoxesRatio(rows[0]), 1 / 3);
-  // 판매 박스보다 많이 팔려도 막대는 가득(1)
-  assert.equal(optionBoxesRatio({ ...rows[0], sold: 90 }), 1);
 });
 
 test("AC-14-3 DEV-300: the product list card uses the server card options as they are, in option order", () => {
@@ -150,8 +144,6 @@ test("AC-14-3 DEV-300: the product list card uses the server card options as the
     { optionId: "o15", label: "15kg", price: null, sold: 0, quantity: 0 },
     { optionId: "o20", label: "20kg", price: 76000, sold: 6, quantity: 6 },
   ]);
-  // 품절 옵션도 가격과 가득 찬 막대
-  assert.equal(optionBoxesRatio(optionBoxesFromCard(card)[3]), 1);
   // 잘못된 숫자는 0박스·가격 없음
   assert.deepEqual(
     optionBoxesFromCard([{ optionId: "x", label: "x", reserved: -1, quantity: Number.NaN, price: Number.NaN }]),

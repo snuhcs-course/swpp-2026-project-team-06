@@ -87,7 +87,7 @@ export function termsFrom(p: Pick<MyProduct, "options" | "deliveryWindow" | "max
             options: Object.fromEntries(
               Object.entries(s.options).map(([k, v]) => [
                 k,
-                { price: v.price, quantity: Math.max(UNLIMITED_BOXES, v.quantity ?? 0) },
+                { price: v.price, quantity: Math.max(UNLIMITED_BOXES, v.quantity) },
               ]),
             ),
           }))
