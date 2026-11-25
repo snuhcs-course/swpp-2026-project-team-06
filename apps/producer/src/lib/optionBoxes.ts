@@ -117,9 +117,12 @@ export function optionPriceText(row: Pick<OptionBoxes, "price">): string {
   return row.price === null ? "" : `${n(row.price)}원`;
 }
 
-/** '24박스 / 72박스' */
+/**
+ * '24박스 예약'(예약+출하, 모든 기간 합). DEV-487부터 기간 박스 수를 묻지 않아(제한 없음 99,999) 판매 박스는 보이지 않는다.
+ * 물량 한도는 상품 kg 줄이 보인다
+ */
 export function optionBoxesText(row: OptionBoxes): string {
-  return `${n(row.sold)}박스 / ${n(row.quantity)}박스`;
+  return `${n(row.sold)}박스 예약`;
 }
 
 /** 판매 박스 대비 예약+출하 비율 0~1(막대용). 판매 박스가 0이면 0 */
@@ -127,8 +130,8 @@ export function optionBoxesRatio(row: OptionBoxes): number {
   return row.quantity > 0 ? Math.min(1, row.sold / row.quantity) : 0;
 }
 
-/** 화면 읽기: '5kg 32,000원, 예약·출하 24박스, 판매 72박스'(가격이 없으면 가격을 뺀다) */
+/** 화면 읽기: '5kg 32,000원, 예약·출하 24박스'(가격이 없으면 가격을 뺀다). 판매 박스는 읽지 않는다(DEV-487) */
 export function optionBoxesLabel(row: OptionBoxes): string {
   const price = optionPriceText(row);
-  return `${row.label}${price ? ` ${price},` : ""} 예약·출하 ${n(row.sold)}박스, 판매 ${n(row.quantity)}박스`;
+  return `${row.label}${price ? ` ${price},` : ""} 예약·출하 ${n(row.sold)}박스`;
 }

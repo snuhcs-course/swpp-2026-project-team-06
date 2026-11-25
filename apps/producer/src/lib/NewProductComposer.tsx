@@ -87,7 +87,6 @@ import {
   termsFrom,
   termsKey,
   termsStages,
-  UNLIMITED_BOXES,
   type Terms,
 } from "./SalesTermsEditor";
 import { goBackOr } from "./nav";
@@ -268,7 +267,7 @@ const feeText = (t: Pick<Terms, "shippingFeeType" | "shippingFee">) =>
   t.shippingFeeType === "FREE" ? "무료" : (won(t.shippingFee ?? 0) ?? "무료");
 /**
  * 화면 값(상품 칸·판매 조건)과 지금 상품의 차이를 바뀐 칸 하나에 한 줄로(PM 11/18). 묶음은 서버 저장 방식과 같다:
- * 바로 보임(상품 칸·중량 옵션) / 새 예약부터(기간·가격·박스·배송비·환불 날짜, 예약자가 없을 때 받는 시기) /
+ * 바로 보임(상품 칸·중량 옵션) / 새 예약부터(기간·가격·배송비·환불 날짜, 예약자가 없을 때 받는 시기) /
  * 예약자 동의 필요(예약자가 있을 때 받는 시기, R-21)
  */
 function diffRows(p: MyProduct, form: ProductForm, terms: Terms | null, reserved: number): ChangeRows {
@@ -2039,7 +2038,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                         shippingFeeType: terms.shippingFeeType,
                         shippingFee: terms.shippingFeeType === "SEPARATE" ? (terms.shippingFee ?? 0) : 0,
                       },
-                      stages: termsStages({ ...terms, rows: terms.rows.map((r) => ({ ...r, options: Object.fromEntries(terms.options.map((o) => [o.optionId, { price: cellOf(r, o.optionId).price ?? 0, quantity: cellOf(r, o.optionId).quantity ?? UNLIMITED_BOXES }])) })) }).map((x) => ({ ...x, stageId: x.stageId ?? null })),
+                      stages: termsStages({ ...terms, rows: terms.rows.map((r) => ({ ...r, options: Object.fromEntries(terms.options.map((o) => [o.optionId, { price: cellOf(r, o.optionId).price ?? 0, quantity: cellOf(r, o.optionId).quantity ?? 0 }])) })) }).map((x) => ({ ...x, stageId: x.stageId ?? null })),
                       savedAt: null,
                     })
                   : {}),

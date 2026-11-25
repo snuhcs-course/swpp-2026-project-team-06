@@ -148,7 +148,7 @@ export type TermsProblem = {
   message: string;
   rowKey?: string;
   optionId?: string;
-  input?: "startsAt" | "endsAt" | "period" | "price" | "quantity";
+  input?: "startsAt" | "endsAt" | "period" | "price";
 };
 export function checkTerms(t: Terms): TermsProblem | null {
   const bad = (field: TermsField, message: string, target: Partial<TermsProblem> = {}): TermsProblem => ({ field, message, ...target });

@@ -125,11 +125,12 @@ test("AC-14-3 DEV-300: text keeps each option separate in boxes and never adds o
   assert.equal(optionPriceText(rows[0]), "32,000원");
   assert.equal(optionPriceText(rows[1]), "");
   assert.equal(optionPriceText({ price: 0 }), "0원");
-  assert.equal(optionBoxesText(rows[0]), "24박스 / 72박스");
-  assert.equal(optionBoxesText(rows[1]), "1,800박스 / 2,400박스");
-  assert.equal(optionBoxesLabel(rows[0]), "5kg 32,000원, 예약·출하 24박스, 판매 72박스");
+  // DEV-487: 판매 박스(제한 없음 99,999 합)는 보이지 않고 예약+출하만
+  assert.equal(optionBoxesText(rows[0]), "24박스 예약");
+  assert.equal(optionBoxesText(rows[1]), "1,800박스 예약");
+  assert.equal(optionBoxesLabel(rows[0]), "5kg 32,000원, 예약·출하 24박스");
   // 가격이 없으면 가격을 빼고 읽는다
-  assert.equal(optionBoxesLabel(rows[1]), "10kg 예약·출하 1,800박스, 판매 2,400박스");
+  assert.equal(optionBoxesLabel(rows[1]), "10kg 예약·출하 1,800박스");
   assert.equal(optionBoxesRatio(rows[0]), 1 / 3);
   // 판매 박스보다 많이 팔려도 막대는 가득(1)
   assert.equal(optionBoxesRatio({ ...rows[0], sold: 90 }), 1);
@@ -192,8 +193,8 @@ test("AC-14-3 DEV-300: the card, the product screen and the dashboard give the s
   assert.deepEqual(optionBoxesFromCard(card), fromProduct);
   assert.deepEqual(optionBoxesFromDashboard(dashboard), fromProduct);
   assert.deepEqual(fromProduct.map(optionBoxesLabel), [
-    "5kg 33,000원, 예약·출하 38박스, 판매 180박스",
-    "10kg 62,000원, 예약·출하 6박스, 판매 45박스",
+    "5kg 33,000원, 예약·출하 38박스",
+    "10kg 62,000원, 예약·출하 6박스",
   ]);
 });
 

@@ -761,7 +761,7 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 **AC-14-3: Separate numbers**
 - **GIVEN** a product has reservations and shipments
 - **WHEN** I view the dashboard
-- **THEN** order counts and, per weight option of the representative product, the current period's box price and reserved+shipped boxes (against that option's boxes for sale, all periods) are shown separately; options are never added together, total kg is small secondary text (11/10 producer interview: per-option price and boxes first, total kg secondary), and approved/available kg remain in product sales settings (DEV-300)
+- **THEN** order counts and, per weight option of the representative product, the current period's box price and reserved+shipped boxes (all periods; since DEV-487 boxes for sale are no longer shown because per-period box counts were dropped, and a single kg bar shows reserved+shipped against the sales limit) are shown separately; options are never added together, total kg is small secondary text (11/10 producer interview: per-option price and boxes first, total kg secondary), and approved/available kg remain in product sales settings (DEV-300)
 - **AND** they are not mixed up with the number of buyers or orders
 - **AND** the only chat items are the to-do rows "AI answer check requests N" (DEV-296) and "unanswered questions N"
 

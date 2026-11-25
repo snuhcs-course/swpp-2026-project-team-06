@@ -208,7 +208,7 @@ async function applyTermsChange(page: import("@playwright/test").Page) {
   await expect(page.getByText("상품에 반영했어요", { exact: true })).toBeVisible();
 }
 
-test("AC-04-9 DEV-345 DEV-361: applying more boxes while still fully sold out offers to raise the sales limit", async ({
+test("AC-04-9 DEV-345 DEV-361 DEV-487: applying sales terms while still fully sold out offers to raise the sales limit", async ({
   page,
   request,
 }) => {
@@ -222,7 +222,7 @@ test("AC-04-9 DEV-345 DEV-361: applying more boxes while still fully sold out of
       // 예전 기간·가격 주소는 판매 조건 시트를 연 상품 수정으로 간다
       await page.goto(`${producerUrl}/products/p-house/stages`);
       await applyTermsChange(page);
-      // 박스만으로는 kg 품절이 풀리지 않는다: 반영 뒤 상품을 다시 읽어 안내한다
+      // 판매 조건을 반영해도 kg 품절은 풀리지 않는다: 반영 뒤 상품을 다시 읽어 안내한다
       await expect(
         page.getByText(`판매 한도(${kg(p.salesLimitGrams)})를 모두 써서 아직 예약을 받을 수 없어요.`, { exact: true }),
       ).toBeVisible();

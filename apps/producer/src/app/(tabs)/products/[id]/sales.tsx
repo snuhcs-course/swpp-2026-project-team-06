@@ -355,7 +355,7 @@ export default function Sales() {
                         옵션 · 박스당 가격
                       </T>
                       <T variant="caption" muted>
-                        예약+출하 / 판매
+                        예약+출하
                       </T>
                     </View>
                     {optionBoxesFromProduct(p.options, p.stages, p.currentStageId).map(
