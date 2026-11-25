@@ -170,8 +170,8 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
         ]),
       ),
     }));
-  const locked = structuredClone(rows);
-  locked[0].startsAt = "2026-09-30";
+  // DEV-489: 예약 이력이 있는 기간도 날짜는 고칠 수 있고, 지우기만 막는다
+  const locked = structuredClone(rows).slice(1);
   assert.equal(
     (
       await api("PUT", "/api/products/p-house/stages", p, {
