@@ -15,7 +15,6 @@ import {
   Scroll,
   Sheet,
   Skeleton,
-  Icon,
   T,
   md,
   time,
@@ -23,7 +22,7 @@ import {
   useLiveList,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { NumField } from "../../../lib/fields";
 import { OptionBoxRow } from "../../../lib/OptionBoxRow";
@@ -179,7 +178,7 @@ function ProductIdentity({
           </View>
         </View>
       )}
-      {children ? <View style={{ marginTop: tokens.space.sm }}>{children}</View> : null}
+      {Children.toArray(children).length ? <View style={{ marginTop: tokens.space.sm, gap: tokens.space.xs }}>{children}</View> : null}
     </View>
   );
 }
@@ -190,10 +189,13 @@ function SalesManageSheet({
   product,
   onClose,
   onDone,
+  onFail,
 }: {
   product: MyProductCard;
   onClose: () => void;
   onDone: () => void;
+  /** 실패하면 목록을 다시 읽는다(버전이 바뀐 경우 새 카드로 바로 다시 시도할 수 있게) */
+  onFail?: () => void;
 }) {
   const { toast } = useSession();
   const [step, setStep] = useState<ManageStep>("menu");
@@ -228,6 +230,7 @@ function SalesManageSheet({
     } catch (e) {
       // 시트 안에서 보인다(앱 토스트는 시트 뒤에 그려짐). 서버 문구를 그대로
       setError(e instanceof Error && e.message ? e.message : "처리하지 못했어요. 다시 시도해 주세요.");
+      onFail?.();
     } finally {
       setBusy(false);
     }
@@ -335,6 +338,11 @@ function SalesManageSheet({
                 ) : null
               }
             >
+              {product.status === "PUBLISHED" && product.rejectReason && !request ? (
+                <T variant="caption" color={tokens.color.error}>
+                  늘리기 반려: {product.rejectReason}
+                </T>
+              ) : null}
               {request ? (
                 <PendingChip
                   label={
@@ -455,7 +463,9 @@ export default function Products() {
     [],
   );
   const list = useLiveList(load, user?.userId ?? "", active && !!user, 8000);
-  const [managing, setManaging] = useState<MyProductCard | null>(null);
+  // 연 카드의 id만 들고 최신 카드는 목록에서 찾는다(목록이 다시 읽히면 시트도 새 버전으로, 버전 충돌 뒤 회복)
+  const [managingId, setManagingId] = useState<string | null>(null);
+  const managing = managingId ? list.data?.find((item) => item.productId === managingId) ?? null : null;
   const items = list.data?.filter(
     (item) => productGroup(item) === selected.value,
   );
@@ -601,6 +611,12 @@ export default function Products() {
                     {draftSaved(product.updatedAt, { md, time }, serverNow())}
                   </T>
                 ) : null}
+                {/* 늘리기 반려 사유(DEV-487): 상품은 판매 중으로 남고 서버가 사유를 둔다. 다음 신청 때 지워진다 */}
+                {product.status === "PUBLISHED" && product.rejectReason && !product.pendingCapacityRequest ? (
+                  <T variant="caption" color={tokens.color.error} numberOfLines={2}>
+                    늘리기 반려: {product.rejectReason}
+                  </T>
+                ) : null}
                 {product.pendingCapacityRequest?.kind === "INCREASE" ? (
                   <PendingChip label={`${kgText(product.pendingCapacityRequest.requestedTotalGrams)}으로 늘리기 심사 중`} />
                 ) : null}
@@ -648,7 +664,7 @@ export default function Products() {
                   label="판매 관리"
                   variant="secondary"
                   style={{ flex: 1 }}
-                  onPress={() => setManaging(product)}
+                  onPress={() => setManagingId(product.productId)}
                 />
               ) : null}
             </View>
@@ -659,9 +675,10 @@ export default function Products() {
         <SalesManageSheet
           key={managing.productId}
           product={managing}
-          onClose={() => setManaging(null)}
+          onClose={() => setManagingId(null)}
+          onFail={list.retry}
           onDone={() => {
-            setManaging(null);
+            setManagingId(null);
             list.retry();
           }}
         />

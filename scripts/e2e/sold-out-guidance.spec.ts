@@ -55,28 +55,11 @@ async function producerApi(request: APIRequestContext) {
   };
   const setLimit = (id: string, grams: number) => putSales(id, () => ({ salesLimitGrams: grams }));
   const setPaused = (id: string, paused: boolean) => putSales(id, () => ({ salesPaused: paused }));
-  /** 기간 stageId의 옵션 박스 수만 바꿔 저장한다(나머지는 그대로) */
-  const setStageQuantity = async (
-    id: string,
-    stageId: string,
-    quantity: (optionId: string, value: { quantity: number; reservedCount: number }) => number,
-  ) => {
-    const p = await read(id);
-    const stages = p.stages.map((s) => ({
-      stageId: s.stageId,
-      name: s.name,
-      startsAt: s.startsAt,
-      endsAt: s.endsAt,
-      options: Object.fromEntries(
-        Object.entries(s.options).map(([k, v]) => [
-          k,
-          { price: v.price, quantity: s.stageId === stageId ? quantity(k, v) : v.quantity },
-        ]),
-      ),
-    }));
-    const response = await request.put(`${apiUrl}/api/products/${id}/stages`, {
+  /** 심사 중인 공급 신청을 철회한다(테스트 정리용) */
+  const withdraw = async (id: string, requestId: string, version: number) => {
+    const response = await request.post(`${apiUrl}/api/products/${id}/capacity-requests/${requestId}/withdraw`, {
       headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
-      data: { stages, version: p.version },
+      data: { version },
     });
     expect(response.ok(), await response.text()).toBeTruthy();
   };
@@ -113,7 +96,7 @@ async function producerApi(request: APIRequestContext) {
     expect(patched.ok(), await patched.text()).toBeTruthy();
     return read(draft.productId);
   };
-  return { read, setLimit, setPaused, setStageQuantity, restoreStages, createDraft };
+  return { read, setLimit, setPaused, withdraw, restoreStages, createDraft };
 }
 
 /** p-house를 전체 물량 품절(한도 = 예약+출하, 승인 물량 > 한도)로 두고 run 뒤 한도를 되돌린다 */
@@ -163,7 +146,7 @@ test("AC-04-9 DEV-345 DEV-361 DEV-487: applying sales terms while still fully so
       // 판매 조건을 반영해도 kg 품절은 풀리지 않는다: 반영 뒤 상품을 다시 읽어 안내한다
       // DEV-487: 한도 늘리기 화면이 없어 버튼 없이 안내만(늘리기는 상품 목록의 '판매 관리')
       await expect(
-        page.getByText(`승인 물량(${kg(p.salesLimitGrams)})을 모두 팔아서 더 예약을 받을 수 없어요.`, { exact: true }),
+        page.getByText(`총 물량(${kg(p.salesLimitGrams)})을 모두 팔았어요. 상품 목록의 판매 관리에서 늘릴 수 있어요.`, { exact: true }),
       ).toBeVisible();
       await expect(page).toHaveURL(/composer=1/);
       await expect(page.getByRole("button", { name: "판매 한도 늘리기" })).toHaveCount(0);
@@ -277,6 +260,9 @@ test("AC-04-9 DEV-487: 판매 관리 lowers the total at once, refuses below res
     await sheet.getByRole("button", { name: "철회", exact: true }).click();
     await expect(page.getByText("늘리기 요청을 철회했어요.", { exact: true })).toBeVisible();
   } finally {
+    // 중간에 실패해도 다른 spec이 CAPACITY_REQUEST_PENDING에 걸리지 않게 남은 증액 신청을 거둔다
+    const left = (await api.read("p-house")) as Product & { pendingCapacityRequest?: { requestId: string; version: number } | null };
+    if (left.pendingCapacityRequest) await api.withdraw("p-house", left.pendingCapacityRequest.requestId, left.pendingCapacityRequest.version);
     await api.setLimit("p-house", before.salesLimitGrams);
   }
   assertClean();

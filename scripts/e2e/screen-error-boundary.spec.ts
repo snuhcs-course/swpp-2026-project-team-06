@@ -116,7 +116,7 @@ test("DEV_473 home leaves the dead screen: browser back and the tab do not reope
   await pressTab(page, /상품/);
   await expect(page).toHaveURL(/\/products(\?|$)/);
   // 탭은 마지막 필터(작성 중)를 기억한다(DEV-487에서 하위 화면을 작성 중 카드의 판매·가격으로 바꿈)
-  await expect(page.getByRole("button", { name: "한라봉 5kg 상품 수정", exact: true }).or(houseCard(page))).toBeVisible();
+  await expect(page.getByRole("button", { name: "한라봉 5kg 상품 수정", exact: true })).toBeVisible();
   await expect(shown(page)).toHaveCount(0);
   // 브라우저 뒤로 두 번: 어느 기록도 죽은 하위 화면이 아니다(죽은 화면 기록은 꺼낼 때 탭 첫 화면 주소로 바뀐다)
   for (const _ of [1, 2]) {
