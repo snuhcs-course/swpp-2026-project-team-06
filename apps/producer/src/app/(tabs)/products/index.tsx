@@ -1,4 +1,5 @@
 import {
+  ApiError,
   allPages,
   catalog,
   newIdempotencyKey,
@@ -214,8 +215,11 @@ function SalesManageSheet({
   const raising = Math.round((totalKg ?? 0) * 1000) > product.approvedSupplyGrams;
   // 철회 확인 중에 신청이 처리돼 사라지면(목록 8초마다 다시 읽음) 처음 화면으로
   useEffect(() => {
-    if (step === "withdraw" && !request && !busy) setStep("menu");
-  }, [step, request, busy]);
+    if (busy) return;
+    if (step === "withdraw" && !request) setStep("menu");
+    // 멈춤 확인 중에 다른 곳에서 이미 멈췄으면 처음 화면으로
+    if (step === "pause" && product.salesPaused) setStep("menu");
+  }, [step, request, busy, product.salesPaused]);
   const go = (next: ManageStep) => {
     setError("");
     setStep(next);
@@ -234,6 +238,8 @@ function SalesManageSheet({
     } catch (e) {
       // 시트 안에서 보인다(앱 토스트는 시트 뒤에 그려짐). 서버 문구를 그대로
       setError(e instanceof Error && e.message ? e.message : "처리하지 못했어요. 다시 시도해 주세요.");
+      // 서버가 답한 거절(4xx)은 저장돼 같은 키로는 같은 답만 온다. 다음 시도는 새 키(연결 실패만 같은 키로 다시)
+      if (e instanceof ApiError && e.status < 500) pending.current = null;
       onFail?.();
     } finally {
       setBusy(false);
@@ -269,14 +275,15 @@ function SalesManageSheet({
       return `총 물량을 ${kgText(grams)}으로 바꿨어요.`;
     });
   };
-  const togglePause = () =>
+  // 누른 버튼의 뜻(멈춤·재개)을 그대로 보낸다. 목록이 다시 읽혀 카드 상태가 바뀌어도 반대로 보내지 않는다(스캔 3차)
+  const setPaused = (paused: boolean) =>
     run(async () => {
       await catalog.salesSettings(
         product.productId,
-        { salesLimitGrams: product.salesLimitGrams, salesPaused: !product.salesPaused, version: product.version },
-        keyFor(["pause", product.salesLimitGrams, !product.salesPaused, product.version]),
+        { salesLimitGrams: product.salesLimitGrams, salesPaused: paused, version: product.version },
+        keyFor(["pause", product.salesLimitGrams, paused, product.version]),
       );
-      return product.salesPaused ? "판매를 재개했어요." : "판매를 중지했어요. 기존 예약은 유지돼요.";
+      return paused ? "판매를 중지했어요. 기존 예약은 유지돼요." : "판매를 재개했어요.";
     });
   const errorLine = error ? (
     <View accessibilityRole="alert">
@@ -307,7 +314,7 @@ function SalesManageSheet({
                     accessibilityRole="button"
                     accessibilityLabel={product.salesPaused ? "판매 재개" : "판매 중지"}
                     disabled={busy}
-                    onPress={() => (product.salesPaused ? void togglePause() : go("pause"))}
+                    onPress={() => (product.salesPaused ? void setPaused(false) : go("pause"))}
                     hitSlop={8}
                     style={({ pressed }) => ({ minHeight: 28, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
                   >
@@ -392,7 +399,7 @@ function SalesManageSheet({
               새 예약을 받지 않아요. 이미 받은 예약은 그대로예요.{"\n"}판매 관리에서 언제든 다시 재개할 수 있어요.
             </T>
             {errorLine}
-            {footer("판매 중지", () => void togglePause())}
+            {footer("판매 중지", () => void setPaused(true))}
           </>
         ) : (
           <>
