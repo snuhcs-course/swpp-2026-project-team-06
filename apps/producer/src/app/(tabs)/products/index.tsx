@@ -202,7 +202,7 @@ function SalesManageSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [totalKg, setTotalKg] = useState<number | null>(product.salesLimitGrams / 1000);
-  // 같은 동작·같은 값의 재시도는 같은 멱등 키
+  // 같은 동작·같은 본문(version 포함)의 재시도만 같은 멱등 키. 버전 충돌 뒤 새 버전으로 다시 보내면 새 키(스캔 2차)
   const pending = useRef<{ body: string; key: string } | null>(null);
   const keyFor = (body: unknown) => {
     const text = JSON.stringify(body);
@@ -212,6 +212,10 @@ function SalesManageSheet({
   const request = product.pendingCapacityRequest;
   const committed = product.reservedGrams + product.shippedGrams;
   const raising = Math.round((totalKg ?? 0) * 1000) > product.approvedSupplyGrams;
+  // 철회 확인 중에 신청이 처리돼 사라지면(목록 8초마다 다시 읽음) 처음 화면으로
+  useEffect(() => {
+    if (step === "withdraw" && !request && !busy) setStep("menu");
+  }, [step, request, busy]);
   const go = (next: ManageStep) => {
     setError("");
     setStep(next);
@@ -237,7 +241,9 @@ function SalesManageSheet({
   };
   const withdraw = () =>
     run(async () => {
-      await catalog.withdrawCapacity(product.productId, request!.requestId, request!.version, keyFor(["withdraw", request!.requestId]));
+      // 그사이 운영자가 처리했으면(목록 새로 읽음) 신청이 없다
+      if (!request) throw new Error("이미 처리된 신청이에요.");
+      await catalog.withdrawCapacity(product.productId, request.requestId, request.version, keyFor(["withdraw", request.requestId, request.version]));
       return product.status === "PENDING_APPROVAL"
         ? "신청을 철회했어요. 판매·가격에서 고친 뒤 다시 요청해 주세요."
         : "늘리기 요청을 철회했어요.";
@@ -250,7 +256,7 @@ function SalesManageSheet({
     if (grams > product.approvedSupplyGrams) {
       if (request) return setError("늘리기 요청이 심사 중이에요. 철회한 뒤 다시 요청해 주세요.");
       return run(async () => {
-        await catalog.requestCapacity(product.productId, grams, product.version, keyFor(["increase", grams]));
+        await catalog.requestCapacity(product.productId, grams, product.version, keyFor(["increase", grams, product.version]));
         return `${kgText(grams)}으로 늘리기를 요청했어요. 운영팀이 확인하면 늘어나요.`;
       });
     }
@@ -258,7 +264,7 @@ function SalesManageSheet({
       await catalog.salesSettings(
         product.productId,
         { salesLimitGrams: grams, salesPaused: product.salesPaused, version: product.version },
-        keyFor(["limit", grams]),
+        keyFor(["limit", grams, product.salesPaused, product.version]),
       );
       return `총 물량을 ${kgText(grams)}으로 바꿨어요.`;
     });
@@ -268,7 +274,7 @@ function SalesManageSheet({
       await catalog.salesSettings(
         product.productId,
         { salesLimitGrams: product.salesLimitGrams, salesPaused: !product.salesPaused, version: product.version },
-        keyFor(["pause", !product.salesPaused]),
+        keyFor(["pause", product.salesLimitGrams, !product.salesPaused, product.version]),
       );
       return product.salesPaused ? "판매를 재개했어요." : "판매를 중지했어요. 기존 예약은 유지돼요.";
     });
