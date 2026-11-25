@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Image, Platform, Pressable, Text, View, type TextStyle } from "react-native";
+import { Image, Linking, Platform, Pressable, Text, View, type TextStyle } from "react-native";
 import type { StoryModule } from "./ModuleStory";
 import { ViewablePhoto } from "./PrivatePhotos";
 import { SOURCE_STORY_THEME as theme, type SourceStoryDesign, type SourceStoryMedia, type SourceStorySection } from "./sourceStoryDesign";
@@ -22,7 +22,7 @@ const icons = {
 const titles = { intro: "상품 소개", composition: "받으실 구성", taste: "맛과 크기", production: "재배와 선별", packing: "포장과 배송", storage: "보관 방법", faq: "구매 전 확인", farm: "농가 이야기", updates: "농가 소식" };
 
 /** Keep the complete source region visible; even small source images stay at native width. */
-function SourceMedia({ id, media, mediaUrl, hideCaption }: { id: string; media: SourceStoryMedia; mediaUrl: (uri: string) => string; hideCaption: boolean }) {
+function SourceMedia({ id, media, mediaUrl, hideCaption, boundCaption }: { id: string; media: SourceStoryMedia; mediaUrl: (uri: string) => string; hideCaption: boolean; boundCaption?: { moduleId: string; textIndex: number; value: string } }) {
   const uri = mediaUrl(media.uri);
   const [failed, setFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -41,6 +41,8 @@ function SourceMedia({ id, media, mediaUrl, hideCaption }: { id: string; media: 
       <Text style={[body, { color: theme.ink }]}>사진을 불러올 수 없어요</Text>
       <Text style={[body, { color: theme.muted }]}>{media.alt}</Text>
     </View> : media.kind === "comparison" ? <ViewablePhoto uri={uri}>{image}</ViewablePhoto> : image}
+    {boundCaption ? <Text testID={`source-caption-${id}`} nativeID={`sg-text-${boundCaption.moduleId}-${boundCaption.textIndex}`} style={[body, { color: theme.ink, paddingHorizontal: 16, paddingBottom: 12 }]}>{boundCaption.value}</Text> : null}
+    {media.sourceRef ? <View style={{ flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, paddingBottom: 12, gap: 12 }}>{media.sourceRef.pages.map(page => <Pressable key={page} accessibilityRole="link" testID={`source-link-${id}-${page}`} onPress={() => Linking.openURL(`${mediaUrl(media.sourceRef!.uri)}#page=${page}`)} style={{ minHeight: 44, justifyContent: "center" }}><Text style={[body, { fontSize: 14, color: theme.muted, textDecorationLine: "underline" }]}>원문 {page}쪽 ↗</Text></Pressable>)}</View> : null}
     {media.caption && !hideCaption ? <Text style={[body, { color: theme.ink, paddingHorizontal: 20 }]}>{media.caption}</Text> : null}
     {media.kind === "comparison" ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: true }} onPress={() => setExpanded(false)} style={{ padding: 12, minHeight: 48 }}><Text style={[body, { fontSize: 14, color: theme.muted, textAlign: "center" }]}>크기 비교 그림 접기</Text></Pressable> : null}
   </View>;
@@ -62,11 +64,12 @@ function SavedPhoto({ uri, alt }: { uri: string; alt: string }) {
     style={{ width: "100%", maxWidth: size.width, aspectRatio: size.width / size.height, alignSelf: "center" }} />;
 }
 
-function SavedModule({ module, section, mediaUrl, presentation, supplement }: { module: StoryModule; section: SourceStorySection; mediaUrl: (uri: string) => string; presentation: Map<string, TextPresentation>; supplement?: StoryModule }) {
+function SavedModule({ module, section, mediaUrl, presentation, supplement, captionRefs }: { module: StoryModule; section: SourceStorySection; mediaUrl: (uri: string) => string; presentation: Map<string, TextPresentation>; supplement?: StoryModule; captionRefs: ReadonlySet<string> }) {
   const accent = section.tone === "accent";
   const options = section.layout === "options" && module.id === "composition";
   const hero = section.layout === "hero" && module.id === "hero";
-  const values = module.texts.map((text, index) => ({ text, index, parts: options ? sourceOptionParts(text.value) : null })).filter(({ text, index }) => text.value.trim() && !presentation.get(`${module.id}:${index}`)?.duplicateOf);
+  const values = module.texts.map((text, index) => ({ text, index, parts: options ? sourceOptionParts(text.value) : null })).filter(({ text, index }) => text.value.trim() && !captionRefs.has(`${module.id}:${index}`) && !presentation.get(`${module.id}:${index}`)?.duplicateOf);
+  if (!values.length && !module.photos.length) return null;
   return <View testID={`source-module-${module.id}`} style={{ gap: 18 }}>
     <View style={options ? { flexDirection: "row", flexWrap: "wrap", gap: 12 } : { gap: hero ? 18 : 20 }}>
       {values.map(({ text, index, parts }) => <View key={`${text.fieldKey}-${index}`} testID={options ? `source-option-card-${index}` : undefined} style={options ? {
@@ -79,7 +82,7 @@ function SavedModule({ module, section, mediaUrl, presentation, supplement }: { 
             hero && (text.fieldKey === "name" || index === 0) ? { fontSize: 34, lineHeight: 44, fontWeight: "800", letterSpacing: -1.1 } : null]}>
           {parts ? <><Text style={{ fontSize: 16, lineHeight: 29, fontWeight: "600" }}>{parts.prefix}</Text><Text style={{ fontSize: 28, lineHeight: 38, fontWeight: "800", color: theme.accent }}>{parts.weight}</Text>{parts.rows.map((row, i) => <Text key={i} style={{ fontSize: 16, lineHeight: 29, fontWeight: "400" }}>{"\n"}{row}</Text>)}</> : text.value}
         </Text>
-        {supplement ? <SavedModule module={supplement} section={{ ...section, layout: "prose" }} mediaUrl={mediaUrl} presentation={presentation} /> : null}
+        {supplement ? <SavedModule module={supplement} section={{ ...section, layout: "prose" }} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} /> : null}
       </View>)}
     </View>
     {module.photos.map((photo, index) => <SavedPhoto key={`${photo.uri}-${index}`} uri={mediaUrl(photo.uri)} alt={photo.alt} />)}
@@ -102,8 +105,12 @@ export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
   ));
   if (!sections.length) return null;
   const orderedModules = sections.flatMap(s => s.moduleIds.map(id => moduleMap.get(id)).filter((m): m is StoryModule => !!m));
-  const presentation = sourceTextPresentation(orderedModules);
   const mediaPresentation = sourceMediaPresentation({ ...design, sections });
+  const captionRefs = new Set(sections.flatMap(s => s.mediaIds.filter(id => mediaPresentation.get(id)).flatMap(id => {
+    const ref = design.media[id].captionRef;
+    return ref ? [`${ref.moduleId}:${ref.textIndex}`] : [];
+  })));
+  const presentation = sourceTextPresentation(orderedModules, captionRefs);
   const renderedText = new Set(orderedModules.flatMap(m => m.texts.map(t => t.value.trim().replace(/\s+/g, " "))));
   return <View testID="source-guided-story" style={{ width: "100%", maxWidth: 480, alignSelf: "center", backgroundColor: theme.paper }}>
     {sections.filter(s => s.mediaIds.some(id => mediaPresentation.get(id)) || s.moduleIds.some(id => {
@@ -114,7 +121,9 @@ export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
       const hero = section.layout === "hero";
       const figure = section.layout === "figure";
       const backgroundColor = accent ? theme.accent : section.tone === "cream" ? theme.cream : theme.paper;
-      const media = section.mediaIds.filter(id => mediaPresentation.get(id)).map(id => <SourceMedia key={id} id={id} media={design.media[id]} mediaUrl={mediaUrl} hideCaption={!!design.media[id].caption && renderedText.has(design.media[id].caption!.trim().replace(/\s+/g, " "))} />);
+      const media = section.mediaIds.filter(id => mediaPresentation.get(id)).map(id => <SourceMedia key={id} id={id} media={design.media[id]} mediaUrl={mediaUrl} boundCaption={design.media[id].captionRef ? {
+        ...design.media[id].captionRef!, value: moduleMap.get(design.media[id].captionRef!.moduleId)!.texts[design.media[id].captionRef!.textIndex].value,
+      } : undefined} hideCaption={!!design.media[id].caption && renderedText.has(design.media[id].caption!.trim().replace(/\s+/g, " "))} />);
       const composition = section.layout === "options" ? moduleMap.get("composition") : undefined;
       const count = section.moduleIds.includes("pieceCount") ? moduleMap.get("pieceCount") : undefined;
       const supplement = composition?.texts.length === 1 && sourceOptionParts(composition.texts[0].value) && count && !count.photos.length && count.texts.length > 0 && count.texts.every(t => sourceCountSupplement(t.value)) ? count : undefined;
@@ -131,7 +140,7 @@ export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
           {section.moduleIds.map(id => {
             const module = moduleMap.get(id);
             if (supplement && id === "pieceCount") return null;
-            return module ? <SavedModule key={id} module={module} section={section} mediaUrl={mediaUrl} presentation={presentation} supplement={id === "composition" ? supplement : undefined} /> : null;
+            return module ? <SavedModule key={id} module={module} section={section} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} supplement={id === "composition" ? supplement : undefined} /> : null;
           })}
         </View>
       </View>;

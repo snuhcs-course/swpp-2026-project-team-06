@@ -214,3 +214,5 @@ Implementation contracts: docs/evaluation/i5-source-guided-reference/spec.md. Mo
 DEV-464: web PhotoViewer focuses its close button on modal show so the existing local Escape listener receives keyboard events. Native behavior unchanged.
 
 - DEV-464 visual refresh uses exact frozen current copy with contextual source-photo evidence. Explicit SourceGuidedStory opt-in adds icon headings, stronger type hierarchy, structured source option cards and conservative exact-duplicate presentation accounting. Source strings remain unchanged; unsupported prose stays prose. Comparison graphic is inspectable without being repeated at full length in the main story. No default/editor/persistence change or product claims.
+
+DEV-464: optional source photo captionRef points to one same-section saved text index; sourceRef carries validated source URI/pages. Display bound caption once beneath its photo, preserve on image failure, respect hidden sections and retain exact source text/provenance. Invalid references reject the opt-in plan; explicit caption identity is excluded from narrative duplicate merging.

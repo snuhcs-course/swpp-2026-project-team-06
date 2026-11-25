@@ -208,3 +208,38 @@ function groupFor(id) {
   if (["farmStory", "farmPhotos"].includes(id)) return "farm";
   return "updates";
 }
+
+test("AC-SRC-7 DEV-464: caption binds one saved text to its photo in the same section", () => {
+  const modules = [textModule("delivery", "Exact saved caption")];
+  const candidate = plan({ sections: [section({ group: "packing", moduleIds: ["delivery"], mediaIds: ["m1"] })], media: { m1: media({ captionRef: { moduleId: "delivery", textIndex: 0 }, sourceRef: { uri: "/source.pdf", pages: [13, 14] } }) } });
+  assert.ok(getSourceStoryDesign(modules, candidate));
+  assert.equal(candidate.media.m1.caption, undefined);
+  assert.equal(modules[0].texts[0].value, "Exact saved caption");
+  for (const captionRef of [{ moduleId: "missing", textIndex: 0 }, { moduleId: "delivery", textIndex: 1 }, { moduleId: "delivery", textIndex: -1 }, { moduleId: "delivery", textIndex: 0.5 }, { moduleId: "delivery", textIndex: 0, extra: true }]) {
+    const bad = structuredClone(candidate); bad.media.m1.captionRef = captionRef;
+    assert.equal(getSourceStoryDesign(modules, bad), null);
+  }
+  for (const change of [{ kind: "comparison" }, { caption: "Competing caption" }]) {
+    const bad = structuredClone(candidate); Object.assign(bad.media.m1, change);
+    assert.equal(getSourceStoryDesign(modules, bad), null);
+  }
+  const misplaced = structuredClone(candidate); misplaced.sections.unshift(section()); misplaced.sections[1].moduleIds = [];
+  assert.equal(getSourceStoryDesign([textModule(), ...modules], misplaced), null);
+});
+
+test("AC-SRC-9 DEV-464: captions cannot be stolen across sections or repeated on two photos", () => {
+  const modules = [textModule(), textModule("delivery", "Caption")];
+  const candidate = plan({ sections: [section({ mediaIds: ["m1"] }), section({ id: "packing", group: "packing", moduleIds: ["delivery"] })], media: { m1: media({ captionRef: { moduleId: "delivery", textIndex: 0 } }) } });
+  assert.equal(getSourceStoryDesign(modules, candidate), null);
+  candidate.sections[0].mediaIds = []; candidate.sections[1].mediaIds = ["m1", "m2"];
+  candidate.media.m2 = media({ sourceRegionId: "other", captionRef: { moduleId: "delivery", textIndex: 0 } });
+  assert.equal(getSourceStoryDesign(modules, candidate), null);
+  candidate.media.m2.captionRef = undefined;
+  assert.ok(getSourceStoryDesign(modules, candidate));
+});
+
+test("AC-SRC-9 DEV-464: source page links reject unsafe URIs and invalid page lists", () => {
+  for (const sourceRef of [{ uri: "javascript:alert(1)", pages: [1] }, { uri: "/source.pdf#page=3", pages: [1] }, { uri: "/source.pdf", pages: [] }, { uri: "/source.pdf", pages: [0] }, { uri: "/source.pdf", pages: [1.5] }, { uri: "/source.pdf", pages: [1, 1] }, { uri: "/source.pdf", pages: [1, 2, 3, 4, 5] }]) {
+    assert.equal(getSourceStoryDesign([textModule()], plan({ sections: [section({ mediaIds: ["m1"] })], media: { m1: media({ sourceRef }) } })), null);
+  }
+});

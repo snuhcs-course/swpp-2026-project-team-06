@@ -18,3 +18,5 @@ The opt-in local reference now binds today’s frozen saved text to previously c
 DEV-464 follow-up: restored the thin rule beside section headings. Titles can wrap on narrow screens while the decorative rule retains a24px minimum.
 
 DEV-464: composition values containing prices or complex alternatives retain their entire source text in a full-width card when conservative parsing is unavailable. The focused review includes the remaining text and PDF examples using the same explicit design renderer.
+
+DEV-464 caption correction: explicit per-photo references bind existing saved text within the same section. Reject missing/empty/repeated/cross-section/non-photo references and keep the established invalid-plan fallback. Render each bound caption once immediately below its photo, including image-load failure. Validated source-page links support inspection and cross-page relationships. The known reference corrects a subset-selection mistake using three saved native images; automatic semantic caption matching remains unmeasured.

@@ -53,3 +53,10 @@ test("DEV-464 AC-SRC-9: duplicate source region shown once while other sources s
   assert.equal(result.get("duplicate"), false);
   assert.equal(result.get("other"), true);
 });
+
+test("DEV-464 AC-SRC-7: caption references keep their identity even when wording repeats", () => {
+  const caption = "A source caption that is deliberately longer than thirty two characters.";
+  const ledger = sourceTextPresentation([module("delivery", [caption, caption])], new Set(["delivery:0", "delivery:1"]));
+  assert.equal(ledger.get("delivery:0").duplicateOf, null);
+  assert.equal(ledger.get("delivery:1").duplicateOf, null);
+});
