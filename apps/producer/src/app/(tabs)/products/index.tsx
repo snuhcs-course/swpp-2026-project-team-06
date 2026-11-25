@@ -238,8 +238,9 @@ function SalesManageSheet({
     } catch (e) {
       // 시트 안에서 보인다(앱 토스트는 시트 뒤에 그려짐). 서버 문구를 그대로
       setError(e instanceof Error && e.message ? e.message : "처리하지 못했어요. 다시 시도해 주세요.");
-      // 서버가 답한 거절(4xx)은 저장돼 같은 키로는 같은 답만 온다. 다음 시도는 새 키(연결 실패만 같은 키로 다시)
-      if (e instanceof ApiError && e.status < 500) pending.current = null;
+      // 서버가 답한 거절(409, 서버가 결과를 저장함)은 같은 키로는 같은 답만 온다. 다음 시도는 새 키.
+      // 연결 실패(status 0)는 서버가 처리했을 수 있어 같은 키로 다시(스캔 4차)
+      if (e instanceof ApiError && e.status === 409) pending.current = null;
       onFail?.();
     } finally {
       setBusy(false);
@@ -384,9 +385,11 @@ function SalesManageSheet({
                 setTotalKg(v);
               }} />
             <T variant="sub" muted>
-              {raising
-                ? `승인 ${kgText(product.approvedSupplyGrams)}보다 많아서 운영팀이 확인한 뒤 늘어나요.`
-                : `예약·출하된 ${kgText(committed)}보다 적게는 못 줄여요.`}
+              {raising && request
+                ? "늘리기 요청이 심사 중이에요. 철회한 뒤 다시 요청해 주세요."
+                : raising
+                  ? `승인 ${kgText(product.approvedSupplyGrams)}보다 많아서 운영팀이 확인한 뒤 늘어나요.`
+                  : `예약·출하된 ${kgText(committed)}보다 적게는 못 줄여요.`}
             </T>
             {errorLine}
             {footer(raising ? "늘리기 요청" : "저장", () => void saveTotal())}

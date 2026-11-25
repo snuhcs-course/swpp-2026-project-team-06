@@ -168,7 +168,7 @@ test("AC-04-9 DEV-345 DEV-361: applying sales terms of a sellable product stays 
     await page.goto(`${producerUrl}/products/p-house/stages`);
     await applyTermsChange(page);
     await expect(page).toHaveURL(/composer=1/);
-    await expect(page.getByText(/를 모두 써서 아직 예약을 받을 수 없어요/)).toHaveCount(0);
+    await expect(page.getByText(/을 모두 팔았어요\. 상품 목록의 판매 관리에서 늘릴 수 있어요/)).toHaveCount(0);
   } finally {
     await api.restoreStages("p-house", house.stages);
   }
