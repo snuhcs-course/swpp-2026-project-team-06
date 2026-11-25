@@ -84,7 +84,7 @@ export default function FarmInfo() {
         ) : null}
         {farm.data ? (
           <View style={{ padding: tokens.space.gutter, gap: 24 }}>
-            <FarmTemperature key={farmId} farmId={farmId} />
+            <FarmTemperature key={`${farmId}:${session.key}:${farm.data.isFollowing}`} farmId={farmId} />
             <ProfileAvatar
               name={farm.data.name}
               uri={farm.data.photo}

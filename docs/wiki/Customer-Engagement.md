@@ -16,6 +16,8 @@ Temperature is stored/calculated as integer tenths: clamp(0,990,365+F+P+L+H+R-M)
 
 ## Verified challenges and supporting actions
 
+Temperature reads and report submissions use the same viewer-specific farm visibility rule as farm detail (R-29). Anonymous and regular accounts receive the same 404 for hidden test farms and nonexistent farms; test accounts retain access. Denied reports create no records. The introduction refreshes its temperature from the server after a successful follow/unfollow and when the account changes.
+
 The dashboard derives five statuses from the current user’s saved records: active first follow, existing news reaction, sent customer message, completed nonrefunded purchase, and verified purchase rating. Removing the last qualifying action removes completion. Opening a screen, clicking a task, reporting a deposit, or making an unconfirmed order never completes a purchase. There is no completion-write endpoint or local completion flag.
 
 Star ratings require the consumer’s own completed nonrefunded order and strict integer1–5 validation. Farm reports persist as pending and need a separate administrator decision. Administrators can page through submitted reports and inspect their contents through the authenticated API; consumer identifiers are excluded. AI-answer verification requests are not abuse reports. Duplicate reports for the same confirmed incident produce one temperature penalty. Customer/report data are never exposed in the public temperature response.

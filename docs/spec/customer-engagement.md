@@ -29,13 +29,14 @@
 
 - F/L/H/R의 유효 소비자=User.role CONSUMER·deleted_at 없음. 운영자가 확정한 M은 별도 검토 근거이므로 신고자 탈퇴로 사라지지 않고 판정 반전으로만 제거한다. 로컬 테스트 계정도 실제 저장 행동만 반영.
 - 창: now-28days <= created_at <= now, UTC 비교. 날짜·주 cap만 Asia/Seoul. 무활동으로 창 밖 P/L/H 제거, F/R/M은 현 근거 유지.
-- GET /api/farms/{id}/temperature: 승인 농가 공개, temperatureTenths·contributions(F/P/L/H/R/M)·calculatedAt·policyVersion=1. 개인정보/신고 이유/대화 미노출.
+- GET /api/farms/{id}/temperature: R-29의 보는 사람별 공개 조건을 만족하는 승인 농가만 공개한다. 숨긴 테스트 농가는 익명·일반 계정에 없는 농가와 같은404, 테스트 계정에는 조회 허용. temperatureTenths·contributions(F/P/L/H/R/M)·calculatedAt·policyVersion=1. 개인정보/신고 이유/대화 미노출.
 - 소개 상단 “농가 온도 36.5°C” 누름 카드→산식·기간·별점·신고 설명 시트. 로딩/실패·재시도 구분, 실패에 임의36.5 표시 금지.
+- 소개 화면의 팔로우/해제 성공 뒤와 계정 변경 때 서버 온도를 다시 조회한다. 화면을 떠나지 않아도 현재 기여를 반영하며 클라이언트가 점수를 임의 가산하지 않는다.
 
 ## AC-ENG-3 검증 별점·신고
 - GET /api/engagement/reviews/{orderId}: 본인 주문만 조회하고 {orderId,stars:number|null}로 기존 별점을 반환한다. 미완료·환불 주문은 stars=null이며 쓰기는 거절한다.
 - PUT /api/engagement/reviews/{orderId}: OnboardedConsumer 본인 주문, 위 R 조건. stars strict integer1..5. order PK upsert·수정 대체. 남의 주문404, 미완료/환불409. 완료 주문 상세에 별점 입력 UI.
-- POST /api/engagement/farms/{farmId}/reports: OnboardedConsumer·승인 농가, trim reason10..1000자, 실제 PENDING 저장. pair당1개, 중복은 기존 기록 반환(첫 내용 유지). 제출만으로 차감 없음. 소개의 “농가 신고” UI와 제출 결과·에러.
+- POST /api/engagement/farms/{farmId}/reports: OnboardedConsumer·R-29에서 본인에게 공개인 승인 농가, trim reason10..1000자, 실제 PENDING 저장. 숨긴 농가는404이며 신고를 저장하지 않는다. pair당1개, 중복은 기존 기록 반환(첫 내용 유지). 제출만으로 차감 없음. 소개의 “농가 신고” UI와 제출 결과·에러.
 - GET /api/engagement/reports?status=PENDING: Admin 전용, 기본20·최대50·cursor 페이지로 {items:[{reportId,farmId,reason,status,incidentKey,createdAt,reviewedAt}],nextCursor} 반환. 소비자 식별자는 노출하지 않으며 다른 역할은 차단한다. 검토자가 실제 접수 내용을 찾고 판정하도록 제공한다.
 - PATCH /api/engagement/reports/{reportId}: Admin만 status CONFIRMED/REJECTED/OVERTURNED, incidentKey trim1..100(CONFIRMED 필수). 같은 farm·incidentKey 여러 신고는1회 차감. 판정/반전 원자 저장·재계산. 기존 관리자 인증 API/Swagger로 운영, 별도 관리자 UI 범위 밖.
 - AI 답변 확인요청은 농가 신고가 아니다.

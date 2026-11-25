@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.pagination import page_limit
 from app.core.schemas import Paged
-from app.core.security import Admin, Consumer, OnboardedConsumer
+from app.core.security import Admin, Consumer, OnboardedConsumer, OptionalUser
 from app.engagement import service
 from app.engagement.schemas import (
     Achievements,
@@ -27,8 +27,8 @@ Db = Annotated[Session, Depends(get_db)]
 
 
 @public_router.get("/{farm_id}/temperature", response_model=Temperature)
-def temperature(db: Db, farm_id: str):
-    return service.temperature(db, farm_id)
+def temperature(db: Db, farm_id: str, user: OptionalUser):
+    return service.temperature(db, farm_id, user)
 
 
 @router.get("/achievements", response_model=Achievements)

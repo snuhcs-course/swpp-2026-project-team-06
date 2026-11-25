@@ -457,7 +457,12 @@ def create_detail_draft(farm: Farm, body: DetailDraftInput) -> DetailDraft:
 
 def set_follow(db: Session, consumer_id: str, farm_id: str, on: bool) -> FollowState:
     """팔로우·해제(FEAT-06). 팔로워 수는 같은 트랜잭션에서 바꾼다."""
-    farm = db.scalar(select(Farm).where(Farm.id == farm_id).with_for_update())
+    farm = db.scalar(
+        select(Farm)
+        .where(Farm.id == farm_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if farm is None or public_farm(db, farm_id, consumer_id) is None:
         raise not_found("찾을 수 없는 농가예요.")
     from app.engagement.service import follow_receipt

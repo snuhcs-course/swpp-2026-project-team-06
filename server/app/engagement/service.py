@@ -23,6 +23,7 @@ from app.engagement.schemas import (
     ReviewView,
     Temperature,
 )
+from app.farms import service as farms
 from app.farms.models import Farm, Follow
 from app.messaging.models import Broadcast, Reaction, RoomReply, Thread, ThreadMessage
 from app.orders.models import Order
@@ -35,9 +36,13 @@ VALID_PURCHASE = (
 )
 
 
-def approved_farm(db: Session, farm_id: str, *, lock: bool = False) -> Farm:
-    query = select(Farm).where(Farm.id == farm_id, Farm.approval_status == "APPROVED")
-    farm = db.scalar(query.with_for_update() if lock else query)
+def approved_farm(
+    db: Session, farm_id: str, viewer: farms.Viewer = None, *, lock: bool = False
+) -> Farm:
+    query = select(Farm).where(Farm.id == farm_id, farms.public_farm_clause(db, viewer))
+    if lock:
+        query = query.with_for_update().execution_options(populate_existing=True)
+    farm = db.scalar(query)
     if farm is None:
         raise not_found("찾을 수 없는 농가예요.")
     return farm
@@ -68,8 +73,8 @@ def clamp_temperature(contributions: dict[str, int]) -> int:
     return min(990, max(0, 365 + sum(contributions[k] for k in "FPLHR") - contributions["M"]))
 
 
-def temperature(db: Session, farm_id: str) -> Temperature:
-    approved_farm(db, farm_id)
+def temperature(db: Session, farm_id: str, viewer: farms.Viewer = None) -> Temperature:
+    approved_farm(db, farm_id, viewer)
     instant = now()
     since = instant - timedelta(days=28)
     follows = db.scalar(
@@ -186,7 +191,7 @@ def save_review(db: Session, consumer_id: str, order_id: str, stars: int) -> Rev
 
 
 def submit_report(db: Session, consumer_id: str, farm_id: str, reason: str) -> ReportView:
-    approved_farm(db, farm_id, lock=True)
+    approved_farm(db, farm_id, consumer_id, lock=True)
     row = db.scalar(
         select(FarmReport).where(
             FarmReport.consumer_id == consumer_id, FarmReport.farm_id == farm_id

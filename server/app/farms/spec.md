@@ -55,7 +55,7 @@ DEV-38: `share.py`의 `/s/farms/{farm_id}`는 Jinja2 자동 이스케이프 HTML
 - AC-ENG-1: set_follow는 Farm 행 잠금 안에서 engagement FollowReceipt를 생성/조회하고 firstFollow·fanNumber를 반환한다. 언팔은 receipt를 지우지 않는다. 기존 팔로워 수 계약은 유지한다.
 - AC-ENG-2: /farms/{id}/temperature는 engagement 공개 라우터에서 승인 농가의 집계만 제공한다. 전체 기준은 docs/spec/customer-engagement.md.
 
-- AC-ENG-2: Follow.farm_id has a dedicated index in0038 so real-follow temperature aggregation does not scan all consumers.
+- AC-ENG-2: Follow.farm_id has a dedicated index in0040 so real-follow temperature aggregation does not scan all consumers.
 - AC-ENG-1: the locking follow read refreshes any existing ORM Farm object before counting, preventing a cached earlier read from overwriting another committed follow.
 ## DEV-472 테스트 농가 공개 범위 (R-29)
 - 공개 경로와 주문 생성은 `public_farm_clause(db, viewer)` 하나로 거른다. 조건은 `APPROVED`이고, 보는 사람이 테스트 계정(`accounts.account_kind`가 REAL이 아님)이 아니면 생산자가 테스트 계정(`accounts.test_account_clause`)인 농가를 뺀다. 한 농가는 `public_farm`, 여러 농가는 `public_farms`·`public_farm_names`로 같은 조건을 다시 조회한다. 승인 상태만 보던 `get_approved_farm`·`approved_farm_names`는 지웠다(호출부가 모두 옮겨 갔다). 주문 생성(`orders.create_order`)도 `public_farm(db, farm_id, consumer)`를 쓴다. 기존 주문의 입금 안내는 승인 상태만 본다(`get_farm_shared`).

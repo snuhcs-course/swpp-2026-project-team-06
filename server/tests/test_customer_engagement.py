@@ -559,7 +559,7 @@ def test_AC_ENG_1_migration_backfills_only_real_follows_in_stable_order():
 
     from app.core.db import get_engine
 
-    path = Path(__file__).parents[1] / "migrations/versions/0038_customer_engagement.py"
+    path = Path(__file__).parents[1] / "migrations/versions/0040_customer_engagement.py"
     spec = spec_from_file_location("engagement_migration", path)
     migration = module_from_spec(spec)
     spec.loader.exec_module(migration)
