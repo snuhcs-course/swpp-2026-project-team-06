@@ -172,11 +172,9 @@ export function validatePeriods(
         holdsStock(o),
     );
     const r = rows.find((r) => r.stageId === old.stageId);
-    if (used && (!r || r.startsAt !== old.startsAt || r.endsAt !== old.endsAt))
-      conflict(
-        "PERIOD_LOCKED",
-        "예약 이력이 있는 기간의 날짜·삭제는 바꿀 수 없어요.",
-      );
+    // DEV-489: 예약 이력이 있는 기간도 날짜는 고친다(서버와 같음). 지우기만 막는다
+    if (used && !r)
+      conflict("PERIOD_LOCKED", "주문이 있는 예약 기간은 지울 수 없어요.");
   }
   const result = rows.map((r, i) => {
     if (

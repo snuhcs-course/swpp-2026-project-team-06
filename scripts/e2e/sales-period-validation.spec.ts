@@ -127,19 +127,20 @@ test("DEV-339 DEV-486: a front earlybird leaves existing dates intact and prices
   await expect(editor).toHaveCount(0);
 });
 
-test("DEV-486: a period with orders keeps a grey, unpressable date box, no trash and the reason line", async ({ page }) => {
+test("DEV-489: a period with orders can change its dates but cannot be deleted", async ({ page }) => {
   const editor = await termsFixture(page, [
     { start: "2026-10-01", end: "2026-10-12", price: 30000, hasOrders: true },
     { start: "2026-10-13", end: "2026-11-09", price: 35000 },
   ]);
   const rows = editor.getByTestId("price-period");
-  const locked = rows.nth(0);
-  const lockedDate = locked.getByRole("button", { name: /10월 1일 ~ 10월 12일/ });
-  await expect(lockedDate).toBeDisabled();
-  await expect(locked.getByRole("button", { name: /날짜 고치기$/ })).toHaveCount(0);
-  await expect(locked.getByRole("button", { name: "기간 삭제", exact: true })).toHaveCount(0);
-  await expect(locked.getByText("예약 이력이 있어 날짜는 유지해요. 가격은 새 주문부터 적용돼요.")).toBeVisible();
-  // The period without orders stays editable and deletable.
-  await expect(rows.nth(1).getByRole("button", { name: /날짜 고치기$/ })).toBeEnabled();
+  const reserved = rows.nth(0);
+  await expect(reserved.getByRole("button", { name: /날짜 고치기$/ })).toBeEnabled();
+  await expect(reserved.getByRole("button", { name: "기간 삭제", exact: true })).toHaveCount(0);
+  await expect(reserved.getByText(/예약 이력이 있어 날짜는/)).toHaveCount(0);
   await expect(rows.nth(1).getByRole("button", { name: "기간 삭제", exact: true })).toBeVisible();
+  // Shorten the reserved period; its orders stay in it (server keeps stageId).
+  await pickPeriod(page, /^1기간.*날짜 고치기$/, /^10월 1일 .요일/, /^10월 10일 .요일/);
+  await expect(reserved.getByRole("button", { name: /10월 1일 ~ 10월 10일/ })).toBeVisible();
+  await page.getByRole("button", { name: "수정 담기", exact: true }).click();
+  await expect(editor).toHaveCount(0);
 });
