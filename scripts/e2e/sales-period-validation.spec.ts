@@ -115,9 +115,11 @@ test("DEV-339 DEV-486: a front earlybird leaves existing dates intact and prices
   await page.getByRole("button", { name: "수정 담기", exact: true }).click();
   await expect(editor).toBeVisible();
   await expect(page.getByText(/뒤 기간 가격이 앞 기간보다 비싸야/)).toBeVisible();
-  // Move the first displayed row after the second: ascending prices must be
-  // checked by dates, rather than by the order in which rows were created.
+  // Move the earlybird period after the original one: the cards re-order by date,
+  // so the moved period (40,000) becomes the second card and prices rise chronologically.
   await pickPeriod(page, /^1기간.*날짜 고치기$/, /^10월 26일 .요일/, /^11월 1일 .요일/, true);
+  await expect(rows.nth(1).getByRole("button", { name: /10월 26일 ~ 11월 1일/ })).toBeVisible();
+  await expect(prices.nth(1)).toHaveValue(/40,?000/);
   await editor.getByRole("button", { name: "예약 기간 추가", exact: true }).click();
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(2).getByRole("button", { name: /11월 2일 ~/ })).toBeVisible(); // after the latest end, November 1

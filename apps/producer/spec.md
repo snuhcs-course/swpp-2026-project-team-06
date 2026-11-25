@@ -294,7 +294,7 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 운영팀 대화방 `/support`도 다른 대화방처럼 `ChatThread`에 `copy={copyText}`(expo-clipboard)를 넘긴다. 앱에는 웹 클립보드가 없어 넘기지 않으면 '복사'가 아무 일도 하지 않는다.
 
 ## DEV-486 예약 기간 블록 정리
-- `SalesTermsEditor` 기간 카드: 제목 = ‘N기간’(기간이 둘 이상일 때) + 날짜 칸(`Pressable`, 살구색 칸·달력 아이콘, 라벨 ‘… 예약 날짜 고치기’). 누르면 같은 파일의 `DateSheet`(range, `min` 오늘, 다른 기간은 `blocks`)를 행 key로 새로 그려 연다. 예전 `DateInput` 두 칸은 이 화면에서 쓰지 않는다(`fields.tsx`의 `DateInput`은 남김).
+- `SalesTermsEditor` 기간 카드: 제목 = ‘N기간’(기간이 둘 이상일 때) + 날짜 칸(`Pressable`, 살구색 칸·달력 아이콘, 라벨 ‘… 예약 날짜 고치기’). 누르면 같은 파일의 `DateSheet`(range, `min` 오늘·그 기간 시작일 중 이른 날, 다른 기간은 `blocks`)를 행 key로 새로 그려 연다. 예전 `DateInput` 두 칸은 이 화면에서 쓰지 않는다(`fields.tsx`의 `DateInput`은 남김).
 - 예약이 있는 기간(`locked`)은 날짜 칸이 회색이고 눌리지 않으며 휴지통도 없고, ‘예약 이력이 있어 날짜는 유지해요…’ 한 줄로 이유를 보인다(서버 PERIOD_LOCKED 그대로).
 - 날짜 칸은 판매·가격(SCR-24b, `mode="new"`)에서도 고친다(예전엔 live만 날짜 칸이 있었음). 기간이 하나일 때 받는 시기를 바꾸면 끝날이 받는 시기 전날로 다시 맞춰지는 기존 규칙은 그대로다. 달력의 `min`은 오늘과 그 기간 시작일 중 이른 날이라 이미 시작한 기간도 시작일을 둔 채 끝날만 고를 수 있다.
 - 판매 조건 시트 토스트는 시트를 열고 닫을 때 지우고, iOS에서만 같은 문구를 `AccessibilityInfo.announceForAccessibility`로 읽어 준다(overlay는 시트 상자 밖이라 iOS 화면 읽기가 건너뛸 수 있고, Android·웹은 Toast의 alert·live region이 읽음). 기간 날짜를 저장하면 rows를 시작일 순으로 다시 놓는다.
