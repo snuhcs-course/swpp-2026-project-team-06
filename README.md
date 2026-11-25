@@ -97,6 +97,7 @@ make db             # local PostgreSQL 16 (server/docker-compose.yml); make db-d
 make migrate seed   # alembic upgrade head + demo seed, local database only (RESET=1 to reseed)
 make dev            # both apps + Mock API (npm run dev); make dev-api runs FastAPI
 make check          # before a PR: lint (ruff check) + test
+make apk            # EAS internal Android APKs (see "Native apps with EAS"); make eas-env lists EAS variable names
 ```
 
 - `make test` runs `test-server` (pytest + alembic check), `test-apps` (`npm run test:mock`,
@@ -495,11 +496,29 @@ Kakao login returns through the web page `/auth/kakao`, which hands the code bac
 the app cannot finish a login until that page is live.
 
 ```bash
-# once per app (apps/consumer, apps/producer), after `eas login` (projects already exist under snu-omm)
+# from the repository root, after `eas login` (projects already exist under snu-omm); from a subfolder: make -C "$(git rev-parse --show-toplevel)" apk
+make eas-env                    # both apps' EAS variable names (never values) for ENV=preview, missing business info marked
+make apk                        # Android APK, consumer then producer; APP=consumer or APP=producer for one, DRY_RUN=1 to run only the checks
+# the same by hand, once per app (apps/consumer, apps/producer):
 npx eas-cli@latest build -p android --profile internal   # APK; the build page shows an install link and QR code
 npx eas-cli@latest build -p ios --profile internal       # .app for the iOS Simulator (no Apple account needed)
 npx eas-cli@latest update --channel preview --environment preview --message "..."   # later JS changes, no reinstall
 ```
+
+**What `make apk` uploads (DEV-483).** EAS uploads the whole repository from its root, filtered by the
+root `.easignore` (with that file present eas-cli reads no `.gitignore`, so it repeats their rules). It
+leaves out `.git`, `docs/`, `demo/`, `.github/`, `.agents/`, `.claude/`, `server/tests/` and
+`server/migrations/`, which cut the upload from about 283 MB to 47 MB (compressed, 2026-11-25). The rest of
+`server/` stays: `packages/api/src/sourceTextSafety.ts` imports
+`server/app/source_analysis/text_safety_lists.json`. `scripts/test-easignore.mjs` (part of `npm run test:mock`)
+fails when app or package code imports a path that `.easignore` drops, or when a `.gitignore` rule is missing
+from it. Write `.git` without a trailing slash: in the default git mode eas-cli puts a shallow clone's `.git`
+into the upload and only removes it for that exact pattern. Neither mode uploads only committed code: without
+`requireCommit` in `eas.json` the git mode also copies the working tree (uncommitted and untracked files
+included), the same as `EAS_NO_VCS=1`. So `make apk` stops unless `git status` is clean, runs in git mode
+(the build page then shows the commit) and unsets `EAS_NO_VCS`. Every build it starts raises the Android
+`versionCode` by one (`internal` extends `preview`, which has `autoIncrement`), even if the build fails;
+`DRY_RUN=1` starts nothing. `.easignore` lives outside the app folders and is not part of the fingerprint.
 
 `eas update` bundles with the EAS **environment variables** of the given environment, not with the
 `env` block of `eas.json` (that block only applies to `eas build`). `EXPO_PUBLIC_API_URL`,
@@ -520,6 +539,7 @@ case, so a new store profile is covered too) on the EAS build server (`EAS_BUILD
 names only. `EXPO_PUBLIC_BUSINESS_MAIL_ORDER_NO` only warns until it is issued. Local `expo start`/`export`,
 CI, `eas update` and the local config read before `eas build` are not checked because only the build
 server sets `EAS_BUILD` and `EAS_BUILD_PROFILE`, so check the environment before an update:
+`make eas-env ENV=<environment>` (names only, missing ones marked, safe to paste; DEV-483) or
 `npx eas-cli@latest env:list --environment <environment>` (names and values; do not paste the output into
 issues or PRs). Which EAS environment a profile uses is printed in the build log ("Resolved … environment"). The file loads no other module, so it does not change the runtime fingerprint.
 The temporary evaluator build flag used for the 11/4 heuristic evaluation was removed from
