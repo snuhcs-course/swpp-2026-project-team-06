@@ -146,6 +146,7 @@ def test_AC_SRC_7_stale_reflowed_source_cannot_publish_after_owner_change(monkey
         "value": "다른 설명입니다.",
         "decision": {"action": action},
     }
+    monkeypatch.setattr("app.source_analysis.processing.require_complete", lambda *args: None)
     monkeypatch.setattr(service, "plan", lambda *a: {"passages": [p]})
     batch = SimpleNamespace(source_copy_enabled=True, targets=[{"id": "t", "name": "과일"}])
     with pytest.raises(ApiError) as exc:

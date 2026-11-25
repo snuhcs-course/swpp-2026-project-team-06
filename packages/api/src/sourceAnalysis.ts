@@ -102,6 +102,8 @@ export type SourceRefinementResult = {
   refinementVersion: string | null;
 };
 export type SourceReview = {
+  processingIssues?: { sourceId: string; itemId: string; runId: string; phase: string; status: string; error: string | null; pagesSkipped: number; targetIds: string[]; common: boolean }[];
+
   refinementResults?: Record<string, SourceRefinementResult>;
   editorFields: SourceEditorField[];
   reviewVersion: number;

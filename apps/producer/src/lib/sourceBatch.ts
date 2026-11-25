@@ -153,3 +153,16 @@ export function sourceError(code: string, phase?: string, rejectedCount = 0) {
     "자료를 처리하지 못했어요. 내용을 확인한 후 다시 시도해 주세요."
   );
 }
+
+
+/** Authoritative unresolved work; optional for older servers. */
+export function processingIssues(review: SourceReview | null, targetId?: string) {
+  return (review?.processingIssues ?? []).filter((i) => !targetId || i.targetIds.includes(targetId));
+}
+
+export function readingRetryItems(run: SourceRun, unresolvedIds?: string[]) {
+  const permanent = new Set(["PROVIDER_AUTH", "BUDGET_EXCEEDED", "UNSUPPORTED_MODEL", "UNSUPPORTED_TYPE", "UNSUPPORTED_FILE", "INVALID_IMAGE", "INVALID_OR_ENCRYPTED_PDF", "INVALID_TEXT", "INVALID_UTF8", "IMAGE_LIMIT", "PDF_PAGE_LIMIT", "TEXT_LIMIT", "OCR_NOT_CONFIGURED", "OCR_MODEL_MISMATCH", "IMAGE_PRIVACY_NOT_CONFIGURED", "OCR_IMAGE_LIMIT", "OCR_TEXT_LIMIT", "PAGE_IMAGE_MISSING", "PRIVACY_CHANGED", "SOURCE_CHANGED"]);
+  return run.items.filter((i) => ["PREPARE", "EXTRACT"].includes(i.phase) &&
+    ["FAILED", "PARTIAL"].includes(i.status) && (!unresolvedIds || unresolvedIds.includes(i.id)) &&
+    !permanent.has(i.error ?? "") && !(i.pagesSkipped ?? 0));
+}

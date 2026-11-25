@@ -9,7 +9,7 @@ const phases: Record<string, string> = {
 };
 const statuses: Record<string, string> = {
   QUEUED: "대기", RUNNING: "진행 중", SUCCEEDED: "완료",
-  PARTIAL: "일부 완료", FAILED: "실패", CANCELLED: "취소",
+  PARTIAL: "미완료 부분 있음", FAILED: "처리 중단", CANCELLED: "취소",
 };
 
 /** Counts come from the current run, never from elapsed time or an estimated duration. */
@@ -24,7 +24,7 @@ export function SourceRunProgress({ batch, run }: { batch: SourceBatch; run: Sou
   const completed = sources.filter(({ items }) => items.every((item) => finished(item.status))).length;
   return (
     <View testID="source-run-progress" accessibilityLiveRegion="polite" style={{ gap: 6 }}>
-      <T>자료 {completed}/{sources.length}</T>
+      <T>처리 종료 · 자료 {completed}/{sources.length}</T>
       {sources.map(({ id, source, items }, index) => {
         const current = items.find((item) => item.status === "RUNNING")
           ?? items.find((item) => item.status === "QUEUED") ?? items.at(-1);

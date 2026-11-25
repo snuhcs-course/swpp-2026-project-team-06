@@ -72,7 +72,8 @@ import { ActivityIndicator, Platform, Pressable, TextInput, View, type ScrollVie
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { toPageData } from "./BuyerPreview";
 import { useHideTabBar, useSession } from "./session";
-import { ACTIVE, canEditBatch, panel, sourceError, sourceNotices, states } from "./sourceBatch";
+import { SourceProcessingNotice } from "./SourceProcessingNotice";
+import { ACTIVE, canEditBatch, panel, processingIssues, readingRetryItems, sourceError, sourceNotices, states } from "./sourceBatch";
 import { isPreSale } from "./productGroups";
 import { pickMedia } from "./pick";
 import { CollapsingFrame, CollapsingSpacer, CollapsingTop, useCollapsingTop } from "./CollapsingTop";
@@ -1223,9 +1224,10 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     savedKey.current = key;
     return view;
   };
+  const unresolvedReading = processingIssues(review, target?.id);
   const canEdit = canEditBatch(batch, runs, drafts, review, activeRun);
   // 저장하지 않은 상세 수정이 있으면 편집기를 내리지 않는다(첨부를 바꿔도 수정이 사라지지 않게).
-  const showEditor = !!review && !working && (canEdit || editorDirty);
+  const showEditor = !!review && !working && (canEdit || editorDirty || unresolvedReading.length > 0);
   /** 화면의 모든 입력을 비공개로 저장한다(판매 전 상품은 상품 칸을 바로 상품에). 구매자에게 보이는 상품은 상품 초안 결과를 돌려준다 */
   const saveAll = async (): Promise<ProductDraftView | null> => {
     // 상품만 여는 composer는 새 대표사진을 사진 맨 앞에 넣어 두어 10장을 넘을 수 있다. 서버에 보내기 전에 같은 문구로 막는다(5차 scan)
@@ -1382,6 +1384,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   const pendingPage = async (): Promise<SourceDraft | null> => {
     if (!batch || !target || !productId) return null;
     const [ds, r, b] = await Promise.all([api.drafts(batch.id), api.review(batch.id), api.get(batch.id)]);
+    if (processingIssues(r, target.id).length)
+      throw new Error("자료를 모두 읽지 못했어요. 미완료 부분을 다시 처리하거나 해당 자료를 제외한 뒤 반영해 주세요.");
     const d = ds.items.find((x) => x.targetId === target.id && isFresh(x, r.reviewVersion, b.version));
     if (!d) {
       // 판매 전 '다음'과 같은 판정: 분석·초안이 있는데 최신 초안이 없으면 멈춘다
@@ -1553,15 +1557,17 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       setSheetOpen(false);
       await load();
     }, true);
-  const run = runs[0];
+  const run = activeRun ?? runs.find((r) => unresolvedReading.some((i) => i.runId === r.id)) ?? runs[0];
+  const readingRetries = run ? readingRetryItems(run, unresolvedReading.length ? unresolvedReading.map((i) => i.itemId) : undefined) : [];
   const runPanel = run ? (
     <View key={run.id} style={panel}>
       {working && batch && sheetOpen ? <SourceRunProgress batch={batch} run={run} /> : null}
+      {unresolvedReading.length && !activeRun ? <SourceProcessingNotice disabled={busy} onView={() => setSheetOpen(false)} /> : null}
       <T>
-        {run.status === "SUCCEEDED"
+        {unresolvedReading.length ? (activeRun ? "자료 처리를 진행하고 있어요." : "미완성 초안 · 아직 상품에 반영할 수 없어요.") : run.status === "SUCCEEDED"
           ? "AI가 다 채웠어요. 위에서 확인하고 고쳐 주세요."
           : run.status === "PARTIAL"
-            ? "일부 내용을 채우지 못했어요. 다시 시도해 주세요."
+            ? "초안을 저장했어요. 원문을 확인하고 고쳐 주세요."
             : run.status === "PRIVACY_REVIEW"
               ? "이전 분석을 취소한 뒤 다시 시작해 주세요"
               : (states[run.status] ?? run.status)}
@@ -1602,10 +1608,10 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           }
         />
       ) : null}
-      {run.items.some((i) => ["FAILED", "PARTIAL"].includes(i.status)) ? (
+      {readingRetries.length ? (
         <>
           <Button
-            label="재시도"
+            label="미완료 부분 다시 처리"
             variant="outline"
             disabled={
               busy || !!activeRun || retryGate.cooling
@@ -1613,9 +1619,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             onPress={() =>
               mutate(async () => {
                 if (!retryGate.enter()) return;
-                const ids = run.items
-                  .filter((i) => ["FAILED", "PARTIAL"].includes(i.status))
-                  .map((i) => i.id);
+                // Keep owner edits before starting a new analysis attempt.
+                if (editorDirty && !(await saveEditorFirst()))
+                  throw new Error("작성한 내용을 저장하지 못해 다시 처리하지 않았어요.");
+                await flushAttachments.current?.();
+                await flushBasicInfo.current?.(true);
+                const ids = readingRetries.map((i) => i.id);
                 const retried = await api.retry(
                   batch!.id,
                   run.id,
@@ -2184,6 +2193,11 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                       sale: buyerPreview ? (preSale && !product.stages.length ? <></> : undefined) : salesBlock(shown),
                       story: productOnly ? (
                         <View testID="product-detail-page" style={{ gap: 12 }}>
+                          {unresolvedReading.length && !working ? <View accessibilityRole="alert" style={{ gap: 8 }}>
+                            <T>미완성 초안 · 비공개</T>
+                            <T variant="caption">아직 읽지 못한 자료가 있어 상품에 반영할 수 없어요.</T>
+                            <Button label="미완료 자료 확인" variant="outline" disabled={busy} onPress={() => setSheetOpen(true)} />
+                          </View> : null}
                           {shown.moduleDetail ? (
                             <ModuleStory content={shown.moduleDetail} />
                           ) : (
@@ -2217,6 +2231,11 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                         </View>
                       ) : (
                         <View testID="product-detail-page" style={{ gap: 12 }}>
+                          {unresolvedReading.length && !working ? <View accessibilityRole="alert" style={{ gap: 8 }}>
+                            <T>미완성 초안 · 비공개</T>
+                            <T variant="caption">아직 읽지 못한 자료가 있어 상품에 반영할 수 없어요.</T>
+                            <Button label="미완료 자료 확인" variant="outline" disabled={busy} onPress={() => setSheetOpen(true)} />
+                          </View> : null}
                           {working && !buyerPreview ? (
                             <View
                               testID="source-analysis-status"

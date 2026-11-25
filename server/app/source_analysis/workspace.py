@@ -740,6 +740,10 @@ def apply(db, farm, pid, body):
     from app.source_analysis.source_copy_service import validate_publication
 
     batch = db.get(Batch, row.batch_id)
+    if batch:
+        from app.source_analysis.processing import require_complete
+
+        require_complete(db, batch, row.target_id)
     if batch and batch.source_copy_enabled:
         if snap.get("sourceReviewVersion") != batch.review_version:
             from app.core.errors import conflict

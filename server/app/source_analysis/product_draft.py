@@ -445,6 +445,12 @@ def apply_all(db, farm, actor_id, pid, body):
     from app.source_analysis.schemas import ApplyDraft
 
     product, row = w.owned(db, farm, pid)
+    from app.source_analysis.models import Batch
+    from app.source_analysis.processing import require_complete
+
+    batch = db.get(Batch, row.batch_id)
+    if batch:
+        require_complete(db, batch, row.target_id)
     s.version(row.version, body.version)
     draft = row.product_draft or {"values": {}, "base": {}}
     values, base = draft["values"], draft["base"]

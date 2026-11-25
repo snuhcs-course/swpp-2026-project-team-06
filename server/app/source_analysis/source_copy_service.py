@@ -309,6 +309,9 @@ def validate_publication(db, batch, target_id, texts):
     Recompute under the caller's batch/product lock, including hidden and overflow items.
     A private save, checkbox or manual canvas edit cannot acknowledge source warnings.
     """
+    from app.source_analysis.processing import require_complete
+
+    require_complete(db, batch, target_id)
     if not batch.source_copy_enabled:
         return
     current = plan(db, batch, target_id)

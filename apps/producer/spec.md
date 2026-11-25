@@ -298,3 +298,5 @@ DEV-452 원문 조립 metadata를 표시하고 확인 기본 모듈은 실제 �
 
 
 DEV-452 선택된 표현 정리 통합: source-copy plan.presentation은 선택 상태 metadata이며 PENDING/APPLIED/FALLBACK/STALE만 한국어로 안내하고 DISABLED/누락은 표시하지 않는다. 내부 reason·모델명은 제품 화면에 노출하지 않는다. 표현 정리 완료도 기존 원문과 owner 확인 대기 상태를 해제하지 않는다. 확인 기본 위치는 plan.modules[].texts[].passageIds로 찾은 실제 위치를 먼저 쓰고, 구버전 응답은 기존 optionAssembly/autoRepair/module 위치로 돌아간다. 저장 전 직접 고른 위치·문구와 최초 서버 결정 비교는 유지한다. FEAT-03/04/07 · AC-SRC-2/3/5/11.
+
+- DEV-452 미완료 읽기: 서버 processingIssues로 현재 상품의 미완료 자료를 안내하고 이전 실패 run의 미완료 작업도 재시도 대상으로 유지한다. 비공개 보기/저장은 허용, 재시도 전 입력 flush 실패 시 중단. 읽기 미완료 공개 차단은 서버가 강제한다. 설정/예산/파일 문제는 원인 해결 안내. 명시 제외는 기존 자료 삭제만 사용한다.

@@ -707,9 +707,11 @@ def review(db, row):
         for evidence in candidate.evidence:
             if evidence not in merged["evidence"]:
                 merged["evidence"].append(evidence)
+    from app.source_analysis.processing import issues as processing_issues
     from app.source_analysis.refinement import current_refinements, review_results
 
     result = {
+        "processingIssues": processing_issues(db, row),
         "sourceCopyEnabled": row.source_copy_enabled,
         "refinementResults": {} if row.source_copy_enabled else review_results(db, row),
         "reviewVersion": row.review_version,
