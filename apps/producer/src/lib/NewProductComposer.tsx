@@ -50,6 +50,7 @@ import {
   Scroll,
   Sheet,
   Skeleton,
+  Toast,
   T,
   md,
   tokens,
@@ -68,7 +69,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, Platform, Pressable, TextInput, View, type ScrollView } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Platform, Pressable, TextInput, View, type ScrollView } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { toPageData } from "./BuyerPreview";
 import { useHideTabBar, useSession } from "./session";
@@ -1741,10 +1742,23 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       if (applied.current === key || readApplied(productId) === key) return goNext();
       await applyDraft({ draft: d, productId, version: p.version });
     });
+  // 판매 조건 시트 위 토스트(DEV-486). 앱 토스트는 시트(Modal) 뒤에 그려져 보이지 않는다
+  const [termsToast, setTermsToast] = useState<string | null>(null);
+  const hideTermsToast = useCallback(() => setTermsToast(null), []);
+  const sayInTerms = useCallback((message: string) => {
+    setTermsToast(message);
+    // Android·웹은 Toast의 alert·live region이 읽어 준다. iOS만 시트 밖 형제를 건너뛰므로 직접 읽는다
+    if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(message);
+  }, []);
+  const closeTerms = () => {
+    setTermsToast(null);
+    setTermsOpen(false);
+  };
   const openTerms = () => {
     if (!terms) return;
     setTermsEdit(terms);
     setTermsInvalid({});
+    setTermsToast(null);
     setTermsOpen(true);
   };
   /** 판매 조건 시트 '수정 담기': 화면 안 초안에만(서버 저장은 '임시 저장'·'상품에 반영' 때, C-6). 빈 칸은 누르면 강조(C-19) */
@@ -1753,10 +1767,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     const problem = checkTerms(termsEdit);
     if (problem) {
       setTermsInvalid({ [problem.field]: problem.message });
+      // 문구는 시트 위 토스트로 한 번만(DEV-486). 칸 강조는 termsInvalid가 한다
+      sayInTerms(problem.message);
       return;
     }
     setTerms(termsEdit);
-    setTermsOpen(false);
+    closeTerms();
   };
   const changed = (key: string) => live && keys.includes(key);
   // 판매페이지(대표사진 포함)는 한 개로 센다(C-5): 저장 안 한 상세 수정, 처음 연 뒤 새로 저장한 판매페이지 초안, 바꾼 대표사진
@@ -2519,7 +2535,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       ) : null}
 
       {/* 판매 조건 시트(C-6). 판매 종료 상품은 읽기 전용(C-11) */}
-      <Sheet visible={termsOpen} onClose={() => setTermsOpen(false)} title="판매 조건">
+      <Sheet visible={termsOpen} onClose={closeTerms} title="판매 조건"
+        overlay={<Toast message={termsToast} tone="error" onHide={hideTermsToast} />}>
         <FieldFeedbackContext.Provider value={{ fields: termsInvalid, clear: () => {} }}>
           {product && termsEdit ? (
             live ? (
@@ -2537,18 +2554,14 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                   editable
                   busy={busy}
                   product={product}
+                  notify={sayInTerms}
                 />
-                {Object.values(termsInvalid)[0] ? (
-                  <View accessibilityRole="alert">
-                    <T variant="caption" color={tokens.color.error}>{Object.values(termsInvalid)[0]}</T>
-                  </View>
-                ) : null}
                 <Button label="수정 담기" size="producer" disabled={busy} onPress={takeTerms} />
               </View>
             ) : (
               <View style={{ gap: 16 }}>
                 <TermsSummary value={termsEdit} />
-                <Button label="닫기" variant="outline" onPress={() => setTermsOpen(false)} />
+                <Button label="닫기" variant="outline" onPress={closeTerms} />
               </View>
             )
           ) : null}

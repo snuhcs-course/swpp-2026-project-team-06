@@ -347,6 +347,7 @@ export function Sheet({
   onClose,
   title,
   instant,
+  overlay,
   children,
 }: {
   visible: boolean;
@@ -354,6 +355,8 @@ export function Sheet({
   title?: string;
   /** 다른 화면으로 가며 닫을 때 애니메이션 없이 바로 닫는다. `useSheetLeave().instant`를 넘긴다 */
   instant?: boolean;
+  /** 시트 위에 겹쳐 그릴 것(예: 토스트). Modal은 앱 루트 위 창이라 루트 토스트가 시트에 가려진다(DEV-486) */
+  overlay?: ReactNode;
   children: ReactNode;
 }) {
   // 앱에서 키보드가 떠 있으면 시트 아래 여백의 하단 안전 영역을 뺀다. 키보드가 그 자리를 덮어
@@ -402,6 +405,7 @@ export function Sheet({
               {children}
             </ScrollView>
           </View>
+          {overlay}
         </View>
       </KeyboardRoot>
     </Modal>

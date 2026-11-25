@@ -294,7 +294,7 @@ test("AC-05 R-18 DEV-361 scan: a new period saved in the draft can be applied af
     await expect(page).toHaveURL(/composer=1/);
     await page.getByRole("button", { name: "판매 조건 고치기", exact: true }).click();
     const editor = page.getByTestId("sales-terms-editor");
-    await editor.getByRole("button", { name: "＋ 예약 기간 추가", exact: true }).click();
+    await editor.getByRole("button", { name: "예약 기간 추가", exact: true }).click();
     // the new period is the last one: later periods must cost more (R-18)
     await editor.getByLabel("3kg 가격").last().fill("99000");
     await editor.getByLabel("3kg 박스 수").last().fill("10");
