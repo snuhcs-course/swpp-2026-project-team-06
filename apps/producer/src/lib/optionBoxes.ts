@@ -125,7 +125,6 @@ export function optionBoxesText(row: OptionBoxes): string {
   return `${n(row.sold)}박스 예약`;
 }
 
-
 /** 화면 읽기: '5kg 32,000원, 예약·출하 24박스'(가격이 없으면 가격을 뺀다). 판매 박스는 읽지 않는다(DEV-487) */
 export function optionBoxesLabel(row: OptionBoxes): string {
   const price = optionPriceText(row);
