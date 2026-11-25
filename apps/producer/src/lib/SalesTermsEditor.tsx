@@ -1,4 +1,5 @@
-// 판매 조건 편집부(DEV-361 PR C): 중량 옵션·받는 시기·전액 환불 날짜·예약 기간·가격·박스·배송비.
+// 판매 조건 편집부(DEV-361 PR C): 중량 옵션·받는 시기·전액 환불 날짜·예약 기간·가격·배송비.
+// DEV-487: 기간별 박스 수는 받지 않는다. 물량은 상품 총량(kg)으로 판단하고, 기간 칸에는 UNLIMITED_BOXES를 보낸다.
 // 판매 전 상품의 판매·가격(SCR-24b, `mode="new"`)과 구매자에게 보이는 상품의 composer 판매 조건 시트(`mode="live"`)가 같이 쓴다.
 // 판매할 총 물량은 판매·가격 화면에서 입력한다.
 import {
@@ -53,6 +54,11 @@ export function customWeightError(w: number | null, options: ProductOption[]): s
   if (options.some((o) => o.weightKg === w)) return "이미 있는 중량이에요.";
   return null;
 }
+/**
+ * 기간×옵션 박스 수 대신 보내는 값(DEV-487). 서버는 박스 수를 받아야 하지만(StageOptionInput.quantity) 화면은 묻지 않는다.
+ * int4 안에서 넉넉한 값이라 판매는 상품 총량(판매 한도 kg)에서만 막힌다. 이미 예약된 수보다 작아질 일은 없다
+ */
+export const UNLIMITED_BOXES = 99_999;
 const lastStageDay = (deliveryStart: string | undefined, from: string) =>
   deliveryStart ? addDays(deliveryStart, -1) : addDays(from, 7);
 
@@ -81,7 +87,7 @@ export function termsFrom(p: Pick<MyProduct, "options" | "deliveryWindow" | "max
             options: Object.fromEntries(
               Object.entries(s.options).map(([k, v]) => [
                 k,
-                { price: v.price, quantity: v.quantity },
+                { price: v.price, quantity: Math.max(UNLIMITED_BOXES, v.quantity ?? 0) },
               ]),
             ),
           }))
@@ -111,9 +117,9 @@ export function termsKey(t: Terms): string {
       r.startsAt,
       r.endsAt,
       Object.entries(r.options)
-        .filter(([k, c]) => ids.has(k) && (c.price != null || c.quantity != null))
+        .filter(([k, c]) => ids.has(k) && c.price != null)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, c]) => [k, c.price, c.quantity]),
+        .map(([k, c]) => [k, c.price]),
     ]),
   ]);
 }
@@ -130,7 +136,7 @@ export function termsStages(t: Terms): StageInput[] {
     options: Object.fromEntries(
       t.options.map((o) => {
         const c = cellOf(r, o.optionId);
-        return [o.optionId, { price: c.price!, quantity: c.quantity! }];
+        return [o.optionId, { price: c.price!, quantity: Math.max(UNLIMITED_BOXES, c.quantity ?? 0) }];
       }),
     ),
   }));
@@ -167,8 +173,8 @@ export function checkTerms(t: Terms): TermsProblem | null {
   for (const r of rows)
     for (const o of t.options) {
       const c = cellOf(r, o.optionId);
-      if (!c.price || c.quantity == null)
-        return bad("prices", `${o.label}의 가격과 박스 수를 모두 적어 주세요.`, { rowKey: r.key, optionId: o.optionId, input: !c.price ? "price" : "quantity" });
+      if (!c.price)
+        return bad("prices", `${o.label} 가격을 적어 주세요.`, { rowKey: r.key, optionId: o.optionId, input: "price" });
     }
   for (const o of t.options)
     for (let i = 1; i < rows.length; i++)
@@ -212,7 +218,7 @@ export function SalesTermsEditor({
   mode: "new" | "live";
   editable: boolean;
   busy?: boolean;
-  /** 예약 수(확보 박스·잠긴 기간·R-21 안내)를 읽는다 */
+  /** 예약 수(잠긴 기간·R-21 안내)를 읽는다 */
   product: Pick<MyProduct, "stages" | "deliveryWindow" | "reservedCount">;
   /** 짧은 알림(DEV-486). 시트 안에서 쓰면 앱 토스트가 시트에 가려지므로 부르는 쪽이 시트 위 토스트를 넘긴다 */
   notify?: (message: string) => void;
@@ -269,7 +275,7 @@ export function SalesTermsEditor({
     ...WEIGHTS.map((w) => ({ key: `w-${w}`, weightKg: w, label: `${w}kg` })),
     ...[...others.values()].map((o) => ({ key: `o-${o.weightKg}`, weightKg: o.weightKg, label: o.label })),
   ].sort(byKg);
-  // 기간 가격·박스 줄도 가벼운 순서
+  // 기간 가격 줄도 가벼운 순서
   const byWeight = [...t.options].sort(byKg);
   const toggleWeight = (w: number) => {
     const on = t.options.filter((o) => o.weightKg === w);
@@ -284,8 +290,6 @@ export function SalesTermsEditor({
     setRow(i, {
       options: { ...t.rows[i].options, [optionId]: { ...cellOf(t.rows[i], optionId), ...patch } },
     });
-  const reserved = (r: TermsRow, optionId: string) =>
-    product.stages.find((s) => s.stageId === r.stageId)?.options[optionId]?.reservedCount ?? 0;
   const locked = (r: TermsRow) =>
     mode === "live" &&
     !!product.stages.find((s) => s.stageId === r.stageId && (s.hasOrders || Object.values(s.options).some((v) => v.reservedCount > 0)));
@@ -400,11 +404,11 @@ export function SalesTermsEditor({
       </FieldFeedback>
 
       <FieldFeedback field="prices">
-        <Sec title={mode === "new" ? "가격" : "예약 기간·가격·박스"}>
+        <Sec title={mode === "new" ? "가격" : "예약 기간·가격"}>
           <T variant="sub" muted>
             {mode === "new"
-              ? "옵션마다 가격과 이번 기간에 팔 박스 수를 적어 주세요. 얼리버드 기간을 더하면 앞 기간을 더 싸게 받을 수 있어요."
-              : "바꾼 가격·박스는 새 예약부터 적용돼요. 이미 결제한 주문의 가격은 그대로예요."}
+              ? "옵션마다 가격을 적어 주세요. 얼리버드 기간을 더하면 앞 기간을 더 싸게 받을 수 있어요."
+              : "바꾼 가격은 새 예약부터 적용돼요. 이미 결제한 주문의 가격은 그대로예요."}
           </T>
           {t.rows.map((r, i) => {
             const fixed = locked(r);
@@ -468,9 +472,9 @@ export function SalesTermsEditor({
                 ) : null}
                 {/* 오류 문구는 부르는 쪽이 토스트·하단 줄로 한 번만 보인다(DEV-486). 여기서는 칸만 강조한다 */}
                 {byWeight.length ? (
-                  byWeight.map((o) => (
-                    <View key={o.optionId} style={{ gap: 6 }}>
-                      <View style={{ flexDirection: "row", gap: 12 }}>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 12 }}>
+                    {byWeight.map((o) => (
+                      <View key={o.optionId} style={{ flexBasis: "45%", flexGrow: 1 }}>
                         <NumField
                           highlight={editable}
                           disabled={off}
@@ -480,23 +484,9 @@ export function SalesTermsEditor({
                           unit="원"
                           onChange={(price) => !off && setCell(i, o.optionId, { price })}
                         />
-                        <NumField
-                          highlight={editable}
-                          disabled={off}
-                          error={invalid?.optionId === o.optionId && invalid?.input === "quantity"}
-                          label={`${o.label} 박스 수`}
-                          value={cellOf(r, o.optionId).quantity}
-                          unit="박스"
-                          onChange={(quantity) => !off && setCell(i, o.optionId, { quantity })}
-                        />
                       </View>
-                      {reserved(r, o.optionId) ? (
-                        <T variant="caption" muted>
-                          {reserved(r, o.optionId)}박스 확보됨
-                        </T>
-                      ) : null}
-                    </View>
-                  ))
+                    ))}
+                  </View>
                 ) : (
                   <T variant="sub" muted>
                     위에서 중량 옵션을 먼저 골라 주세요.
@@ -668,9 +658,6 @@ export function TermsSummary({ value, children }: { value: Terms; children?: Rea
               <View key={o.optionId} style={{ gap: 4 }}>
                 <T>{o.label}</T>
                 <T variant="heading">{c.price == null ? "가격 미입력" : `${c.price.toLocaleString("ko-KR")}원`}</T>
-                <T variant="caption" muted>
-                  {c.quantity == null ? "박스 수 미입력" : `${c.quantity}박스`}
-                </T>
               </View>
             );
           })}

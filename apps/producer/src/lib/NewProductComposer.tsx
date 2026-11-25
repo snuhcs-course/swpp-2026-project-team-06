@@ -87,6 +87,7 @@ import {
   termsFrom,
   termsKey,
   termsStages,
+  UNLIMITED_BOXES,
   type Terms,
 } from "./SalesTermsEditor";
 import { goBackOr } from "./nav";
@@ -255,7 +256,6 @@ function changedKeys(p: MyProduct, form: ProductForm, terms: Terms | null): stri
 type ChangeRow = { label: string; before: string | null; after: string | null };
 type ChangeRows = { now: ChangeRow[]; newOrders: ChangeRow[]; consent: ChangeRow[] };
 const won = (n: number | null | undefined) => (n == null ? null : `${n.toLocaleString("ko-KR")}원`);
-const boxes = (n: number | null | undefined) => (n == null ? null : `${n.toLocaleString("ko-KR")}박스`);
 const shortDay = (iso: string) => iso.slice(5).replace("-", ".");
 /** '11월 10일~20일'(같은 달), '11월 28일~12월 3일' */
 function rangeText(w: { start: string; end: string } | null): string | null {
@@ -308,7 +308,6 @@ function diffRows(p: MyProduct, form: ProductForm, terms: Terms | null, reserved
       const a = cellOf(r, o.optionId),
         b = old ? cellOf(old, o.optionId) : { price: null, quantity: null };
       row(newOrders, `${name} · ${o.label} 가격`, won(b.price), won(a.price));
-      row(newOrders, `${name} · ${o.label} 박스`, boxes(b.quantity), boxes(a.quantity));
     }
     // 옵션을 뺀 기간의 칸은 따로 적지 않는다(중량 옵션 줄이 보인다)
   });
@@ -1802,7 +1801,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       return (
         <View testID="sales-next-step" style={{ padding: 14, borderRadius: 16, borderWidth: 1.5, borderStyle: "dashed", borderColor: "#E9B980", backgroundColor: "#FFF7EB", gap: 4 }}>
           <T weight="semibold">판매 조건은 다음 단계에서 정해요</T>
-          <T variant="caption" muted>받는 시기 · 가격 · 박스 수 · 배송비</T>
+          <T variant="caption" muted>받는 시기 · 가격 · 배송비</T>
         </View>
       );
     if (!terms) return undefined;
@@ -2040,7 +2039,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                         shippingFeeType: terms.shippingFeeType,
                         shippingFee: terms.shippingFeeType === "SEPARATE" ? (terms.shippingFee ?? 0) : 0,
                       },
-                      stages: termsStages({ ...terms, rows: terms.rows.map((r) => ({ ...r, options: Object.fromEntries(terms.options.map((o) => [o.optionId, { price: cellOf(r, o.optionId).price ?? 0, quantity: cellOf(r, o.optionId).quantity ?? 0 }])) })) }).map((x) => ({ ...x, stageId: x.stageId ?? null })),
+                      stages: termsStages({ ...terms, rows: terms.rows.map((r) => ({ ...r, options: Object.fromEntries(terms.options.map((o) => [o.optionId, { price: cellOf(r, o.optionId).price ?? 0, quantity: cellOf(r, o.optionId).quantity ?? UNLIMITED_BOXES }])) })) }).map((x) => ({ ...x, stageId: x.stageId ?? null })),
                       savedAt: null,
                     })
                   : {}),
