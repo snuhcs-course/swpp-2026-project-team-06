@@ -248,10 +248,16 @@ def test_AC_05_R_18_later_period_cheaper_is_refused_on_apply(client, login):
     assert events("p-house") == []
 
 
-def test_AC_05_period_with_orders_is_locked_on_apply(client, login):
+def test_AC_05_DEV489_period_with_orders_changes_dates_but_cannot_be_deleted_on_apply(client, login):
     stages = stage_inputs(mine(client, login))
-    stages[0]["endsAt"] = "2026-10-11"  # period 1 has o-42
+    stages[0]["endsAt"] = "2026-10-11"  # period 1 has o-42; its dates can change (DEV-489)
     view = saved(client, login, stages=stages)
+    assert apply_all(client, login, "p-house", view["version"]).status_code == 200
+    assert mine(client, login)["stages"][0]["endsAt"] == "2026-10-11"
+    with get_sessionmaker()() as db:
+        assert db.get(Order, "o-42").stage_id == mine(client, login)["stages"][0]["stageId"]
+    # Deleting the period that owns o-42 is still refused.
+    view = saved(client, login, stages=stage_inputs(mine(client, login))[1:])
     locked = apply_all(client, login, "p-house", view["version"])
     assert locked.status_code == 409
     assert locked.json()["details"]["reason"] == "PERIOD_LOCKED"
