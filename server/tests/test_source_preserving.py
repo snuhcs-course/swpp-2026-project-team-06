@@ -904,3 +904,42 @@ def test_AC_SRC_10_DEV484_missing_punctuation_does_not_create_a_run_on_paragraph
         "청년들이 함께 일하는 농장입니다",
         "가족이 함께 먹을 수 있는 과일을 직접 살펴보고 고릅니다.",
     ]
+
+
+def test_AC_SRC_10_DEV485_acknowledging_the_whole_unit_keeps_the_readable_paragraph():
+    item = paragraph_candidate(["대표가 정성껏 고른 과일을", "가족과 함께 드셔 보세요."])
+    initial = plan([item])
+    choices = [
+        {
+            "bindingHash": p["bindingHash"],
+            "action": "KEEP",
+            "module": "farmStory",
+            "note": "원문과 문맥을 확인했어요.",
+        }
+        for p in initial["passages"]
+    ]
+    result = plan([item], decisions=choices)
+    assert [t["value"] for m in result["modules"] for t in m["texts"]] == [
+        "대표가 정성껏 고른 과일을 가족과 함께 드셔 보세요."
+    ]
+    assert all(not p["reviewPending"] for p in result["passages"])
+    assert all(p["autoRepair"]["ownerConfirmed"] for p in result["passages"])
+    assert all(p["assemblyAcknowledged"] for p in result["passages"])
+
+
+def test_AC_SRC_10_DEV485_acknowledgment_cannot_keep_a_restricted_health_claim():
+    item = paragraph_candidate(
+        ["가상의 과일은 질병을 치료하지만", "일상 과일로 소개합니다."], field="summary"
+    )
+    initial = plan([item])
+    choices = [
+        {
+            "bindingHash": p["bindingHash"],
+            "action": "KEEP",
+            "module": "summary",
+            "note": "확인했어요.",
+        }
+        for p in initial["passages"]
+    ]
+    with pytest.raises(SourcePlanError, match="Invalid source-preserving plan"):
+        plan([item], decisions=choices)

@@ -130,6 +130,13 @@ export type SourceCopyDecision = {
   note?: string;
   module?: string;
 };
+export type SourceCopyPrompt = {
+  code: string;
+  question: string;
+  detail: string;
+  severity: "check" | "warning" | "critical";
+  confirmation: string;
+};
 export type SourceCopyPassage = {
   id: string;
   bindingHash: string;
@@ -147,6 +154,8 @@ export type SourceCopyPassage = {
   includedInDraft: boolean;
   reviewPending: boolean;
   reviewExplanations: string[];
+  reviewPrompts?: SourceCopyPrompt[];
+  assemblyAcknowledged?: boolean;
   decision: SourceCopyDecision | null;
 };
 export type SourceCopyPresentation = {

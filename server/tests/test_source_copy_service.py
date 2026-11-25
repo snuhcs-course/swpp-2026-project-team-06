@@ -372,3 +372,50 @@ def test_AC_SRC_10_source_decision_persists_across_addition_then_invalidates_and
         assert not list(
             db.scalars(select(SourceCopyDecision).where(SourceCopyDecision.batch_id == batch["id"]))
         )
+
+
+def test_AC_SRC_10_DEV485_specific_question_and_acknowledgment_persist_after_reload(client, login):
+    from app.ai.source_analysis import MOCK_REFINE_TEXT
+
+    headers = login("u-kang")
+    batch = create(client, headers)
+    upload(client, headers, batch, text=MOCK_REFINE_TEXT)
+    start(client, headers, batch["id"])
+    drain()
+    state, target_id = get_plan(client, headers, batch)
+    response = client.post(
+        f"{PREFIX}/{batch['id']}/source-copy/enable",
+        headers=key(headers),
+        json={"reviewVersion": state["reviewVersion"]},
+    )
+    assert response.status_code == 200
+    state, _ = get_plan(client, headers, batch, target_id)
+    passage = next(
+        p
+        for p in state["plan"]["passages"]
+        if any("작년" in prompt["question"] for prompt in p["reviewPrompts"])
+    )
+    prompt = next(p for p in passage["reviewPrompts"] if "작년" in p["question"])
+    assert "가격" not in prompt["detail"]
+    saved = client.put(
+        f"{PREFIX}/{batch['id']}/source-copy/{target_id}",
+        headers=key(headers),
+        json={
+            "reviewVersion": state["reviewVersion"],
+            "planHash": state["plan"]["planHash"],
+            "decisions": [
+                {
+                    "bindingHash": passage["bindingHash"],
+                    "action": "KEEP",
+                    "note": prompt["confirmation"],
+                }
+            ],
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    again, _ = get_plan(client, headers, batch, target_id)
+    stored = next(
+        p for p in again["plan"]["passages"] if p["bindingHash"] == passage["bindingHash"]
+    )
+    assert stored["decision"]["note"] == prompt["confirmation"]
+    assert stored["reviewPending"] is False

@@ -365,3 +365,6 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/7/10/11 · M-11/13/18. 원문 보존은 명시�
 - DEV-451 evaluation_replacements: processing-only eligibility and chronological first-success selection, max2 replacements; no score/gold input to selection. evaluation_outcomes exposes diagnostic content denominators/unmeasured counts alongside unchanged end-to-end delivery. Configured caps are disclosed scope limits; partial runtime read failures are not diagnostic. Valid empty and all-candidate rejection remain diagnostic poor content outcomes. Private targeted runner reconstructs original frozen commit and shares existing budget; user executes paid stage.
 
 DEV-484: source-proven candidate paragraphs and full continuation chains preserve source words/evidence before module display. Plain-text s0 span IDs share the numeric adjacency contract. Mixed appearance/taste sentences route as a single general product description, retaining context review. Existing owner flags must be visible in owner preview; do not treat flagged content as undetected or mutate frozen benchmarks.
+
+## DEV-485 사유별 생산자 확인
+FEAT-03/04/07 및 AC-SRC-2/3/5/9/10/11: reviewPrompts는 사유별 질문·설명·심각도·확인 기록 문구를 제공한다. 기존 reviewExplanations 호환을 유지한다. 확인 버튼은 기존 검토 저장 경로를 사용하고 성공 뒤 완료 표시하며, 연결 문단의 모든 KEEP 결정이 같은 배치를 승인하면 연결을 유지한다. 사용 제한은 단순 확인으로 통과시키지 않는다. UI는 일반 황색/중요 산호색과 기호·문구를 함께 사용한다.

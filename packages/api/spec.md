@@ -144,3 +144,6 @@ DEV-452 원문 조립 metadata를 표시하고 확인 기본 모듈은 실제 �
 DEV-452 선택된 표현 정리 통합: source-copy plan.presentation은 선택 상태 metadata이며 PENDING/APPLIED/FALLBACK/STALE만 한국어로 안내하고 DISABLED/누락은 표시하지 않는다. 내부 reason·모델명은 제품 화면에 노출하지 않는다. 표현 정리 완료도 기존 원문과 owner 확인 대기 상태를 해제하지 않는다. 확인 기본 위치는 plan.modules[].texts[].passageIds로 찾은 실제 위치를 먼저 쓰고, 구버전 응답은 기존 optionAssembly/autoRepair/module 위치로 돌아간다. 저장 전 직접 고른 위치·문구와 최초 서버 결정 비교는 유지한다. FEAT-03/04/07 · AC-SRC-2/3/5/11.
 
 - DEV-452 SourceReview.processingIssues: additive current source/work-scope diagnostics (sourceId/itemId/runId/phase/status/error/pagesSkipped/targetIds/common); no private OCR text or provider error body. Optional for compatibility; server publication guard is authoritative.
+
+## DEV-485 사유별 생산자 확인
+FEAT-03/04/07 및 AC-SRC-2/3/5/9/10/11: reviewPrompts는 사유별 질문·설명·심각도·확인 기록 문구를 제공한다. 기존 reviewExplanations 호환을 유지한다. 확인 버튼은 기존 검토 저장 경로를 사용하고 성공 뒤 완료 표시하며, 연결 문단의 모든 KEEP 결정이 같은 배치를 승인하면 연결을 유지한다. 사용 제한은 단순 확인으로 통과시키지 않는다. UI는 일반 황색/중요 산호색과 기호·문구를 함께 사용한다.

@@ -12,6 +12,7 @@ from collections import Counter
 
 from app.ai.source_refine import TEXT_MODULE_FIELDS, farm_common_allowed
 from app.source_analysis.preprocess import scrub
+from app.source_analysis.review_prompts import prompts_for
 from app.source_analysis.source_options import assemble_options
 from app.source_analysis.source_reflow import reflow_prose
 from app.source_analysis.text_safety import (
@@ -25,21 +26,10 @@ from app.source_analysis.text_safety import (
     has_product_lineup,
 )
 
-VERSION = "source-preserving-v5-complete-units"
+VERSION = "source-preserving-v6-owner-questions"
 LAYOUT_VERSION = "source-prose-layout-v1"
 _KINDS = ("COPY_EDIT", "OWNER_CONFIRMATION", "PLACEMENT", "SAFETY")
 _RESTRICTED = {"PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"}
-_EXPLANATIONS = {
-    "COPY_EDIT": "원문의 문장·공백·반복을 확인한 뒤 공개해 주세요.",
-    "OWNER_CONFIRMATION": (
-        "가격·시점·배송 등 현재도 맞는 정보인지 확인해 주세요. "
-        "원문 가격과 실제 판매 설정이 일치하는지 별도로 확인해 주세요. 판매 설정은 바뀌지 않습니다."
-    ),
-    "PLACEMENT": (
-        "대상 상품과 상세 항목, 글자 수를 확인해 주세요. 전체 원문은 검토 목록에 보존됩니다."
-    ),
-    "SAFETY": "공개 제한 표현은 수정하거나 제외해 주세요. 홍보 표현은 사실 여부를 확인해 주세요.",
-}
 _ACTIONS = {"KEEP", "EDIT", "OMIT", "TRANSFER_TO_SETTINGS", "ACCEPT_REPAIR"}
 _SPLIT = re.compile(r"(?P<head>[가-힣]*(?:습니|입니))[ \t]*\r?\n[ \t]*다(?=[.!?。]|$)")
 _FRAGMENT = re.compile(r"(?:듯이|지만|지고|때문에|그리고|또한|하지만)[,，]?\s*$|[,，]\s*$")
@@ -152,6 +142,10 @@ def _span_order(passage):
     return next(iter(prefixes)), numbers[0], numbers[-1]
 
 
+def _assembly_allowed(passage):
+    return not passage["decision"] or passage.get("assemblyAcknowledged", False)
+
+
 def _source_candidate_edges(passages, candidate_by_id, occupied):
     """Use a complete, verbatim candidate as a paragraph boundary, never a paraphrase.
 
@@ -177,7 +171,7 @@ def _source_candidate_edges(passages, candidate_by_id, occupied):
                 break
             parts.append(matches[0])
         if len(parts) != len(refs) or any(
-            p["decision"] or p["reasonCodes"]["PLACEMENT"] for p in parts
+            not _assembly_allowed(p) or p["reasonCodes"]["PLACEMENT"] for p in parts
         ):
             continue
 
@@ -226,7 +220,7 @@ def _assembly_module(parts):
 
 
 def _can_join(left, right, occupied, candidate_by_id, candidate_edges):
-    if left["decision"] or right["decision"]:
+    if not _assembly_allowed(left) or not _assembly_allowed(right):
         return False
     candidate_link = (left["id"], right["id"]) in candidate_edges
     if not candidate_link and not _CONTINUATION_END.search(left["value"].rstrip()):
@@ -361,7 +355,11 @@ def _assembled_text(parts):
 
 def _mark_assembly(parts, assembly):
     common_candidates = set.intersection(*(set(p["candidateIds"]) for p in parts))
-    context_review = not common_candidates or len({p["module"] for p in parts}) != 1
+    owner_confirmed = all(p.get("assemblyAcknowledged", False) for p in parts)
+    context_review = not owner_confirmed and (
+        not common_candidates or len({p["module"] for p in parts}) != 1
+    )
+    assembly["ownerConfirmed"] = owner_confirmed
     assembly["contextReviewRequired"] = context_review
     for index, passage in enumerate(parts):
         cleared = []
@@ -373,7 +371,9 @@ def _mark_assembly(parts, assembly):
         passage["autoRepair"] = {**assembly, "clearedReasonCodes": cleared}
         passage["queueKinds"] = [kind for kind in _KINDS if passage["reasonCodes"][kind]]
         passage["status"] = (
-            "BLOCKED"
+            "READY"
+            if owner_confirmed
+            else "BLOCKED"
             if _RESTRICTED.intersection(passage["reasonCodes"]["SAFETY"])
             else "PENDING"
             if passage["queueKinds"]
@@ -551,6 +551,22 @@ def _build(target, candidates, versions, target_count, decisions):
             raise SourcePlanError("INVALID_DECISION")
         seen_decisions.add(binding)
         decision_map[binding] = decision
+    acknowledged = set()
+    narrative = [
+        p
+        for p in passages
+        if p["module"] not in {"composition", "pieceCount", "specification", "qualityEvidence"}
+    ]
+    for parts in _assembly_groups(narrative, candidate_by_id):
+        if len(parts) < 2:
+            continue
+        module = _assembly_module(parts)
+        if all(
+            (decision_map.get(p["bindingHash"]) or {}).get("action") == "KEEP"
+            and decision_map[p["bindingHash"]].get("module", module) == module
+            for p in parts
+        ):
+            acknowledged.update(p["id"] for p in parts)
     for passage in passages:
         reasons = passage["reasonCodes"]
         if any(
@@ -560,6 +576,7 @@ def _build(target, candidates, versions, target_count, decisions):
         ):
             reasons["COPY_EDIT"].append("EXACT_REPETITION")
         decision = decision_map.get(passage["bindingHash"])
+        passage["assemblyAcknowledged"] = passage["id"] in acknowledged
         passage["queueKinds"] = [kind for kind in _KINDS if reasons[kind]]
         if decision:
             action = decision["action"]
@@ -666,17 +683,10 @@ def _build(target, candidates, versions, target_count, decisions):
             modules.append({"module": module, "texts": texts})
     for passage in passages:
         passage["reviewPending"] = passage["status"] in {"PENDING", "BLOCKED"}
-        passage["reviewExplanations"] = [_EXPLANATIONS[kind] for kind in passage["queueKinds"]]
-        if "CONTINUATION_CONTEXT" in passage["reasonCodes"]["COPY_EDIT"]:
-            passage["reviewExplanations"].append(
-                "인접한 원문을 연결했지만 서로 다른 추출 항목의 내용입니다. "
-                "문맥이 자연스럽게 이어지는지 확인해 주세요."
-            )
-        if "POSSIBLE_FRAGMENT" in passage["reasonCodes"]["COPY_EDIT"]:
-            passage["reviewExplanations"].append(
-                "문장이 끊긴 것으로 보이지만 확실한 인접 원문 연결을 확인하지 못했습니다. "
-                "없는 뒷문장은 만들지 않았으니 원자료를 확인해 주세요."
-            )
+        passage["reviewPrompts"] = prompts_for(passage["value"], passage["reasonCodes"])
+        passage["reviewExplanations"] = [
+            f"{prompt['question']} {prompt['detail']}" for prompt in passage["reviewPrompts"]
+        ]
         entries = [r for r in accounting if r["passageId"] == passage["id"]]
         for i, row in enumerate(entries):
             row["disposition"] = (

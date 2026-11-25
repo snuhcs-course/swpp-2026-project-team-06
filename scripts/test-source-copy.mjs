@@ -13,14 +13,14 @@ const code = ts.transpileModule(readFileSync(filename, "utf8"), {
 const passage = (reasons = []) => ({ id: "passage", bindingHash: "binding", module: "delivery", value: "원문", originalValue: "원문", candidateIds: [], evidence: [], queueKinds: ["OWNER_CONFIRMATION"], reasonCodes: { OWNER_CONFIRMATION: reasons, COPY_EDIT: [], PLACEMENT: [], SAFETY: [] }, repairValue: null, status: "PENDING", includedInDraft: true, reviewPending: true, reviewExplanations: [], decision: null });
 function harness(p = passage(), saveSucceeds = true, flush = true) {
   const data = { enabled: true, reviewVersion: 3, plan: { planHash: "hash", passages: [p], modules: [] } };
-  let latestData = data;
+  let latestData = data; let saveResult = null;
   const slots = []; let cursor = 0;
   const events = [], saves = [];
   const exports = {};
   const element = (type, props) => ({ type, props });
   const api = {
     sourceCopy: async () => { events.push("get"); return latestData; },
-    saveSourceCopy: async (_batch, _target, input) => { saves.push(input); events.push("save"); if (!saveSucceeds) throw new Error("저장 실패"); return data; },
+    saveSourceCopy: async (_batch, _target, input) => { saves.push(input); events.push("save"); if (!saveSucceeds) throw new Error("저장 실패"); return saveResult ?? data; },
   };
   const fakeRequire = (id) => {
     if (id === "react/jsx-runtime") return { jsx: element, jsxs: element, Fragment: "Fragment" };
@@ -46,8 +46,16 @@ function harness(p = passage(), saveSucceeds = true, flush = true) {
   const render = () => { cursor = 0; return exports.SourceCopyReview(props); };
   const nodes = (node) => !node || typeof node !== "object" ? [] : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
   const all = () => nodes(render());
-  const press = (label) => { const button = all().find((n) => n.type === "Button" && n.props.label === label); assert.ok(button, label); button.props.onPress(); };
-  return { all, press, events, saves, slots, setLatest: (next, poll = false) => { latestData = next; if (poll) slots[0] = next; }, data, settle: async () => { for (let n = 0; n < 10; n++) await new Promise(setImmediate); } };
+  const press = (label) => {
+    const alias = label.replace("직접 수정", "✎ 수정할게요");
+    const find = () => all().find((n) => n.type === "Button" && [label, alias].includes(n.props.label));
+    let button = find();
+    if (!button) { const details = all().find((n) => n.type === "Button" && n.props.label === "내용 보기"); details?.props.onPress(); button = find(); }
+    if (!button) { const more = all().find((n) => n.type === "Button" && n.props.label === "다른 선택 보기"); more?.props.onPress(); button = find(); }
+    assert.ok(button, label); button.props.onPress();
+  };
+  const pressFor = (id, label) => { const card = all().find((n) => n.props?.testID?.startsWith(`source-copy-passage-${id}-`)); assert.ok(card); const button = nodes(card).find((n) => n.type === "Button" && n.props.label === label); assert.ok(button, label); button.props.onPress(); };
+  return { all, press, pressFor, events, saves, slots, setSaveResult: (next) => { saveResult = next; }, setLatest: (next, poll = false) => { latestData = next; if (poll) slots[0] = next; }, data, settle: async () => { for (let n = 0; n < 10; n++) await new Promise(setImmediate); } };
 }
 test("DEV-452 AC-SRC-5: price and relative time allow explicit acknowledgment without changing settings", () => {
   const price = harness(passage(["PRICE_OR_FEE"]));
@@ -126,7 +134,8 @@ test("DEV-452 AC-SRC-5: safety queue offers safe editing without a KEEP bypass",
   const p = passage(); p.queueKinds = ["SAFETY"]; p.reasonCodes.SAFETY = ["HEALTH_CLAIM"]; p.status = "BLOCKED";
   const h = harness(p);
   assert.equal(h.all().some((n) => n.props?.label === "원문 그대로 사용"), false);
-  assert.ok(h.all().some((n) => n.props?.label === "직접 수정"));
+  assert.ok(h.all().some((n) => n.props?.label === "✎ 수정할게요"));
+  h.press("다른 선택 보기");
   assert.ok(h.all().some((n) => n.props?.label === "본문에서 제외"));
 });
 test("DEV-452 AC-SRC-9/11: another session's decision change conflicts against first-choice baseline despite polling", async () => {
@@ -322,4 +331,49 @@ test("DEV-452 AC-SRC-11: cancelling explicit placement restores implicit latest 
   h.setLatest(latest);
   h.press("검토 선택 저장"); await h.settle();
   assert.equal(h.saves[0].decisions[0].module, "summary");
+});
+
+test("DEV-485 AC-SRC-10: friendly check saves the specific owner acknowledgment before collapsing", async () => {
+  const p=passage(["RELATIVE_TIME"]);p.reviewPrompts=[{code:"RELATIVE_TIME",question:"‘8년차’는 어느 해 기준인가요?",detail:"현재도 맞는지 확인해 주세요.",severity:"check",confirmation:"귀촌 기간의 기준 연도를 확인했어요."}];
+  const h=harness(p);const saved=structuredClone(h.data);saved.plan.passages[0].reviewPending=false;saved.plan.passages[0].status="READY";saved.plan.passages[0].decision={bindingHash:p.bindingHash,action:"KEEP",note:p.reviewPrompts[0].confirmation,module:p.module};h.setSaveResult(saved);
+  h.press("✓ 확인했어요");await h.settle();
+  assert.deepEqual(h.events,["flush","get","save","reload"]);
+  assert.equal(h.saves[0].decisions[0].note,p.reviewPrompts[0].confirmation);
+  assert.ok(h.all().some(n=>n.props?.testID==="review-complete-passage"));
+  h.press("내용 보기");assert.ok(h.all().some(n=>n.props?.children===p.reviewPrompts[0].question));
+});
+
+test("DEV-485 AC-SRC-9: failed check save keeps the review pending and input intact",async()=>{
+  const h=harness(passage(["RELATIVE_TIME"]),false);h.press("✓ 확인했어요");await h.settle();
+  assert.deepEqual(h.events,["flush","get","save"]);
+  assert.equal(h.all().some(n=>n.props?.testID?.startsWith("review-complete-")),false);
+  assert.ok(h.all().some(n=>n.type==="T"&&typeof n.props.children==="string"&&n.props.children.includes("저장하지 못했어요")));
+  assert.ok(h.slots.find(s=>s?.binding?.action==="KEEP"));
+});
+
+test("DEV-485 AC-SRC-5: critical card uses caution and never offers check or KEEP",()=>{
+  const p=passage();p.reasonCodes.SAFETY=["PRIVATE_VALUE"];p.queueKinds=["SAFETY"];p.status="BLOCKED";
+  const h=harness(p);assert.equal(h.all().some(n=>n.props?.label==="✓ 확인했어요"),false);
+  const card=h.all().find(n=>n.props?.testID?.startsWith("source-copy-passage-"));assert.equal(card.props.style.backgroundColor,"#FFF0ED");assert.equal(card.props.accessibilityRole,"alert");
+  assert.match(JSON.stringify(card),/⚠ 수정이 필요해요/);
+  h.press("다른 선택 보기");assert.equal(h.all().some(n=>n.props?.label==="원문 그대로 사용"),false);
+});
+
+test("DEV-485 AC-SRC-10: a specific time question replaces generic price/shipping explanations",()=>{
+  const p=passage(["RELATIVE_TIME"]);p.reviewExplanations=["가격과 배송을 확인하세요."];p.reviewPrompts=[{code:"RELATIVE_TIME",question:"‘8년 전’은 어느 해 기준인가요?",detail:"정확한 연도로 바꿀 수 있어요.",severity:"check",confirmation:"기준 연도를 확인했어요."}];
+  const h=harness(p);const card=h.all().find(n=>n.props?.testID?.startsWith("source-copy-passage-"));assert.match(JSON.stringify(card),/어느 해 기준/);assert.doesNotMatch(JSON.stringify(card),/가격|배송/);
+});
+
+test("DEV-485 AC-SRC-10: one check confirms every part of the displayed source assembly",async()=>{
+  const p=passage(["RELATIVE_TIME"]),q=structuredClone(p);q.id="second";q.bindingHash="second-binding";p.autoRepair=q.autoRepair={type:"SOURCE_ADJACENT_CONTINUATION",module:"farmStory",passageIds:[p.id,q.id]};
+  const h=harness(p);h.data.plan.passages.push(q);h.data.plan.modules=[{module:"farmStory",texts:[{value:"전체 원문 문장입니다.",passageIds:[p.id,q.id],candidateIds:[]}]}];
+  h.press("✓ 확인했어요");await h.settle();assert.equal(h.saves[0].decisions.length,2);assert.ok(h.saves[0].decisions.every(d=>d.action==="KEEP"&&d.module==="farmStory"&&d.note));
+});
+
+test("DEV-485 AC-SRC-9: checking one card preserves an unsaved edit on another card",async()=>{
+  const h=harness(passage(["RELATIVE_TIME"]));const q=passage();q.id="second";q.bindingHash="second-binding";h.data.plan.passages.push(q);
+  h.pressFor("second","✎ 수정할게요");h.all().find(n=>n.type==="Input"&&n.props.label==="사용할 문구").props.onChangeText("저장 전 직접 쓴 문구");
+  h.pressFor("passage","✓ 확인했어요");await h.settle();
+  assert.equal(h.saves[0].decisions.length,1);assert.equal(h.saves[0].decisions[0].bindingHash,"binding");
+  const remaining=h.slots.find(s=>s?.["second-binding"]);assert.equal(remaining["second-binding"].value,"저장 전 직접 쓴 문구");
 });
