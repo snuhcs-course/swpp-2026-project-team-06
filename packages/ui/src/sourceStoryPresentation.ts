@@ -5,11 +5,11 @@ export type TextPresentation = { ref: string; value: string; duplicateOf: string
 const canonical = (value: string) => value.trim().replace(/\s+/g, " ");
 
 /** Only exact full-paragraph repeats; never merge similar claims, ranges or option rows. */
-export function sourceTextPresentation(modules: readonly StoryModule[], captionRefs: ReadonlySet<string> = new Set()): Map<string, TextPresentation> {
+export function sourceTextPresentation(modules: readonly StoryModule[], protectedRefs: ReadonlySet<string> = new Set()): Map<string, TextPresentation> {
   const result = new Map<string, TextPresentation>(), first = new Map<string, string>();
   for (const module of modules) for (const [index, text] of module.texts.entries()) {
     const ref = `${module.id}:${index}`, key = canonical(text.value);
-    const mergeable = !captionRefs.has(ref) && key.length >= 32 && !["composition", "pieceCount", "specification"].includes(module.id);
+    const mergeable = !protectedRefs.has(ref) && key.length >= 32 && !["composition", "pieceCount", "specification"].includes(module.id);
     const duplicateOf = mergeable ? first.get(key) ?? null : null;
     result.set(ref, { ref, value: text.value, duplicateOf });
     if (mergeable && !duplicateOf) first.set(key, ref);

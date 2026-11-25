@@ -5,6 +5,8 @@ export type SourceStoryMedia = {
   kind: "photo" | "comparison";
   sourceId: string; sourceSha256: string; sourceRegionId: string; caption?: string;
   captionRef?: { moduleId: string; textIndex: number };
+  afterTextRef?: { moduleId: string; textIndex: number };
+  treatment?: "full" | "inset" | "mark";
   sourceRef?: { uri: string; pages: number[] };
 };
 export type SourceStorySection = {
@@ -72,7 +74,7 @@ export function getSourceStoryDesign(modules: readonly StoryModule[], candidate:
   }
   if (!modules.some(contentful)) return null;
   for (const [key, m] of Object.entries(candidate.media)) {
-    if (!id(key) || !object(m) || !keys(m, ["uri", "alt", "width", "height", "kind", "sourceId", "sourceSha256", "sourceRegionId", "caption", "captionRef", "sourceRef"]) ||
+    if (!id(key) || !object(m) || !keys(m, ["uri", "alt", "width", "height", "kind", "sourceId", "sourceSha256", "sourceRegionId", "caption", "captionRef", "sourceRef", "afterTextRef", "treatment"]) ||
         !safeUri(m.uri) || !string(m.alt) || !string(m.sourceId, 200) || !string(m.sourceRegionId, 200) ||
         typeof m.sourceSha256 !== "string" || !/^[a-f0-9]{64}$/.test(m.sourceSha256) ||
         !["photo", "comparison"].includes(m.kind as string) ||
@@ -91,12 +93,22 @@ export function getSourceStoryDesign(modules: readonly StoryModule[], candidate:
       if (!module?.texts[ref.textIndex as number]?.value.trim() || usedCaptions.has(key)) return null;
       usedCaptions.add(key);
     }
+    if (m.treatment !== undefined && (m.kind !== "photo" || !["full", "inset", "mark"].includes(m.treatment as string))) return null;
+    if (m.afterTextRef !== undefined) {
+      const ref = m.afterTextRef;
+      if (m.kind !== "photo" || !object(ref) || !keys(ref, ["moduleId", "textIndex"]) || !id(ref.moduleId) ||
+          ["composition", "pieceCount", "specification"].includes(ref.moduleId) || !Number.isSafeInteger(ref.textIndex) || (ref.textIndex as number) < 0 ||
+          !supplied.get(ref.moduleId)?.texts[ref.textIndex as number]?.value.trim()) return null;
+    }
     if (m.sourceRef !== undefined) {
       const ref = m.sourceRef;
       if (!object(ref) || !keys(ref, ["uri", "pages"]) || !safeUri(ref.uri) || (ref.uri as string).includes("#") ||
           !Array.isArray(ref.pages) || !ref.pages.length || ref.pages.length > 4 ||
           ref.pages.some(p => !Number.isSafeInteger(p) || p < 1 || p > 10000) || new Set(ref.pages).size !== ref.pages.length) return null;
     }
+  }
+  for (const m of Object.values(candidate.media) as SourceStoryMedia[]) {
+    if (m.afterTextRef && usedCaptions.has(`${m.afterTextRef.moduleId}:${m.afterTextRef.textIndex}`)) return null;
   }
   const sections = new Set<string>(), usedModules = new Set<string>(), usedMedia = new Set<string>();
   for (const s of candidate.sections) {
@@ -115,6 +127,8 @@ export function getSourceStoryDesign(modules: readonly StoryModule[], candidate:
       if (!id(mediaId) || !Object.prototype.hasOwnProperty.call(candidate.media, mediaId) || usedMedia.has(mediaId)) return null;
       const ref = (candidate.media[mediaId] as SourceStoryMedia).captionRef;
       if (ref && !s.moduleIds.includes(ref.moduleId)) return null;
+      const anchor = (candidate.media[mediaId] as SourceStoryMedia).afterTextRef;
+      if (anchor && !s.moduleIds.includes(anchor.moduleId)) return null;
       usedMedia.add(mediaId);
     }
   }

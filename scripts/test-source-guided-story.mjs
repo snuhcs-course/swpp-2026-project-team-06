@@ -243,3 +243,21 @@ test("AC-SRC-9 DEV-464: source page links reject unsafe URIs and invalid page li
     assert.equal(getSourceStoryDesign([textModule()], plan({ sections: [section({ mediaIds: ["m1"] })], media: { m1: media({ sourceRef }) } })), null);
   }
 });
+
+test("AC-SRC-9 DEV-464: narrative visual anchors and bounded photo treatments preserve module identity", () => {
+  const modules=[textModule("farmStory", "A farm story paragraph")];
+  const candidate=plan({sections:[section({group:"farm",layout:"editorial",moduleIds:["farmStory"],mediaIds:["m1"]})],media:{m1:media({afterTextRef:{moduleId:"farmStory",textIndex:0},treatment:"inset"})}});
+  assert.ok(getSourceStoryDesign(modules,candidate));
+  for(const change of [{afterTextRef:{moduleId:"farmStory",textIndex:1}},{afterTextRef:{moduleId:"farmStory",textIndex:-1}},{afterTextRef:{moduleId:"farmStory",textIndex:0,extra:true}},{afterTextRef:{moduleId:"missing",textIndex:0}},{treatment:"free-css"},{kind:"comparison"}]){
+    const bad=structuredClone(candidate);Object.assign(bad.media.m1,change);assert.equal(getSourceStoryDesign(modules,bad),null);
+  }
+  for(const treatment of ["full","inset","mark"]){const good=structuredClone(candidate);good.media.m1.treatment=treatment;assert.ok(getSourceStoryDesign(modules,good));}
+});
+
+test("AC-SRC-7 DEV-464: visual anchors cannot depend on hidden caption text or another section", () => {
+  const modules=[textModule("farmStory","Farm narrative"),textModule("delivery","Source caption")];
+  const candidate=plan({sections:[section({id:"farm",group:"farm",moduleIds:["farmStory"],mediaIds:[]}),section({id:"packing",group:"packing",moduleIds:["delivery"],mediaIds:["m1"]})],media:{m1:media({afterTextRef:{moduleId:"farmStory",textIndex:0}})}});
+  assert.equal(getSourceStoryDesign(modules,candidate),null);
+  candidate.media.m1.afterTextRef={moduleId:"delivery",textIndex:0};candidate.media.m1.captionRef={moduleId:"delivery",textIndex:0};
+  assert.equal(getSourceStoryDesign(modules,candidate),null);
+});

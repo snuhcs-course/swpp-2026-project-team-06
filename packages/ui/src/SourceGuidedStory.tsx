@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Image, Linking, Platform, Pressable, Text, View, type TextStyle } from "react-native";
 import type { StoryModule } from "./ModuleStory";
 import { ViewablePhoto } from "./PrivatePhotos";
@@ -36,7 +36,7 @@ function SourceMedia({ id, media, mediaUrl, hideCaption, boundCaption }: { id: s
   const image = <Image source={{ uri }} accessibilityLabel={media.alt} resizeMode="contain"
     onError={() => setFailed(true)}
     style={{ width: "100%", aspectRatio: media.width / media.height }} />;
-  return <View testID={`source-guided-media-${id}`} style={{ width: "100%", maxWidth: media.width, alignSelf: "center", gap: 10, backgroundColor: theme.paper }}>
+  return <View testID={`source-guided-media-${id}`} style={{ width: "100%", maxWidth: Math.min(media.width, media.treatment === "mark" ? 104 : media.treatment === "inset" ? 320 : media.width), alignSelf: "center", gap: 10, backgroundColor: theme.paper }}>
     {failed ? <View style={{ minHeight: 96, padding: 20, backgroundColor: theme.cream, justifyContent: "center" }}>
       <Text style={[body, { color: theme.ink }]}>사진을 불러올 수 없어요</Text>
       <Text style={[body, { color: theme.muted }]}>{media.alt}</Text>
@@ -64,7 +64,7 @@ function SavedPhoto({ uri, alt }: { uri: string; alt: string }) {
     style={{ width: "100%", maxWidth: size.width, aspectRatio: size.width / size.height, alignSelf: "center" }} />;
 }
 
-function SavedModule({ module, section, mediaUrl, presentation, supplement, captionRefs }: { module: StoryModule; section: SourceStorySection; mediaUrl: (uri: string) => string; presentation: Map<string, TextPresentation>; supplement?: StoryModule; captionRefs: ReadonlySet<string> }) {
+function SavedModule({ module, section, mediaUrl, presentation, supplement, captionRefs, renderAfterText }: { module: StoryModule; section: SourceStorySection; mediaUrl: (uri: string) => string; presentation: Map<string, TextPresentation>; supplement?: StoryModule; captionRefs: ReadonlySet<string>; renderAfterText?: (moduleId: string, textIndex: number) => ReactNode }) {
   const accent = section.tone === "accent";
   const options = section.layout === "options" && module.id === "composition";
   const hero = section.layout === "hero" && module.id === "hero";
@@ -75,14 +75,15 @@ function SavedModule({ module, section, mediaUrl, presentation, supplement, capt
       {values.map(({ text, index, parts }) => <View key={`${text.fieldKey}-${index}`} testID={options ? `source-option-card-${index}` : undefined} style={options ? {
         flexBasis: parts ? "46%" : "100%", flexGrow: 1, minWidth: 142, padding: 16, borderWidth: 1, borderColor: theme.border,
         backgroundColor: theme.paper, borderRadius: 16, borderTopWidth: 4, borderTopColor: theme.accent,
-      } : undefined}>
+      } : { gap: 18 }}>
         <Text nativeID={`sg-text-${module.id}-${index}`}
           accessibilityRole={hero && (text.fieldKey === "name" || index === 0) ? "header" : "text"}
           style={[body, { color: accent ? theme.accentInk : theme.ink },
             hero && (text.fieldKey === "name" || index === 0) ? { fontSize: 34, lineHeight: 44, fontWeight: "800", letterSpacing: -1.1 } : null]}>
           {parts ? <><Text style={{ fontSize: 16, lineHeight: 29, fontWeight: "600" }}>{parts.prefix}</Text><Text style={{ fontSize: 28, lineHeight: 38, fontWeight: "800", color: theme.accent }}>{parts.weight}</Text>{parts.rows.map((row, i) => <Text key={i} style={{ fontSize: 16, lineHeight: 29, fontWeight: "400" }}>{"\n"}{row}</Text>)}</> : text.value}
         </Text>
-        {supplement ? <SavedModule module={supplement} section={{ ...section, layout: "prose" }} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} /> : null}
+        {supplement ? <SavedModule module={supplement} section={{ ...section, layout: "prose" }} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} renderAfterText={renderAfterText} /> : null}
+        {renderAfterText?.(module.id, index)}
       </View>)}
     </View>
     {module.photos.map((photo, index) => <SavedPhoto key={`${photo.uri}-${index}`} uri={mediaUrl(photo.uri)} alt={photo.alt} />)}
@@ -110,7 +111,11 @@ export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
     const ref = design.media[id].captionRef;
     return ref ? [`${ref.moduleId}:${ref.textIndex}`] : [];
   })));
-  const presentation = sourceTextPresentation(orderedModules, captionRefs);
+  const protectedRefs = new Set([...captionRefs, ...sections.flatMap(s => s.mediaIds.filter(id => mediaPresentation.get(id)).flatMap(id => {
+    const ref = design.media[id].afterTextRef;
+    return ref ? [`${ref.moduleId}:${ref.textIndex}`] : [];
+  }))]);
+  const presentation = sourceTextPresentation(orderedModules, protectedRefs);
   const renderedText = new Set(orderedModules.flatMap(m => m.texts.map(t => t.value.trim().replace(/\s+/g, " "))));
   return <View testID="source-guided-story" style={{ width: "100%", maxWidth: 480, alignSelf: "center", backgroundColor: theme.paper }}>
     {sections.filter(s => s.mediaIds.some(id => mediaPresentation.get(id)) || s.moduleIds.some(id => {
@@ -121,9 +126,14 @@ export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
       const hero = section.layout === "hero";
       const figure = section.layout === "figure";
       const backgroundColor = accent ? theme.accent : section.tone === "cream" ? theme.cream : theme.paper;
-      const media = section.mediaIds.filter(id => mediaPresentation.get(id)).map(id => <SourceMedia key={id} id={id} media={design.media[id]} mediaUrl={mediaUrl} boundCaption={design.media[id].captionRef ? {
+      const renderMedia = (id: string) => <SourceMedia key={id} id={id} media={design.media[id]} mediaUrl={mediaUrl} boundCaption={design.media[id].captionRef ? {
         ...design.media[id].captionRef!, value: moduleMap.get(design.media[id].captionRef!.moduleId)!.texts[design.media[id].captionRef!.textIndex].value,
-      } : undefined} hideCaption={!!design.media[id].caption && renderedText.has(design.media[id].caption!.trim().replace(/\s+/g, " "))} />);
+      } : undefined} hideCaption={!!design.media[id].caption && renderedText.has(design.media[id].caption!.trim().replace(/\s+/g, " "))} />;
+      const media = section.mediaIds.filter(id => mediaPresentation.get(id) && !design.media[id].afterTextRef).map(renderMedia);
+      const renderAfterText = (moduleId: string, textIndex: number) => section.mediaIds.filter(id => {
+        const ref = design.media[id].afterTextRef;
+        return mediaPresentation.get(id) && ref?.moduleId === moduleId && ref.textIndex === textIndex;
+      }).map(renderMedia);
       const composition = section.layout === "options" ? moduleMap.get("composition") : undefined;
       const count = section.moduleIds.includes("pieceCount") ? moduleMap.get("pieceCount") : undefined;
       const supplement = composition?.texts.length === 1 && sourceOptionParts(composition.texts[0].value) && count && !count.photos.length && count.texts.length > 0 && count.texts.every(t => sourceCountSupplement(t.value)) ? count : undefined;
@@ -140,7 +150,7 @@ export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
           {section.moduleIds.map(id => {
             const module = moduleMap.get(id);
             if (supplement && id === "pieceCount") return null;
-            return module ? <SavedModule key={id} module={module} section={section} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} supplement={id === "composition" ? supplement : undefined} /> : null;
+            return module ? <SavedModule key={id} module={module} section={section} mediaUrl={mediaUrl} presentation={presentation} captionRefs={captionRefs} renderAfterText={renderAfterText} supplement={id === "composition" ? supplement : undefined} /> : null;
           })}
         </View>
       </View>;
