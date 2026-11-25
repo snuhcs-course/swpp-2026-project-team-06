@@ -241,3 +241,8 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/7/10/11. 제품 상세 계약은 [source-analy
 - run 응답의 ocrFailedPageNumbers와 chunkFailedPageNumbers는 각각 OCR/청크 실패 쪽만 정렬·중복 제거한 목록이다. 두 종류가 함께 실패하면 각각의 안내를 모두 표시한다. 개수는 기존대로 유지하고 내부 실패 코드·진단은 노출하지 않는다.
 - 대표사진 없이 자료 분석이 가능하지만 sources가 0개면 시작 버튼을 비활성화하고 ‘자료를 먼저 넣어 주세요.’를 곁에 표시한다. 대표사진 공개 적용 검사는 유지한다.
 - 제외 확인 저장은 localStorage `farmclub-producer:excluded-seen:${userId}:${batchId}:${targetId}`의 마지막 refinementVersion 1개를 덮어쓴다. 커밋된 구 sessionStorage `farmclub-producer:excluded-seen:${batchId}:${refinementVersion}`만 로그인 사용자가 확인된 뒤 한 번 읽어 이관/제거한다. 사용자 정보가 없으면 이관하지 않는다. 새 버전은 다시 안내하고 칩으로 다시 열 수 있다.
+
+## DEV-453 OCR 요청 단위 복구 (2026-11-25)
+이 절은 위의 OCR 일시 오류 자동 재시도 금지를 대체한다. SDK 재시도는 계속 끈다. worker가 명시적으로 분류된 연결 오류·시간 초과·429·5xx만 동일 crop에서 최초 포함 최대3회 호출한다. 지수 지연과 jitter를 적용하고 Retry-After를 존중한다. 대기30초를 넘기는 지시는 자동 재시도 대신 기존 실패/명시 재시도 흐름을 따른다. 각 시도는 기존 예산 검사·별도 예약·정산과 가림 승인/revision/lease 검사를 거친다. 불확실 비용은 예약액으로 남긴다. 인증·예산·자료/가림 변경 및 원인 미분류 REQUEST_UNCERTAIN은 자동 재시도하지 않는다.
+
+성공 crop의 가림 처리된 문구와 오류 분류/시도 이력을 비공개 Item.diagnostics에 즉시 저장한다. 원자료/revision/가림 version/이미지/model/prompt/복구 protocol이 같은 경우만 재사용한다. 명시적 재시도는 성공 checkpoint만 복사하며, 중단 당시 IN_FLIGHT는 무조건 재전송하지 않는다. 재시도 종료 후에도 기존 PARTIAL/FAILED 표시와 생산자 확인·명시 적용 정책은 유지한다. 과거 벤치 결과를 덮어쓰거나 실패를 분모에서 제외하지 않는다. UI 변경과 자동 공개는 없다.

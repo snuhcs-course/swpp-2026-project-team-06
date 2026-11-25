@@ -25,6 +25,7 @@ from app.source_analysis.models import (
     SourceCopyDecision,
     new_id,
 )
+from app.source_analysis.ocr_recovery import successful_checkpoints
 from app.source_analysis.preprocess import PreparationError, identify, redact
 from app.source_analysis.schemas import ILLUSTRATIONS, MODULE_FIELDS, hidden_modules
 from app.source_analysis.storage import Storage
@@ -484,6 +485,9 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
                         target_ids=ids,
                         phase=old.phase,
                         pages=old.pages,
+                        diagnostics={"ocrRecovery": successful_checkpoints(old.diagnostics)}
+                        if old.sanitization_version == source.sanitization_version
+                        else {},
                         sanitization_version=source.sanitization_version,
                         status=(
                             "PRIVACY_REVIEW"

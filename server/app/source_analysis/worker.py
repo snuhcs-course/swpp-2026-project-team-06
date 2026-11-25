@@ -599,10 +599,10 @@ def _ordered_results(jobs, stop, concurrency):
         # Executor shutdown waits for every already sent request to settle, also on close.
 
 
-def _ocr_results(pages, page_images, call, failed, concurrency):
+def _ocr_results(pages, page_images, call, failed, concurrency, recovery=None):
     """Bound submitted work as well as threads; yield results in source order."""
     stop = Event()
-    skipped = Transcription([], {"cost": 0}, None)
+    skipped = Transcription([], {"cost": 0}, None, skipped=True)
 
     def jobs():
         for number, page in enumerate(pages):
@@ -634,7 +634,8 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
                 raise
 
         try:
-            return call(
+            invoke_call = call if recovery is None else partial(recovery, call)
+            return invoke_call(
                 f"ocr-{pages[number]['number']}-{index}" + ("-retry" if retry else ""),
                 OCR_MODEL,
                 {"prompt": OCR_PROMPT},
@@ -647,7 +648,7 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
             if isinstance(exc, ExtractionError) and exc.code in OCR_HARD_ERRORS:
                 stop.set()
             # DEV-264: a crop that ran out of output room is read once more with double room.
-            # Uncertain/timeout requests are not retried (the first may have been charged).
+            # Classified transient recovery is owned by the optional budgeted crop wrapper.
             if not retry and isinstance(exc, ExtractionError) and exc.code in OCR_RETRY_CODES:
                 return invoke(number, index, encoded, retry=True)
             # Soft failures are consumed in source order, even if a later crop fails first.
@@ -662,8 +663,8 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
                 yield number, result
 
 
-def transcribe_pages(chunk, page_images, call):
-    """Read each crop once; merge in page/crop order and discard failed-page fragments."""
+def transcribe_pages(chunk, page_images, call, recovery=None):
+    """Merge budgeted crop results in source order; discard exhausted failed-page fragments."""
     diagnostics = {"pagesEmpty": [], "pagesFailed": []}
     first_failure = None
     pages = chunk["pages"]
@@ -672,7 +673,9 @@ def transcribe_pages(chunk, page_images, call):
     recorded_failures = set()
     for page in pages:
         page["spans"] = []  # Never fall back to local OCR after remote OCR failed.
-    results = _ocr_results(pages, page_images, call, failed, get_settings().source_ocr_concurrency)
+    results = _ocr_results(
+        pages, page_images, call, failed, get_settings().source_ocr_concurrency, recovery
+    )
     with closing(results):
         for number, result in results:
             page = pages[number]
@@ -866,8 +869,39 @@ def save_vision_diagnostics(item_id, token, chunk, diagnostics):
             raise ExtractionError("PRIVACY_CHANGED")
         by_number = {p["number"]: p["spans"] for p in chunk["pages"]}
         item.pages = [{**p, "ocrSpans": by_number[p["number"]]} for p in item.pages]
-        item.diagnostics = diagnostics
+        item.diagnostics = {**diagnostics, "ocrRecovery": item.diagnostics.get("ocrRecovery", {})}
         db.commit()
+
+
+def ocr_recovery(item_id, token):
+    from app.source_analysis.ocr_recovery import Recovery
+
+    def access(key, state=None):
+        with get_sessionmaker()() as db:
+            context = lock_context(db, item_id, token)
+            if not context:
+                raise ExtractionError("SOURCE_CHANGED")
+            _, source, _, item = context
+            if (
+                not source.privacy_approved
+                or source.sanitization_version != item.sanitization_version
+            ):
+                raise ExtractionError("PRIVACY_CHANGED")
+            if state is None:
+                return item.diagnostics.get("ocrRecovery", {}).get(key)
+            item.diagnostics = {
+                **item.diagnostics,
+                "ocrRecovery": {**item.diagnostics.get("ocrRecovery", {}), key: state},
+            }
+            db.commit()
+
+    with get_sessionmaker()() as db:
+        context = lock_context(db, item_id, token)
+        if not context:
+            raise ExtractionError("SOURCE_CHANGED")
+        _, source, _, item = context
+        binding = [source.id, source.revision, source.checksum, item.sanitization_version]
+    return Recovery(binding, access, access)
 
 
 def vision_extraction(
@@ -879,6 +913,7 @@ def vision_extraction(
             chunk,
             page_images,
             lambda *args: paid_vision_call(item_id, token, *args),
+            lambda *args: ocr_recovery(item_id, token)(*args),
         )
         result = extract_vision_chunks(
             chunk,
@@ -1120,7 +1155,10 @@ def process(item_id, token):
                 ):
                     item.status, item.error = "CANCELLED", "PRIVACY_CHANGED"
                 else:
-                    item.diagnostics = diagnostics
+                    item.diagnostics = {
+                        **diagnostics,
+                        "ocrRecovery": getattr(item, "diagnostics", {}).get("ocrRecovery", {}),
+                    }
                     if diagnostics["rejectedCount"] and not extraction.candidates:
                         item.status, item.error = "FAILED", "CANDIDATES_REJECTED"
                     elif diagnostics.get("pagesFailed") or diagnostics.get("chunksFailed"):

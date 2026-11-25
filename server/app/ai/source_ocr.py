@@ -3,6 +3,7 @@
 import base64
 import io
 import json
+import math
 from dataclasses import dataclass
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
@@ -37,6 +38,7 @@ class Transcription:
     lines: list[str]
     usage: dict
     request_id: str | None
+    skipped: bool = False
 
 
 def crops(data):
@@ -141,13 +143,36 @@ def transcribe(encoded, *, retry=False):
             raise ExtractionError("INVALID_OCR", usage=usage, request_id=result.id) from exc
         return Transcription(lines, usage, result.id)
     except (APITimeoutError, APIConnectionError) as exc:
-        raise ExtractionError("REQUEST_UNCERTAIN") from exc
-    except APIStatusError as exc:
-        # No automatic retry: an earlier crop may already have incurred a charge.
-        if exc.status_code in {401, 403}:
-            raise ExtractionError("PROVIDER_AUTH") from exc
         raise ExtractionError(
-            "REQUEST_UNCERTAIN" if exc.status_code >= 500 else "PROVIDER_REJECTED"
+            "REQUEST_UNCERTAIN",
+            details={
+                "errorCategory": "TIMEOUT" if isinstance(exc, APITimeoutError) else "CONNECTION",
+                "automaticRetry": True,
+            },
         ) from exc
+    except APIStatusError as exc:
+        status = exc.status_code
+        details = {
+            "httpStatus": status,
+            "errorCategory": "HTTP",
+            "automaticRetry": status == 429 or status >= 500,
+        }
+        if status == 429:
+            try:
+                delay = float(exc.response.headers.get("retry-after", "0"))
+                if math.isfinite(delay) and delay >= 0:
+                    details["retryAfterSeconds"] = delay
+            except (ValueError, TypeError):
+                pass
+        code = (
+            "PROVIDER_AUTH"
+            if status in {401, 403}
+            else "RATE_LIMITED"
+            if status == 429
+            else "REQUEST_UNCERTAIN"
+            if status >= 500
+            else "PROVIDER_REJECTED"
+        )
+        raise ExtractionError(code, details=details) from exc
     finally:
         client.close()

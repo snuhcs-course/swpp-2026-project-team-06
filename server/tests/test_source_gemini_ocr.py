@@ -426,7 +426,7 @@ def test_AC_SRC_2_5_10_pdf_page_failure_preserves_other_pages_and_accounting(
 
 
 @pytest.mark.usefixtures("single_page_extraction_chunks")
-def test_AC_SRC_5_10_partial_ocr_retry_requires_ack_and_rereads_entire_item(
+def test_AC_SRC_5_10_partial_ocr_retry_requires_ack_and_reuses_completed_crops(
     client, login, monkeypatch
 ):
     # This fixture keys responses by sequential invocation count.
@@ -470,7 +470,7 @@ def test_AC_SRC_5_10_partial_ocr_retry_requires_ack_and_rereads_entire_item(
         assert len(db.get(Item, new_id).pages) == 3
         db.commit()
     assert worker.run_once()
-    assert len(attempted) == 6  # Explicitly re-read all pages, including the failed one.
+    assert len(attempted) == 4  # Only the failed page is sent again; two successes are cached.
     with get_sessionmaker()() as db:
         assert db.get(Item, new_id).status == "SUCCEEDED"
         current = list(db.scalars(select(Candidate).where(Candidate.outdated.is_(False))))
