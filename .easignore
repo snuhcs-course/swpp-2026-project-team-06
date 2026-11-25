@@ -3,7 +3,7 @@
 # 이 파일이 있으면 eas-cli는 .gitignore를 하나도 읽지 않는다(하위 폴더 것 포함). 그래서 1·2절에 .gitignore
 # 규칙을 옮겨 두었다. .gitignore에 줄을 더하면 여기에도 더한다.
 # 3절은 빌드에 쓰이지 않아 업로드에서만 빼는 것이다. 앱·패키지 코드가 여기 걸리는 경로를 import하면
-# scripts/test-easignore-imports.mjs(npm run test:mock)가 실패한다. /server 전체는 빼지 않는다:
+# scripts/test-easignore.mjs(npm run test:mock)가 실패한다. /server 전체는 빼지 않는다:
 # packages/api/src/sourceTextSafety.ts가 server/app/source_analysis/text_safety_lists.json을 import한다.
 
 # --- 1. 루트 .gitignore ---
