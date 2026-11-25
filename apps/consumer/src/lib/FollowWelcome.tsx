@@ -1,5 +1,5 @@
 import { farms, type FollowState } from "@farmclub/api";
-import { Button, Icon, Sheet, T, tokens, useSheetLeave } from "@farmclub/ui";
+import { Button, EmoticonImage, Icon, Sheet, T, tokens, useSheetLeave } from "@farmclub/ui";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
@@ -61,16 +61,38 @@ export function useFollowWelcome(resource: string) {
     busy: pending === scope && authorized(),
     node: (
       <Sheet visible={Boolean(shown)} onClose={close} instant={leave.instant}>
-        <View testID="follow-welcome" style={{ alignItems: "flex-start", gap: 16, paddingVertical: 8 }}>
-          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: tokens.color.surface, alignItems: "center", justifyContent: "center" }}>
-            <Icon name="heartFill" color={tokens.color.accent} size={28} />
+        <View testID="follow-welcome" style={{ gap: 20, paddingTop: 8, paddingBottom: 4 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: tokens.radius.full, backgroundColor: tokens.color.accentSoft }}>
+            <Icon name="check" size={14} color={tokens.color.accent} />
+            <T variant="caption" weight="semibold" color={tokens.color.accentPressed}>팔로우 완료</T>
           </View>
-          <T variant="sub" weight="semibold" color={tokens.color.accent}>우리 농가의 소중한 손님</T>
           {shown ? (
-            <T variant="title" masked>{shown.nickname}님은 {shown.name}을 팔로우한 소중한 {shown.fanNumber.toLocaleString("ko-KR")}번째 손님이에요</T>
+            <>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={{ flex: 1, gap: 8 }}>
+                  <T variant="title" masked>{shown.nickname}님,{"\n"}반가워요!</T>
+                  <T variant="sub" muted>농가와의 새로운 이야기가{"\n"}지금 시작돼요.</T>
+                </View>
+                <View aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                  <EmoticonImage id="farmclub-thanks" size={124} />
+                </View>
+              </View>
+              <View style={{ padding: 20, gap: 12, borderRadius: tokens.radius.md, backgroundColor: tokens.color.accentSoft }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <T weight="semibold" style={{ flex: 1 }}>{shown.name}</T>
+                  <Icon name="heartFill" size={20} color={tokens.color.accent} />
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+                  <T color={tokens.color.accent} weight="bold" style={{ fontSize: 44, lineHeight: 52, letterSpacing: -1.1 }}>
+                    {shown.fanNumber.toLocaleString("ko-KR")}<T variant="heading" color={tokens.color.accentPressed}>번째</T>
+                  </T>
+                  <T variant="heading">소중한 손님</T>
+                </View>
+                <T>이제 농가의 소식을 함께 기다려요.</T>
+              </View>
+            </>
           ) : null}
-          <T>이제 농가의 소식을 함께 기다려요.</T>
-          <T variant="sub" muted>손님 번호는 이 기능 도입 때 확인한 팔로우 기록부터 차례로 매겨요.</T>
+          <T variant="caption" muted>손님 번호는 이 기능 도입 때 확인한 팔로우 기록부터 차례로 매겨요.</T>
         </View>
         <Button label="농가 소개 보기" onPress={close} />
       </Sheet>

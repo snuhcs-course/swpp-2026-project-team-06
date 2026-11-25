@@ -4,6 +4,12 @@ This change addresses feedback that customers need a stronger reason to choose a
 
 The [implementation specification](../spec/customer-engagement.md) defines AC-ENG-1 through AC-ENG-6.
 
+## Approved presentation
+
+The user approved the redesigned app screenshots on November 25, 2026. The screens retain the existing Figma consumer design language: Pretendard, white and neutral surfaces, burnt-orange tokens, 16px corners and gutters. The welcome pairs the existing bowing citrus illustration with a personalized greeting and a distinct card for the farm name and real guest number. Only that number uses a larger 44px display; body, supporting and metadata text retain the existing hierarchy. Decorative artwork is hidden from screen readers, and small accent text uses the darker existing accent token.
+
+The challenge summary, titled “나의 작은 발자국,” presents the server's completed count and five independent activity stamps. They are not a required sequence. Compact rows retain each activity's icon after completion, add a check badge and explicit status text, and make incomplete rows actionable through the existing destinations. Their accessible names include the title, status, description and action. The reversible-completion explanation remains below the list. This redesign changes presentation while preserving first-success-only welcomes, persistent numbering, session isolation and server-derived completion. The approved [welcome](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=787-4021) and [challenge board](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=787-3820) are synced to the existing Figma consumer page with native text and reusable instances. The layout, copy, assets and displayed activity state were compared with the app; the 320px layout was checked in the app. Pretendard names remain intact, but the current Figma environment flags the font as missing, so text editing requires font access. PR #814 records validation evidence; pixel-identical rendering is not asserted.
+
 ## Persistent welcome
 
 The server issues a number only when a consumer actually follows. A separate receipt survives unfollowing; retrying or following again cannot generate additional numbers. Existing active follows are backfilled from real rows, sorted by creation time and consumer ID. Numbering represents records available at rollout, not reconstructed historical membership. The welcome is acknowledged before opening the farm introduction. Chat auto-follow keeps its existing chat destination.
