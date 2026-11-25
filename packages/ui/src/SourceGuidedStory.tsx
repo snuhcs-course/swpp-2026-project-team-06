@@ -69,10 +69,10 @@ function SavedModule({ module, section, mediaUrl, presentation, supplement }: { 
   const values = module.texts.map((text, index) => ({ text, index, parts: options ? sourceOptionParts(text.value) : null })).filter(({ text, index }) => text.value.trim() && !presentation.get(`${module.id}:${index}`)?.duplicateOf);
   return <View testID={`source-module-${module.id}`} style={{ gap: 18 }}>
     <View style={options ? { flexDirection: "row", flexWrap: "wrap", gap: 12 } : { gap: hero ? 18 : 20 }}>
-      {values.map(({ text, index, parts }) => <View key={`${text.fieldKey}-${index}`} testID={parts ? `source-option-card-${index}` : undefined} style={parts ? {
-        flexBasis: "46%", flexGrow: 1, minWidth: 142, padding: 16, borderWidth: 1, borderColor: theme.border,
+      {values.map(({ text, index, parts }) => <View key={`${text.fieldKey}-${index}`} testID={options ? `source-option-card-${index}` : undefined} style={options ? {
+        flexBasis: parts ? "46%" : "100%", flexGrow: 1, minWidth: 142, padding: 16, borderWidth: 1, borderColor: theme.border,
         backgroundColor: theme.paper, borderRadius: 16, borderTopWidth: 4, borderTopColor: theme.accent,
-      } : options ? { width: "100%" } : undefined}>
+      } : undefined}>
         <Text nativeID={`sg-text-${module.id}-${index}`}
           accessibilityRole={hero && (text.fieldKey === "name" || index === 0) ? "header" : "text"}
           style={[body, { color: accent ? theme.accentInk : theme.ink },
