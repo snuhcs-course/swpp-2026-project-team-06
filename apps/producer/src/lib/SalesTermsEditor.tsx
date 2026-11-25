@@ -403,7 +403,7 @@ export function SalesTermsEditor({
         <Sec title={mode === "new" ? "가격" : "예약 기간·가격·박스"}>
           <T variant="sub" muted>
             {mode === "new"
-              ? "옵션마다 가격과 이번 기간에 팔 박스 수를 적어 주세요."
+              ? "옵션마다 가격과 이번 기간에 팔 박스 수를 적어 주세요. 얼리버드 기간을 더하면 앞 기간을 더 싸게 받을 수 있어요."
               : "바꾼 가격·박스는 새 예약부터 적용돼요. 이미 결제한 주문의 가격은 그대로예요."}
           </T>
           {t.rows.map((r, i) => {
@@ -460,6 +460,12 @@ export function SalesTermsEditor({
                     </Pressable>
                   ) : null}
                 </View>
+                {fixed ? (
+                  // 회색 날짜 칸이 왜 눌리지 않는지(scan). 예약 있는 기간 날짜 고치기는 다음 PR
+                  <T variant="caption" muted>
+                    예약 이력이 있어 날짜는 유지해요. 가격은 새 주문부터 적용돼요.
+                  </T>
+                ) : null}
                 {/* 오류 문구는 부르는 쪽이 토스트·하단 줄로 한 번만 보인다(DEV-486). 여기서는 칸만 강조한다 */}
                 {byWeight.length ? (
                   byWeight.map((o) => (
@@ -589,7 +595,8 @@ export function SalesTermsEditor({
           range
           start={t.rows[sheet.period].startsAt}
           end={t.rows[sheet.period].endsAt}
-          min={seoulToday()}
+          // 이미 시작한 기간은 시작일을 그대로 두고 끝날만 고를 수 있게 시작일부터 연다(scan)
+          min={[seoulToday(), t.rows[sheet.period].startsAt].sort()[0]}
           blocks={t.rows
             .map((r, j) => ({ r, j }))
             .filter(({ j }) => j !== sheet.period)
