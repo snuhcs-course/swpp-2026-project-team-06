@@ -129,3 +129,5 @@ The frozen input SHA-256 is `b90357a7b99b694cafd1b7515bc05a41e7030dabb83ea3ae740
 This evidence supports improved **private content retention** over the matched legacy writer. It does not support an overall 95% pass, a semantic-accuracy claim, automatic publication or a paid-organizer coverage advantage over B. Human review of placement, wording and producer usefulness remains necessary. The previously reported holdout aggregate belongs to its historical build and is not a new-pipeline result; no sealed folder was opened or rescored. No merge or deployment is claimed.
 
 AI-use effort for the combined continuation: Agent approximately5.5h wall clock / Tokens / Human unconfirmed. This supersedes provisional phase checkpoints; no human time or token count was invented.
+
+PR mapping completeness accounts for every changed path. The standard mapping validator remains INCOMPLETE because it excludes environment-example files; the default-off flag example requires human review. No checker rule was weakened, and this is not a passing remote CI claim.
