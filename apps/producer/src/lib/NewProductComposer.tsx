@@ -1742,13 +1742,13 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       if (applied.current === key || readApplied(productId) === key) return goNext();
       await applyDraft({ draft: d, productId, version: p.version });
     });
-  // 판매 조건 시트 위 토스트(DEV-486). 앱 토스트는 시트(Modal) 뒤에 그려져 보이지 않는다.
-  // 시트 밖 형제라 화면 읽기(iOS)가 건너뛸 수 있어 같은 문구를 읽어 준다
+  // 판매 조건 시트 위 토스트(DEV-486). 앱 토스트는 시트(Modal) 뒤에 그려져 보이지 않는다
   const [termsToast, setTermsToast] = useState<string | null>(null);
   const hideTermsToast = useCallback(() => setTermsToast(null), []);
   const sayInTerms = useCallback((message: string) => {
     setTermsToast(message);
-    AccessibilityInfo.announceForAccessibility(message);
+    // Android·웹은 Toast의 alert·live region이 읽어 준다. iOS만 시트 밖 형제를 건너뛰므로 직접 읽는다
+    if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(message);
   }, []);
   const closeTerms = () => {
     setTermsToast(null);

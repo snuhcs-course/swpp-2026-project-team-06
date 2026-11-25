@@ -427,7 +427,7 @@ export function SalesTermsEditor({
                   {t.rows.length > 1 ? <T weight="semibold">{i + 1}기간</T> : null}
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${label} 날짜 고치기`}
+                    accessibilityLabel={dateEditable ? `${label} 날짜 고치기` : label}
                     disabled={!dateEditable}
                     onPress={() => setSheet({ period: i })}
                     style={({ pressed }) => ({
@@ -603,7 +603,13 @@ export function SalesTermsEditor({
             .map(({ r, j }) => ({ label: `${j + 1}기간`, start: r.startsAt, end: r.endsAt }))}
           onClose={() => setSheet(null)}
           onSave={(startsAt, endsAt) => {
-            setRow(sheet.period, { startsAt, endsAt });
+            // 날짜를 옮기면 시작일 순서로 다시 놓아 카드 번호·얼리버드 추가(맨 앞 기간 기준)가 날짜 순서를 따르게 한다(scan)
+            set(
+              "rows",
+              t.rows
+                .map((r, j) => (j === sheet.period ? { ...r, startsAt, endsAt } : r))
+                .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+            );
             setSheet(null);
           }}
         />
