@@ -123,7 +123,8 @@ export function SourceGuidedStory({ content, design, mediaUrl = uri => uri }: {
         <View style={{ paddingHorizontal: 24, paddingTop: hero ? 32 : 42, paddingBottom: hero ? 40 : 42, gap: 26 }}>
           {!hero || section.title ? <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Image source={icons[section.group]} accessible={false} style={{ width: 34, height: 34 }} resizeMode="contain" />
-            <Text accessibilityRole="header" style={[body, { flex: 1, fontSize: 25, lineHeight: 34, fontWeight: "800", letterSpacing: -0.7, color: accent ? theme.accentInk : theme.ink }]}>{section.title ?? titles[section.group]}</Text>
+            <Text accessibilityRole="header" style={[body, { flexShrink: 1, fontSize: 25, lineHeight: 34, fontWeight: "800", letterSpacing: -0.7, color: accent ? theme.accentInk : theme.ink }]}>{section.title ?? titles[section.group]}</Text>
+            <View testID="source-heading-divider" accessible={false} style={{ flex: 1, minWidth: 24, height: 1, backgroundColor: accent ? theme.accentInk : "#B8B3AA", opacity: 0.8 }} />
           </View> : null}
           {!hero && !figure ? media : null}
           {figure && media.length ? <View style={{ marginHorizontal: -16, paddingVertical: 14, backgroundColor: theme.paper }}>{media}</View> : null}
