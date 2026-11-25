@@ -1,3 +1,6 @@
+import type { EmoticonId } from "@farmclub/api";
+import { EmoticonMessage } from "./Emoticon";
+import { useComposerTools } from "./ComposerTools";
 import { MessageEditSheet } from "./MessageEditSheet";
 import { MessageMenu, type MenuPoint } from "./MessageMenu";
 import { mergeChatMessages } from "./chatOrder";
@@ -7,7 +10,7 @@ import { Icon } from "./Icon";
 import { Button } from "./Button";
 import { BUBBLE_AVATAR, ChatBubble, DayPill, SystemLine } from "./ChatBubble";
 import { T } from "./Text";
-import { PrivatePhoto, PrivatePhotos } from "./PrivatePhotos";
+import { AttachedPhotoRow, PrivatePhoto, PrivatePhotos, usePhotoAttach } from "./PrivatePhotos";
 import type { PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
 import { chatDay, daySeparator, seoulDay, time } from "./format";
@@ -17,6 +20,7 @@ import { AiCheckCard, AiCheckChip } from "./AiCheckCard";
 import { aiCheckFollowUp, aiCheckLabel, aiCheckState, correctionQuoteLabel, type AiCheckState } from "./aiCheck";
 import { Composer, copyToClipboard, FloatingPill } from "./composer";
 import { inBackground } from "./foreground";
+import { ChatNotice, type ChatNoticeConfig } from "./ChatNotice";
 import { useKeyboardShown } from "./keyboard";
 import { safe } from "./web";
 import {
@@ -34,6 +38,7 @@ type Message = {
   messageId: string;
   senderType: string;
   body: string;
+  emoticonId?: EmoticonId | null;
   createdAt: string;
   sourceSummary: string | null;
   attachmentIds?: string[];
@@ -44,6 +49,7 @@ type Message = {
   checkState?: AiCheckState | null;
   handoffStatus?: string | null;
   needsHuman?: boolean;
+  replyRequested?: boolean;
 };
 type Page = { items: Message[]; nextCursor: string | null };
 type Props = {
@@ -61,10 +67,11 @@ type Props = {
   onBusyChange?: (busy: boolean) => void;
   edit?: (id: string, text: string, version: number, key: string) => Promise<Message>;
   replies?: boolean;
+  emoticons?: boolean;
   producer?: boolean;
   active: boolean;
   load: (cursor?: string) => Promise<Page>;
-  send: (text: string, ids: string[], key: string, replyToMessageId?: string) => Promise<unknown>;
+  send: (text: string, ids: string[], key: string, replyToMessageId?: string, emoticonId?: EmoticonId) => Promise<unknown>;
   report?: (messageId: string, key: string) => Promise<unknown>;
   /** 생산자: 확인 요청된 AI 답변에 '답이 맞아요'(DEV-296). 주면 깃발 답변 아래 확인 카드를 그린다 */
   confirmCheck?: (messageId: string, key: string) => Promise<unknown>;
@@ -88,6 +95,8 @@ type Props = {
   peerReadMessageId?: string | null;
   /** 길게 누르기 메뉴의 '복사'. 앱은 expo-clipboard 도우미를 넘긴다. 없으면 웹 클립보드만 */
   copy?: (text: string) => Promise<unknown>;
+  /** 머리 아래 주의·제재 안내 띠(DEV-475, AC-12-19). 모든 방이 넘긴다. 운영팀 방은 onSupport: null */
+  notice: ChatNoticeConfig;
   children?: ReactNode;
 };
 export function ChatThread({
@@ -99,6 +108,7 @@ export function ChatThread({
   onBusyChange,
   edit,
   replies = false,
+  emoticons = false,
   producer = false,
   active,
   load,
@@ -116,6 +126,7 @@ export function ChatThread({
   systemLine,
   peerReadMessageId,
   copy,
+  notice,
   children,
 }: Props) {
   const saved = useRef((() => {
@@ -147,6 +158,7 @@ export function ChatThread({
     [older, setOlder] = useState(false),
     [retryCount, setRetryCount] = useState(0),
     [retrySend, setRetrySend] = useState(false);
+  const [selectedEmoticon, setSelectedEmoticon] = useState<EmoticonId>();
   const scroll = useRef<ScrollView>(null),
     known = useRef(new Set<string>(initialPage?.items.map(m => m.messageId))),
     initialized = useRef(Boolean(initialPage)),
@@ -173,6 +185,7 @@ export function ChatThread({
   const [menuMessage, setMenuMessage] = useState<Message | null>(null);
   const [menuPoint, setMenuPoint] = useState<MenuPoint | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const composerInput = useRef<TextInput>(null);
   useEffect(() => { if (!active) { setMenuMessage(null); setEditTarget(null); } }, [active]);
   const [reporting, setReporting] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -204,6 +217,8 @@ export function ChatThread({
     setUploading(false);
     setIds([]);
     setPhotos(false);
+    setSelectedEmoticon(undefined);
+    tools.close();
     setRetrySend(false);
     setError(ids.length ? "문의할 주문이 바뀌었어요. 사진을 다시 첨부해 주세요." : "");
   }, [sendScope]);
@@ -458,23 +473,27 @@ export function ChatThread({
     if (prefillId !== undefined && prefillText.current) setText(prefillText.current);
   }, [prefillId]);
   async function submit() {
-    if (!sameRoom() || !ready || !composerEnabled || lock.current || uploading || (!text.trim() && !ids.length)) return;
+    if (!sameRoom() || !ready || !composerEnabled || lock.current || uploading || (!text.trim() && !ids.length && !selectedEmoticon)) return;
     const submittedScope = context.current, run = epoch.current;
     lock.current = true;
     setBusy(true);
-    const body = JSON.stringify({ scope: submittedScope, text: text.trim(), ids, replyTo: replyTo?.messageId });
+    const emoji = selectedEmoticon;
+    const outgoingText = emoji ? "" : text.trim(), outgoingIds = emoji ? [] : ids;
+    const body = JSON.stringify({ scope: submittedScope, text: outgoingText, ids: outgoingIds, replyTo: replyTo?.messageId, emoji });
     if (pending.current?.body !== body)
       pending.current = { body, key: makeKey() };
     let committed = false;
     try {
-      await callbacks.current.send(text.trim(), ids, pending.current.key, replyTo?.messageId);
+      await callbacks.current.send(outgoingText, outgoingIds, pending.current.key, replyTo?.messageId, emoji);
       if (!current(run) || submittedScope !== context.current) return;
       committed = true;
+      if (producer && replyTo?.replyRequested) {
+        commitMessages(messageRef.current.map(m => m.messageId === replyTo.messageId
+          ? { ...m, replyRequested: false } : m));
+      }
       setRetrySend(false);
-      setReplyTo(null);
-      setText("");
-      setIds([]);
-      setPhotos(false);
+      if (emoji) setSelectedEmoticon(undefined);
+      else { setText(""); setIds([]); setPhotos(false); setReplyTo(null); }
       pending.current = null;
       latest(false);
       const p = await load();
@@ -498,6 +517,23 @@ export function ChatThread({
       }
     }
   }
+  // 이모티콘이 있는 대화는 ‘+’가 사진 고르기를 바로 열고, 고른 사진은 입력줄 위 72px 한 줄(DEV-478, 카톡 방식)
+  const attach = usePhotoAttach({
+    count: ids.length,
+    upload: (f) => {
+      if (context.current !== sendScope) return Promise.reject(new Error("대화가 바뀌었어요."));
+      return callbacks.current.upload!(f);
+    },
+    onAdd: (id) => { if (alive.current && context.current === sendScope) setIds((prev) => [...prev, id]); },
+    onBusy: (next) => { if (alive.current && context.current === sendScope) setUploading(next); },
+    scope: sendScope,
+  });
+  const tools = useComposerTools({
+    selected: selectedEmoticon, onSelect: setSelectedEmoticon, onSend: () => void submit(),
+    disabled: !active || !ready || !composerEnabled || busy || uploading,
+    onPhoto: upload ? attach.open : undefined,
+    photoDisabled: ids.length >= 3,
+  });
   async function previous() {
     const requested = cursorRef.current, run = epoch.current;
     if (!requested || older || !sameRoom() ||
@@ -549,6 +585,7 @@ export function ChatThread({
       {...PRIVATE_AREA}
       style={{ flex: 1, minHeight: 0, backgroundColor: "#FAF9F6" }}
     >
+      <ChatNotice side={producer ? "producer" : "consumer"} onSupport={notice.onSupport} />
       {error ? (
         <View
           accessibilityRole="alert"
@@ -696,7 +733,7 @@ export function ChatThread({
               check={check === "REQUESTED" ? "flagged" : check === "CORRECTED" ? "struck" : undefined}
               labelSide={chipBeside ? checkChip ?? undefined : undefined}
               edited={!!m.editedAt}
-              text={m.body}
+              text={m.emoticonId ? "" : m.body}
               avatar={kind === "farm" ? peerAvatar : undefined}
               sender={mine ? undefined : senderName(m.senderType, peer?.name)}
               time={time(m.createdAt)}
@@ -712,7 +749,21 @@ export function ChatThread({
                     ? "주문에 연결된 대화"
                     : undefined
               }
-              footer={checkChip && !chipBeside ? (
+              footer={producer && replies && m.senderType === "CONSUMER" && m.replyRequested ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="답장 요청에 답장"
+                  testID={`reply-request-${m.messageId}`}
+                  disabled={busy}
+                  hitSlop={8}
+                  onPress={() => { setReplyTo(m); composerInput.current?.focus(); }}
+                  style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, minHeight: 32, opacity: busy ? 0.5 : pressed ? 0.7 : 1 })}
+                >
+                  <Icon name="flag" size={12} color={tokens.color.error} />
+                  <T variant="caption" weight="semibold" color={tokens.color.accent}>답장 요청</T>
+                  <Icon name="chevron" size={14} color={tokens.color.accent} />
+                </Pressable>
+              ) : checkChip && !chipBeside ? (
                 // 소비자: 요청함은 빨간 깃발 + '농가가 확인하면 알려 드려요', 확인함은 초록 칩(Figma 10:116)
                 <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
                   {checkChip}
@@ -754,6 +805,7 @@ export function ChatThread({
                 </Pressable>
               ) : undefined}
             >
+              {m.emoticonId ? <EmoticonMessage id={m.emoticonId} /> : null}
               {m.attachmentIds?.map((id) => (
                 <PrivatePhoto key={id} id={id} load={loadPhoto} onLongPress={busy ? undefined : () => menuFor(m)} />
               ))}
@@ -804,7 +856,7 @@ export function ChatThread({
             const body = menuMessage.body;
             void copyToClipboard(body, copy).then(ok => { if (ok && alive.current) setCopied(true); });
           } }] : []),
-          ...(edit && menuMessage?.senderType === mineType ? [{label: "수정", onPress: () => setEditTarget(menuMessage)}] : [])]} />
+          ...(edit && !menuMessage?.emoticonId && menuMessage?.senderType === mineType ? [{label: "수정", onPress: () => setEditTarget(menuMessage)}] : [])]} />
       {editTarget && edit ? <MessageEditSheet key={editTarget.messageId} body={editTarget.body} limit={1000} makeKey={makeKey}
         onClose={() => setEditTarget(null)} onSave={async (text, key) => {
           const run = epoch.current;
@@ -824,6 +876,7 @@ export function ChatThread({
         }}
       >
         <Composer
+          inputRef={composerInput}
           sendOnEnter
           value={text}
           onChangeText={setText}
@@ -832,15 +885,17 @@ export function ChatThread({
           editable={!busy && composerEnabled}
           maxLength={1000}
           onSend={() => void submit()}
-          canSend={ready && composerEnabled && !uploading && (!!text.trim() || ids.length > 0)}
+          canSend={ready && composerEnabled && !uploading && (!!selectedEmoticon || !!text.trim() || ids.length > 0)}
           busy={busy}
-          tool={upload ? {
+          tool={emoticons ? tools.tool : upload ? {
             icon: photos ? "close" : "plus",
             label: photos ? "사진 첨부 닫기" : "사진 첨부",
             expanded: photos,
             onPress: () => setPhotos(!photos),
             disabled: busy || !ready || !composerEnabled,
           } : undefined}
+          trailing={emoticons ? tools.trailing : undefined}
+          onFocus={emoticons ? tools.close : undefined}
           above={<>
             {copied ? <T variant="caption" muted center accessibilityRole="text">메시지를 복사했어요</T> : null}
             {replyTo ? <View style={{ paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent, flexDirection: "row", alignItems: "center" }}>
@@ -848,7 +903,20 @@ export function ChatThread({
               <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTo(null)}
                 style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Icon name="close" size={18} /></Pressable>
             </View> : null}
-            {photos && upload ? (
+            {emoticons && upload ? (
+              <>
+                {attach.input}
+                <AttachedPhotoRow
+                  ids={ids}
+                  load={loadPhoto}
+                  busy={attach.busy}
+                  error={attach.error}
+                  disabled={busy || !ready || !composerEnabled}
+                  onRemove={(id) => setIds((prev) => prev.filter((v) => v !== id))}
+                />
+              </>
+            ) : null}
+            {!emoticons && photos && upload ? (
               <PrivatePhotos
                 key={sendScope}
                 ids={ids}
@@ -862,8 +930,11 @@ export function ChatThread({
                 onBusy={(next) => { if (alive.current && context.current === sendScope) setUploading(next); }}
               />
             ) : null}
+            {/* 고른 이모티콘 큰 미리보기는 입력줄 바로 위(DEV-478) */}
+            {emoticons ? tools.above : null}
           </>}
         />
+        {emoticons ? tools.below : null}
       </View>
     </View>
   );

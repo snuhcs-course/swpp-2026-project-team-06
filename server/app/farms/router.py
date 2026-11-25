@@ -47,9 +47,9 @@ def with_share_url(view: MyFarm | FarmDetail, request: Request):
 
 
 @home_router.get("/home", response_model=Home)
-def home(db: Db):
-    """홈·발견(SCR-01, FEAT-06)."""
-    return service.home(db)
+def home(db: Db, user: OptionalUser):
+    """홈·발견(SCR-01, FEAT-06). 테스트 농가는 테스트 계정에게만(DEV-472)."""
+    return service.home(db, user)
 
 
 # ---------------- 농가 AI 응답 설정 (SCR-31, FEAT-32) ----------------
@@ -107,9 +107,11 @@ def patch_my_farm(db: Db, user: Producer, body: FarmPatch, request: Request):
 
 # 고정 경로는 /{farm_id} 보다 앞에 둔다(screens.md 7.1 경로 순서)
 @router.get("", response_model=Paged[FarmCard])
-def list_farms(db: Db, limit: Limit, q: str | None = None, cursor: str | None = None):
+def list_farms(
+    db: Db, limit: Limit, user: OptionalUser, q: str | None = None, cursor: str | None = None
+):
     """농가 목록·검색(SCR-02, FEAT-06). 지금 단계가 가장 일찍 끝나는 농가가 위."""
-    return _page(service.search_farms(db, q), cursor, limit)
+    return _page(service.search_farms(db, q, user), cursor, limit)
 
 
 @router.get("/following", response_model=Paged[FarmSummary])
@@ -120,7 +122,7 @@ def following(db: Db, user: Consumer, limit: Limit, cursor: str | None = None):
 
 @router.get("/{farm_id}", response_model=FarmDetail)
 def farm_detail(db: Db, farm_id: str, user: OptionalUser, request: Request):
-    """농가 페이지(SCR-03). 승인된 농가만, 아니면 404."""
+    """농가 페이지(SCR-03). 공개 농가만(승인, 테스트 농가는 테스트 계정에게만), 아니면 404."""
     return with_share_url(service.farm_detail(db, farm_id, user), request)
 
 

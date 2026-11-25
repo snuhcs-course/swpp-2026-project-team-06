@@ -25,6 +25,7 @@ import {
 import { chatViewState } from "./chatViewState";
 import { GateSummary } from "./GateSummary";
 import { ChatSessionController } from "./chatSession";
+import { TabsKey } from "./tabsKey";
 
 configureApi({ namespace: "consumer" });
 
@@ -56,6 +57,8 @@ type Session = {
   user: User | null;
   ready: boolean;
   refresh: () => Promise<void>;
+  /** 탭 레이아웃 key. 계정이 바뀔 때(로그인·로그아웃·토큰 교체, 확인된 사용자가 달라짐)만 바뀌고 같은 사용자의 auth/me 답으로는 안 바뀐다(DEV-481, tabsKey.ts) */
+  tabsKey: number;
   /** Verified consumer/auth generation. Private chat routes must also check its active lease. */
   chatViewScope: ChatViewScope | null;
   /**
@@ -95,6 +98,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [chatViewScope, setChatViewScope] = useState<ChatViewScope | null>(null);
   const chatSession = useRef<ChatSessionController | null>(null);
+  const tabs = useRef<TabsKey | null>(null);
+  if (!tabs.current) tabs.current = new TabsKey();
+  const [tabsKey, setTabsKey] = useState(() => tabs.current!.key);
   if (!chatSession.current) chatSession.current = new ChatSessionController(chatViewState);
   const [gate, setGate] = useState<Resume | null>(null);
   // 시트가 닫히는 동안에도 본문·요약이 비지 않게 마지막 관문을 기억한다(본문은 원래 고정 문장이었다)
@@ -138,6 +144,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const u = await auth.me();
       const scope = controller.authorize(ticket, getToken(), u.userId);
       if (scope) {
+        setTabsKey(tabs.current!.confirm(u.userId));
         setChatViewScope(scope);
         setUser(u);
       }
@@ -152,6 +159,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthChange(() => {
       invalidateSession();
+      setTabsKey(tabs.current!.authChanged(getToken()));
       // 401·403 WRONG_APP이면 클라이언트가 토큰을 지운다(screens.md 7.1) → 소비자 로그인(SCR-05)으로
       if (!getToken() && hadUser.current && here.current !== "/login") {
         hadUser.current = false;
@@ -264,6 +272,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       refresh,
+      tabsKey,
       chatViewScope,
       requireLogin,
       resume: visibleResume,
@@ -280,6 +289,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       refresh,
+      tabsKey,
       chatViewScope,
       requireLogin,
       visibleResume,

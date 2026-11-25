@@ -145,6 +145,7 @@ export type ProductRec = {
   updatedAt: string;
 };
 export type NewsRec = {
+  emoticonId?: import("../emoticons").EmoticonId | null;
   replyTo?: {senderType: string; body: string} | null;
   editedAt?: string | null; editVersion?: number;
   broadcastId: string;
@@ -173,6 +174,7 @@ export type RoomReadRec = {
   at: string;
 };
 export type OrderRec = Recipient & {
+  producerActionHistory?: ProducerOrderActionRec[];
   trackingVersion?: number;
   unitWeightGrams: number;
   releasedQuantity: number;
@@ -208,6 +210,20 @@ export type OrderRec = Recipient & {
   refundSettledAt: string | null;
   depositIssue?: string | null;
   refundIssue?: string | null;
+};
+export type ProducerOrderState = Pick<OrderRec,
+  "status" | "paidAt" | "shippedAt" | "deliveredAt" | "refundedAt" | "refundReason" |
+  "releasedQuantity" | "quantity" | "depositCode" | "depositDueAt" | "depositReportedAt" |
+  "cancelReason" | "refundSettledAt" | "depositIssue" | "refundIssue" | "carrier" |
+  "trackingNumber" | "trackingVersion" | "deliveryWindow" | "proposedDeliveryWindow"
+>;
+export type ProducerOrderActionRec = {
+  actionId: string;
+  kind: "confirm_deposit" | "reject_deposit" | "cancel_deposit" | "ship" | "refund_issue" | "refund_settled";
+  status: "SUCCEEDED" | "SUPERSEDED" | "UNDONE";
+  createdAt: string;
+  before: ProducerOrderState;
+  after: ProducerOrderState;
 };
 export type EscalationRec = {
   escalationId: string;
@@ -275,6 +291,9 @@ export type DB = {
       ownerId: string;
       orderId?: string;
       threadId?: string;
+      /** 소식방 비공개 답장 사진(DEV-467): 올린 농가 소식방, 묶이면 그 답장 */
+      roomFarmId?: string;
+      roomReplyId?: string;
       bound: boolean;
       createdAt: string;
       dataUrl: string;

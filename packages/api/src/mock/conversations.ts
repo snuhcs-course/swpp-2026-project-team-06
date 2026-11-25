@@ -1,4 +1,5 @@
 import { setFollow } from "./followState";
+import { emoticonMessage } from "./emoticons";
 import type {
   AiCheckState,
   AiPreview,
@@ -250,9 +251,12 @@ export function aiCheckRequests(d: DB, t: Thread) {
 }
 /** 메시지 응답의 reported·checkState(DEV-296). 저장된 메시지는 바꾸지 않는다 */
 export function withCheckState(d: DB, m: ChatMessage): ChatMessage {
-  if (m.senderType !== "AI") return { ...m, checkState: null };
+  if (m.senderType !== "AI") return { ...m, checkState: null,
+    replyRequested: m.senderType === "CONSUMER" && d.escalations.some(e =>
+      e.questionMessageId === m.messageId && !e.reportedMessageId && e.status === "OPEN"),
+  };
   const e = d.escalations.find((x) => x.reportedMessageId === m.messageId);
-  return e ? { ...m, reported: true, checkState: checkState(e) } : { ...m, checkState: null };
+  return e ? { ...m, replyRequested: false, reported: true, checkState: checkState(e) } : { ...m, replyRequested: false, checkState: null };
 }
 /** 농가 답장으로 닫는 요청(DEV-296): 확인 요청이면 바로잡기(CORRECTED) */
 export function closeByReply(e: EscalationRec, answer: string, by: string) {
@@ -584,7 +588,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     let target = replyId ? list(ctx.db, t).find(m => m.messageId === replyId) : undefined;
     if (replyId && !target) notFound();
     const aa = attachments(ctx, t, orderId);
-    if ((!text && !aa.length) || text.length > 1000)
+    const emoji = emoticonMessage(ctx.body.emoticonId, text, aa);
+    if ((!emoji.text && !aa.length) || text.length > 1000)
       invalid({
         text: "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요",
       });
@@ -612,7 +617,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       replyId = corrected[0].reportedMessageId!;
       target = list(ctx.db, t).find(m => m.messageId === replyId);
     }
-    const m = mask(text),
+    const m = mask(emoji.text),
       settings = ctx.db.aiSettings[t.farmId] ?? defaultSettings();
     const message = chatMessage({
       replyToMessageId: replyId ?? null,
@@ -622,11 +627,12 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       sequence: list(ctx.db, t).length + 1,
       senderType: producer ? "PRODUCER" : "CONSUMER",
       body: m.text,
+      emoticonId: emoji.emoticonId ?? null,
       masked: m.masked,
       createdAt: nowIso(),
       attachmentIds: aa.map((a) => a.attachmentId),
       orderId,
-      needsHuman: !producer && (effectiveMode(t) === "HUMAN" || !settings.enabled),
+      needsHuman: !producer && !emoji.emoticonId && (effectiveMode(t) === "HUMAN" || !settings.enabled),
     });
     bind(ctx, aa);
     list(ctx.db, t).push(message);
@@ -643,7 +649,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     // Deterministic Mock: no async/model call. Versions are checked in the same synchronous transaction.
     const tv = t.version,
       sv = settings.version;
-    if (effectiveMode(t) === "AUTO" && settings.enabled) {
+    if (!emoji.emoticonId && effectiveMode(t) === "AUTO" && settings.enabled) {
       const a = preview(
         ctx.db,
         t.farmId,
@@ -688,10 +694,11 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
           });
       } else message.needsHuman = true;
     }
-    return { message, reply };
+    return { message: withCheckState(ctx.db, message), reply: reply ? withCheckState(ctx.db, reply) : null };
   });
 }
-export function editMessageText(ctx: Ctx, row: {body: string; replyTo?: {body: string} | null; masked?: boolean; editedAt?: string | null; editVersion?: number; photos?: string[]; videos?: string[]; attachmentIds?: string[]}, limit: number, redactEmail = false) {
+export function editMessageText(ctx: Ctx, row: {body: string; emoticonId?: string | null; replyTo?: {body: string} | null; masked?: boolean; editedAt?: string | null; editVersion?: number; photos?: string[]; videos?: string[]; attachmentIds?: string[]}, limit: number, redactEmail = false) {
+  if (row.emoticonId) invalid({ text: "이모티콘 메시지는 수정할 수 없어요" });
   if (typeof ctx.body.text !== "string" || !Number.isInteger(ctx.body.version) || Number(ctx.body.version) < 0) invalid({text: "본문과 버전을 확인해 주세요."});
   if ((row.editVersion ?? 0) !== ctx.body.version) conflict("STALE_VERSION", "다른 곳에서 수정됐어요. 닫고 다시 열어 주세요.");
   const text = String(ctx.body.text).trim();
@@ -713,7 +720,7 @@ register({
       const old = message.editVersion ?? 0;
       editMessageText(ctx, message, 1000);
       if (old !== (message.editVersion ?? 0)) t.version++;
-      return {...message, editedAt: message.editedAt ?? null, editVersion: message.editVersion ?? 0};
+      return {...withCheckState(ctx.db, message), editedAt: message.editedAt ?? null, editVersion: message.editVersion ?? 0};
     });
   },
   "GET /api/messaging/chats": (ctx) => {

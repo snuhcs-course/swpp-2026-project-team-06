@@ -1,5 +1,8 @@
 # packages/ui spec
 
+## DEV-473 화면 오류 안내
+`ScreenError({error, retry, home, support, aboveTabs})`는 expo-router 오류 경계가 그리는 화면이다(screens.md 3장 ‘화면 오류’). 모양은 `EmptyState`·`LoadError`와 같은 결(아이콘 `alert` 32, 제목 18 굵게, 보조 14)이고 하단에 ‘다시 시도’(주요, 강조색 하나)·‘홈으로’(테두리 48), 본문 아래 글자 링크 ‘운영팀에 알리기’(`support`가 없으면 숨김). 문구와 개발 한 줄은 순수 모듈 `screenErrorText.ts`(`ScreenError.tsx`와 대소문자만 달라 이름을 달리함): `__DEV__`에서만 `error.message` 첫 줄 120자, 이름·스택은 그리지 않는다. `aboveTabs`면 하단 여백을 탭 바 높이만큼 올린다. 안내 묶음은 `accessibilityRole="alert"`·live region, 앱은 처음 그릴 때 `announceForAccessibility`로 제목을 읽히고, 본문은 ScrollView라 큰 글자에서도 버튼과 겹치지 않는다. 경로를 모르는 부품이라 이동은 앱의 `lib/ScreenBoundary.tsx`가 넘긴다. `scripts/test-screen-error.mjs`.
+
 ## DEV-379 알아 둘 세 줄 '이미 예약했어요'
 `ProductPageBody`의 선택 값 `myReservation`(`MyReservation`)이 `TrustRows` 첫 줄 보조 줄을 바꾼다. 없으면 'n번째'(생산자 미리보기 그대로), `checking`이면 글 없이 보조 줄 높이만, `reserved`면 '이미 예약했어요 · 내 예약 보기' + › 로 줄 전체가 링크(FEAT-07 AC-07-10). 품절이면 보조 줄 없음은 그대로.
 
@@ -120,7 +123,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 | 결정 | 이유 |
 | --- | --- |
 | 문안은 `src/legalContent.ts` 한 곳(지울 수 있는 타입만, import 없음). `LegalFooter`·`LegalDocument`(`src/Legal.tsx`)와 `scripts/legal-pages.mjs`(Node type stripping으로 직접 import)가 같이 쓴다 | SPA라 JS 없이 읽히는 정적 HTML이 따로 필요하고, 두 벌로 쓰면 문안이 어긋난다 |
-| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’ | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장. 웹은 GitHub Actions 변수, 네이티브는 두 EAS 프로젝트의 `preview`·`production` 환경 변수에서 온다(DEV-131) |
+| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’(로컬·Mock·값 없는 웹 배포만. 스토어용 EAS 빌드는 필수 값이 비면 `app.config.js`가 빌드를 멈춘다, DEV-476) | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장. 웹은 GitHub Actions 변수, 네이티브는 두 EAS 프로젝트의 `preview`·`production` 환경 변수에서 온다(DEV-131) |
 | `LegalFooter`는 링크를 직접 열지 않고 `onOpen(path)`로 앱 라우터에 맡긴다 | ui 패키지는 expo-router에 의존하지 않는다 |
 | 파일 이름은 `Legal.tsx`와 `legalContent.ts`. `legal.ts`는 macOS(대소문자 무시)에서 `Legal.tsx`와 충돌한다 | TS1149 |
 | (DEV-116) 푸터는 `<Scroll footer={<LegalFooter … />}>` 슬롯으로 둔다. footer가 있으면 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'` + 위 여백 section(40)으로 붙인다 | 내용 바로 뒤에 두면 짧은 화면(카카오 운영 로그인)에서 푸터가 화면 중간에 뜬다. flexGrow는 footer가 있을 때만 켜 다른 화면에 영향이 없다 |
@@ -145,6 +148,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 - 두 앱 루트는 `KeyboardRoot`(`src/keyboard.tsx`)로 Stack을 감싼다. Android만 `KeyboardAvoidingView behavior="padding"`, 웹·iOS는 children 그대로(감싸는 View 없음). app.json `softwareKeyboardLayoutMode`는 쓰지 않는다: Android 15+ edge-to-edge에서 adjustResize가 창을 줄이지 않고, 네이티브 설정은 새 빌드가 필요하다.
 - Android에서 키보드가 떠 있는 동안 `TabBar`·`BottomBar`는 그리지 않는다(`useKeyboardShown`). 루트가 올라가면 absolute 하단 바가 키보드 위에 떠 입력칸을 가린다.
 - `ChatThread` 입력창 아래 여백은 앱에서만 하단 안전 영역을 더한다(키보드가 떠 있으면 뺀다). 웹은 20 그대로.
+- `Sheet`(RN Modal)는 루트와 다른 창이라 루트 `KeyboardRoot`가 닿지 않는다. 그래서 `Sheet`가 Modal 안을 `KeyboardRoot`로 한 번 더 감싸고, 앱에서만 시트가 남은 높이에 맞춰 줄며(`flexShrink`, 위 여백 안전 영역+16) 안이 스크롤된다. 시트 ScrollView는 `keyboardShouldPersistTaps="handled"`라 키보드가 떠 있어도 저장 버튼이 첫 탭에 눌린다. 키보드가 떠 있는 동안 시트 아래 여백은 하단 안전 영역 없이 16이다(키보드가 그 자리를 덮음). 웹은 감싸지 않아 그대로(DEV-477). 앱에서 유리 면(`glass`: `BottomBar`, `sheetGlass`: `Sheet`·`PeekSheet`)은 흰 불투명(`tokens.color.background`)이다. `backdropFilter`가 웹에만 있어 앱에서 반투명이면 뒤 글자가 비쳤다. 웹은 반투명+blur 그대로. `Checkbox`의 `inline`은 가로로 늘어놓는 줄(flexWrap)용으로 글자 칸을 `flexShrink: 1`로 둔다(기본 `flex: 1`은 폭이 글자에 맞춰지는 줄에서 앱이 글자 칸을 0으로 계산함). Modal을 직접 쓰는 다른 부품(`MessageMenu`, `PhotoViewer`, 생산자 `SourceExclusions`, 소비자 `CheckoutChangeModal`·우편번호 찾기)은 입력칸이 없거나 화면 전체라 손대지 않았다.
 
 
 ### DEV-289
@@ -189,7 +193,7 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - `ConversationRow`의 `tag`/`tagLabel`(이름 옆 칩, 접근성 이름에 덧붙임). `Icon`에 `flag`.
 
 ## 소식별 읽음 수·팬 답장 시트 (DEV-297, 2026-11-10)
-- `NewsRoom` 생산자 반응 줄은 `BroadcastStats`(‘읽음 N · ♥ N · 답장 N ›’, 문구 계산은 순수 함수 `fanReplies.ts`의 `broadcastStats`). ‘답장 N ›’은 `fanReplies` prop이 있을 때만 버튼이 되고 `FanReplySheet`를 연다.
+- `NewsRoom` 생산자 반응 줄은 `BroadcastStats`(‘읽음 N · ♥ N · 답장 N ›’, 문구 계산은 순수 함수 `fanReplies.ts`의 `broadcastStats`). DEV-467부터 카드 반응 줄 `ProducerReactions`가 대신한다(아래 절). ‘답장 N ›’은 `fanReplies` prop이 있을 때만 버튼이 되고 `FanReplySheet`를 연다.
 - `FanReplySheet`는 API 주입형(`load`·`markRead`)이다. 열면 끝까지(최대 10쪽) 불러오고 `readThrough`까지 곧바로 읽음 처리한다. 점·칩은 처음 받은 목록을 쓰고 ‘안 읽음’은 `visibleReplies`로 거른다. ‘모두에게 답장’은 길게 누르기 ‘답장’과 같은 `replyTarget`(DEV-289 인용)으로, ‘1:1 채팅’은 `onPrivateReply`로 넘긴다.
 - 소비자 `NewsRoom`은 `markRead` prop이 있고 답장할 수 있는 방(팔로우 중)일 때, 맨 아래에 있으면 가장 최근 방송 id로 한 번씩 부른다(같은 id는 다시 부르지 않고 실패하면 다음 기회에). 화면은 바뀌지 않는다.
 
@@ -203,3 +207,26 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 
 ## DEV-378 아이디 로그인 접기
 `IdLoginSection`(`AuthForms.tsx`)은 `PasswordLoginForm`을 고치지 않고 감싼다. `collapsible`(카카오 켜짐)이면 '아이디로 로그인' 글자 링크(누르는 영역 48, `aria-expanded`, 꺾쇠는 `chevronDown`을 펼치면 180° 회전)로 접고 펼친다. 접힘은 `display: none`이라 적은 아이디가 남는다. `PasswordLoginForm`의 선택 콜백 `onErrorChange`로 실패 문구가 보이는 동안 접기를 막고 링크를 disabled·투명도 0.4로 둔다(오류 줄이 숨지 않게). 펼칠 때 웹에서만 누른 순간 아이디 칸에 포커스(iOS Safari 키보드), 스크롤은 다음 프레임. 로그인 화면의 카카오 설정 조회는 `withTimeout`(`timeout.ts`, 5초)으로 감싸 넘으면 설정 못 읽음으로 본다. `placement="footer"`는 사업자 정보 칸 바로 위(아래 간격 접힘 8·펼침 24)이고, 앱은 `Scroll`의 `footerGap`(기본 40)을 16으로 줄여 링크를 footer 안에 넣는다(FEAT-01 AC-01-35).
+
+## DEV-454 UAT cycle 2
+자동 전달 질문의 replyRequested는 생산자 1:1에서 원래 소비자 질문 말풍선 하단의 답장 요청 글자 액션으로 표시하고, 누르면 그 질문을 인용·포커스한다. 성공/실패 처리와 메시지 메뉴는 기존 인용 작성 흐름을 따른다(FEAT-13 DEV-454).
+
+## 소식 카드 (DEV-467, 2026-11-24)
+- `NewsRoom`은 방송(`broadcastId` 있는 메시지)만 `NewsCard`로 그리고, 소비자 답장은 `ChatBubble` 그대로 둔다(비공개 답장이 카드 밑 공개 댓글처럼 보이지 않게). 카드도 바깥 `Pressable`의 길게 누르기·우클릭 메뉴를 그대로 쓴다.
+- 카드 폭·사진 배치는 순수 함수 `newsCard.ts`(`newsCardWidth` = min(창, 480) − 16×2, `newsPhotoRows`: 1장 4:3, 두 장씩 정사각형 줄(사이 2px), 홀수로 남은 마지막 한 장은 4:3, 2장 이상 ‘i/N’). 테스트 `scripts/test-news-cards.mjs`.
+- 반응 줄: 소비자 `ReactionHalf` 두 칸(‘좋아요’ 접근성 이름·`aria-pressed`는 예전 하트와 같음, ‘농가에 답장’은 입력칸 포커스 · 비로그인 `onLogin` · 답장할 수 없는 방은 비활성). 서버가 소비자 인용 답장을 막아 고른 소식을 인용하지 않는다. 생산자 `ProducerReactions`는 접근성 이름 ‘읽음 N, 좋아요 N’·‘답장 N 모아 보기’를 유지한다.
+- 그림자는 웹 `boxShadow`, 앱 `shadow*`·`elevation 1`. 아이콘은 새로 더하지 않았다(‘농가에 답장’은 `chat`).
+- (2단계) 소비자 ‘농가에 답장’은 `replyPost`로 그 소식을 고르고 입력칸 위 ‘소식에 답장 · 농가만 봐요’ 줄(testID `room-reply-post`, 취소 48)을 보인다. 보낼 때 `send`의 다섯째 인자 `{broadcastId, attachmentIds}`. 소비자 사진은 `Composer` `tool` ‘+’가 `usePhotoAttach`의 숨긴 파일 칸을 바로 열고 `AttachedPhotoRow`(72×72 한 줄, ×·‘1/3’)로 보인다(1:1 `PrivatePhotos`는 그대로), 말풍선·`FanReplySheet`은 `PrivatePhoto`(눌러 크게). 멱등 키는 글·고른 소식·사진 id가 같을 때만 다시 쓴다.
+
+
+## DEV-468 이모티콘
+
+AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달한다. 공통 카탈로그 ID 외 값과 혼합 메시지는 거부한다. UI는 공통 + 도구·160px 투명 그림·독립 전송 초안 보존을 사용한다. 이모티콘만 보낸 소비자 메시지는 AI를 호출하지 않고, 기존 권한·멱등성·비공개 답장을 유지한다. 상세는 tasks/DEV-468.md.
+
+## DEV-475 채팅방 주의·제재 안내 (원스토어 공지 29889)
+- `ChatNotice`(`ChatNotice.tsx`)는 띠 + ‘채팅 이용 안내’ 시트(기존 `Sheet`). 문구·접기 조건은 순수 함수 파일 `chatNoticeCopy.ts`(대소문자만 다른 이름은 macOS에서 부딪혀 `Copy`를 붙임). 테스트 `scripts/test-chat-notice.mjs`(react-native-web + react-dom/server로 실제로 그리고, 띠가 루트의 조건 없는 직접 자식인지 TypeScript AST로 본다). 시트 안쪽은 `ChatNoticeSheetBody`로 따로 둬 Modal 없이 그려 본다.
+- `ChatThread`·`NewsRoom`은 필수 prop `notice: { onSupport: (() => void) | null }`를 받아 루트 맨 위(스크롤 밖)에 띠를 그린다. 시트 셋째 줄은 `producer`로 고르고, `onSupport`가 null(운영팀 방)이면 넷째 줄과 ‘운영팀에 알리기’를 뺀다.
+- 띠는 `surface` 면 + 아래 테두리, 14/20 두 줄(높이 57, `minHeight` 48). 운영팀 방(`onSupport` null)은 늘, 다른 방은 키보드가 뜬 높이 720 미만 창이나 높이 500 미만 창에서 12/16 한 줄로 그린다(앱 높이 33 + hitSlop 8로 터치 48, 웹은 hitSlop이 없어 `minHeight` 48). 화면 읽기 이름은 늘 전체 문구 + ‘채팅 이용 안내 보기’.
+- `RoomMedia`의 앱 영상 포스터는 열 수 없는 주소(`https?:` 아님 — `data:` 영상)에 글자 띠 없이 흐린 재생 원만 두고 ‘영상을 열 수 없어요’로 읽힌다.
+## DEV-478 카톡 방식 작성창 도구
+`ComposerTools.useComposerTools`는 `tool`(‘+’ = 사진 고르기 바로 열기, `onPhoto` 없으면 없음), `trailing`(입력칸 안 웃는 얼굴), `above`(고른 이모티콘 큰 미리보기, 입력줄 바로 위 높이 176. Android 터치 때문에 절대 위치로 띄우지 않는다), `below`(키보드 자리 패널)를 돌려준다. `Composer`의 새 `trailing`이 있을 때만 입력칸과 버튼을 한 알약으로 감싸고, 없으면 예전 구조 그대로다. 이모티콘이 켜진 1:1(`ChatThread emoticons`)은 `usePhotoAttach`·`AttachedPhotoRow`로 사진을 바로 고르고, 이모티콘이 없는 대화(운영팀 문의 등)는 기존 `PrivatePhotos`를 유지한다. 테스트 라벨: ‘사진’(+), ‘이모티콘’(웃는 얼굴), ‘○○ 선택’, ‘○○ 보내기’, ‘이모티콘 선택 취소’, testID `emoticon-selection`.

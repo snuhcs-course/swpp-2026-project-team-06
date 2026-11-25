@@ -33,3 +33,5 @@
 
 ## DEV-465 engagement data integration
 - AC-ENG-6: purge_except registers all engagement tables. All three customer engagement tables are removed with the existing all-consumers/all-orders deletion policy. Existing preview, backup, target-farm and transaction protections are unchanged. Confirmed misconduct persistence after soft deletion does not override this explicit administrator whole-data purge policy.
+| 2026-11-24 | 상품별 공개 제어는 catalog admin router → product_visibility로 위임한다. 별도 is_hidden 플래그와 상품 행 잠금/버전 검사를 쓰며 run_manager_action으로 멱등·감사를 처리한다. 관리자 사용자 상세에 isHidden/version을 내린다. | DEV-479, FEAT-23 AC-23-13~15 |
+| 2026-11-24 | `ops_tester`의 뜻을 넓힌다(DEV-472): 테스트 농가 숨기기의 주문 검사에 더해 공개 범위(R-29)에서도 테스트 계정이다. 켠 생산자의 농가와 상품·소식은 테스트 계정에게만 공개 경로에 나오고(생산자 앱은 그대로, 공유 링크는 비움), 켠 소비자는 테스트 농가를 보고 주문할 수 있다. 관리자 API·화면은 바뀌지 않는다. 조건은 `farms.public_farm_clause` | 원스토어 심사 반려(11/23): 심사용 생산자 농가를 정지하지 않고 숨기려고(R-29) |

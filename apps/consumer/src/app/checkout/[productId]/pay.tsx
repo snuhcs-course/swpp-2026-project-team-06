@@ -10,7 +10,6 @@ import {
   Screen,
   Scroll,
   T,
-  TestBand,
   tokens,
   useAsync,
   eulReul,
@@ -92,7 +91,6 @@ export default function DepositGuide() {
   return (
     <Screen>
       <HeaderBar title="입금 안내" onBack={back} />
-      <TestBand text="테스트 서비스예요 · 실제 돈은 나가지 않아요" />
       {error && !o ? (
         <LoadError error={error} onRetry={reload} />
       ) : (

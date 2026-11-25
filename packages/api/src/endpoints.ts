@@ -287,6 +287,10 @@ export const orders = {
   /** 생산자가 입금했던 계좌로 환불 송금을 마쳤다고 표시 */
   refundSettled: (orderId: string) =>
     request<A.ProducerOrder>("POST", `/api/orders/${orderId}/refund-settled`),
+  undoProducerAction: (orderId: string, actionId: string, idempotencyKey: string = newIdempotencyKey()) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/undo`, {
+      body: { actionId }, idempotencyKey,
+    }),
   /** 내 주문. productId를 주면 그 상품 주문만(상품 상세 '이미 예약했어요', DEV-379) */
   list: (q: A.PageQuery & { productId?: string } = {}) =>
     request<A.Paged<A.Order>>("GET", "/api/orders", { query: q }),
@@ -343,11 +347,29 @@ export const messaging = {
     request<A.NewsRoomPage>("GET", `/api/messaging/rooms/${farmId}/messages`, {
       query: q,
     }),
-  sendRoom: (farmId: string, text: string, idempotencyKey: string, replyToMessageId?: string, replyToVersion?: number) =>
+  /** 소비자 답장은 extra로 답한 소식(broadcastId, 없으면 가장 최근 소식)과 비공개 사진 id를 넘긴다(DEV-467) */
+  sendRoom: (
+    farmId: string,
+    text: string,
+    idempotencyKey: string,
+    replyToMessageId?: string,
+    replyToVersion?: number,
+    extra: { broadcastId?: string; attachmentIds?: string[]; emoticonId?: A.EmoticonId } = {},
+  ) =>
     request<A.NewsRoomMessage>(
       "POST",
       `/api/messaging/rooms/${farmId}/messages`,
-      { body: { text, replyToMessageId, replyToVersion }, idempotencyKey },
+      {
+        body: {
+          text,
+          replyToMessageId,
+          replyToVersion,
+          ...(extra.emoticonId ? { emoticonId: extra.emoticonId } : {}),
+          ...(extra.broadcastId ? { broadcastId: extra.broadcastId } : {}),
+          ...(extra.attachmentIds?.length ? { attachmentIds: extra.attachmentIds } : {}),
+        },
+        idempotencyKey,
+      },
     ),
   /** 팔로워가 소식방에서 이 소식이 보이는 위치까지 읽었다(DEV-297) */
   readRoom: (farmId: string, lastReadMessageId: string) =>
@@ -435,11 +457,12 @@ export const messaging = {
     idempotencyKey: string = newIdempotencyKey(),
     productId?: string,
     replyToMessageId?: string,
+    emoticonId?: A.EmoticonId,
   ) =>
     request<A.SendMessageResult>(
       "POST",
       `/api/messaging/chats/${farmId}/messages`,
-      { body: { text, attachmentIds, orderId, productId, replyToMessageId }, idempotencyKey },
+      { body: { text, attachmentIds, orderId, productId, replyToMessageId, emoticonId }, idempotencyKey },
     ),
   read: (farmId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/chats/${farmId}/read`, {
@@ -511,11 +534,12 @@ export const messaging = {
     answerToEscalationIds: string[] = [],
     idempotencyKey: string = newIdempotencyKey(),
     replyToMessageId?: string,
+    emoticonId?: A.EmoticonId,
   ) =>
     request<{ message: A.ChatMessage; thread: A.Thread }>(
       "POST",
       `/api/messaging/producer/chats/${consumerId}/messages`,
-      { body: { text, attachmentIds, answerToEscalationIds, replyToMessageId }, idempotencyKey },
+      { body: { text, attachmentIds, answerToEscalationIds, replyToMessageId, emoticonId }, idempotencyKey },
     ),
   /** 확인 요청된 AI 답변에 '답이 맞아요'(DEV-296). 다시 눌러도 같은 결과 */
   confirmAiAnswer: (

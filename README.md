@@ -97,6 +97,7 @@ make db             # local PostgreSQL 16 (server/docker-compose.yml); make db-d
 make migrate seed   # alembic upgrade head + demo seed, local database only (RESET=1 to reseed)
 make dev            # both apps + Mock API (npm run dev); make dev-api runs FastAPI
 make check          # before a PR: lint (ruff check) + test
+make apk            # EAS internal Android APKs (see "Native apps with EAS"); make eas-env lists EAS variable names
 ```
 
 - `make test` runs `test-server` (pytest + alembic check), `test-apps` (`npm run test:mock`,
@@ -291,6 +292,17 @@ evaluator mark and evaluator build flag no longer enable seed selection in relea
 Development builds retain seed selection when Kakao is disabled/unavailable; explicit app Mock
 mode retains it alongside Kakao. The old UAT seed rows below are retained fixture history.
 
+**Review farms stay out of the public app (DEV-472, R-29).** A farm whose producer is a seed test
+account or an ops tester (operator web, Users, "운영 검증 표시") is shown only to signed-in test or
+ops-tester accounts. Signed-out visitors and regular consumers get the suspended-farm behaviour:
+the farm, its products and news are missing from lists, details and orders answer 404, and the
+farm's share link (`/s/farms/<id>`) is a 404 for everyone, so the producer app shows no share link
+for it. Mark the producer-app review account as an ops tester so its farm stays hidden while the
+reviewer can still use the producer app; do not mark the consumer-app review account, or it sees
+the hidden farms. ID accounts are created as regular accounts. The filter is off only when
+`APP_ENV=local` and `MOCK_LOGIN_ENABLED=true` (local seed, demo, CI), because the demo farms
+belong to seed test accounts.
+
 **Historical UAT fixture procedure (DEV-305; superseded by DEV-363/367).**
 The following records the earlier seeded session, including its data setup and cleanup.
 These steps are not prerequisites for current ID-account UAT; do not purge production data or
@@ -405,7 +417,7 @@ selected; a manual run always deploys the current `main`.
 The business values are public on the live site but must never be committed (they are
 personal/company details and the repository is mirrored publicly). Each one maps to
 `EXPO_PUBLIC_<NAME>` at export time; an empty variable is left out of the footer, and with
-none set the footer shows "farmclub · 테스트 서비스". After changing them, run the workflow
+none set the footer shows "farmclub · 테스트 서비스" (local and mock builds only: an EAS build with any profile but `development` stops in `apps/<app>/app.config.js` when any value but `BUSINESS_MAIL_ORDER_NO` is empty, DEV-476). After changing them, run the workflow
 by hand so both apps are rebuilt. These variables only reach the web build. The Android
 and iOS apps read the same values from EAS, so keep a copy in EAS as well (see
 [Native apps with EAS](#native-apps-with-eas-dev-33)); every row except
@@ -439,7 +451,10 @@ Build (cloud); JS changes ship with EAS Update and never need a store review. Id
 `kr.farmclub.consumer` and `kr.farmclub.producer`; the installed app names (`expo.name`) are
 `farmclub` and `farmclub 농가`, the same as the store titles (DEV-377). Changing `expo.name`
 changes the fingerprint runtime version, so existing builds stop receiving updates until a new
-build is installed. `apps/<app>/eas.json` has four profiles:
+build is installed. The apps are iPhone-only (`ios.supportsTablet: false`) and block Android
+permissions they do not use with `android.blockedPermissions` (`SYSTEM_ALERT_WINDOW`, `VIBRATE`,
+`USE_BIOMETRIC`, `USE_FINGERPRINT` and the Play install referrer
+`BIND_GET_INSTALL_REFERRER_SERVICE`; DEV-435); these settings are part of the fingerprint too. `apps/<app>/eas.json` has four profiles:
 `development` (dev client), `internal` (installable Android APK and iOS simulator build for team
 testing, channel `preview`), `preview` (channel `preview`, store-format build for TestFlight and
 Play internal testing) and `production` (channel `production`). Build numbers auto-increment;
@@ -481,11 +496,29 @@ Kakao login returns through the web page `/auth/kakao`, which hands the code bac
 the app cannot finish a login until that page is live.
 
 ```bash
-# once per app (apps/consumer, apps/producer), after `eas login` (projects already exist under snu-omm)
+# from the repository root, after `eas login` (projects already exist under snu-omm); from a subfolder: make -C "$(git rev-parse --show-toplevel)" apk
+make eas-env                    # both apps' EAS variable names (never values) for ENV=preview, missing business info marked
+make apk                        # Android APK, consumer then producer; APP=consumer or APP=producer for one, DRY_RUN=1 to run only the checks
+# the same by hand, once per app (apps/consumer, apps/producer):
 npx eas-cli@latest build -p android --profile internal   # APK; the build page shows an install link and QR code
 npx eas-cli@latest build -p ios --profile internal       # .app for the iOS Simulator (no Apple account needed)
 npx eas-cli@latest update --channel preview --environment preview --message "..."   # later JS changes, no reinstall
 ```
+
+**What `make apk` uploads (DEV-483).** EAS uploads the whole repository from its root, filtered by the
+root `.easignore` (with that file present eas-cli reads no `.gitignore`, so it repeats their rules). It
+leaves out `.git`, `docs/`, `demo/`, `.github/`, `.agents/`, `.claude/`, `server/tests/` and
+`server/migrations/`, which cut the upload from about 283 MB to 47 MB (compressed, 2026-11-25). The rest of
+`server/` stays: `packages/api/src/sourceTextSafety.ts` imports
+`server/app/source_analysis/text_safety_lists.json`. `scripts/test-easignore.mjs` (part of `npm run test:mock`)
+fails when app or package code imports a path that `.easignore` drops, or when a `.gitignore` rule is missing
+from it. Write `.git` without a trailing slash: in the default git mode eas-cli puts a shallow clone's `.git`
+into the upload and only removes it for that exact pattern. Neither mode uploads only committed code: without
+`requireCommit` in `eas.json` the git mode also copies the working tree (uncommitted and untracked files
+included), the same as `EAS_NO_VCS=1`. So `make apk` stops unless `git status` is clean, runs in git mode
+(the build page then shows the commit) and unsets `EAS_NO_VCS`. Every build it starts raises the Android
+`versionCode` by one (`internal` extends `preview`, which has `autoIncrement`), even if the build fails;
+`DRY_RUN=1` starts nothing. `.easignore` lives outside the app folders and is not part of the fingerprint.
 
 `eas update` bundles with the EAS **environment variables** of the given environment, not with the
 `env` block of `eas.json` (that block only applies to `eas build`). `EXPO_PUBLIC_API_URL`,
@@ -501,6 +534,14 @@ is not set yet, as on GitHub). The `internal` profile also builds with the `prev
 build log says "Resolved preview environment"). When you change a business value on GitHub, change
 it in EAS too. The values are JS-only, so an `eas update` reaches installed builds on the same
 runtime version; builds from before a runtime change (such as the app rename in DEV-377) need a new build.
+Since DEV-476 `apps/<app>/app.config.js` stops any build except the `development` profile (any name or
+case, so a new store profile is covered too) on the EAS build server (`EAS_BUILD=true`) when any of those seven variables is empty; the error lists the missing
+names only. `EXPO_PUBLIC_BUSINESS_MAIL_ORDER_NO` only warns until it is issued. Local `expo start`/`export`,
+CI, `eas update` and the local config read before `eas build` are not checked because only the build
+server sets `EAS_BUILD` and `EAS_BUILD_PROFILE`, so check the environment before an update:
+`make eas-env ENV=<environment>` (names only, missing ones marked, safe to paste; DEV-483) or
+`npx eas-cli@latest env:list --environment <environment>` (names and values; do not paste the output into
+issues or PRs). Which EAS environment a profile uses is printed in the build log ("Resolved … environment"). The file loads no other module, so it does not change the runtime fingerprint.
 The temporary evaluator build flag used for the 11/4 heuristic evaluation was removed from
 both projects on 2026-11-04. DEV-367 retires its client behavior and the old evaluator query/storage
 entry. Internal/release reviewers now use operator-created ID/password accounts; do not enable a

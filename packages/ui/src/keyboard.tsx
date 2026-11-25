@@ -9,6 +9,8 @@ const native = Platform.OS === "ios" || Platform.OS === "android";
  * - Android: edge-to-edge(Android 15+ 강제)라 창이 키보드만큼 줄지 않는다(adjustResize 무효, DEV-205).
  * - iOS: 창이 원래 줄지 않아 채팅 입력칸이 키보드에 가렸다(DEV-295). 루트가 화면 전체라 오프셋은 0이다.
  * 웹은 children을 그대로 돌려준다(감싸는 View도 없음).
+ * Modal은 따로 뜨는 창이라 루트의 이 처리가 닿지 않는다. 그래서 `Sheet`(bars.tsx)가 Modal 안을 한 번 더 감싼다(DEV-477).
+ * Modal도 화면 전체를 덮으므로 오프셋은 똑같이 0이다.
  */
 export function KeyboardRoot({ children }: { children: ReactNode }) {
   if (!native) return <>{children}</>;

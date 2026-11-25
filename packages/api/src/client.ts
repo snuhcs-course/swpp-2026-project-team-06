@@ -275,7 +275,8 @@ export async function uploadMedia(file: UploadFile, name: string): Promise<strin
 /** Private images travel with authentication. Never use the public news-media endpoint. */
 export async function uploadAttachment(
   file: UploadFile,
-  resource: { orderId?: string; threadId?: string },
+  /** 주문·1:1 대화 하나, 또는 소식방 비공개 답장(roomFarmId, DEV-467) */
+  resource: { orderId?: string; threadId?: string; roomFarmId?: string },
 ): Promise<import("./types").Attachment> {
   const attempt = authAttempt();
   if (isMock && !sharedMockUrl) {
@@ -289,6 +290,7 @@ export async function uploadAttachment(
   appendFile(form, "file", file);
   if (resource.orderId) form.append("orderId", resource.orderId);
   if (resource.threadId) form.append("threadId", resource.threadId);
+  if (resource.roomFarmId) form.append("roomFarmId", resource.roomFarmId);
   const res = await fetch(`${apiUrl}/api/messaging/attachments`, {
     method: "POST",
     headers: { Authorization: `Bearer ${attempt.token ?? ""}` },

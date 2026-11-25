@@ -1,5 +1,11 @@
 # apps/consumer spec
 
+## DEV-481 탭 레이아웃 key
+`(tabs)/_layout`의 Tabs `key`는 세션의 `tabsKey`(`lib/tabsKey.ts`의 `TabsKey`)다. 인증 이벤트(onAuthChange) 때만 바뀐다: 토큰이 생기거나 바뀌면 늘 바꾸고, 토큰이 지워지면 그 토큰으로 사용자를 확인(auth.me 성공)한 적이 있을 때만 바꾼다. 같은 사용자의 auth.me 답(첫 확인·실패 뒤 다시 확인)으로는 안 바뀌고, 지금 탭에서 확인한 사용자와 다른 사용자가 확인되면(웹에서 다른 브라우저 탭이 계정을 바꿔 토큰이 알림 없이 바뀜) 바뀐다. 전 key `user?.userId ?? "guest"`(DEV-3)는 저장된 토큰으로 연 첫 실행에서 답이 오는 순간 탭을 다시 만들어 그 사이 누른 동작을 지웠다. 저장된 토큰이 있을 때 탭을 auth.me까지 그리지 않는 방법(생산자 앱 DEV-56)은 소비자 앱에 없던 로딩 화면이 생겨 쓰지 않았다. `scripts/test-tabs-key.mjs`, e2e `scripts/e2e/session-restore-taps.spec.ts`.
+
+## DEV-473 화면 오류 경계
+`lib/ScreenBoundary.tsx`. 화면 한 장 경계는 레이아웃 prop `unstable_screenErrorBoundary`(루트 Stack = 탭 밖 화면 `StackScreenBoundary`, `(tabs)/_layout`의 Tabs와 탭 폴더 Stack = `TabScreenBoundary`). Tabs prop이 레이아웃 없는 탭 화면과 앞으로 `(tabs)` 바로 아래에 더할 화면을 받으므로 화면 파일에 경계를 따로 내보내지 않는다(배치는 `scripts/test-screen-error.mjs`가 검사). 받는 것은 그리기·effect 중 예외뿐이고 이벤트 핸들러·비동기 콜백 예외는 못 받는다. expo-router가 죽은 화면만 장면 안에서 감싸 스택·탭 바가 남고 ‘다시 시도’는 그 화면만 다시 그린다. 탭 폴더 `_layout`의 `export ErrorBoundary`는 Stack째 갈려 하위 상태가 지워지므로 쓰지 않는다. 루트 `_layout`의 `export ErrorBoundary`(`RootBoundary`)는 세션·탭 레이아웃이 죽을 때의 마지막 그물이라 세션·내비게이터 없이 움직인다(웹은 `location.replace`). ‘홈으로’는 죽은 화면이 든 스택을 첫 화면으로 되돌리고, 웹은 그 주소 변화를 본 다음(최대 1초) `router.replace`(뒤로 가기로 돌아오지 않음). 죽은 화면이 운영팀 방이면 ‘운영팀에 알리기’를 숨긴다. 홈 `/`, 운영팀 `/chats/support`(비로그인은 관문 시트). `scripts/e2e/screen-error-boundary.spec.ts`.
+
 ## DEV-440 내 정보 계정 출처
 - FEAT-01 AC-01-38: SCR-17의 계정 출처는 `lib/meSummary.ts`의 accountLabel에서 username 우선, 없을 때 isTestAccount로 결정한다. ID 발급 뒤 시드 테스트 분류를 유지하는 AC-01-37과 맞춘다. 역할 접미사·프로필·비밀번호 메뉴 조건은 바꾸지 않는다.
 
@@ -14,7 +20,7 @@
 홈 카드 가격·취소선은 main 그대로(`productPrices`의 `referencePrice`), 상품 상세도 `referencePrice`를 넘겨 옵션 줄에 ‘지금 예약가 ~~비교 가격~~’(11/17 PM 결정으로 취소선 유지). 카드 메타는 ‘이 가격 D-n’ 한 줄 + ‘n명 예약’ 한 줄, 개념 상자는 추천 상품이 있을 때만. 상품 상세 판매자 줄의 ‘팬 n명’은 상품 응답에 없어 `farms.get(farmId)`를 한 번 더 읽고, 실패하면 수만 뺀다. 소식방 머리도 ‘팬 N명’(버튼·공개 범위 이름 ‘팔로워 전용’은 그대로). FEAT-06 AC-06-9, FEAT-07 AC-07-9·10.
 
 ## DEV-314 우편번호 찾기
-배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.ts`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
+배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.tsx`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 두 파일은 확장자가 같아야 한다: Metro는 확장자마다 `.android`→`.native`→무접미사 순으로 찾고 `ts`를 `tsx`보다 먼저 보므로, 웹이 `.ts`이고 앱이 `.native.tsx`이면 앱 번들에 웹 파일이 들어간다(DEV-474, `scripts/test-native-pairs.mjs`가 Metro 순서를 흉내 내 검사). 웹은 `.native`를 보지 않으므로(`preferNativePlatform: false`) 웹 번들은 `.tsx` 웹 파일을 그대로 잡는다. 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
 
 ## DEV-252 권한 확인 뒤 읽기 위치 복구
 SessionProvider는 auth 이벤트마다 메모리 scope를 동기 폐기한다. 같은 토큰 문자열로 다시 로그인해도 새 generation이고, 같은 세션 auth.me 성공은 기존 scope를 유지한다. event/request serial은 이전 세션·늦은 사용자 응답을 버린다. 일시적인 auth.me 실패는 UI만 숨기며 안전한 geometry는 재시도까지 유지한다.
@@ -135,6 +141,7 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 ## DEV-33 EAS 네이티브 빌드 (ADR 0013)
 
 - 식별자 `kr.farmclub.consumer`, 스킴 `farmclub-consumer`, 설치 이름(`expo.name`) `farmclub`(DEV-377, 스토어 제목과 같게), `runtimeVersion` 정책 `fingerprint`. `eas.json` 프로필 `development`·`preview`(채널 preview, 스토어 형식)·`production`. `updates.url`·`extra.eas.projectId`는 `eas init`·`eas update:configure`가 썼다(2026-10-23, Expo 조직 `snu-omm`, `owner` 필드). `internal` 프로필은 채널 `preview`를 그대로 쓴다.
+- DEV-435: iPad 미지원(`ios.supportsTablet: false`). `android.blockedPermissions`로 `SYSTEM_ALERT_WINDOW`·`VIBRATE`·`USE_BIOMETRIC`·`USE_FINGERPRINT`·`BIND_GET_INSTALL_REFERRER_SERVICE`를 막는다(템플릿·androidx.biometric·expo-application의 installreferrer가 더하고 앱은 안 씀). 저장소 권한(Android 12 이하)은 남긴다: 사진 선택(`pickPhoto.native.ts`·`pick.native.ts`·`sourceFiles.native.ts`)이 `requestMediaLibraryPermissionsAsync`를 먼저 부르고, expo-image-picker가 Android 12 이하에서 이 권한을 요청해 매니페스트에 없으면 거절로 끝난다. iOS 아이콘은 모든 픽셀이 불투명이어야 한다(prebuild가 흰 바탕 위에 다시 그려 RGB로 냄). 검사는 `scripts/test-native-config.mjs`·`scripts/test-brand-meta.mjs` DEV-435.
 - 플랫폼 분기는 `*.native.ts` 쌍(Metro가 고른다)이 우선이고, 웹 파일은 런타임 import 없이 두어 Node 테스트가 읽는다. `lib/kakao.ts`(웹: sessionStorage, `window.location.origin`) / `lib/kakao.native.ts`(메모리, `EXPO_PUBLIC_CONSUMER_URL`, state `app-` 접두어), `lib/kakaoAuth.ts`(페이지 이동) / `lib/kakaoAuth.native.ts`(`expo-web-browser` 인증 세션).
 - 카카오 복귀(앱): 인가 요청의 복귀 주소는 웹과 같은 `https://farmclub.kr/auth/kakao`. 웹 복귀 화면 `/auth/kakao`는 `state`가 `app-`이면 `appReturnUrl`로 코드를 `farmclub-consumer://auth/kakao?code&state`에 넘기고 ‘앱으로 돌아가는 중’ + ‘앱 열기’ 버튼을 보인다. 앱의 `login.tsx`는 인증 세션 결과를 받아 같은 `/auth/kakao` 화면을 열고, 그 화면이 메모리 복귀 정보로 `state`를 대조한 뒤 `POST /api/auth/kakao`(`redirectUri`는 `kakaoCallbackUri()`)를 부른다. 서버 변경 없음.
 - 복사는 `expo-clipboard`, 바깥 주소는 `Linking`, 토큰은 `@farmclub/api`가 SecureStore에 둔다. `public/.well-known/`의 `apple-app-site-association`·`assetlinks.json`은 Team ID·지문 자리표시자(사람이 채움), `vercel.json`이 JSON으로 응답. 앱 링크로 여는 경로는 아직 없다(AASA 전부 제외). Android는 복귀 스킴을 expo-router 딥링크로 받으므로 `kakaoAuth.native.ts`가 결과를 돌려주지 않는다.
@@ -218,3 +225,8 @@ Conversation headers use goBackOr with roomBackTarget as the direct-entry fallba
 - 농가 정보 맨 위 `FarmTemperature`는 서버 정수 tenths를 소수 한 자리로 표시한다. 실제 기여와 정책을 설명하며 실패 시 재시도를 제공한다. 기존 강조색/중립 surface 토큰을 재사용한다.
 - `/me/achievements`는 서버 판정만 표시하고 focus마다 새로 읽는다. 검증된 세션 generation으로 화면을 분리한다. CTA는 관련 실제 화면만 열고 완료를 쓰지 않는다.
 - 완료·미환불 주문의 `PurchaseReview`는 기존 별점을 조회하고 정수1~5 선택을 저장한 성공 응답만 반영한다. 농가 신고는 별도 인증 관문 action(report) 및 실제 저장 폼을 쓰며 성공 접수와 운영 검토 전 온도 미반영을 안내한다.
+## DEV-454 UAT cycle 2
+The checkout uses a dedicated condition-change modal while preserving the existing submission and deposit-recovery path. Dismissal does not acknowledge a reservation; the footer reopens the prompt.
+
+## DEV-476 정식 서비스 전환 문구 (2026-11-24)
+주문서·입금 안내 머리 아래 ‘테스트 서비스’ 띠는 지웠고(`TestBand`는 `packages/ui`에서 뺐다), 가입 동의 시트는 ‘버전 ○’만, 로그인 하단 안내는 ‘· 테스트 서비스’ 꼬리 없이 둔다. 약관 요지는 ‘입금은 농가 계좌로 직접 하고, farmclub은 거래를 중개해요.’로 끝난다. `app.config.js`는 app.json을 그대로 돌려주고, EAS 빌드 서버에서 `development`가 아닌 모든 프로필(이름·대소문자와 상관없이 제외 목록으로 본다)에서 사업자 정보 필수 값이 비면 던져서 빌드를 멈춘다. 생산자 앱과 글자까지 같은 파일이고, fingerprint가 바뀌지 않게 다른 파일을 require하지 않는다(`scripts/test-store-business-check.mjs`).

@@ -2,7 +2,9 @@ import {
   farms,
   messaging,
   newIdempotencyKey,
+  privateImage,
   productPrices,
+  SUPPORT_ID,
 } from "@farmclub/api";
 import { Button, NewsRoom, RoomShelf, T, useAsync } from "@farmclub/ui";
 import { useRouter } from "expo-router";
@@ -65,17 +67,21 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
           makeKey={newIdempotencyKey}
           onAttach={() => router.push("/broadcast/new")}
           edit={(id, text, version, key) => messaging.editRoomMessage(farmId, id, text, version, key)}
-          send={(text, key, replyId, replyVersion) => messaging.sendRoom(farmId, text, key, replyId, replyVersion)}
+          send={(text, key, replyId, replyVersion, extra) => messaging.sendRoom(farmId, text, key, replyId, replyVersion, extra)}
           recipientCount={farm.data?.followerCount ?? null}
           remove={(id) => messaging.deleteNews(id)}
           copy={copyText}
           notify={toast}
+          // 주의·제재 안내 띠(DEV-475). ‘운영팀에 알리기’는 1:1 목록의 farmclub 운영팀 방
+          notice={{ onSupport: () => router.push(`/chats/${SUPPORT_ID}`) }}
           react={(id, liked) =>
             liked ? messaging.unreact(id) : messaging.react(id)
           }
           // 소식별 ‘답장 N ›’ 팬 답장 시트(DEV-297, Figma 7:93)
           fanReplies={fanReplies}
           readFanReplies={readFanReplies}
+          // 소비자 답장의 비공개 사진(DEV-467): 소식방 말풍선·팬 답장 시트
+          loadPhoto={privateImage}
           onPrivateReply={async (consumerId, replyId) => {
             try {
               await messaging.producerStart(consumerId, replyId);

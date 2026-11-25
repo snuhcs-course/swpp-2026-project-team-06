@@ -20,6 +20,7 @@ from app.core.errors import ApiError, conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
 from app.core.pagination import decode_cursor, encode_cursor
 from app.core.schemas import Paged
+from app.messaging.emoticons import message_text
 from app.messaging.models import (
     Broadcast,
     Escalation,
@@ -124,6 +125,7 @@ def _news_items(db: Session, rows: list[Broadcast], user_id: str | None) -> list
             farm_photo=found[b.farm_id].photo,
             created_at=b.created_at,
             body=b.body,
+            emoticon_id=b.emoticon_id,
             photos=[*b.photos, *b.videos],
             visibility=b.visibility,
             reaction_count=b.reaction_count,
@@ -173,14 +175,10 @@ def latest_public_news(db: Session, farm, user_id: str | None) -> NewsItem | Non
 
 
 def followed_news(db: Session, consumer_id: str, cursor: str | None, limit: int) -> Paged[NewsItem]:
-    """팔로우한 승인 농가의 소식(공개·팔로워 전용)."""
+    """팔로우한 공개 농가의 소식(공개·팔로워 전용). 테스트 농가는 테스트 계정에게만(DEV-472)."""
     from app.farms import service as farms
 
-    farm_ids = [
-        f.id
-        for f in farms.get_farms(db, farms.followed_farm_ids(db, consumer_id)).values()
-        if f.approval_status == "APPROVED"
-    ]
+    farm_ids = list(farms.public_farms(db, farms.followed_farm_ids(db, consumer_id), consumer_id))
     query = select(Broadcast).where(Broadcast.farm_id.in_(farm_ids), _LIVE)
     return _news_page(db, query, consumer_id, cursor, limit)
 
@@ -192,7 +190,7 @@ def _visible_broadcast(db: Session, consumer_id: str, broadcast_id: str) -> Broa
     b = db.scalar(select(Broadcast).where(Broadcast.id == broadcast_id).with_for_update())
     if b is not None and b.deleted_at is not None:
         raise not_found("삭제된 소식이에요.")
-    if b is None or farms.get_approved_farm(db, b.farm_id) is None:
+    if b is None or farms.public_farm(db, b.farm_id, consumer_id) is None:
         raise not_found("볼 수 없는 소식이에요.")
     if b.visibility != "PUBLIC" and not farms.is_following(db, consumer_id, b.farm_id):
         raise not_found("볼 수 없는 소식이에요.")
@@ -214,7 +212,7 @@ def set_reaction(db: Session, consumer_id: str, broadcast_id: str, on: bool) -> 
 
 def post_news(db: Session, farm, body: NewsInput) -> NewsPosted:
     """소식 올리기(FEAT-12). 사진 5장·영상 1개까지, 연락처는 가려 저장한다(M-16)."""
-    if not body.body.strip() and not body.photos and not body.videos:
+    if not body.body.strip() and not body.photos and not body.videos and not body.emoticon_id:
         raise invalid({"body": "글이나 사진 중 하나는 넣어 주세요"})
     if len(body.body) > 2000:
         raise invalid({"body": "2,000자까지 입력해 주세요"})
@@ -222,11 +220,12 @@ def post_news(db: Session, farm, body: NewsInput) -> NewsPosted:
         raise ApiError(413, "PAYLOAD_TOO_LARGE", "사진은 5장, 영상은 1개까지 올릴 수 있어요.")
     from app.farms import service as farms
 
-    text, _ = mask(body.body.strip())
+    text, _ = mask(message_text(body.body.strip(), [*body.photos, *body.videos], body.emoticon_id))
     b = Broadcast(
         id=new_id("n"),
         farm_id=farm.id,
         body=text,
+        emoticon_id=body.emoticon_id,
         photos=body.photos,
         videos=body.videos,
         visibility=body.visibility,
@@ -250,7 +249,7 @@ def _room_access(db: Session, user, farm_id: str):
     from app.farms import service as farms
 
     if user is None:
-        farm = farms.get_approved_farm(db, farm_id)
+        farm = farms.public_farm(db, farm_id, None)
         if farm is None:
             raise not_found("지금은 이 농가의 소식방을 열 수 없어요.")
         return farm, False
@@ -263,7 +262,7 @@ def _room_access(db: Session, user, farm_id: str):
         return own, True
     if user.role != "CONSUMER":
         raise forbidden()
-    farm = farms.get_approved_farm(db, farm_id)
+    farm = farms.public_farm(db, farm_id, user)
     if farm is None:
         raise not_found("지금은 이 농가의 소식방을 열 수 없어요.")
     return farm, farms.is_following(db, user.id, farm_id)
@@ -349,6 +348,8 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
     # 읽음·답장 수는 소유 생산자에게만(DEV-297). _room_access가 남의 농가 생산자를 이미 막았다
     owner = user is not None and user.role == "PRODUCER"
     reads, replies = _broadcast_counts(db, broadcast_ids) if owner and broadcast_ids else ({}, {})
+    # 답장 사진은 그 답장을 볼 수 있는 사람(본인·그 농가 생산자)에게만 행과 함께 나간다(M-19)
+    reply_photos = _room_reply_photos(db, [r.id for r in rows if isinstance(r, RoomReply)])
     result = []
     for r in rows:
         if isinstance(r, Broadcast):
@@ -362,6 +363,7 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                     sender_name=farm.name,
                     sender_role="PRODUCER",
                     body=r.body,
+                    emoticon_id=r.emoticon_id,
                     photos=[p for p in r.photos if not _VIDEO.search(p)],
                     videos=[*r.videos, *(p for p in r.photos if _VIDEO.search(p))],
                     created_at=r.created_at,
@@ -391,12 +393,14 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                     ),
                     sender_role="CONSUMER",
                     body=r.body,
+                    emoticon_id=r.emoticon_id,
                     photos=[],
                     videos=[],
                     created_at=r.created_at,
                     broadcast_id=None,
                     reaction_count=0,
                     my_reaction=False,
+                    attachment_ids=reply_photos.get(r.id, []),
                 )
             )
     return result
@@ -407,7 +411,7 @@ def _room_summary(db: Session, user, farm, can_reply: bool) -> NewsRoomSummary:
     last = last[0] if last else None
     preview = None
     if last is not None:
-        preview = last.body or "사진·영상 소식"
+        preview = last.body or ("사진" if isinstance(last, RoomReply) else "사진·영상 소식")
     return NewsRoomSummary(
         can_reply=can_reply,
         farm_id=farm.id,
@@ -438,11 +442,7 @@ def rooms(db: Session, user, cursor: str | None, limit: int) -> Paged[NewsRoomSu
         farm, _ = _room_access(db, user, getattr(farms.get_farm_of_producer(db, user.id), "id", ""))
         found = [farm]
     else:
-        found = [
-            f
-            for f in farms.get_farms(db, farms.followed_farm_ids(db, user.id)).values()
-            if f.approval_status == "APPROVED"
-        ]
+        found = list(farms.public_farms(db, farms.followed_farm_ids(db, user.id), user).values())
     summaries = [_room_summary(db, user, f, True) for f in found]
     summaries.sort(key=lambda s: (s.last_at is not None, s.last_at or now()), reverse=True)
     return _offset_page(summaries, cursor, limit)
@@ -487,20 +487,38 @@ def send_room(
     text: str,
     reply_to_message_id: str | None = None,
     reply_to_version: int | None = None,
+    *,
+    broadcast_id: str | None = None,
+    attachment_ids: list[str] | None = None,
+    emoticon_id: str | None = None,
 ) -> NewsRoomMessage:
-    """생산자는 팔로워 전용 방송, 소비자는 본인과 농가만 보는 텍스트 답장. AI는 답하지 않는다."""
+    """생산자는 팔로워 전용 방송, 소비자는 본인과 농가만 보는 답장(글·비공개 사진).
+
+    AI는 답하지 않는다.
+
+    소비자는 답한 소식(broadcast_id)을 고를 수 있다(DEV-467). 없으면 보낸 순간의 가장 최근 소식.
+    """
     from app.accounts import service as accounts
 
+    attachment_ids = attachment_ids or []
     if user.role == "CONSUMER" and accounts.needs_onboarding(db, user):
         raise forbidden("가입을 마치면 쓸 수 있어요.", reason="ONBOARDING_REQUIRED")
     farm, can_reply = _room_access(db, user, farm_id)
     if not can_reply:
         raise forbidden("팔로우한 뒤 답장할 수 있어요.")
+    if user.role == "PRODUCER" and (broadcast_id is not None or attachment_ids):
+        # 생산자 방송의 사진은 공개 소식 미디어로 올린다(기존 계약). 답한 소식은 소비자 답장에만
+        fields = {}
+        if broadcast_id is not None:
+            fields["broadcastId"] = "소비자 답장에만 쓸 수 있어요."
+        if attachment_ids:
+            fields["attachmentIds"] = "소비자 답장에만 쓸 수 있어요."
+        raise invalid(fields)
     limit = 2000 if user.role == "PRODUCER" else 1000
     text = text.strip()
-    if not text or len(text) > limit:
+    if (not text and not attachment_ids and not emoticon_id) or len(text) > limit:
         raise invalid({"text": f"1~{limit:,}자로 적어 주세요."})
-    body, _ = mask(text)
+    body, _ = mask(message_text(text, attachment_ids, emoticon_id))
     quote = None
     if reply_to_message_id is not None:
         if user.role != "PRODUCER":
@@ -517,7 +535,7 @@ def send_room(
                 "STALE_VERSION", "원문이 수정됐어요. 답장을 취소하고 다시 선택해 주세요."
             )
         quote = {"senderType": "CONSUMER", "body": _broadcast_reply_text(target.body)}
-        body = _broadcast_reply_text(text)
+        body = _broadcast_reply_text(body)
         # 모두에게 답했으면 생산자가 읽은 답장이다(DEV-297 팬 답장 '안 읽음')
         if target.producer_read_at is None:
             target.producer_read_at = now()
@@ -528,6 +546,7 @@ def send_room(
             id=new_id("n"),
             farm_id=farm.id,
             body=body,
+            emoticon_id=emoticon_id,
             photos=[],
             videos=[],
             visibility="FOLLOWERS",
@@ -535,26 +554,101 @@ def send_room(
             created_at=now(),
         )
     else:
-        # 답한 소식 = 보낸 순간 그 농가의 가장 최근 지우지 않은 소식(DEV-297).
-        # 소비자 답장에는 인용이 없어(DEV-289 인용은 생산자 → 소비자 방향)
-        # 채팅에서 바로 위 농가 말풍선을 대상으로 본다
-        latest = db.scalar(
-            select(Broadcast.id)
-            .where(Broadcast.farm_id == farm.id, _LIVE)
-            .order_by(Broadcast.created_at.desc(), Broadcast.id.desc())
-            .limit(1)
-        )
+        if broadcast_id is not None:
+            # 소식 카드의 ‘농가에 답장’으로 고른 소식(DEV-467). 답장은 팔로워만 보내므로
+            # 그 농가의 지우지 않은 소식이면 공개·팔로워 전용 모두 보이는 소식이다
+            target_id = db.scalar(
+                select(Broadcast.id).where(
+                    Broadcast.id == broadcast_id, Broadcast.farm_id == farm.id, _LIVE
+                )
+            )
+            if target_id is None:
+                # reason으로 앱이 고른 소식을 풀고 안내한다(삭제된 소식, DEV-467)
+                raise ApiError(
+                    404,
+                    "NOT_FOUND",
+                    "이 소식방의 소식에만 답장할 수 있어요.",
+                    {"reason": "REPLY_TARGET_GONE"},
+                )
+        else:
+            # 답한 소식 = 보낸 순간 그 농가의 가장 최근 지우지 않은 소식(DEV-297).
+            # 고르지 않은 답장(옛 앱·입력칸에서 바로 보냄)의 기본값이다
+            target_id = db.scalar(
+                select(Broadcast.id)
+                .where(Broadcast.farm_id == farm.id, _LIVE)
+                .order_by(Broadcast.created_at.desc(), Broadcast.id.desc())
+                .limit(1)
+            )
+        photos = _bind_room_photos(db, user.id, attachment_ids, farm.id)
         row = RoomReply(
             id=new_id("reply"),
             farm_id=farm.id,
             consumer_id=user.id,
             body=body,
+            emoticon_id=emoticon_id,
             created_at=now(),
-            broadcast_id=latest,
+            broadcast_id=target_id,
         )
+        for i, a in enumerate(photos):
+            a.thread_id = _ROOM_REPLY_SCOPE + row.id
+            # 묶인 뒤에는 24시간 검사가 없어 보낸 순서를 시각으로 남긴다(정렬용)
+            a.created_at = row.created_at + timedelta(microseconds=i)
     db.add(row)
     db.flush()
     return _room_messages(db, user, farm, [row])[0]
+
+
+# 소식방 답장 사진(DEV-467): 1:1과 같은 PrivateAttachment에 담고, 새 칸 없이 thread_id 문자열에
+# 자원 키를 둔다. 올릴 때는 그 농가 소식방, 답장에 묶이면 그 답장.
+_ROOM_SCOPE = "room:"
+_ROOM_REPLY_SCOPE = "roomreply:"
+
+
+def _bind_room_photos(
+    db: Session, uploader_id: str, ids: list[str], farm_id: str
+) -> list[PrivateAttachment]:
+    """업로더 본인의, 묶이지 않은, 같은 농가 소식방으로 올린 24시간 안의 사진만.
+
+    bind_attachments와 같은 규칙이다.
+    """
+    if len(ids) > 3 or len(set(ids)) != len(ids):
+        raise invalid({"attachmentIds": "사진은 서로 다른 3장까지 첨부해 주세요"})
+    found = []
+    for aid in ids:
+        a = db.scalar(
+            select(PrivateAttachment).where(PrivateAttachment.id == aid).with_for_update()
+        )
+        if (
+            a is None
+            or a.uploader_id != uploader_id
+            or a.bound
+            or now() - a.created_at > ATTACHMENT_TTL
+            or a.order_id is not None
+            or a.thread_id != _ROOM_SCOPE + farm_id
+        ):
+            # reason으로 앱이 쓸 수 없는 사진을 빼고 안내한다(24시간 지남 등, DEV-467)
+            raise ApiError(
+                404, "NOT_FOUND", "사용할 수 없는 첨부예요.", {"reason": "ATTACHMENT_UNUSABLE"}
+            )
+        found.append(a)
+    for a in found:
+        a.bound = True
+    return found
+
+
+def _room_reply_photos(db: Session, reply_ids: list[str]) -> dict[str, list[str]]:
+    """답장 id → 비공개 사진 id(올린 순서)."""
+    if not reply_ids:
+        return {}
+    keys = [_ROOM_REPLY_SCOPE + rid for rid in reply_ids]
+    result: dict[str, list[str]] = {}
+    for aid, key in db.execute(
+        select(PrivateAttachment.id, PrivateAttachment.thread_id)
+        .where(PrivateAttachment.thread_id.in_(keys), PrivateAttachment.bound.is_(True))
+        .order_by(PrivateAttachment.created_at, PrivateAttachment.id)
+    ):
+        result.setdefault(key.removeprefix(_ROOM_REPLY_SCOPE), []).append(aid)
+    return result
 
 
 def read_room(db: Session, consumer, farm_id: str, broadcast_id: str) -> None:
@@ -666,6 +760,7 @@ def fan_replies(
     )
     # 탈퇴한 회원은 끝난 주문이 남아 있어도 예약 고객으로 표시하지 않는다
     withdrawn = {cid for cid, u in names.items() if u.deleted_at is not None}
+    photos = _room_reply_photos(db, [r.id for r in rows])
     return FanReplyPage(
         broadcast=FanReplyBroadcast(
             broadcast_id=b.id,
@@ -682,11 +777,13 @@ def fan_replies(
                 consumer_id=r.consumer_id,
                 sender_name=accounts.public_name(names.get(r.consumer_id)),
                 body=r.body,
+                emoticon_id=r.emoticon_id,
                 created_at=r.created_at,
                 edit_version=r.edit_version,
                 unread=r.producer_read_at is None,
                 reserved_customer=r.consumer_id in reserved and r.consumer_id not in withdrawn,
                 quoted=r.id in quoted,
+                attachment_ids=photos.get(r.id, []),
             )
             for r in rows
         ],
@@ -777,6 +874,7 @@ def _message_view(
         sequence=m.seq,
         sender_type=m.sender_type,
         body=m.body,
+        emoticon_id=m.emoticon_id,
         photos=m.photos,
         created_at=m.created_at,
         attachment_ids=m.attachment_ids,
@@ -811,7 +909,24 @@ def _message_views(db: Session, rows: list[ThreadMessage]) -> list[ChatMessage]:
         if ids
         else {}
     )
-    return [_message_view(m, m.id in states, states.get(m.id)) for m in rows]
+    question_ids = [m.id for m in rows if m.sender_type == "CONSUMER"]
+    requested = (
+        set(
+            db.scalars(
+                select(Escalation.thread_message_id).where(
+                    Escalation.thread_message_id.in_(question_ids),
+                    Escalation.reported_message_id.is_(None),
+                    Escalation.status == "OPEN",
+                )
+            )
+        )
+        if question_ids
+        else set()
+    )
+    views = [_message_view(m, m.id in states, states.get(m.id)) for m in rows]
+    for view in views:
+        view.reply_requested = view.message_id in requested
+    return views
 
 
 def _set_mode(t: Thread, mode: str) -> None:
@@ -870,10 +985,10 @@ def ensure_thread(db: Session, farm_id: str, consumer_id: str) -> Thread:
 
 
 def _consumer_thread(db: Session, consumer_id: str, farm_id: str, lock: bool = False) -> Thread:
-    """소비자는 팔로우한 승인 농가의 대화만. 결제 주문 문의가 있으면 팔로우 예외(1.2 2/2)."""
+    """소비자는 팔로우한 공개 농가의 대화만. 결제 주문 문의가 있으면 팔로우 예외(1.2 2/2)."""
     from app.farms import service as farms
 
-    if farms.get_approved_farm(db, farm_id) is None:
+    if farms.public_farm(db, farm_id, consumer_id) is None:
         raise not_found("찾을 수 없는 농가예요.")
     thread = get_thread(db, farm_id, consumer_id, lock=lock)
     if thread is None:
@@ -1050,12 +1165,13 @@ def consumer_chats(db: Session, consumer, cursor: str | None, limit: int) -> Pag
     from app.farms import service as farms
 
     threads = list(db.scalars(select(Thread).where(Thread.consumer_id == consumer.id)))
-    found = farms.get_farms(db, [t.farm_id for t in threads])
+    # 정지 농가처럼 테스트 농가(DEV-472)도 일반 소비자의 목록에서 빠진다
+    found = farms.public_farms(db, [t.farm_id for t in threads], consumer)
     followed = set(farms.followed_farm_ids(db, consumer.id))
     summaries = []
     for t in threads:
         farm = found.get(t.farm_id)
-        if farm is None or farm.approval_status != "APPROVED":
+        if farm is None:
             continue
         last = db.scalar(
             select(ThreadMessage)
@@ -1090,7 +1206,7 @@ def authorize_chat_start(db: Session, consumer, farm_id: str, order_id: str | No
     """Also run before an idempotent replay; GET never initializes a thread."""
     from app.farms import service as farms
 
-    if farms.get_approved_farm(db, farm_id) is None:
+    if farms.public_farm(db, farm_id, consumer) is None:
         raise not_found("찾을 수 없는 농가예요.")
     if order_id is not None:
         require_paid_order(db, consumer.id, farm_id, order_id)
@@ -1371,7 +1487,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     # 잠그지 않고 읽는다. AI 호출이 끝난 뒤 저장 직전에 잠근다(DEV-180).
     thread = _consumer_thread(db, consumer.id, farm_id)
     text = body.text.strip()
-    if (not text and not body.attachment_ids) or len(text) > 1000:
+    if (not text and not body.attachment_ids and not body.emoticon_id) or len(text) > 1000:
         raise invalid({"text": "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요"})
     context = None
     if body.order_id:
@@ -1386,19 +1502,33 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     if body.product_id:
         # 판매 중인 그 농가 상품만 근거로 쓴다(DEV-97). 주문이 함께 오면 주문이 먼저다
         item = catalog.load_product(db, body.product_id)
-        if item is None or item.product.farm_id != farm_id or item.product.status != "PUBLISHED":
+        if (
+            item is None
+            or item.product.farm_id != farm_id
+            or item.product.status != "PUBLISHED"
+            or (item.product.is_hidden and not body.order_id)
+        ):
             raise not_found("찾을 수 없는 상품이에요.")
     attachments = bind_attachments(db, consumer.id, body.attachment_ids, thread, body.order_id)
     reply_target = _reply_target(db, thread, body.reply_to_message_id)
     settings = farms.ai_settings(db, farm_id)
     captured = (_effective_mode(thread), thread.version, settings.enabled, settings.version)
-    masked_text, was_masked = mask(text)
+    masked_text, was_masked = mask(message_text(text, body.attachment_ids, body.emoticon_id))
     created = now()
     answer = None
     if _effective_mode(thread) == "AUTO" and settings.enabled and text:
-        answer = ai.answer_question(
-            text, _evidence(db, farm_id, body.order_id, settings, body.product_id)
-        )
+        evidence = _evidence(db, farm_id, body.order_id, settings, body.product_id)
+        answer = ai.answer_question(text, evidence)
+        if not body.order_id and evidence.product_id:
+            # AI 호출 중 숨김이 확정됐으면 답을 버린다. 명시 지정·자동 선택 모두 검사한다.
+            # 상품 → 대화 순서로 잠가, 최종 저장 뒤까지 공개 제어와 순서를 보장한다.
+            latest_product = catalog.load_product(db, evidence.product_id, for_update=True)
+            if (
+                latest_product is None
+                or latest_product.product.is_hidden
+                or latest_product.product.status != "PUBLISHED"
+            ):
+                answer = None
     # 저장 직전: 대화 행을 잠그고 최신 모드·버전·설정을 다시 읽는다(직접 답변·모드 변경과 직렬화)
     thread = _consumer_thread(db, consumer.id, farm_id, lock=True)
     latest = farms.ai_settings(db, farm_id, fresh=True)
@@ -1420,6 +1550,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
         thread_id=thread.id,
         sender_type="CONSUMER",
         body=masked_text,
+        emoticon_id=body.emoticon_id,
         photos=[],
         attachment_ids=[a.id for a in attachments],
         order_id=body.order_id,
@@ -1428,7 +1559,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
         # AI 답이 저장되지 않는 질문은 모두 직접 응대 대상이다: HUMAN·OFF, 사진만 보낸 메시지(M-21),
         # 그리고 AI 작업 중 모드·설정이 바뀌어 답을 버린 경우(AC-13-6). 시작 때 HUMAN이었다가
         # 저장 전에 AUTO로 돌아온 질문도 AI 답이 없으므로 여기에 남는다.
-        needs_human=not (answer is not None and unchanged),
+        needs_human=not body.emoticon_id and not (answer is not None and unchanged),
         created_at=created,
     )
     db.add(message)
@@ -1471,7 +1602,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
             message.needs_human = True
     db.flush()
     result = SendResult(
-        message=_message_view(message), reply=_message_view(reply) if reply else None
+        message=_message_views(db, [message])[0], reply=_message_view(reply) if reply else None
     )
     alert = None
     if text and _REFUND_OR_COMPENSATION.search(text):
@@ -1610,6 +1741,7 @@ def _producer_reply(
     uploader_id: str | None = None,
     reply_to_message_id: str | None = None,
     actor_id: str | None = None,
+    emoticon_id: str | None = None,
 ) -> ThreadMessage:
     """생산자 답변. 저장과 HUMAN 전환을 같은 트랜잭션에서 한다(M-09).
 
@@ -1620,7 +1752,7 @@ def _producer_reply(
     """
     text = text.strip()
     attachment_ids = attachment_ids or []
-    if (not text and not attachment_ids) or len(text) > 1000:
+    if (not text and not attachment_ids and not emoticon_id) or len(text) > 1000:
         raise invalid({"text": "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요"})
     target = _reply_target(db, thread, reply_to_message_id)
     escalations = (
@@ -1655,7 +1787,7 @@ def _producer_reply(
         target = db.get(ThreadMessage, corrected[0])
         reply_to_message_id = target.id
     attachments = bind_attachments(db, uploader_id or "", attachment_ids, thread, None)
-    masked_text, was_masked = mask(text)
+    masked_text, was_masked = mask(message_text(text, attachment_ids, emoticon_id))
     message = ThreadMessage(
         reply_to_message_id=reply_to_message_id,
         reply_to=_quote(target),
@@ -1663,6 +1795,7 @@ def _producer_reply(
         thread_id=thread.id,
         sender_type="PRODUCER",
         body=masked_text,
+        emoticon_id=emoticon_id,
         photos=[],
         attachment_ids=[a.id for a in attachments],
         source_refs=[],
@@ -1705,6 +1838,7 @@ def producer_send(
         farm.producer_id,
         body.reply_to_message_id,
         actor_id=farm.producer_id,
+        emoticon_id=body.emoticon_id,
     )
     return ProducerSendResult(message=_message_view(message), thread=_thread_view(thread))
 
@@ -1865,7 +1999,7 @@ def _check_resource(db: Session, user, order_id: str | None, thread_id: str | No
         if own is None or own.id != thread.farm_id or own.approval_status not in SUPPORT_STATUSES:
             raise not_found("찾을 수 없는 대화예요.")
         return
-    if farms.get_approved_farm(db, thread.farm_id) is None:
+    if farms.public_farm(db, thread.farm_id, user) is None:
         raise not_found("찾을 수 없는 대화예요.")
     if user.role == "CONSUMER":
         if thread.consumer_id != user.id:
@@ -1886,11 +2020,27 @@ def upload_attachment(
     declared: str | None,
     order_id: str | None,
     thread_id: str | None,
+    room_farm_id: str | None = None,
 ) -> AttachmentView:
     """업로드한 사람만 보는 임시 파일. 실제 형식 확인·EXIF 제거, 24시간 지난 미연결 파일 정리."""
     if user.role not in ("CONSUMER", "PRODUCER"):
         raise forbidden()
-    _check_resource(db, user, order_id, thread_id)
+    if room_farm_id is not None:
+        # 소식방 비공개 답장 사진(DEV-467): 답장을 보낼 수 있는 소비자(팔로워)만
+        if order_id or thread_id:
+            raise invalid({"file": "주문 또는 대화를 하나 지정해 주세요"})
+        if user.role != "CONSUMER":
+            raise forbidden("소비자 답장에만 사진을 붙일 수 있어요.")
+        from app.accounts import service as accounts
+
+        if accounts.needs_onboarding(db, user):
+            raise forbidden("가입을 마치면 쓸 수 있어요.", reason="ONBOARDING_REQUIRED")
+        farm, can_reply = _room_access(db, user, room_farm_id)
+        if not can_reply:
+            raise forbidden("팔로우한 뒤 답장할 수 있어요.")
+        thread_id = _ROOM_SCOPE + farm.id
+    else:
+        _check_resource(db, user, order_id, thread_id)
     mime, cleaned = images.sanitize(data, declared)
     db.execute(
         delete(PrivateAttachment).where(
@@ -1914,6 +2064,23 @@ def upload_attachment(
     return _attachment_view(row)
 
 
+def _may_see_room_reply(db: Session, user, reply_id: str) -> bool:
+    from app.farms import service as farms
+
+    reply = db.get(RoomReply, reply_id)
+    if reply is None:
+        return False
+    if user.role == "CONSUMER":
+        # 소식방이 열리는 농가에서만(R-29, DEV-472). 정지·테스트 농가는 소식방이 404라 사진도 404
+        if reply.consumer_id != user.id:
+            return False
+        return farms.public_farm(db, reply.farm_id, user) is not None
+    if user.role == "PRODUCER":
+        own = farms.get_farm_of_producer(db, user.id)
+        return own is not None and own.id == reply.farm_id
+    return False
+
+
 def read_attachment(db: Session, user, attachment_id: str) -> PrivateAttachment:
     """묶인 파일은 그 주문·대화 참여자, 임시 파일은 업로더만. 아니면 404."""
     a = db.get(PrivateAttachment, attachment_id)
@@ -1921,6 +2088,11 @@ def read_attachment(db: Session, user, attachment_id: str) -> PrivateAttachment:
         raise not_found("찾을 수 없는 사진이에요.")
     if not a.bound:
         if a.uploader_id != user.id or now() - a.created_at > ATTACHMENT_TTL:
+            raise not_found("찾을 수 없는 사진이에요.")
+        return a
+    if a.order_id is None and (a.thread_id or "").startswith(_ROOM_REPLY_SCOPE):
+        # 소식방 답장 사진: 답장 쓴 소비자와 그 농가 생산자만(M-19, DEV-467)
+        if not _may_see_room_reply(db, user, a.thread_id.removeprefix(_ROOM_REPLY_SCOPE)):
             raise not_found("찾을 수 없는 사진이에요.")
         return a
     try:
@@ -1980,7 +2152,7 @@ def create_inquiry(db: Session, consumer, order_id: str, body: InquiryInput) -> 
     if not text or len(text) > 1000:
         raise invalid({"text": "유형을 선택하고 설명을 1~1,000자로 적어 주세요"})
     farm_id = orders.order_farm_id(db, order)
-    if farms.get_approved_farm(db, farm_id) is None:
+    if farms.public_farm(db, farm_id, consumer) is None:
         raise not_found("지금은 이 농가에 문의할 수 없어요.")
     ensure_thread(db, farm_id, consumer.id)
     thread = get_thread(db, farm_id, consumer.id, lock=True)
@@ -2067,12 +2239,15 @@ def _require_message_editor(db: Session, user) -> None:
         raise forbidden("약관에 동의하면 쓸 수 있어요.", reason="CONSENT_REQUIRED")
 
 
-def _edit_text(row, body, limit: int):
+def _edit_text(row, body, limit: int, has_photos: bool = False):
     if row.edit_version != body.version:
         raise conflict("STALE_VERSION", "다른 곳에서 수정됐어요. 닫고 다시 열어 주세요.")
+    if getattr(row, "emoticon_id", None):
+        raise invalid({"text": "이모티콘 메시지는 수정할 수 없어요."})
     value = body.text.strip()
     has_media = bool(
-        getattr(row, "photos", [])
+        has_photos
+        or getattr(row, "photos", [])
         or getattr(row, "videos", [])
         or getattr(row, "attachment_ids", [])
     )
@@ -2118,7 +2293,7 @@ def edit_chat_message(db: Session, user, message_id: str, body) -> ChatMessage:
     if previous != message.edit_version:
         thread.version += 1  # invalidate an AI answer generated from stale question text
     db.flush()
-    return _message_view(message)
+    return _message_views(db, [message])[0]
 
 
 def edit_room_message(db: Session, user, farm_id: str, message_id: str, body) -> NewsRoomMessage:
@@ -2139,6 +2314,8 @@ def edit_room_message(db: Session, user, farm_id: str, message_id: str, body) ->
             raise not_found("본인이 보낸 답장만 수정할 수 있어요.")
     else:
         raise not_found("수정할 수 없는 메시지예요.")
-    _edit_text(row, body, 2000 if user.role == "PRODUCER" else 1000)
+    # 사진 답장은 글을 비워도 된다(AC-15-13). 답장 사진은 칸이 아니라 비공개 사진 키로 찾는다
+    photos = isinstance(row, RoomReply) and bool(_room_reply_photos(db, [row.id]))
+    _edit_text(row, body, 2000 if user.role == "PRODUCER" else 1000, photos)
     db.flush()
     return _room_messages(db, user, farm, [row])[0]

@@ -127,3 +127,14 @@ ChatMessage.sequence는 서버 삽입 순서다. 기존 API와 앱의 순차 배
 
 ## DEV-296 AI 답변 확인 요청 깃발
 `ChatMessage.checkState`, `ProducerChatSummary.aiCheckRequests`, `Dashboard.todo.aiCheckRequests`, `Escalation.resolution`은 선택 필드다(옛 서버와 순차 배포). `messaging.confirmAiAnswer`. Mock은 서버와 같은 규칙(`mock/conversations.ts`의 `checkState`·`withCheckState`·`closeByReply`·`aiCheckRequests`, 질문함 답의 AI 답변 자동 인용, 현황 `openQuestions`는 `needsReply(…, false)`). 테스트 `scripts/test-ai-answer-flag.mjs`.
+
+## DEV-454 자동 전달 답장 요청
+ChatMessage.replyRequested는 원래 소비자 질문의 OPEN 자동 전달 요청 여부이며 기본 false다. Mock도 기존 escalation 연결로 계산하고 인용 답장의 기존 종료 규칙을 따른다.
+
+
+## DEV-468 이모티콘
+
+AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달한다. 공통 카탈로그 ID 외 값과 혼합 메시지는 거부한다. UI는 공통 + 도구·160px 투명 그림·독립 전송 초안 보존을 사용한다. 이모티콘만 보낸 소비자 메시지는 AI를 호출하지 않고, 기존 권한·멱등성·비공개 답장을 유지한다. 상세는 tasks/DEV-468.md.
+
+## DEV-455 생산자 마지막 작업 실행 취소
+주문 처리 결과에 마지막 실행 취소 토큰을 제공하고, 같은 농가의 해당 작업만 현재 주문·결제·환불 스냅샷이 같을 때 복구한다. 감사 기록과 역전 기록을 보존한다. 목록의 `undoAction`은 실제 실행 취소와 같은 사전 조건(입금 기한·입금자명 겹침·미승인 취소의 판매 중 여부)을 통과할 때만 준다. Mock `orderRestoreBlocker`가 서버 `_restore_blocker`와 같은 규칙이다. 상세 동작은 FEAT-09/17 DEV-455 절을 따른다.

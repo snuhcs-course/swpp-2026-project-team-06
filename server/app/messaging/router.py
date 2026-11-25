@@ -97,7 +97,7 @@ def post_news(db: Db, producer: ApprovedProducer, body: NewsInput, key: Idempote
 @router.get("/farms/{farm_id}/news", response_model=Paged[NewsItem])
 def farm_news(db: Db, farm_id: str, user: OptionalUser, limit: Limit, cursor: str | None = None):
     """농가 공개 소식(FEAT-15). 로그인한 소비자면 내 좋아요를 표시한다."""
-    farm = farms.get_approved_farm(db, farm_id)
+    farm = farms.public_farm(db, farm_id, user)
     if farm is None:
         raise not_found("찾을 수 없는 농가예요.")
     return service.farm_public_news(db, farm, user.id if user else None, cursor, limit)
@@ -154,7 +154,15 @@ def send_room(
         key,
         body,
         lambda: service.send_room(
-            db, user, farm_id, body.text, body.reply_to_message_id, body.reply_to_version
+            db,
+            user,
+            farm_id,
+            body.text,
+            body.reply_to_message_id,
+            body.reply_to_version,
+            broadcast_id=body.broadcast_id,
+            attachment_ids=body.attachment_ids,
+            emoticon_id=body.emoticon_id,
         ),
     )
 
@@ -493,10 +501,16 @@ async def upload_attachment(
     file: Annotated[UploadFile, File()],
     order_id: Annotated[str | None, Form(alias="orderId")] = None,
     thread_id: Annotated[str | None, Form(alias="threadId")] = None,
+    room_farm_id: Annotated[str | None, Form(alias="roomFarmId")] = None,
 ):
-    """multipart(file, orderId 또는 threadId). JPEG·PNG·WebP 10MB, EXIF는 지워서 저장한다."""
+    """multipart(file, orderId·threadId·roomFarmId 중 하나). JPEG·PNG·WebP 10MB, EXIF 지움.
+
+    roomFarmId는 그 농가 소식방 비공개 답장 사진이다(DEV-467, 팔로우한 소비자만).
+    """
     data = await file.read(images.MAX_BYTES + 1)
-    view = service.upload_attachment(db, user, data, file.content_type, order_id, thread_id)
+    view = service.upload_attachment(
+        db, user, data, file.content_type, order_id, thread_id, room_farm_id
+    )
     db.commit()
     return view
 
