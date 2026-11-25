@@ -599,7 +599,7 @@ def test_AC_SRC_10_cross_candidate_module_continuation_preserves_original_proven
     result = plan([right, left])
     assert len(result["modules"]) == 1
     module = result["modules"][0]
-    assert module["module"] == "appearanceFaq"
+    assert module["module"] == "summary"
     assert len(module["texts"]) == 1
     row = module["texts"][0]
     assert row["value"] == (
@@ -610,7 +610,7 @@ def test_AC_SRC_10_cross_candidate_module_continuation_preserves_original_proven
     assert by_cid["taste"]["module"] == "taste"
     assert by_cid["appearance"]["module"] == "appearanceFaq"
     assert row["passageIds"] == [by_cid["appearance"]["id"], by_cid["taste"]["id"]]
-    assert all(p["autoRepair"]["module"] == "appearanceFaq" for p in result["passages"])
+    assert all(p["autoRepair"]["module"] == "summary" for p in result["passages"])
     assert by_cid["appearance"]["status"] == "PENDING"
     assert all("CONTINUATION_CONTEXT" in p["reasonCodes"]["COPY_EDIT"] for p in result["passages"])
     assert row["assembly"]["contextReviewRequired"] is True
@@ -789,3 +789,118 @@ def test_AC_SRC_11_owner_edited_line_layout_remains_authoritative():
     )
     assert result["modules"][0]["texts"][0]["value"] == value
     assert "layout" not in result["modules"][0]["texts"][0]
+
+
+def paragraph_candidate(lines, *, field="farmStory", prefix="s", start=1):
+    item = candidate(
+        "paragraph", lines[0], value=" ".join(lines), field=field, span_id=f"{prefix}{start}"
+    )
+    item["evidence"] = [
+        {**item["evidence"][0], "spanIds": [f"{prefix}{start + i}"], "quote": line}
+        for i, line in enumerate(lines)
+    ]
+    return item
+
+
+def test_AC_SRC_10_DEV484_plain_text_source_candidate_is_one_readable_paragraph():
+    lines = [
+        "푸른뜰은 청년들이 만든 농장입니다.",
+        "가족이 함께 먹을 수 있는 과일을",
+        "직접 살펴보고 정성껏 고릅니다.",
+    ]
+    item = paragraph_candidate(lines)
+    result = plan([item])
+    assert [t["value"] for m in result["modules"] for t in m["texts"]] == [" ".join(lines)]
+    assert [p["originalValue"] for p in result["passages"]] == lines
+    assert result["summary"]["includedInDraft"] == 3
+    assert len(result["accounting"]) == 3
+
+
+def test_AC_SRC_10_DEV484_cross_field_sentence_bridges_a_source_proven_middle_clause():
+    left = candidate("appearance", "겉은 조금 거칠지만", field="appearanceFaq", span_id="s1")
+    right = paragraph_candidate(
+        ["6~7월에만 만날 수 있는", "산뜻한 여름 과일입니다!"], field="taste", start=2
+    )
+    result = plan([right, left])
+    assert len(result["modules"]) == 1
+    assert result["modules"][0]["module"] == "summary"
+    texts = result["modules"][0]["texts"]
+    assert len(texts) == 1
+    assert texts[0]["value"] == "겉은 조금 거칠지만 6~7월에만 만날 수 있는 산뜻한 여름 과일입니다!"
+    assert len(texts[0]["passageIds"]) == 3
+    assert all(p["includedInDraft"] for p in result["passages"])
+    assert all("CONTINUATION_CONTEXT" in p["reasonCodes"]["COPY_EDIT"] for p in result["passages"])
+    assert all(p["status"] == "PENDING" for p in result["passages"])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "paraphrase",
+        "gap",
+        "prefix",
+        "page",
+        "reverse",
+        "blank_paragraph",
+        "heading",
+        "explicit_decision",
+    ],
+)
+def test_AC_SRC_10_DEV484_ambiguous_candidate_paragraph_stays_separate(change):
+    item = paragraph_candidate(["직접 농장을 살펴보고", "과일을 정성껏 고릅니다."])
+    decisions = []
+    if change == "paraphrase":
+        item["value"] = "A model paraphrase is not a source unit."
+    elif change == "gap":
+        item["evidence"][1]["spanIds"] = ["s3"]
+    elif change == "prefix":
+        item["evidence"][1]["spanIds"] = ["another2"]
+    elif change == "page":
+        item["evidence"][1]["page"] = 2
+    elif change == "reverse":
+        item["evidence"].reverse()
+    elif change == "blank_paragraph":
+        item["value"] = "\n\n".join(e["quote"] for e in item["evidence"])
+    elif change == "heading":
+        item["evidence"][1]["quote"] = "배송 안내"
+        item["value"] = " ".join(e["quote"] for e in item["evidence"])
+    elif change == "explicit_decision":
+        initial = plan([item])
+        decisions = [
+            {
+                "bindingHash": initial["passages"][0]["bindingHash"],
+                "action": "EDIT",
+                "value": "내가 작성한 독립 문장입니다.",
+                "note": "직접 검토했어요",
+            }
+        ]
+    result = plan([item], decisions=decisions)
+    assert sum(len(m["texts"]) for m in result["modules"]) == 2
+    assert result["summary"]["includedInDraft"] == 2
+
+
+def test_AC_SRC_10_DEV484_separate_photo_captions_are_not_merged_into_one_paragraph():
+    items = [
+        candidate(f"caption-{i}", line, value=line, field="delivery", span_id=f"s{i}")
+        for i, line in enumerate(
+            ["개별 포장 사진입니다.", "가정용 포장 사진입니다.", "선물용 포장 사진입니다."]
+        )
+    ]
+    result = plan(items)
+    assert len(result["modules"][0]["texts"]) == 3
+    assert [t["value"] for t in result["modules"][0]["texts"]] == [i["value"] for i in items]
+
+
+def test_AC_SRC_10_DEV484_missing_punctuation_does_not_create_a_run_on_paragraph():
+    item = paragraph_candidate(
+        [
+            "청년들이 함께 일하는 농장입니다",
+            "가족이 함께 먹을 수 있는 과일을",
+            "직접 살펴보고 고릅니다.",
+        ]
+    )
+    result = plan([item])
+    assert [t["value"] for m in result["modules"] for t in m["texts"]] == [
+        "청년들이 함께 일하는 농장입니다",
+        "가족이 함께 먹을 수 있는 과일을 직접 살펴보고 고릅니다.",
+    ]

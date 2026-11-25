@@ -25,7 +25,7 @@ from app.source_analysis.text_safety import (
     has_product_lineup,
 )
 
-VERSION = "source-preserving-v4-source-blocks"
+VERSION = "source-preserving-v5-complete-units"
 LAYOUT_VERSION = "source-prose-layout-v1"
 _KINDS = ("COPY_EDIT", "OWNER_CONFIRMATION", "PLACEMENT", "SAFETY")
 _RESTRICTED = {"PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"}
@@ -74,7 +74,7 @@ _BOUNDARY_START = re.compile(
     r"보관|배송|가격|주의|참고|또한|그리고|하지만|한편|다음|\d{1,4}\s*(?:년|월|일)|"
     r"\d+(?:[,.]\d+)?\s*(?:kg|㎏|g|키로|킬로|박스|상자|과)(?=\s|[:：/–~-]|$))"
 )
-_SPAN_ORDER = re.compile(r"^(.+?[-_:])(\d+)$")
+_SPAN_ORDER = re.compile(r"^(.+?)(\d+)$")
 _TERMS = re.compile(r"결제|입금|환불|반품|교환|취소|추가\s*(?:금|비)")
 
 
@@ -152,19 +152,98 @@ def _span_order(passage):
     return next(iter(prefixes)), numbers[0], numbers[-1]
 
 
-def _can_join(left, right, occupied, candidate_by_id):
+def _source_candidate_edges(passages, candidate_by_id, occupied):
+    """Use a complete, verbatim candidate as a paragraph boundary, never a paraphrase.
+
+    Quote occurrences still need unique consecutive source-span identity. This
+    permits OCR/text line wraps without joining separate captions or option rows.
+    """
+    edges = set()
+    for cid, candidate in candidate_by_id.items():
+        if candidate["fieldKey"] in {
+            "composition",
+            "pieceCount",
+            "specification",
+            "qualityEvidence",
+        }:
+            continue
+        refs = candidate.get("evidence", [])
+        if len(refs) < 2 or "\n\n" in candidate["value"]:
+            continue
+        parts = []
+        for ref in refs:
+            matches = [p for p in passages if cid in p["candidateIds"] and p["evidence"] == [ref]]
+            if len(matches) != 1:
+                break
+            parts.append(matches[0])
+        if len(parts) != len(refs) or any(
+            p["decision"] or p["reasonCodes"]["PLACEMENT"] for p in parts
+        ):
+            continue
+
+        def compact(value):
+            return re.sub(r"\s+", "", value)
+
+        if compact(candidate["value"]) != compact(" ".join(p["value"] for p in parts)):
+            continue
+        if any(
+            "\n\n" in p["value"] or _BOUNDARY_START.search(p["value"].lstrip()) for p in parts[1:]
+        ):
+            continue
+        orders = [_span_order(p) for p in parts]
+        if not all(orders):
+            continue
+        if any(
+            any(a[key] != b[key] for key in ("sourceId", "sourceRevision", "sanitizationVersion"))
+            or a["evidence"][0]["page"] != b["evidence"][0]["page"]
+            or x[0] != y[0]
+            or x[2] + 1 != y[1]
+            for a, b, x, y in zip(parts, parts[1:], orders, orders[1:], strict=False)
+        ):
+            continue
+        if any(
+            occupied[(p["sourceId"], p["evidence"][0]["page"], sid)] != 1
+            for p in parts
+            for sid in p["evidence"][0]["spanIds"]
+        ):
+            continue
+        for a, b in zip(parts, parts[1:], strict=False):
+            # Source line breaks can stand in for missing punctuation. Keep a
+            # complete declarative line separate rather than invent a period.
+            if re.search(r"(?:습니다|입니다|했어요|었어요|이에요|예요)\s*$", a["value"]):
+                continue
+            edges.add((a["id"], b["id"]))
+    return edges
+
+
+def _assembly_module(parts):
+    modules = {p["module"] for p in parts}
+    # A complete descriptive sentence is not a warning simply because its first
+    # clause mentions appearance. Retain context review for cross-field joins.
+    if len(modules) > 1 and modules <= {"appearanceFaq", "taste", "summary"}:
+        return "summary"
+    return parts[0]["module"]
+
+
+def _can_join(left, right, occupied, candidate_by_id, candidate_edges):
     if left["decision"] or right["decision"]:
         return False
-    if not _CONTINUATION_END.search(left["value"].rstrip()):
+    candidate_link = (left["id"], right["id"]) in candidate_edges
+    if not candidate_link and not _CONTINUATION_END.search(left["value"].rstrip()):
         return False
     continuation = right["value"].strip()
     # A heading, option, independent topic or another unfinished label is not
     # evidence of the missing clause. Never supply text absent from the source.
     if (
         not continuation
-        or _BOUNDARY_START.search(continuation)
+        or (not candidate_link and _BOUNDARY_START.search(continuation))
         or "\n\n" in continuation
-        or not (re.search(r"[.!?。]\s*$", continuation) or _CONTINUATION_END.search(continuation))
+        or not (
+            candidate_link
+            or re.search(r"[.!?。]\s*$", continuation)
+            or _CONTINUATION_END.search(continuation)
+            or right["id"] in {a for a, _ in candidate_edges}
+        )
         or left["reasonCodes"]["PLACEMENT"]
         or right["reasonCodes"]["PLACEMENT"]
     ):
@@ -210,6 +289,8 @@ def _assembly_groups(passages, candidate_by_id):
         for p in passages
         for sid in p["evidence"][0]["spanIds"]
     )
+    candidate_edges = _source_candidate_edges(eligible, candidate_by_id, occupied)
+    candidate_starts = {a for a, _ in candidate_edges}
     starts = {}
     orders = {}
     for passage in eligible:
@@ -228,7 +309,9 @@ def _assembly_groups(passages, candidate_by_id):
     links = []
     for left in eligible:
         order = orders.get(left["id"])
-        if not order or not _CONTINUATION_END.search(left["value"].rstrip()):
+        if not order or not (
+            _CONTINUATION_END.search(left["value"].rstrip()) or left["id"] in candidate_starts
+        ):
             continue
         key = (
             left["sourceId"],
@@ -239,7 +322,7 @@ def _assembly_groups(passages, candidate_by_id):
             order[2] + 1,
         )
         for right in starts.get(key, ()):
-            if _can_join(left, right, occupied, candidate_by_id):
+            if _can_join(left, right, occupied, candidate_by_id, candidate_edges):
                 links.append((left["id"], right["id"]))
     outgoing = Counter(left for left, _ in links)
     incoming = Counter(right for _, right in links)
@@ -271,7 +354,7 @@ def _assembled_text(parts):
             "type": "SOURCE_ADJACENT_CONTINUATION",
             "separator": " ",
             "passageIds": ids,
-            "module": parts[0]["module"],
+            "module": _assembly_module(parts),
         }
     return text
 
@@ -531,7 +614,7 @@ def _build(target, candidates, versions, target_count, decisions):
     )
     option_ids = {p["id"] for unit in option_units for p in unit["parts"]}
     units = option_units + [
-        {"module": parts[0]["module"], "parts": parts, "text": _assembled_text(parts)}
+        {"module": _assembly_module(parts), "parts": parts, "text": _assembled_text(parts)}
         for parts in _assembly_groups(
             [p for p in passages if p["id"] not in option_ids], candidate_by_id
         )
