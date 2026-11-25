@@ -111,7 +111,6 @@ test("DEV-339 DEV-486: a front earlybird leaves existing dates intact and prices
   await expect(rows.nth(0).getByText("다음 기간보다 싸게 하면 일찍 사는 소비자가 좋아해요")).toBeVisible();
   const prices = editor.getByLabel("3kg 가격", { exact: true });
   await prices.first().fill("40000");
-  await editor.getByLabel("3kg 박스 수", { exact: true }).first().fill("10");
   await page.getByRole("button", { name: "수정 담기", exact: true }).click();
   await expect(editor).toBeVisible();
   await expect(page.getByText(/뒤 기간 가격이 앞 기간보다 비싸야/)).toBeVisible();
@@ -124,7 +123,6 @@ test("DEV-339 DEV-486: a front earlybird leaves existing dates intact and prices
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(2).getByRole("button", { name: /11월 2일 ~/ })).toBeVisible(); // after the latest end, November 1
   await prices.last().fill("45000");
-  await editor.getByLabel("3kg 박스 수", { exact: true }).last().fill("10");
   await page.getByRole("button", { name: "수정 담기", exact: true }).click();
   await expect(editor).toHaveCount(0);
 });

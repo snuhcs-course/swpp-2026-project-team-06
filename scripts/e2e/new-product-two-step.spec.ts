@@ -148,14 +148,12 @@ for (const width of [360, 390, 430]) {
     await sell.getByRole("dialog").getByRole("button", { name: /^10월 30일 .요일/ }).click();
     await sell.getByRole("dialog").getByRole("button", { name: "이 날로", exact: true }).click();
     await sell.getByLabel("5kg 가격", { exact: true }).last().fill("32000");
-    await sell.getByLabel("5kg 박스 수", { exact: true }).last().fill("40");
     // 얼리버드 기간: 앞 기간이 더 비싸면 막힌다(R-18)
     await sell
       .getByRole("button", { name: "얼리버드 기간 추가", exact: true })
       .click();
     await expect(sell.getByTestId("price-period")).toHaveCount(2);
     await sell.getByLabel("5kg 가격", { exact: true }).first().fill("35000");
-    await sell.getByLabel("5kg 박스 수", { exact: true }).first().fill("10");
     await sell.getByLabel("판매할 총 물량", { exact: true }).fill("300");
     await expect(sell.getByLabel("한 주문 최대", { exact: true })).toHaveCount(0);
     await sell.getByRole("button", { name: "저장", exact: true }).click();
