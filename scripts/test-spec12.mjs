@@ -183,10 +183,19 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
   );
   const future = rows.at(-1);
   Object.values(future.options).forEach((v) => (v.price += 1000));
+  // 같은 저장에서 예약 이력이 있는 첫 기간의 끝날을 하루 당긴다: 성공하고 같은 stageId로 남는다
+  const reserved = rows[0];
+  const shortenedEnd = new Date(Date.parse(reserved.endsAt) - 86400000).toISOString().slice(0, 10);
+  assert.ok(shortenedEnd >= reserved.startsAt);
+  reserved.endsAt = shortenedEnd;
   const edited = await ok("PUT", "/api/products/p-house/stages", p, {
     version: product.version,
     stages: rows.reverse(),
   });
+  assert.equal(
+    edited.stages.find((s) => s.stageId === reserved.stageId)?.endsAt,
+    shortenedEnd,
+  );
   assert.equal("pendingReapproval" in edited, false);
   assert.deepEqual(
     (await ok("GET", "/api/products/p-house", a)).stages,

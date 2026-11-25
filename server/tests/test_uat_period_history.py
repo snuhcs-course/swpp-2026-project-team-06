@@ -11,7 +11,7 @@ from tests.test_catalog import _period_fixture, _period_inputs, key
 
 
 @pytest.mark.parametrize("status", ["PREPARING", "CANCELED"])
-def test_DEV339_DEV489_historical_order_blocks_period_deletion_even_with_zero_reserved_boxes(client, login, status):
+def test_DEV339_DEV489_history_blocks_period_deletion_with_zero_reserved(client, login, status):
     headers = login("u-kang")
     pid, initial = _period_fixture(client, headers)
     stage_id = initial["stages"][0]["stageId"]
@@ -44,7 +44,7 @@ def test_DEV339_DEV489_historical_order_blocks_period_deletion_even_with_zero_re
 
 
 @pytest.mark.parametrize("status", ["PREPARING", "CANCELED"])
-def test_DEV489_period_with_order_history_can_change_dates_and_keeps_its_orders(client, login, status):
+def test_DEV489_period_with_order_history_redates_and_keeps_orders(client, login, status):
     headers = login("u-kang")
     pid, initial = _period_fixture(client, headers)
     stage_id = initial["stages"][0]["stageId"]

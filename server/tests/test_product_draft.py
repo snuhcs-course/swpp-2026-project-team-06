@@ -248,7 +248,7 @@ def test_AC_05_R_18_later_period_cheaper_is_refused_on_apply(client, login):
     assert events("p-house") == []
 
 
-def test_AC_05_DEV489_period_with_orders_changes_dates_but_cannot_be_deleted_on_apply(client, login):
+def test_AC_05_DEV489_reserved_period_redates_but_not_deleted_on_apply(client, login):
     stages = stage_inputs(mine(client, login))
     stages[0]["endsAt"] = "2026-10-11"  # period 1 has o-42; its dates can change (DEV-489)
     view = saved(client, login, stages=stages)

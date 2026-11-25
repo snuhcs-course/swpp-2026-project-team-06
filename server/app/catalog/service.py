@@ -900,7 +900,8 @@ def apply_stages(db: Session, item: Loaded, stages_input: list[StageInput]) -> N
         used = db.scalar(select(Order.id).where(Order.stage_id == s.id).limit(1)) is not None
         match = incoming.get(s.id)
         replacement = match[1] if match is not None else None
-        # DEV-489: 주문이 있는 기간도 날짜는 고칠 수 있다(받은 주문은 그 기간에 그대로 속함). 지우기만 막는다
+        # DEV-489: 주문이 있는 기간도 날짜는 고칠 수 있다.
+        # 받은 주문은 그 기간에 그대로 속하고, 지우기만 막는다
         if used and replacement is None:
             raise conflict("PERIOD_LOCKED", "주문이 있는 예약 기간은 지울 수 없어요.")
         reserved = {
