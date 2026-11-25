@@ -1,6 +1,7 @@
 import {
   allPages,
   catalog,
+  newIdempotencyKey,
   serverNow,
   type MyProductCard,
 } from "@farmclub/api";
@@ -12,7 +13,9 @@ import {
   Photo,
   Screen,
   Scroll,
+  Sheet,
   Skeleton,
+  Icon,
   T,
   md,
   time,
@@ -20,8 +23,9 @@ import {
   useLiveList,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { NumField } from "../../../lib/fields";
 import { OptionBoxRow } from "../../../lib/OptionBoxRow";
 import { optionBoxesFromCard } from "../../../lib/optionBoxes";
 import { HelpButton } from "../../../lib/Tour";
@@ -52,6 +56,345 @@ function SalesLine({ product }: { product: MyProductCard }) {
       예약 중 {product.reservedGrams / 1000}kg · 출하{" "}
       {product.shippedGrams / 1000}kg
     </T>
+  );
+}
+
+const kgText = (grams: number) =>
+  `${(grams / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg`;
+
+/**
+ * DEV-487 (2/2): '물량·판매 설정' 화면 대신 카드의 '판매 관리' 시트.
+ * 판매 중(PUBLISHED)은 총 물량 바꾸기(줄이기는 바로, 승인 물량보다 늘리기는 운영팀 승인 요청)와 판매 중지·재개,
+ * 첫 판매 요청 심사 중은 신청 철회. 총 물량 = 판매 한도(승인되면 승인 물량과 같아짐, 진우 11/25)
+ */
+function canManage(product: Pick<MyProductCard, "status" | "pendingCapacityRequest">): boolean {
+  return (
+    product.status === "PUBLISHED" ||
+    (product.status === "PENDING_APPROVAL" && product.pendingCapacityRequest?.kind === "INITIAL")
+  );
+}
+
+/**
+ * 심사 중 칩(DEV-487). 주문 카드 상태 칩(OrderCard)과 같은 모양: 높이 28, radius sm, 연한 accent 바탕.
+ * action이 있으면 칩 안 오른쪽에 회색 작은 글자 버튼(철회)을 가는 세로 줄로 나눠 둔다
+ */
+function PendingChip({ label, action }: { label: string; action?: { label: string; a11y: string; disabled?: boolean; onPress: () => void } }) {
+  return (
+    <View
+      testID="pending-chip"
+      style={{
+        alignSelf: "flex-start",
+        flexDirection: "row",
+        alignItems: "center",
+        minHeight: 28,
+        paddingLeft: 10,
+        paddingRight: action ? 0 : 10,
+        borderRadius: tokens.radius.sm,
+        backgroundColor: tokens.color.accentSoft,
+      }}
+    >
+      <T variant="caption" weight="semibold" color={tokens.color.accent}>
+        {label}
+      </T>
+      {action ? (
+        <>
+          <View style={{ width: 1, height: 12, marginLeft: 8, backgroundColor: tokens.color.border }} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={action.a11y}
+            disabled={action.disabled}
+            onPress={action.onPress}
+            hitSlop={8}
+            style={({ pressed }) => ({ minHeight: 28, paddingHorizontal: 10, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+          >
+            <T variant="caption" weight="semibold" muted>
+              {action.label}
+            </T>
+          </Pressable>
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * 시트 맨 위 대상 상자. 주문 관리 시트의 OrderIdentity와 같은 모양(면색 상자, 이름·상태, 아래 한 줄).
+ * corner: 이름 맞은편 오른쪽 위 작은 동작(판매 중지), change: 총 물량 바로 옆 '바꾸기', children: 그 아래(심사 중 칩)
+ */
+function ProductIdentity({
+  product,
+  corner,
+  change,
+  children,
+}: {
+  product: MyProductCard;
+  corner?: ReactNode;
+  change?: ReactNode;
+  children?: ReactNode;
+}) {
+  const pending = product.status === "PENDING_APPROVAL";
+  return (
+    <View style={{ padding: tokens.space.md, borderRadius: tokens.radius.sm, backgroundColor: tokens.color.surface }}>
+      {/* 오른쪽 열: 위 '판매 중지', 아래 '바꾸기' — 같은 크기 글자 버튼을 같은 오른쪽 끝에 맞춘다 */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space.sm, minHeight: 28 }}>
+        <T variant="heading" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
+          {product.name || "이름 없는 초안"}
+        </T>
+        {corner}
+      </View>
+      <T variant="caption" muted style={{ marginTop: 2 }}>
+        {productStatus(product)}
+      </T>
+      {pending ? null : (
+        // 두 열(현황 숫자 상자처럼 위 작은 이름·아래 굵은 숫자): 왼쪽 총 물량 + 바로 옆 '바꾸기' 칩, 오른쪽 예약·출하
+        <View
+          style={{
+            flexDirection: "row",
+            marginTop: tokens.space.md,
+            paddingTop: tokens.space.md,
+            borderTopWidth: 1,
+            borderTopColor: tokens.color.border,
+          }}
+        >
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <T variant="sub" muted>
+              총 물량
+            </T>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space.sm }}>
+              <T variant="heading" weight="bold" numberOfLines={1}>
+                {kgText(product.salesLimitGrams)}
+              </T>
+              {change}
+            </View>
+          </View>
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <T variant="sub" muted>
+              예약·출하
+            </T>
+            <View style={{ minHeight: 28, justifyContent: "center" }}>
+              <T variant="heading" weight="bold" numberOfLines={1}>
+                {kgText(product.reservedGrams + product.shippedGrams)}
+              </T>
+            </View>
+          </View>
+        </View>
+      )}
+      {children ? <View style={{ marginTop: tokens.space.sm }}>{children}</View> : null}
+    </View>
+  );
+}
+
+type ManageStep = "menu" | "total" | "pause" | "withdraw";
+
+function SalesManageSheet({
+  product,
+  onClose,
+  onDone,
+}: {
+  product: MyProductCard;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { toast } = useSession();
+  const [step, setStep] = useState<ManageStep>("menu");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [totalKg, setTotalKg] = useState<number | null>(product.salesLimitGrams / 1000);
+  // 같은 동작·같은 값의 재시도는 같은 멱등 키
+  const pending = useRef<{ body: string; key: string } | null>(null);
+  const keyFor = (body: unknown) => {
+    const text = JSON.stringify(body);
+    if (pending.current?.body !== text) pending.current = { body: text, key: newIdempotencyKey() };
+    return pending.current.key;
+  };
+  const request = product.pendingCapacityRequest;
+  const committed = product.reservedGrams + product.shippedGrams;
+  const raising = Math.round((totalKg ?? 0) * 1000) > product.approvedSupplyGrams;
+  const go = (next: ManageStep) => {
+    setError("");
+    setStep(next);
+  };
+  const close = () => {
+    if (!busy) onClose();
+  };
+  const run = async (work: () => Promise<string>) => {
+    setBusy(true);
+    setError("");
+    try {
+      const done = await work();
+      pending.current = null;
+      toast(done);
+      onDone();
+    } catch (e) {
+      // 시트 안에서 보인다(앱 토스트는 시트 뒤에 그려짐). 서버 문구를 그대로
+      setError(e instanceof Error && e.message ? e.message : "처리하지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const withdraw = () =>
+    run(async () => {
+      await catalog.withdrawCapacity(product.productId, request!.requestId, request!.version, keyFor(["withdraw", request!.requestId]));
+      return product.status === "PENDING_APPROVAL"
+        ? "신청을 철회했어요. 판매·가격에서 고친 뒤 다시 요청해 주세요."
+        : "늘리기 요청을 철회했어요.";
+    });
+  const saveTotal = () => {
+    const grams = Math.round((totalKg ?? 0) * 1000);
+    if (!totalKg || grams <= 0) return setError("총 물량을 적어 주세요.");
+    if (grams === product.salesLimitGrams) return setError("지금과 같은 총 물량이에요.");
+    if (grams < committed) return setError(`이미 예약·출하된 ${kgText(committed)}보다 적게 할 수 없어요.`);
+    if (grams > product.approvedSupplyGrams) {
+      if (request) return setError("늘리기 요청이 심사 중이에요. 철회한 뒤 다시 요청해 주세요.");
+      return run(async () => {
+        await catalog.requestCapacity(product.productId, grams, product.version, keyFor(["increase", grams]));
+        return `${kgText(grams)}으로 늘리기를 요청했어요. 운영팀이 확인하면 늘어나요.`;
+      });
+    }
+    return run(async () => {
+      await catalog.salesSettings(
+        product.productId,
+        { salesLimitGrams: grams, salesPaused: product.salesPaused, version: product.version },
+        keyFor(["limit", grams]),
+      );
+      return `총 물량을 ${kgText(grams)}으로 바꿨어요.`;
+    });
+  };
+  const togglePause = () =>
+    run(async () => {
+      await catalog.salesSettings(
+        product.productId,
+        { salesLimitGrams: product.salesLimitGrams, salesPaused: !product.salesPaused, version: product.version },
+        keyFor(["pause", !product.salesPaused]),
+      );
+      return product.salesPaused ? "판매를 재개했어요." : "판매를 중지했어요. 기존 예약은 유지돼요.";
+    });
+  const errorLine = error ? (
+    <View accessibilityRole="alert">
+      <T variant="sub" color={tokens.color.error}>
+        {error}
+      </T>
+    </View>
+  ) : null;
+  /** 아래 두 버튼: 닫기(또는 이전) + 확인. 주문 관리 '되돌리기' 시트와 같은 1:2 */
+  const footer = (label: string, onConfirm: () => void) => (
+    <View style={{ flexDirection: "row", gap: tokens.space.sm }}>
+      <Button label="이전" variant="secondary" style={{ flex: 1 }} disabled={busy} onPress={() => go("menu")} />
+      <Button label={label} style={{ flex: 2 }} disabled={busy} loading={busy} onPress={onConfirm} />
+    </View>
+  );
+  return (
+    <Sheet visible onClose={close}>
+      <View style={{ gap: 12 }} testID="sales-manage-sheet">
+        {step === "menu" ? (
+          <>
+            <T variant="heading">판매 관리</T>
+            <ProductIdentity
+              product={product}
+              corner={
+                product.status === "PUBLISHED" ? (
+                  // 자주 쓰지 않는 동작: 상자 오른쪽 위 작은 글자. 멈추기는 빨강·확인 한 번 더, 재개는 accent(진우)
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={product.salesPaused ? "판매 재개" : "판매 중지"}
+                    disabled={busy}
+                    onPress={() => (product.salesPaused ? void togglePause() : go("pause"))}
+                    hitSlop={8}
+                    style={({ pressed }) => ({ minHeight: 28, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+                  >
+                    <T variant="sub" weight="semibold" color={product.salesPaused ? tokens.color.accent : tokens.color.error}>
+                      {product.salesPaused ? "판매 재개" : "판매 중지"}
+                    </T>
+                  </Pressable>
+                ) : null
+              }
+              change={
+                product.status === "PUBLISHED" ? (
+                  // 회색 칩 버튼(주문 카드 칩과 같은 높이 28·radius sm), 무게 바로 옆
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="총 물량 바꾸기"
+                    disabled={busy}
+                    onPress={() => go("total")}
+                    hitSlop={8}
+                    style={({ pressed }) => ({
+                      minHeight: 28,
+                      paddingHorizontal: 10,
+                      justifyContent: "center",
+                      borderRadius: tokens.radius.sm,
+                      backgroundColor: tokens.color.background,
+                      borderWidth: 1,
+                      borderColor: tokens.color.border,
+                      opacity: pressed ? 0.6 : 1,
+                    })}
+                  >
+                    <T variant="caption" weight="semibold">
+                      바꾸기
+                    </T>
+                  </Pressable>
+                ) : null
+              }
+            >
+              {request ? (
+                <PendingChip
+                  label={
+                    request.kind === "INITIAL"
+                      ? `판매 시작 요청 ${kgText(request.requestedTotalGrams)} 심사 중`
+                      : `${kgText(request.requestedTotalGrams)}으로 늘리기 심사 중`
+                  }
+                  action={{
+                    label: "철회",
+                    a11y: request.kind === "INITIAL" ? "신청 철회" : "늘리기 요청 철회",
+                    disabled: busy,
+                    onPress: () => go("withdraw"),
+                  }}
+                />
+              ) : null}
+            </ProductIdentity>
+            {errorLine}
+          </>
+        ) : step === "total" ? (
+          <>
+            <T variant="heading">총 물량 바꾸기</T>
+            <ProductIdentity product={product} />
+            <NumField label="총 물량" decimal unit="kg" value={totalKg} disabled={busy} highlight
+              onChange={(v) => {
+                setError("");
+                setTotalKg(v);
+              }} />
+            <T variant="sub" muted>
+              {raising
+                ? `승인 ${kgText(product.approvedSupplyGrams)}보다 많아서 운영팀이 확인한 뒤 늘어나요.`
+                : `예약·출하된 ${kgText(committed)}보다 적게는 못 줄여요.`}
+            </T>
+            {errorLine}
+            {footer(raising ? "늘리기 요청" : "저장", () => void saveTotal())}
+          </>
+        ) : step === "pause" ? (
+          <>
+            <T variant="heading">판매를 멈출까요?</T>
+            <ProductIdentity product={product} />
+            <T variant="sub" muted>
+              새 예약을 받지 않아요. 이미 받은 예약은 그대로예요.{"\n"}판매 관리에서 언제든 다시 재개할 수 있어요.
+            </T>
+            {errorLine}
+            {footer("판매 중지", () => void togglePause())}
+          </>
+        ) : (
+          <>
+            <T variant="heading">{product.status === "PENDING_APPROVAL" ? "판매 시작 요청을 철회할까요?" : "늘리기 요청을 철회할까요?"}</T>
+            <ProductIdentity product={product} />
+            <T variant="sub" muted>
+              {product.status === "PENDING_APPROVAL"
+                ? "작성 중으로 돌아가요. 판매·가격에서 고친 뒤 다시 요청할 수 있어요."
+                : `${request ? kgText(request.requestedTotalGrams) : ""} 요청을 거둬요. 총 물량은 그대로예요.`}
+            </T>
+            {errorLine}
+            {footer("철회", () => void withdraw())}
+          </>
+        )}
+      </View>
+    </Sheet>
   );
 }
 
@@ -112,6 +455,7 @@ export default function Products() {
     [],
   );
   const list = useLiveList(load, user?.userId ?? "", active && !!user, 8000);
+  const [managing, setManaging] = useState<MyProductCard | null>(null);
   const items = list.data?.filter(
     (item) => productGroup(item) === selected.value,
   );
@@ -258,9 +602,7 @@ export default function Products() {
                   </T>
                 ) : null}
                 {product.pendingCapacityRequest?.kind === "INCREASE" ? (
-                  <T variant="caption" muted>
-                    물량 추가 심사 중
-                  </T>
+                  <PendingChip label={`${kgText(product.pendingCapacityRequest.requestedTotalGrams)}으로 늘리기 심사 중`} />
                 ) : null}
               </View>
             </Pressable>
@@ -278,13 +620,15 @@ export default function Products() {
               }}
             >
               <SalesLine product={product} />
-              {/* 11/10 인터뷰: kg 총량은 보조(meta 12 회색) */}
+              {/* 11/10 인터뷰: kg 총량은 보조(meta 12 회색). DEV-487: 총 물량(판매 한도) 기준. 판매 전이면 승인 전이라 0 */}
               <T variant="caption" muted>
-                승인 {product.approvedSupplyGrams / 1000}kg · 추가 예약 가능{" "}
-                {product.remainingGrams / 1000}kg
+                {product.status === "PENDING_APPROVAL" && product.pendingCapacityRequest
+                  ? `판매 시작 요청 ${kgText(product.pendingCapacityRequest.requestedTotalGrams)}`
+                  : `총 물량 ${kgText(product.salesLimitGrams)} · 예약·출하 ${kgText(product.reservedGrams + product.shippedGrams)}`}
               </T>
             </View>
-            {/* DEV-361 PR C: 상품 수정은 composer 한 화면. 둘째 버튼은 판매 전 '판매·가격'(첫 판매 요청), 그 밖 '물량·판매 설정' */}
+            {/* DEV-361 PR C: 상품 수정은 composer 한 화면. 둘째 버튼은 판매 전 '판매·가격'(첫 판매 요청),
+                DEV-487 (2/2)부터 판매 중·첫 요청 심사 중 '판매 관리'(총 물량·판매 중지·신청 철회, 물량·판매 설정 화면 없앰) */}
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
               <Button
                 label="상품 수정"
@@ -292,20 +636,36 @@ export default function Products() {
                 style={{ flex: 1 }}
                 onPress={() => router.push(`/products/${product.productId}/detail`)}
               />
-              <Button
-                label={isPreSale(product) ? "판매·가격" : "물량·판매 설정"}
-                variant="secondary"
-                style={{ flex: 1 }}
-                onPress={() =>
-                  router.push(
-                    `/products/${product.productId}/${isPreSale(product) ? "sell" : "sales"}`,
-                  )
-                }
-              />
+              {isPreSale(product) ? (
+                <Button
+                  label="판매·가격"
+                  variant="secondary"
+                  style={{ flex: 1 }}
+                  onPress={() => router.push(`/products/${product.productId}/sell`)}
+                />
+              ) : canManage(product) ? (
+                <Button
+                  label="판매 관리"
+                  variant="secondary"
+                  style={{ flex: 1 }}
+                  onPress={() => setManaging(product)}
+                />
+              ) : null}
             </View>
           </View>
         ))}
       </Scroll>
+      {managing ? (
+        <SalesManageSheet
+          key={managing.productId}
+          product={managing}
+          onClose={() => setManaging(null)}
+          onDone={() => {
+            setManaging(null);
+            list.retry();
+          }}
+        />
+      ) : null}
       <Fab
         label="새 상품"
         testID="new-product"

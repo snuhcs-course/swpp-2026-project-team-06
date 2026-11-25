@@ -272,7 +272,7 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 ## DEV-345 품절 안내·저장 결과 위치 (2026-11-17)
 
 화면 서술·문구는 screens.md 판매 설정·SCR-26, 기록은 `tasks/DEV-345.md`.
-- 품절 안내는 `lib/soldOutGuide.ts` 순수 함수(`scripts/test-sold-out-guide.mjs`). 판정은 서버 `availability`를 그대로 쓰고 `PUBLISHED`만 안내한다(승인 전은 한도 0이라 서버가 `TOTAL_SOLD_OUT`을 줌). 박스 소진은 `currentStageId` 기간의 모든 옵션이 `quantity ≤ reservedCount`, 그 기간에 박스를 정한 옵션이 하나도 없으면(옵션 교체) kg 대신 이번 기간 안내.
+- (DEV-487로 지움) 품절 안내는 `lib/soldOutGuide.ts` 순수 함수(`scripts/test-sold-out-guide.mjs`)였다. 판정은 서버 `availability`를 그대로 쓰고 `PUBLISHED`만 안내한다(승인 전은 한도 0이라 서버가 `TOTAL_SOLD_OUT`을 줌). 박스 소진은 `currentStageId` 기간의 모든 옵션이 `quantity ≤ reservedCount`, 그 기간에 박스를 정한 옵션이 하나도 없으면(옵션 교체) kg 대신 이번 기간 안내.
 - 물량·판매 설정의 오류·성공 안내는 상태 `at`(save·pause·request·page) 한 자리에만 보인다: 누른 버튼 바로 아래, 신청·철회는 ‘물량 추가 신청’ 영역 끝, 불러오기 실패만 맨 아래. 기간·가격도 저장 오류·저장 뒤 안내를 저장 버튼 아래에 뒀다(불러오기 실패는 위, DEV-361 PR C에서 화면과 함께 없어짐).
 - 화면 밖이면 웹에서만 `scrollIntoView({ block: "nearest" })`(View ref의 DOM 노드, 네이티브에는 함수가 없어 아무 일도 안 함 — `lib/FieldFeedback.tsx`와 같은 방식). ‘물량 추가 신청하기’는 신청 영역을 `block: "center"`로 옮기고 `Input.inputRef`로 초점.
 - 판매 설정 → ‘기간·가격에서 박스 늘리기’는 `/products/:id/stages?from=sales`로 열고, 기간·가격의 ‘판매 한도 늘리기’는 `from=sales`이고 `router.canGoBack()`이면 `router.back()`(판매 설정→기간→판매 설정으로 스택이 쌓여 뒤로가 맴도는 것을 막음), 아니면 push. DEV-361 PR C부터 버튼은 ‘판매 조건에서 박스 늘리기’ → `/products/:id/detail?terms=1`(push)이고 기간·가격의 ‘판매 한도 늘리기’는 없다.
@@ -307,3 +307,10 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - `termsFrom`은 불러온 박스 수를 `max(UNLIMITED_BOXES, 기존 값)`으로 맞추고 `termsKey`·`checkTerms`는 박스 수를 보지 않는다. 그래서 박스 수만 다른 것은 ‘수정됨’이 아니고, 다른 판매 조건을 반영할 때 함께 제한 없음으로 저장된다.
 - 반영 확인표(composer)·`TermsSummary`·판매·가격 안내에서 박스 줄과 문구를 뺐다. 가격 칸은 옵션마다 두 칸씩 나란히.
 - 이미 있는 상품의 작은 박스 수는 운영 DB를 한 번 정리해 푼다(사람이 실행, 이슈 파일 ‘운영 데이터 정리’ SQL). 물량·판매 설정 화면·판매 한도 편집 숨김은 DEV-487 (2/2).
+
+## DEV-487 (2/2) 판매 관리 시트 — 물량·판매 설정 화면 없앰
+- 상품 목록 카드 둘째 버튼: 판매 전 ‘판매·가격’, 판매 중(`PUBLISHED`)·첫 판매 요청 심사 중(`PENDING_APPROVAL` + `INITIAL`) ‘판매 관리’. 그 밖(종료 등)은 없음. `SalesManageSheet`(같은 파일) 한 시트가 단계(`menu`·`total`·`pause`·`withdraw`)를 바꿔 그린다(주문 관리 시트처럼 확인 단계도 같은 시트).
+- 모양은 주문 관리 시트(`ship.tsx`)를 따른다: 제목, `ProductIdentity`(OrderIdentity 꼴 면색 상자), 확인 단계 아래 [이전 | 확인] 1:2. 심사 중 칩(`PendingChip`)은 OrderCard 상태 칩 모양(높이 28, radius sm, accentSoft)이고 ‘철회’를 칩 안에 둔다. ‘판매 중지’는 상자 오른쪽 위 작은 빨간 글자, ‘바꾸기’는 총 물량 바로 옆 칩 버튼(진우 화면 검토 11/26).
+- 총 물량 = `salesLimitGrams`. 저장: `< 예약+출하` 거절(요청 없음), `≤ approvedSupplyGrams` `catalog.salesSettings`(한도만, `salesPaused` 그대로), 그보다 크면 `catalog.requestCapacity`(증액). 증액 승인은 서버가 한도도 같이 올린다(`catalog/service.py` `decide_capacity`, Mock `capacity.ts`). 카드 정보는 목록 응답(`MyProductCard`의 SalesState·`pendingCapacityRequest`)만 쓰고 상세를 읽지 않는다.
+- 시트 안 실패는 시트 안 빨간 줄(앱 토스트는 Modal 뒤), 성공은 시트를 닫고 앱 토스트 후 목록 다시 읽기. 멱등 키는 동작·값이 같으면 재사용.
+- `products/[id]/sales.tsx`는 `/products`로 Redirect(예전 링크). 현황 상품 줄은 상품 수정으로. 상품 수정의 반영 뒤 전체 품절 Notice는 버튼 없이 ‘승인 물량(○kg)을 모두 팔아서 더 예약을 받을 수 없어요.’. `lib/soldOutGuide.ts`·`scripts/test-sold-out-guide.mjs` 삭제.

@@ -1914,20 +1914,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           <View style={{ paddingHorizontal: tokens.space.gutter, paddingVertical: 12 }}>
             <Notice
               title="상품에 반영했어요."
-              body={`판매 한도(${(soldOutAfter / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg)를 모두 써서 아직 예약을 받을 수 없어요.`}
-              action={
-                <Button
-                  label="판매 한도 늘리기"
-                  compact
-                  style={{ marginTop: 8 }}
-                  onPress={() => {
-                    allowLeave.current = true;
-                    // 물량·판매 설정의 품절 안내에서 왔으면 돌아가서 스택이 쌓이지 않게 한다
-                    if (from === "sales" && router.canGoBack()) router.back();
-                    else if (productId) router.push({ pathname: "/products/[id]/sales", params: { id: productId } });
-                  }}
-                />
-              }
+              // DEV-487 (2/2): 판매 한도 편집·물량 추가 신청 화면이 없어 버튼 없이 안내만(승인 물량 = 상품 총량)
+              body={`승인 물량(${(soldOutAfter / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg)을 모두 팔아서 더 예약을 받을 수 없어요.`}
             />
           </View>
         ) : null}

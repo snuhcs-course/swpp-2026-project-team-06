@@ -29,13 +29,13 @@ test("AC-04-1 DEV-361 C-12: product cards open 상품 수정 and the second butt
   await expect(page.getByText("하우스 감귤 5kg / 10kg").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "기간·가격", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "판매페이지 수정", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "물량·판매 설정", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "판매 관리", exact: true }).first()).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/dev361c-list-selling.png` });
   await page.getByRole("button", { name: "상품 수정", exact: true }).first().click();
   await expect(page).toHaveURL(/\/products\/(source-analysis|[\w-]+\/detail)/);
   await page.goto(`${producerUrl}/products?filter=draft`);
   await expect(page.getByText("한라봉 5kg").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "물량·판매 설정", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "판매 관리", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "판매·가격", exact: true }).first()).toBeVisible();
   // Tapping the card itself opens 상품 수정 too
   await page.getByRole("button", { name: "한라봉 5kg 상품 수정", exact: true }).click();
@@ -74,7 +74,7 @@ test("R-18 R-25 DEV-361 C-6 C-19: the sales-terms sheet checks on press, keeps c
   const editor = page.getByTestId("sales-terms-editor");
   await expect(editor).toBeVisible();
   await expect(page.getByText("여기서 고친 값도 '상품에 반영'을 눌러야 구매자에게 보여요.", { exact: true })).toBeVisible();
-  // No 한 주문 최대 here (PM decision 9: after approval it lives in 물량·판매 설정)
+  // No 한 주문 최대 here (PM decision 9)
   await expect(editor.getByLabel("한 주문 최대")).toHaveCount(0);
   const price = editor.getByLabel("5kg 가격").first();
   const original = await price.inputValue();
