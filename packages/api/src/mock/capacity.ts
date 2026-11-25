@@ -63,9 +63,10 @@ function decide(ctx: Ctx, approved: boolean) {
           if (missing(p).length)
             invalid({ product: "필수 상품 정보를 확인해 주세요" });
           validatePeriods(ctx.db, p, p.stages);
-          p.salesLimitGrams = r.requestedTotalGrams;
           p.status = "PUBLISHED";
         }
+        // DEV-487: 증액 승인도 판매 한도를 같이 올린다(서버와 같음)
+        p.salesLimitGrams = r.requestedTotalGrams;
         p.approvedSupplyGrams = r.requestedTotalGrams;
         p.rejectReason = null;
       } else {

@@ -206,7 +206,8 @@ test("AC-04-8/9: initial and increased kg capacity require ADMIN, single pending
   await ok("POST", adminPath(inc2) + "/approve", a, { version: 1 });
   product = await get();
   assert.equal(product.approvedSupplyGrams, 150000);
-  assert.equal(product.salesLimitGrams, 100000);
+  // DEV-487: 증액 승인은 판매 한도도 같이 올린다
+  assert.equal(product.salesLimitGrams, 150000);
   assert.equal(
     (
       await api("PUT", base + "/sales-settings", p, {
