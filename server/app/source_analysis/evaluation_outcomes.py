@@ -6,6 +6,8 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from app.source_analysis.evaluation_replacements import diagnostic
+
 
 def split_outcomes(jobs, facts, shared):
     by_id = {job["id"]: job for job in jobs}
@@ -19,6 +21,11 @@ def split_outcomes(jobs, facts, shared):
         "partialProcessingUnattributedMisses": [],
         "contentOrScoringMisses": [],
     }
+    eligible = {sid for sid, job in by_id.items() if diagnostic(job, shared_by_id.get(sid, {}))}
+    diagnostic_facts = [
+        f for f in facts if f["requirement"] == "essential" and f["sourceId"] in eligible
+    ]
+    diagnostic_hits = sum(f["status"] not in {"MISSING", "NOT_PROCESSED"} for f in diagnostic_facts)
     hits, total = 0, 0
     for fact in facts:
         if fact["requirement"] != "essential":
@@ -34,7 +41,7 @@ def split_outcomes(jobs, facts, shared):
         }:
             raise ValueError("UNKNOWN_FACT_STATUS")
         missed = fact["status"] in {"MISSING", "NOT_PROCESSED"}
-        if job["status"] in {"FAILED", "CANCELLED", "NOT_RUN"}:
+        if job["status"] in {"FAILED", "CANCELLED", "NOT_RUN"} and job["id"] not in eligible:
             if not missed:
                 raise ValueError("FAILED_ATTEMPT_HAS_MATCHED_FACT")
             key = (
@@ -61,6 +68,14 @@ def split_outcomes(jobs, facts, shared):
     )
     assert hits + sum(map(len, buckets.values())) == total
     return {
+        "diagnosticContentCoverage": {
+            "hit": diagnostic_hits,
+            "total": len(diagnostic_facts),
+            "rate": diagnostic_hits / len(diagnostic_facts) if diagnostic_facts else None,
+            "measuredSources": len(eligible),
+            "unmeasuredSources": len(jobs) - len(eligible),
+            "unmeasuredEssentialFacts": total - len(diagnostic_facts),
+        },
         "attemptStatuses": dict(counts),
         "sourceTrialAttempts": len(jobs),
         "failedAttempts": sum(counts[s] for s in ["FAILED", "CANCELLED"]),
@@ -115,7 +130,8 @@ def main():
         "ine/trial</th><th>Technical failed attempts</th><th>Failure-affected essential"
         " facts</th><th>Unrun facts</th><th>Partial-reading misses: cause unresolved</t"
         "h><th>Content/scoring misses</th><th>End-to-end delivered facts</th><th>Covera"
-        "ge on nonfailed attempts</th></tr>"
+        "ge on nonfailed attempts</th><th>Diagnostic-only content coverage</th>"
+        "<th>Unmeasured sources</th></tr>"
     ]
     for name, group in groups.items():
         b = group["bucketCounts"]
@@ -133,6 +149,8 @@ def main():
             b["contentOrScoringMisses"],
             coverage("deliveredEssentialFacts"),
             coverage("nonfailedAttemptEssentialCoverage"),
+            coverage("diagnosticContentCoverage"),
+            group["diagnosticContentCoverage"]["unmeasuredSources"],
         ]
         page.append(
             "<tr>" + "".join("<td>" + html.escape(str(c)) + "</td>" for c in cells) + "</tr>"

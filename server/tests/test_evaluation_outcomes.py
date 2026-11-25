@@ -46,3 +46,24 @@ def test_AC_SRC_5_not_run_stays_in_full_denominator():
 def test_AC_SRC_5_inconsistent_failed_match_rejected():
     with pytest.raises(ValueError):
         split_outcomes([{"id": "n", "status": "FAILED"}], [fact("n", "PRESERVED")], [])
+
+
+def test_AC_SRC_5_content_diagnostic_cohort_excludes_runtime_failure_not_valid_empty():
+    jobs = [
+        {"id": "f", "status": "FAILED"},
+        {"id": "empty", "status": "EMPTY"},
+        {"id": "rejected", "status": "FAILED", "reason": "CANDIDATES_REJECTED"},
+    ]
+    shared = [
+        {"id": "f", "status": "FAILED"},
+        {"id": "empty", "status": "EVALUATED"},
+        {"id": "rejected", "status": "EVALUATED"},
+    ]
+    got = split_outcomes(
+        jobs, [fact(s, "NOT_PROCESSED") for s in ["f", "empty", "rejected"]], shared
+    )
+    assert got["diagnosticContentCoverage"]["total"] == 2
+    assert got["diagnosticContentCoverage"]["hit"] == 0
+    assert got["diagnosticContentCoverage"]["unmeasuredEssentialFacts"] == 1
+    assert got["bucketCounts"]["processingFailureAffectedFacts"] == 1
+    assert got["bucketCounts"]["contentOrScoringMisses"] == 2
