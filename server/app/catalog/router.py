@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.accounts.schemas import KindFilter
+from app.admin.product_visibility import VisibilityInput, VisibilityView, set_visibility
 from app.catalog import service
 from app.catalog.schemas import (
     AdminCapacityRequest,
@@ -32,7 +33,7 @@ from app.core.errors import forbidden, not_found
 from app.core.idempotency import run_idempotent
 from app.core.pagination import decode_cursor, encode_cursor, page_limit
 from app.core.schemas import Paged
-from app.core.security import Admin, ApprovedProducer, CurrentUser
+from app.core.security import Admin, ApprovedProducer, CurrentUser, OptionalUser
 
 router = APIRouter(prefix="/products", tags=["catalog"])
 admin_router = APIRouter(prefix="/admin/products", tags=["admin"])
@@ -97,9 +98,9 @@ def create_product(db: Db, producer: ApprovedProducer, body: CreateProductInput)
 
 
 @router.get("/{product_id}", response_model=ProductDetail)
-def product_detail(db: Db, product_id: str):
-    """상품 상세(SCR-04, FEAT-07). 판매 중이 아니면 404."""
-    detail = service.product_detail(db, product_id)
+def product_detail(db: Db, product_id: str, user: OptionalUser):
+    """상품 상세(SCR-04, FEAT-07). 판매 중이 아니거나 공개 농가가 아니면 404(DEV-472)."""
+    detail = service.product_detail(db, product_id, viewer=user)
     if detail is None:
         raise not_found("판매 중이 아닌 상품이에요.")
     return detail
@@ -322,3 +323,10 @@ def admin_capacity_requests(
     kind는 농가 주인 계정 필터(DEV-307): 기본 real(시드 테스트·운영 검증 계정 제외), test, all.
     """
     return service.list_capacity_requests(db, None if status == "ALL" else status, kind)
+
+
+@admin_router.post("/{product_id}/visibility", response_model=VisibilityView)
+def admin_product_visibility(
+    db: Db, admin: Admin, product_id: str, body: VisibilityInput, key: IdempotencyKey = None
+):
+    return set_visibility(db, admin.id, product_id, body, key)

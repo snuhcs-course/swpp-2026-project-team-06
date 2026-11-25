@@ -32,7 +32,6 @@ import {
   Sheet,
   useSheetLeave,
   T,
-  TestBand,
   md,
   period,
   tokens,
@@ -41,12 +40,13 @@ import {
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Modal, Pressable, View } from "react-native";
 
 import {
   availabilityConflict,
   clearsOnSelection,
   conflictView,
+  availableQuantity,
   mismatchStep,
   recheckedConflict,
   reserveDisabledHint,
@@ -62,6 +62,7 @@ import { placedView } from "../../../lib/placedNotice";
 import { productLine } from "../../../lib/reserveSummary";
 import { LoadError, OptionSheet } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
+import { CheckoutChangeModal } from "../../../lib/CheckoutChangeModal";
 
 // 예약 전 확인 문구 버전(R-03). DEV-120에서 개인정보 제3자 제공 동의를 더해 올렸다
 const CONSENT_VERSION = "policy-2026-10-23";
@@ -86,6 +87,11 @@ export default function Checkout() {
     seenUnitPrice?: string;
   }>();
   const router = useRouter();
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    return () => setFocused(false);
+  }, []));
   const { user, ready, chatViewScope, pendingRecipient, setPendingRecipient } = useSession();
   const product = useAsync(
     () => catalog.product(params.productId),
@@ -116,6 +122,7 @@ export default function Checkout() {
   const [conflict, setConflict] = useState<CheckoutConflict | null>(() =>
     params.changed ? { reason: "EXPIRED", details: {} } : null,
   );
+  const [dismissedChange, setDismissedChange] = useState<CheckoutConflict | null>(null);
   // 마지막으로 보낸 '본 값'(다시 확인하기 뒤 가격도 바뀌었는지 비교)
   const sentRef = useRef<ReturnType<typeof seenValues>>(null);
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
@@ -229,9 +236,12 @@ export default function Checkout() {
   const allAgreed = agreed === consentTotal;
   // 예약할 수 있나는 서버 soldOut 대신 availability로 본다(soldOut은 판매 중지를 보지 않음, DEV-215 전).
   // 409 안내가 없거나 기한 만료 복귀 안내만 있을 때는 상품 availability가 앞선다
+  const selectionConflict: CheckoutConflict | null = p && opt &&
+    p.availability === "AVAILABLE" && qty > availableQuantity(p, opt.optionId)
+    ? { reason: "SOLD_OUT", details: { optionId: opt.optionId } } : null;
   const shown =
     p && (!conflict || conflict.reason === "EXPIRED")
-      ? (availabilityConflict(p) ?? conflict)
+      ? (availabilityConflict(p) ?? selectionConflict ?? conflict)
       : conflict;
   const view = p
     ? conflictView(
@@ -240,6 +250,13 @@ export default function Checkout() {
         { md, won },
       )
     : null;
+  const stockBlocked = focused && !!user && !placed && !recovering && !control.placed && !control.recovery &&
+    !!shown && ["SOLD_OUT", "TOTAL_LIMIT_REACHED"].includes(shown.reason);
+  const changedConditions = focused && !!user && !placed && !recovering && !control.placed && !control.recovery &&
+    shown?.reason === "STAGE_CHANGED" && !!view?.primary.enabled && !view.hideAmount;
+  const changePromptOpen = changedConditions && dismissedChange !== shown;
+  const latestConditionsReady = !product.loading && !product.error;
+
   const leaving = view?.primary.action === "backToProduct";
   const canPay =
     recovering || leaving ||
@@ -281,7 +298,7 @@ export default function Checkout() {
   }, [p]);
 
   function backToProduct() {
-    router.replace(`/products/${params.productId}`);
+    router.dismissTo(`/products/${params.productId}`);
   }
 
   // '다시 확인하기': 상품을 다시 읽어 예약할 수 있으면 안내를 지운다. 가격도 바뀌었으면 가격 안내로
@@ -318,6 +335,7 @@ export default function Checkout() {
       return;
     }
     if (!recovery && leaving) return backToProduct();
+    if (!recovery && changedConditions && !latestConditionsReady) return;
     if (!recovery && (!p || !opt || !recipient)) return;
     control.submitting = true;
     setBusy(true);
@@ -464,7 +482,6 @@ export default function Checkout() {
           goBackOr(router, `/products/${params.productId}`)
         }
       />
-      <TestBand text="테스트 서비스예요 · 실제 입금·배송은 없어요" />
       <Scroll bottom={170}>
         {!view && p && unit > 0 && params.seenUnitPrice &&
           Number.isSafeInteger(Number(params.seenUnitPrice)) &&
@@ -476,7 +493,7 @@ export default function Checkout() {
             body={`${won(Number(params.seenUnitPrice))} → ${won(unit)} · 아래 총 입금액을 확인해 주세요.`}
           />
         ) : null}
-        {view ? (
+        {view && !stockBlocked && !changePromptOpen ? (
           <Notice
             style={{ margin: tokens.space.gutter, marginBottom: 0 }}
             title={view.title}
@@ -487,6 +504,7 @@ export default function Checkout() {
                   <Button
                     label={view.inline.label}
                     variant="text"
+                    compact
                     onPress={() =>
                       view.inline?.action === "recheck"
                         ? void recheck()
@@ -873,6 +891,7 @@ export default function Checkout() {
           <Button
             label={
               recovering ? "예약 결과 확인하기"
+                : changedConditions ? "바뀐 금액 확인하기"
                 : view && view.primary.label !== "예약하기"
                 ? view.primary.label
                 : view?.hideAmount || !p
@@ -882,7 +901,7 @@ export default function Checkout() {
             disabled={!canPay}
             accessibilityHint={canPay ? undefined : disabledHint}
             loading={busy}
-            onPress={() => void submit()}
+            onPress={() => changedConditions ? setDismissedChange(null) : void submit()}
           />
         )}
       </BottomBar>
@@ -896,12 +915,34 @@ export default function Checkout() {
           setOptionId(o);
           setQty(q);
           // 품절·물량·수량 안내는 옵션·수량을 바꾸면 사라지고 버튼이 다시 켜진다
-          if (clearsOnSelection(conflict)) setConflict(null);
+          if (clearsOnSelection(conflict) || (conflict?.reason === "STAGE_CHANGED" && o !== optionId)) setConflict(null);
         }}
         onClose={() => setSheet(null)}
         onSubmit={() => setSheet(null)}
         submitLabel="바꾸기"
       />
+      <Modal visible={stockBlocked} transparent animationType="fade" onRequestClose={backToProduct}>
+        <View style={{ flex: 1, backgroundColor: tokens.color.overlay, justifyContent: "center", alignItems: "center", padding: tokens.space.gutter }}>
+          <View accessibilityViewIsModal accessibilityRole="alert" style={{ width: "100%", maxWidth: 360, borderRadius: tokens.radius.md, padding: tokens.space.lg, gap: tokens.space.md, backgroundColor: tokens.color.background }}>
+            <T variant="heading" accessibilityRole="header">{view?.title}</T>
+            <T>{view?.body}</T>
+            <Button label="확인" onPress={backToProduct} />
+          </View>
+        </View>
+      </Modal>
+      {view && changedConditions ? <CheckoutChangeModal
+        visible={changePromptOpen && !busy}
+        title={view?.title ?? "예약 조건이 바뀌었어요"}
+        body={view?.body ?? ""}
+        previousTotal={view?.firstTotal ?? null}
+        total={latestConditionsReady ? total : null}
+        busy={busy}
+        canReserve={canPay && latestConditionsReady}
+        refreshing={product.loading}
+        onReload={() => void product.reload()}
+        onClose={() => setDismissedChange(shown)}
+        onReserve={() => { setDismissedChange(shown); void submit(); }}
+      /> : null}
       {toast.node}
       <Sheet
         visible={sheet === "address"}

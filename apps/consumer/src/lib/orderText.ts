@@ -7,7 +7,7 @@ export const STATUS_LABEL: Record<Order["status"], string> = {
   PENDING_PAYMENT: "입금 안내 전",
   AWAITING_DEPOSIT: "입금 대기",
   RESERVED: "예약 완료",
-  PREPARING: "수확·포장 중",
+  PREPARING: "배송 대기",
   SHIPPED: "배송 중",
   DELIVERED: "배송 완료",
   COMPLETED: "구매 확정",
@@ -18,7 +18,6 @@ export const STATUS_LABEL: Record<Order["status"], string> = {
 
 /** SCR-14 단계 막대 */
 export const STEPS = [
-  STATUS_LABEL.RESERVED,
   STATUS_LABEL.PREPARING,
   STATUS_LABEL.SHIPPED,
   STATUS_LABEL.DELIVERED,
@@ -29,10 +28,10 @@ export const stepIndex = (o: Pick<Order, "status">) =>
   (
     ({
       RESERVED: 1,
-      PREPARING: 2,
-      SHIPPED: 3,
-      DELIVERED: 4,
-      COMPLETED: 4,
+      PREPARING: 1,
+      SHIPPED: 2,
+      DELIVERED: 3,
+      COMPLETED: 3,
     }) as Record<string, number>
   )[o.status] ?? 0;
 
@@ -201,9 +200,9 @@ export function depositRefundSentence(
   switch (depositPhase(o, now)) {
     case "before":
     case "issue":
-      return `${f.deadline(o.depositDueAt)}까지 입금해 주세요. 농가가 확인하면 예약 완료로 바뀌어요.`;
+      return `${f.deadline(o.depositDueAt)}까지 입금해 주세요. 농가가 확인하면 배송 대기로 바뀌어요.`;
     case "reported":
-      return `${f.md(o.depositReportedAt)} ${f.time(o.depositReportedAt!)}에 입금했다고 알려 주셨어요. 농가가 통장을 확인하면 예약 완료로 바뀌어요.`;
+      return `${f.md(o.depositReportedAt)} ${f.time(o.depositReportedAt!)}에 입금했다고 알려 주셨어요. 농가가 통장을 확인하면 배송 대기로 바뀌어요.`;
     case "late":
       return "입금했다고 알려 주셨어요. 농가 확인이 늦어져 farmclub이 농가에 연락하고 있어요. 주문은 취소되지 않아요.";
   }

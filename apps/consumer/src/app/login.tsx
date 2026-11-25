@@ -152,7 +152,7 @@ export default function Login() {
     }
     const url = beginKakaoLogin(cfg, target, resume);
     if (!url) {
-      setFailed("이 브라우저에서는 카카오 로그인을 쓸 수 없어요. 테스트 계정으로 로그인해 주세요.");
+      setFailed("이 브라우저에서는 카카오 로그인을 쓸 수 없어요. 아이디로 로그인해 주세요.");
       return;
     }
     // 웹: 페이지째 카카오로 이동(돌아오지 않음). 앱: 인증 세션이 닫히면 받은 코드로 복귀 화면을 연다(DEV-33)
@@ -339,8 +339,8 @@ export default function Login() {
           ) : null}
           <T variant="caption" muted>
             {kakaoOn
-              ? "이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요 · 테스트 서비스"
-              : "로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트 서비스"}
+              ? "이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요"
+              : "로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요"}
           </T>
           <Button
             label={account ? `${ro(account.name)} 로그인` : "로그인"}

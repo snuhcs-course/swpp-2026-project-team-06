@@ -267,11 +267,13 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
     from app.catalog import service as catalog
     from app.farms import service as farms
 
-    item = catalog.load_product(db, body.product_id)
+    item = catalog.load_product(db, body.product_id, for_update=True)
     if (
         item is None
         or item.product.status != "PUBLISHED"
-        or farms.get_approved_farm(db, item.product.farm_id) is None
+        or item.product.is_hidden
+        # 공개 상품만(R-29, DEV-472): 일반 소비자가 테스트 농가 상품으로 주문하면 없는 상품과 같다
+        or farms.public_farm(db, item.product.farm_id, consumer) is None
     ):
         raise not_found("판매 중이 아닌 상품이에요.")
     p = item.product
@@ -292,12 +294,8 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
         fields["optionId"] = "옵션을 골라 주세요"
     if fields:
         raise invalid(fields)
-    if not 1 <= body.quantity <= p.max_quantity_per_order:
-        raise conflict(
-            "QUANTITY_LIMIT",
-            f"한 번에 최대 {p.max_quantity_per_order}개까지 예약할 수 있어요.",
-            maxQuantity=p.max_quantity_per_order,
-        )
+    if body.quantity < 1:
+        raise invalid({"quantity": "1 이상의 정수로 입력해 주세요"})
     stage = catalog.current_stage(item)
     expected = {
         "stageId": body.expected_stage_id,
@@ -458,7 +456,7 @@ def _refund(
     payment = db.scalar(
         select(Payment).where(Payment.order_id == order.id).with_for_update()
     )
-    if payment is None:
+    if payment is None or payment.status == "REVERSED":
         raise conflict("INVALID_TRANSITION", "결제 내역이 없어 환불할 수 없어요.")
     refunded = db.scalar(
         select(func.coalesce(func.sum(Refund.amount), 0)).where(Refund.order_id == order.id)
@@ -760,6 +758,55 @@ def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
     return order_view(db, order)
 
 
+def used_deposit_codes(db: Session, order: Order, farm_id: str) -> set[str]:
+    """같은 농가 코드 할당과 실행 취소 복구를 직렬화한다(DEV-342/455)."""
+    db.execute(
+        select(func.pg_advisory_xact_lock(func.hashtextextended(f"deposit-code:{farm_id}", 0)))
+    )
+    return taken_deposit_codes(db, order, farm_id)
+
+
+def deposit_code_owners(db: Session, farm_id: str) -> dict[str, set[str]]:
+    """같은 농가에서 지금 쓰는 입금자명 → 그 주문 id들(잠금 없음, 소문자 비교).
+
+    목록의 실행 취소 표시가 주문마다 다시 읽지 않도록 농가당 한 번 모은다(DEV-455).
+    `taken_deposit_codes`와 같은 조건이다.
+    """
+    from app.catalog import service as catalog
+
+    product_ids = catalog.farm_product_ids(db, farm_id)
+    recently_canceled = (
+        (Order.status == "CANCELED")
+        & Order.paid_at.is_(None)
+        & (Order.deposit_due_at > now() - timedelta(days=DEPOSIT_CODE_HOLD_DAYS))
+    )
+    owners: dict[str, set[str]] = {}
+    for code, order_id in db.execute(select(Order.deposit_code, Order.id).where(
+        Order.product_id.in_(product_ids),
+        (Order.status == "AWAITING_DEPOSIT") | recently_canceled,
+        Order.deposit_code.is_not(None),
+    )):
+        owners.setdefault(code.casefold(), set()).add(order_id)
+    return owners
+
+
+def taken_deposit_codes(db: Session, order: Order, farm_id: str) -> set[str]:
+    """같은 농가에서 지금 쓰는 입금자명(잠금 없음). 실행 취소 가능 표시용 미리보기에도 쓴다."""
+    from app.catalog import service as catalog
+
+    product_ids = catalog.farm_product_ids(db, farm_id)
+    recently_canceled = (
+        (Order.status == "CANCELED")
+        & Order.paid_at.is_(None)
+        & (Order.deposit_due_at > now() - timedelta(days=DEPOSIT_CODE_HOLD_DAYS))
+    )
+    return set(db.scalars(select(Order.deposit_code).where(
+        Order.product_id.in_(product_ids),
+        (Order.status == "AWAITING_DEPOSIT") | recently_canceled,
+        Order.deposit_code.is_not(None), Order.id != order.id,
+    )))
+
+
 def _deposit_code(db: Session, order: Order, farm_id: str) -> str:
     """입금자명(DEV-342, R-28): 닉네임 앞 3글자 + 숫자, 같은 농가 입금 대기 주문끼리 겹치지 않게.
 
@@ -771,27 +818,7 @@ def _deposit_code(db: Session, order: Order, farm_id: str) -> str:
     트랜잭션 advisory lock으로 '겹치는지 보고 정하기'를 한 번에 하나씩만 한다(커밋·롤백 때 풀린다).
     """
     from app.accounts import service as accounts
-    from app.catalog import service as catalog
-
-    db.execute(
-        select(func.pg_advisory_xact_lock(func.hashtextextended(f"deposit-code:{farm_id}", 0)))
-    )
-    product_ids = catalog.farm_product_ids(db, farm_id)
-    recently_canceled = (
-        (Order.status == "CANCELED")
-        & Order.paid_at.is_(None)
-        & (Order.deposit_due_at > now() - timedelta(days=DEPOSIT_CODE_HOLD_DAYS))
-    )
-    taken = set(
-        db.scalars(
-            select(Order.deposit_code).where(
-                Order.product_id.in_(product_ids),
-                (Order.status == "AWAITING_DEPOSIT") | recently_canceled,
-                Order.deposit_code.is_not(None),
-                Order.id != order.id,
-            )
-        )
-    )
+    taken = used_deposit_codes(db, order, farm_id)
     user = accounts.get_user(db, order.consumer_id)
     code = pick_code(code_name(accounts.public_name(user)), taken)
     if code is None:
@@ -866,19 +893,24 @@ def confirm_deposit(
         raise conflict("INVALID_TRANSITION", "입금 기한이 지나 취소된 주문이에요.")
     if order.status != "AWAITING_DEPOSIT":
         raise conflict("INVALID_TRANSITION", "입금 대기 주문만 확인할 수 있어요.")
-    order.status = "RESERVED"
+    order.status = "PREPARING"
     order.paid_at = now()
     order.deposit_confirmed_by = confirmed_by
     order.deposit_issue = None
-    db.add(
-        Payment(
+    payment = db.scalar(select(Payment).where(Payment.order_id == order.id).with_for_update())
+    if payment is not None:
+        if payment.status != "REVERSED":
+            raise conflict("INVALID_TRANSITION", "기존 입금 기록을 먼저 확인해 주세요.")
+        payment.status = "APPROVED"
+        payment.approved_at = order.paid_at
+    else:
+        db.add(Payment(
             id=new_id("pay"),
             order_id=order.id,
             amount=order.total_amount,
             status="APPROVED",
             approved_at=order.paid_at,
-        )
-    )
+        ))
     db.flush()
     return order
 
@@ -1026,8 +1058,13 @@ def dashboard(db: Session, farm) -> Dashboard:
     )
 
 
-def producer_order_view(db: Session, order: Order) -> ProducerOrder:
+_UNDO_UNREAD = object()
+
+
+def producer_order_view(db: Session, order: Order, undo_action=_UNDO_UNREAD) -> ProducerOrder:
+    """undo_action을 넘기면(목록의 묶음 조회) 주문마다 다시 읽지 않는다."""
     from app.catalog import service as catalog
+    from app.orders.undo import current_action
 
     item = catalog.load_product(db, order.product_id)
     option = next((row for row in item.options if row.id == order.option_id), None)
@@ -1036,6 +1073,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
     delivered = order.delivered_at is not None or order.status in ("DELIVERED", "COMPLETED")
     hide = delivered or order.paid_at is None
     return ProducerOrder(
+        undo_action=current_action(db, order) if undo_action is _UNDO_UNREAD else undo_action,
         order_id=order.id,
         order_no=order.order_no,
         deposit_code=order.deposit_code,
@@ -1045,6 +1083,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         option_label=option.label if option else "",
         quantity=order.quantity,
         status=order.status,
+        delivery_window=DateRange(start=order.delivery_start, end=order.delivery_end),
         delivery_note=None if hide else order.delivery_note,
         carrier=order.carrier,
         tracking_number=order.tracking_number,
@@ -1074,7 +1113,7 @@ def producer_tracking_response(db: Session, farm_id: str, order_id: str, respons
         by_alias=True,
         include={
             "recipient_name", "recipient_phone", "postal_code", "address", "address_detail",
-            "delivery_note",
+            "delivery_note", "delivery_window",
         },
     )
     return response | shipping
@@ -1083,22 +1122,37 @@ def producer_tracking_response(db: Session, farm_id: str, order_id: str, respons
 def producer_orders(
     db: Session, farm_id: str, status: str | None, product_id: str | None
 ) -> list[ProducerOrder]:
+    from app.admin.models import ManagerEvent
     from app.catalog import service as catalog
+    from app.orders.undo import EVENT, current_actions
 
     if expire_overdue_deposits(db, farm_id=farm_id):
         db.commit()
     product_ids = [item.product.id for item in catalog.farm_products(db, farm_id)]
     if not product_ids:
         return []
-    query = select(Order).where(Order.product_id.in_(product_ids), PRODUCER_VISIBLE)
+    reversible = select(ManagerEvent.target_id).where(
+        ManagerEvent.event_type == EVENT, ManagerEvent.status == "SUCCEEDED",
+        ManagerEvent.scope == f"producer-order:{farm_id}",
+    )
+    query = select(Order).where(Order.product_id.in_(product_ids),
+                                PRODUCER_VISIBLE | Order.id.in_(reversible))
     if status:
         query = query.where(Order.status == status)
     if product_id:
         if product_id not in product_ids:
             raise not_found("찾을 수 없는 상품이에요.")
         query = query.where(Order.product_id == product_id)
-    rows = db.scalars(query.order_by(Order.created_at.desc(), Order.id.desc()))
-    return [producer_order_view(db, row) for row in rows]
+    rows = list(db.scalars(query.order_by(Order.created_at.desc(), Order.id.desc())))
+    undo = current_actions(db, rows)
+    result = []
+    for row in rows:
+        view = producer_order_view(db, row, undo[row.id])
+        # 돈 없이 끝난 취소는 실행 취소할 수 있는 동안만 보인다(R-15, DEV-455)
+        if row.status == "CANCELED" and row.paid_at is None and view.undo_action is None:
+            continue
+        result.append(view)
+    return result
 
 
 HARVESTED = ("PREPARING", "SHIPPED", "DELIVERED", "COMPLETED")

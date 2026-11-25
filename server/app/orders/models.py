@@ -3,6 +3,7 @@
 from datetime import date, datetime
 
 from sqlalchemy import (
+    BigInteger,
     Date,
     DateTime,
     ForeignKey,
@@ -48,7 +49,7 @@ class Order(Base):
     released_quantity: Mapped[int] = mapped_column(Integer, default=0)
     shipping_fee: Mapped[int] = mapped_column(Integer, default=0)
     remote_area_fee: Mapped[int] = mapped_column(Integer, default=0)
-    total_amount: Mapped[int] = mapped_column(Integer)
+    total_amount: Mapped[int] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String(24))
     delivery_start: Mapped[date] = mapped_column(Date)
     delivery_end: Mapped[date] = mapped_column(Date)
@@ -93,7 +94,7 @@ class Payment(Base):
     # BANK_TRANSFER / FARM_ACCOUNT: 소비자가 농가 계좌로 직접 입금(DEV-68)
     method: Mapped[str] = mapped_column(String(16), default="BANK_TRANSFER")
     provider: Mapped[str] = mapped_column(String(16), default="FARM_ACCOUNT")
-    amount: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[int] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String(24))
     approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -103,7 +104,7 @@ class Refund(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     order_id: Mapped[str] = mapped_column(ForeignKey("orders.id"), index=True)
-    amount: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[int] = mapped_column(BigInteger)
     reason: Mapped[str] = mapped_column(Text)
     actor: Mapped[str] = mapped_column(String(16))
     actor_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)

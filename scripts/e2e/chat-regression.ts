@@ -82,7 +82,7 @@ export async function openPrivateListChat(page: Page) {
 }
 
 export async function attachChatPhoto(page: Page) {
-  await page.getByRole("button", { name: "사진 첨부", exact: true }).click();
+  await page.getByRole("button", { name: "사진", exact: true }).click();
   const uploaded = page.waitForResponse(r => r.request().method() === "POST" &&
     new URL(r.url()).pathname === "/api/messaging/attachments");
   const image = chatFixture<{ base64: string }>("image");
@@ -91,7 +91,8 @@ export async function attachChatPhoto(page: Page) {
   });
   const response = await uploaded;
   expect(response.ok(), await response.text()).toBeTruthy();
-  await expect(page.getByRole("img", { name: "비공개 문의 사진", exact: true }).first()).toBeVisible();
+  // DEV-478: 1:1 작성창의 고른 사진은 72px 썸네일 줄(‘첨부 사진 N’)
+  await expect(page.getByRole("img", { name: "첨부 사진 1", exact: true })).toBeVisible();
   return (await response.json()).attachmentId as string;
 }
 

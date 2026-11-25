@@ -73,3 +73,15 @@
 - 안 읽음은 `room_replies.producer_read_at`이 없는 답장(시트에서 확인 전). 시트 읽음 처리·생산자 인용이 채운다. 0031은 기존 답장을 그때 지우지 않았던 가장 최근 방송에 연결하고 읽음으로 채운다.
 - 인용 방송은 원문 답장 id를 `broadcasts.quoted_reply_id`(서버 전용)에 둔다. `room_replies.broadcast_id`와 FK 고리가 생기지 않게 FK 없이 둔다(`seed.clear`·삭제 순서).
 - 예약 고객은 orders service `paid_customer_ids`(결제 확인 + RESERVED~COMPLETED)로 판단하고, 탈퇴한 회원(`deleted_at`)은 빼고 보인다.
+
+### DEV-454 자동 전달 답장 요청
+메시지 조회는 OPEN이고 reported_message_id가 없는 기존 Escalation의 thread_message_id로 `replyRequested`를 계산한다. 원래 소비자 질문에만 표시하고 AI 확인 요청의 checkState와 분리한다. 새 테이블·상태 변경 없이 페이지별 질문 ID 묶음으로 조회하며, 기존 인용 답장만 해당 전달을 닫는다.
+
+## 소식방 답장 대상·답장 사진 (DEV-467, 2026-11-24)
+- 소비자 `send_room`은 선택 `broadcast_id`로 답한 소식을 받는다(그 농가의 지우지 않은 방송만, 아니면 404). 없으면 DEV-297대로 가장 최근 소식. `RoomReply.broadcast_id`에 저장하므로 읽음·답장 수·팬 답장 시트가 그대로 따른다. 생산자가 `broadcast_id`·`attachment_ids`를 보내면 400.
+- 답장 사진은 `PrivateAttachment`(1:1과 같은 업로드·검사·24시간·3장)를 쓰고 새 칸을 만들지 않는다. 자원 키를 `thread_id` 문자열에 둔다: 업로드 `room:<farmId>`(폼 `roomFarmId`, 팔로워 소비자만) → 답장에 묶이면 `roomreply:<replyId>`. 읽기는 `_may_see_room_reply`(답장 쓴 소비자·그 농가 생산자). 행 응답 `attachment_ids`는 `_room_reply_photos`로 모은다. `admin/purge_except`는 이 키를 모른다(후속 후보). 깔끔한 대안은 `room_replies.attachment_ids` 칸 추가(마이그레이션).
+
+
+## DEV-468 이모티콘
+
+AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달한다. 공통 카탈로그 ID 외 값과 혼합 메시지는 거부한다. UI는 공통 + 도구·160px 투명 그림·독립 전송 초안 보존을 사용한다. 이모티콘만 보낸 소비자 메시지는 AI를 호출하지 않고, 기존 권한·멱등성·비공개 답장을 유지한다. 상세는 tasks/DEV-468.md.

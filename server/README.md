@@ -98,3 +98,14 @@ before DEV-307 reject on `/admin/users`. The users page retries once without `ki
 that request is rejected with 400 `VALIDATION_ERROR`, so the automatic deploys may land in
 either order. While a new API runs with the old admin web (a few minutes), lists may hide
 test accounts; no data changes.
+
+## UAT 종료
+
+0037 적용부터 새 서버 전환이 끝날 때까지 구버전 서버의 입금 승인을 중단한다. 마이그레이션이 결제일이 있는 기존 `RESERVED` 주문을 배송 대기로 옮긴다. 새 서버와 앱에서 배송 대기 건수를 확인한 뒤 운영 담당자가 아래 명령을 실행한다.
+
+```sh
+uv run python -m app.admin.close_uat
+uv run python -m app.admin.close_uat --commit
+```
+
+기본 대상은 UAT 시드의 소비자·생산자 6명이다. 따로 발급한 테스트 계정은 관리자에서 계정 ID와 테스트 분류를 대조한 뒤 두 명령에 같은 `--user-id ID`를 추가한다. 여러 건이면 옵션을 반복한다. 명령은 대상 농가 ID, 이미 종료된 계정, 실사용자 주문 때문에 보류된 농가와 생산자를 출력한다. 보류 건은 거래를 확인한 뒤 개별 처리한다. 일반 로그인으로 농가·상품 링크와 팔로워 피드를 확인하고, 기존 UAT 토큰의 401 및 관리자 주문·채팅 이력을 확인한다.

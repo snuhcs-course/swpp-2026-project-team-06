@@ -7,12 +7,14 @@ from pydantic import Field
 
 from app.core.detail import MediaUri
 from app.core.schemas import CamelModel
+from app.messaging.emoticons import EmoticonId
 
 # OPERATOR는 farmclub 문의 대화방의 운영팀 메시지(DEV-111, M-22)
 SenderType = Literal["CONSUMER", "PRODUCER", "AI", "OPERATOR"]
 
 
 class NewsItem(CamelModel):
+    emoticon_id: EmoticonId | None = None
     reply_to: dict | None = None
     edited_at: datetime | None = None
     edit_version: int = 0
@@ -29,6 +31,7 @@ class NewsItem(CamelModel):
 
 
 class NewsInput(CamelModel):
+    emoticon_id: EmoticonId | None = None
     body: str = ""
     photos: list[MediaUri] = Field(default_factory=list)
     videos: list[MediaUri] = Field(default_factory=list)
@@ -56,6 +59,7 @@ class NewsRoomSummary(CamelModel):
 
 
 class NewsRoomMessage(CamelModel):
+    emoticon_id: EmoticonId | None = None
     reply_to: dict | None = None
     edited_at: datetime | None = None
     edit_version: int = 0
@@ -76,6 +80,8 @@ class NewsRoomMessage(CamelModel):
     # 소유 생산자의 방송에만 숫자(DEV-297). 소비자·비로그인과 답장 행은 None
     read_count: int | None = None
     reply_count: int | None = None
+    # 소비자 답장의 비공개 사진(DEV-467). 답장 쓴 소비자와 그 농가 생산자만 받는다. 방송은 빈 배열
+    attachment_ids: list[str] = []
 
 
 class NewsRoomPage(CamelModel):
@@ -94,6 +100,7 @@ class FanReplyBroadcast(CamelModel):
 
 
 class FanReply(CamelModel):
+    emoticon_id: EmoticonId | None = None
     """소식 하나에 연결된 소비자 답장 한 줄(DEV-297). 이름은 생산자 방과 같은 가린 이름."""
 
     message_id: str
@@ -108,6 +115,8 @@ class FanReply(CamelModel):
     reserved_customer: bool
     # 이 답장을 인용한 소식(모두에게 답장)이 있음
     quoted: bool
+    # 비공개 사진(DEV-467)
+    attachment_ids: list[str] = []
 
 
 class FanReplyPage(CamelModel):
@@ -121,9 +130,14 @@ class FanReplyPage(CamelModel):
 
 
 class RoomSendInput(CamelModel):
+    emoticon_id: EmoticonId | None = None
     text: str = ""
     reply_to_message_id: str | None = None
     reply_to_version: int | None = Field(default=None, ge=0)
+    # 소비자 답장이 답한 소식(DEV-467). 없으면 보낸 순간의 가장 최근 소식(AC-15-10)
+    broadcast_id: str | None = None
+    # 소비자 답장의 비공개 사진(DEV-467). 1:1 대화와 같은 업로드, 3장까지
+    attachment_ids: list[str] = Field(default_factory=list)
 
 
 class TextInput(CamelModel):
@@ -131,6 +145,7 @@ class TextInput(CamelModel):
 
 
 class ChatMessage(CamelModel):
+    emoticon_id: EmoticonId | None = None
     edited_at: datetime | None = None
     edit_version: int = 0
     reply_to: dict | None = None
@@ -151,6 +166,8 @@ class ChatMessage(CamelModel):
     handoff_status: Literal["FORWARDED"] | None
     masked: bool
     reported: bool = False
+    # 자동 전달된 원래 소비자 질문의 미답변 요청. 기존 Escalation 상태로 계산한다.
+    reply_requested: bool = False
     # 소비자 확인 요청 깃발(DEV-296). REQUESTED = 농가 확인 전, CONFIRMED = 농가가 '답이 맞아요',
     # CORRECTED = 농가가 이 답변을 인용해 바로잡음. 확인 요청이 없는 메시지는 null
     check_state: Literal["REQUESTED", "CONFIRMED", "CORRECTED"] | None = None
@@ -299,6 +316,7 @@ class ProducerStartInput(CamelModel):
 
 
 class SendInput(CamelModel):
+    emoticon_id: EmoticonId | None = None
     reply_to_message_id: str | None = None
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
@@ -313,6 +331,7 @@ class SendResult(CamelModel):
 
 
 class ProducerSendInput(CamelModel):
+    emoticon_id: EmoticonId | None = None
     reply_to_message_id: str | None = None
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)

@@ -226,6 +226,7 @@ export default function Chat() {
       </View>
       {ready && head && page ? (
         <ChatThread
+          emoticons
           key={`${head.lease.scope.generation}:${farmId}:${head.lease.threadId}:${head.epoch}`}
           active={active} initialPage={head.page} load={load}
           viewState={{ farmId, threadId: head.lease.threadId, snapshot: head.snapshot,
@@ -242,8 +243,8 @@ export default function Chat() {
             ? { orderId: selected.orderId } : { threadId: page.thread.threadId }))}
           edit={(id, text, version, key) => withVisit(() => messaging.editChatMessage(id, text, version, key))}
           replies
-          send={(text, ids, key, replyToMessageId) => withVisit(() => messaging.send(
-            farmId, text, ids, selected?.orderId, key, productId, replyToMessageId,
+          send={(text, ids, key, replyToMessageId, emoticonId) => withVisit(() => messaging.send(
+            farmId, text, ids, selected?.orderId, key, productId, replyToMessageId, emoticonId,
           ))}
           report={(id, key) => withVisit(() => messaging.reportAiAnswer(farmId, id, key))}
           forwardStatus={forwardStatus}
@@ -251,6 +252,8 @@ export default function Chat() {
           peer={{ name: farmName, photo: farmPhoto }}
           peerReadMessageId={page.thread.producerLastReadMessageId}
           copy={copyText}
+          // 주의·제재 안내 띠(DEV-475). 시트의 ‘운영팀에 알리기’는 farmclub 문의 대화방
+          notice={{ onSupport: () => router.push("/chats/support" as Href) }}
         />
       ) : phase === "loading" ? <T muted>대화를 여는 중…</T> : null}
       <Sheet visible={Boolean(ready && orderSheet)} onClose={() => setOrderSheet(false)}>

@@ -48,7 +48,7 @@ def deposit(client, headers, order_id: str):
 
 
 def confirm(client, order_id: str, producer_headers):
-    """생산자 입금 확인(RESERVED)."""
+    """생산자 입금 확인(PREPARING)."""
     return client.post(f"/api/orders/{order_id}/confirm-deposit", headers=producer_headers)
 
 
@@ -107,10 +107,10 @@ def test_create_deposit_and_confirm_order(client, login):
 
     confirmed = confirm(client, order["orderId"], login("u-kang"))
     assert confirmed.status_code == 200, confirmed.text
-    assert confirmed.json()["status"] == "RESERVED"
+    assert confirmed.json()["status"] == "PREPARING"
     assert confirmed.json()["totalAmount"] == 58000
     detail = client.get(f"/api/orders/{order['orderId']}", headers=headers).json()
-    assert detail["status"] == "RESERVED"
+    assert detail["status"] == "PREPARING"
     assert detail["paidAt"]
     assert detail["actions"] == ["cancel"]
     assert detail["deliveryNote"] == "경비실에 맡겨 주세요"
@@ -128,7 +128,7 @@ def test_AC_09_8_confirm_deposit_is_idempotent_and_farm_scoped(client, login, ot
     first = confirm(client, order["orderId"], login("u-kang"))
     second = confirm(client, order["orderId"], login("u-kang"))
     assert first.status_code == second.status_code == 200
-    assert first.json()["status"] == second.json()["status"] == "RESERVED"
+    assert first.json()["status"] == second.json()["status"] == "PREPARING"
     assert allocation().reserved_count == 39
 
     not_awaiting = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
@@ -147,7 +147,7 @@ def test_AC_09_8_admin_confirms_deposit(client, login):
         f"/admin/orders/{order['orderId']}/confirm-deposit", headers=admin | key()
     )
     assert confirmed.status_code == 200, confirmed.text
-    assert confirmed.json()["status"] == "RESERVED"
+    assert confirmed.json()["status"] == "PREPARING"
 
 
 def test_AC_09_9_reject_deposit_keeps_waiting_with_reason(client, login):
@@ -173,7 +173,7 @@ def test_AC_09_9_reject_deposit_keeps_waiting_with_reason(client, login):
     assert allocation().reserved_count == 39
 
     confirmed = confirm(client, order["orderId"], login("u-kang"))
-    assert confirmed.json()["status"] == "RESERVED"
+    assert confirmed.json()["status"] == "PREPARING"
     after = client.get(f"/api/orders/{order['orderId']}", headers=headers).json()
     assert after["depositIssue"] is None
 
@@ -244,7 +244,7 @@ def test_AC_09_7_reported_deposit_is_not_canceled_after_deadline(client, login):
         assert [o["orderId"] for o in overdue] == [order["orderId"]]
         assert allocation().reserved_count == 39
         late = confirm(client, order["orderId"], login("u-kang"))
-        assert late.json()["status"] == "RESERVED"
+        assert late.json()["status"] == "PREPARING"
         assert client.get("/admin/orders/deposit-overdue", headers=admin).json() == []
     finally:
         config.get_settings().fixed_now = "2026-10-07T10:00:00+09:00"
@@ -346,14 +346,13 @@ def test_AC_08_7_third_party_consent_required_and_recorded(client, login):
         assert row.consent_at is not None
 
 
-def test_AC_08_2_quantity_limit(client, login):
+def test_AC_08_2_quantity_above_old_limit(client, login):
     response = client.post(
         "/api/orders", headers=login("u-seojun") | key(), json=order_body(quantity=4)
     )
 
-    assert response.status_code == 409
-    assert response.json()["details"]["reason"] == "QUANTITY_LIMIT"
-    assert response.json()["details"]["maxQuantity"] == 3
+    assert response.status_code == 200, response.text
+    assert response.json()["quantity"] == 4
 
 
 def test_AC_08_4_remote_area_fee_added(client, login):
@@ -544,11 +543,6 @@ def test_AC_09_6_mixed_weight_release_and_shipping_accounting(client, login):
     after_cancel = client.get("/api/products/mine/p-house", headers=producer).json()
     assert after_cancel["reservedGrams"] + after_cancel["shippedGrams"] == committed + 10_000
 
-    client.post(
-        "/api/orders/producer/harvest-start",
-        headers=producer | key(),
-        json={"productId": "p-house"},
-    )
     shipped = client.post(
         f"/api/orders/{five['orderId']}/ship",
         headers=producer,
@@ -680,24 +674,13 @@ def test_AC_14_1_dashboard_counts(client, login):
         "openQuestions": 3,
         # DEV-296: 시드에는 AI 답변 확인 요청이 없다
         "aiCheckRequests": 0,
-        "toShip": 7,
+        "toShip": 37,
         "pendingProducts": 1,
         "awaitingDeposit": 0,
         "refundsToSettle": 1,
         "hasAccount": True,
-        # DEV-361(PM 11/18): 기간이 열려 있어도 모든 예약 완료 주문을 센다(예약 탭 버튼과 같은 수)
-        "toHarvest": 30,
-        "harvestTargets": [
-            {
-                "productId": "p-house",
-                "productName": "하우스 감귤 5kg / 10kg",
-                "stageId": "st-house-1",
-                "stageName": "1단계",
-                "endsAt": "2026-10-12",
-                "count": 30,
-                "closed": False,
-            }
-        ],
+        "toHarvest": 0,
+        "harvestTargets": [],
     }
     assert {
         key: body["product"][key]
@@ -817,7 +800,7 @@ def test_AC_14_1_producer_order_rows_retain_total_option_and_quantity(client, lo
     row = next(o for o in waiting.json()["items"] if o["orderId"] == order["orderId"])
     assert (row["totalAmount"], row["optionLabel"], row["quantity"]) == (58000, "5kg", 2)
     assert confirm(client, order["orderId"], producer).status_code == 200
-    reserved = client.get("/api/orders/producer?status=RESERVED&limit=50", headers=producer)
+    reserved = client.get("/api/orders/producer?status=PREPARING&limit=50", headers=producer)
     assert reserved.status_code == 200, reserved.text
     row = next(o for o in reserved.json()["items"] if o["orderId"] == order["orderId"])
     assert (row["totalAmount"], row["optionLabel"], row["quantity"]) == (58000, "5kg", 2)
@@ -829,12 +812,6 @@ def test_AC_17_9_shipped_order_cannot_be_shipped_again_to_change_tracking(client
     assert created.status_code == 200, created.text
     order_id = created.json()["orderId"]
     reserve(client, consumer, order_id, login=login)
-    harvest = client.post(
-        "/api/orders/producer/harvest-start",
-        headers=producer | key(),
-        json={"productId": "p-house"},
-    )
-    assert harvest.status_code == 200, harvest.text
     shipped = client.post(
         f"/api/orders/{order_id}/ship",
         headers=producer,
@@ -870,7 +847,7 @@ def test_AC_09_7_8_producer_deposit_approval_keeps_one_payment_and_rejects_nonow
         before = {p.id for p in db.scalars(select(Payment).where(Payment.order_id == order_id))}
     first = confirm(client, order_id, producer)
     assert first.status_code == 200, first.text
-    assert first.json()["status"] == "RESERVED"
+    assert first.json()["status"] == "PREPARING"
     with get_sessionmaker()() as db:
         approved = {p.id for p in db.scalars(select(Payment).where(Payment.order_id == order_id))}
         assert len(approved) == 1
@@ -898,12 +875,6 @@ def _order(client, login, *, ship=True):
     order_id = response.json()["orderId"]
     if ship:
         reserve(client, consumer, order_id, login=login)
-        harvest = client.post(
-            "/api/orders/producer/harvest-start",
-            headers=producer | key(),
-            json={"productId": "p-house"},
-        )
-        assert harvest.status_code == 200, harvest.text
         shipped = client.post(
             f"/api/orders/{order_id}/ship",
             headers=producer,
@@ -1021,18 +992,9 @@ def test_AC_17_9_tracking_owner_and_status_guards(client, login, other_farm_head
     assert _correct(client, consumer, order_id).status_code == 403
     assert _correct(client, other_farm_headers, order_id).status_code == 404
     assert _correct(client, producer, "missing-order").status_code == 404
-    for phase in ("PENDING_PAYMENT", "RESERVED", "PREPARING"):
-        if phase == "RESERVED":
+    for phase in ("PENDING_PAYMENT", "PREPARING"):
+        if phase == "PREPARING":
             reserve(client, consumer, order_id, login=login)
-        elif phase == "PREPARING":
-            assert (
-                client.post(
-                    "/api/orders/producer/harvest-start",
-                    headers=producer | key(),
-                    json={"productId": "p-house"},
-                ).status_code
-                == 200
-            )
         rejected = _correct(client, producer, order_id)
         assert rejected.status_code == 409, (phase, rejected.text)
         assert rejected.json()["details"]["reason"] == "INVALID_TRANSITION"

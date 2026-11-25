@@ -93,16 +93,9 @@ export function assertSale(
     details = {
       ...state,
       productId: p.productId,
-      maxQuantity: p.maxQuantityPerOrder,
     };
   if (!Number.isSafeInteger(quantity) || quantity < 1)
     invalid({ quantity: "1 이상의 정수로 적어 주세요" });
-  if (quantity > p.maxQuantityPerOrder)
-    conflict(
-      "QUANTITY_LIMIT",
-      `한 번에 최대 ${p.maxQuantityPerOrder}박스까지 예약할 수 있어요.`,
-      details,
-    );
   if (p.salesPaused)
     conflict("SALES_PAUSED", "농가가 잠시 예약을 쉬고 있어요.", details);
   const option = p.options.find((o) => o.optionId === optionId);

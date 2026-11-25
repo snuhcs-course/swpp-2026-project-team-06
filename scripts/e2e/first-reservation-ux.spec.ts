@@ -39,7 +39,8 @@ async function fillCheckout(page: Page) {
 
 /** 주문서에 남아야 하는 항목(11/16 누락 금지) */
 async function expectCheckoutKeepsEverything(page: Page) {
-  await expect(page.getByText("테스트 서비스예요 · 실제 입금·배송은 없어요")).toBeVisible();
+  // DEV-476(PM 11/24 정식 서비스 전환): 테스트 서비스 띠는 지웠다
+  await expect(page.getByText(/테스트 서비스|실제 입금·배송은 없어요/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "옵션·수량 변경" })).toBeVisible();
   await expect(page.getByRole("button", { name: "받는 곳 변경" })).toBeVisible();
   await expect(page.getByRole("button", { name: /배송 메모/ })).toBeVisible();
@@ -128,6 +129,8 @@ test("DEV-356 AC-09-11 AC-08-10: deposit shows the amount once, keeps the deadli
   // 입금 안내(SCR-11)
   await expect(page).toHaveURL(/\/checkout\/p-house\/pay/);
   await expect(page.getByText("입금할 금액", { exact: true })).toBeVisible();
+  // DEV-476: ‘실제 돈은 나가지 않아요’ 띠도 지웠다. 실제 거래 안내는 아래 ‘받는 분 통장 표시’ 상자가 맡는다
+  await expect(page.getByText(/테스트 서비스|실제 돈은 나가지 않아요/)).toHaveCount(0);
   // 입금자명은 짧은 입금 코드(닉네임 앞 3글자 + 숫자, DEV-342). 새 주문은 늘 코드가 있다
   const depositor = (
     (await page.getByText(/^[가-힣A-Za-z]{1,3}\d{2,3}$/).first().textContent()) ?? ""

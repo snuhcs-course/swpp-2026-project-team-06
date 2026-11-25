@@ -19,7 +19,7 @@ export {
   readStore,
   writeStore,
 } from "./client";
-export { CARRIERS, carrierLabel, trackingUrl } from "./carriers";
+export { CARRIERS, carrierLabel, trackingUrl, formatTrackingNumber, editTrackingNumber } from "./carriers";
 export { auth, farms, catalog, orders, messaging, admin } from "./endpoints";
 export type * from "./types";
 export type { NativeFile, UploadFile } from "./upload";
@@ -40,3 +40,5 @@ export { priceDDay, priceFrom, referencePrice, productPrices } from "./productPr
 
 export * from "./sourceAnalysis";
 export * from "./productWorkspace";
+
+export { EMOTICONS, emoticonLabel, isEmoticonId, type EmoticonId } from "./emoticons";

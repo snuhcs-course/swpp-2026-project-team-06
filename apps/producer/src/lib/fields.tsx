@@ -1,7 +1,7 @@
 // 생산자 편집 화면용 입력: 웹 날짜 칸, 숫자 칸(천 단위 + 단위), 기간 선택 달력 시트(D-27).
-import { Button, Icon, IconButton, Sheet, T, tokens } from "@farmclub/ui";
+import { Button, Icon, IconButton, Sheet, T, md, tokens } from "@farmclub/ui";
 import { useEffect, useState, type CSSProperties } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Keyboard, Platform, Pressable, TextInput, View } from "react-native";
 
 /** 웹 기본 날짜 고르기(휴대폰에서는 OS 달력이 뜬다) */
 export function DateInput({
@@ -17,10 +17,55 @@ export function DateInput({
   min?: string;
   error?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  // 앱(React Native)에는 DOM <input>이 없어 그리면 화면 전체가 지워진다(DEV-471, 판매 조건 고치기에서 재현).
+  // 앱은 같은 칸 모양 버튼 + 기간 달력 시트(D-27)의 하루 고르기로 받는다. 웹은 그대로 기본 날짜 칸.
+  if (Platform.OS !== "web")
+    return (
+      <View style={{ gap: 8, flex: 1, minWidth: 0 }}>
+        <T variant="sub" weight="semibold">
+          {label}
+        </T>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: ${value ? md(value) : "비어 있음"}`}
+          onPress={() => {
+            Keyboard.dismiss(); // 판매 조건 시트에서 키보드를 띄운 채 누르면 날짜 시트가 키보드와 겹치지 않게(DEV-477)
+            setOpen(true);
+          }}
+          style={{
+            height: 48,
+            justifyContent: "center",
+            borderRadius: tokens.radius.sm,
+            borderWidth: error ? 1.5 : 1,
+            borderColor: error ? tokens.color.error : tokens.color.border,
+            paddingHorizontal: 14,
+            backgroundColor: tokens.color.background,
+          }}
+        >
+          <T variant="body" muted={!value} style={{ fontSize: tokens.fontSize.input }}>
+            {value ? md(value) : "날짜를 골라 주세요"}
+          </T>
+        </Pressable>
+        <DateSheet
+          visible={open}
+          title={label}
+          range={false}
+          start={value || null}
+          min={min}
+          onClose={() => setOpen(false)}
+          onSave={(d) => {
+            onChange(d);
+            setOpen(false);
+          }}
+        />
+      </View>
+    );
   const style: CSSProperties = {
     height: 48,
     boxSizing: "border-box",
     width: "100%",
+    minWidth: 0,
     border: `${error ? 1.5 : 1}px solid ${error ? tokens.color.error : tokens.color.border}`,
     borderRadius: tokens.radius.sm,
     padding: "0 14px",
@@ -30,7 +75,7 @@ export function DateInput({
     background: tokens.color.background,
   };
   return (
-    <View style={{ gap: 8, flex: 1 }}>
+    <View style={{ gap: 8, flex: 1, minWidth: 0 }}>
       <T variant="sub" weight="semibold">
         {label}
       </T>

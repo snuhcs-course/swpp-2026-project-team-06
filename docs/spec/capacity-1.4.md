@@ -27,7 +27,7 @@
 - 모든 g은 0 이상 안전한 정수. 옵션 weightKg은 소수 셋째 자리까지 허용하며 weightGrams=weightKg×1000을 정확한 정수로 검사한다. 주문 unitWeightGrams는 생성 시 스냅샷으로 고정한다.
 - 불변식: 0 ≤ reservedGrams + shippedGrams ≤ salesLimitGrams ≤ approvedSupplyGrams. 초안은 한도·집계 0이다.
 - 주문 수량과 기간별 옵션 quantity/reservedCount는 박스다. 상품 카드 reservedCount는 기존대로 예약한 소비자 수이며 서로 혼용하지 않는다.
-- 옵션별 최대 박스 = min(floor(remainingGrams / weightGrams), 현재 기간 옵션 잔여 박스, maxQuantityPerOrder). 한 옵션이 품절이어도 다른 옵션이 가능하면 상품은 예약 가능하다.
+- 옵션별 최대 박스 = min(floor(remainingGrams / weightGrams), 현재 기간 옵션 잔여 박스). 한 옵션이 품절이어도 다른 옵션이 가능하면 상품은 예약 가능하다.
 - availability 우선순위: 수동 중지 → 종료 → 현재 기간 없음 → 모든 현재 옵션 중량보다 잔여 g 부족(TOTAL_SOLD_OUT) → 기간별 옵션 물량 소진(PERIOD_SOLD_OUT) → AVAILABLE. 단순히 remainingGrams>0이라는 이유로 예약 가능으로 보이지 않는다.
 - 미결제 주문서는 물량을 선점하지 않는다. 결제 시 원자적으로 확보하며 주문 상태·멱등 결과를 함께 저장한다. 상품 → 기간 옵션의 고정 잠금 순서를 사용한다.
 - 출하 시 reserved에서 shipped로 이동하므로 사용량 합은 변하지 않는다. 출하 전 취소/부분 미공급은 해당 박스×주문 스냅샷 중량을 정확히 한 번 반환한다. 출하 후 환불은 자동 복원하지 않는다. 반환량은 주문에 releasedQuantity로 기록한다.
@@ -52,7 +52,7 @@
 - POST /api/products/{productId}/capacity-requests/{requestId}/withdraw: {version}; 신청 버전 검사 후 철회하고 상품 버전도 올린다.
 - POST /admin/products/{productId}/capacity-requests/{requestId}/approve: {version}; 신청 버전과 현재 대기 상태·소속 상품을 검사한다. 상품 잠금 안에서 최초 한도 설정 또는 증액을 적용하고 상품·신청 버전을 올린다.
 - POST /admin/products/{productId}/capacity-requests/{requestId}/reject: {version,reason}; 비어 있지 않은 사유 필수. 최초 상품만 REJECTED로 전환하고 증액 반려는 기존 판매 상태·한도를 유지한다.
-- PUT /api/products/{productId}/sales-settings: {salesLimitGrams,maxQuantityPerOrder,salesPaused,version}; 응답은 `SalesState`(중량 집계 approvedSupplyGrams·salesLimitGrams·reservedGrams·shippedGrams·soldQuantity·remainingGrams, 판매 상태 salesPaused·availability, version)다. 상품 ID(경로에 있음)와 한 주문 상한(요청에 보낸 값을 그대로 저장)은 응답에 없다. 화면은 저장 뒤 상품 상세를 다시 읽는다(DEV-342에서 코드에 맞춰 정정). 초안은 salesLimitGrams=0만, 승인 상품은 사용량≤한도≤승인량. 재개 검사(현재 또는 미래 기간의 판매 가능 옵션 존재 여부, 없으면 409 NOT_RESUMABLE)는 salesPaused true→false일 때만 한다. 중지가 아닌 상품의 한도·주문당 상한 저장은 품절이어도 검사하지 않는다(DEV-344: 품절 상품이 한도를 먼저 올리거나 주문당 상한을 바꿀 수 있어야 한다). 승인량을 넘는 한도는 409 APPROVED_CAP_EXCEEDED '승인 물량을 넘어요. 물량 추가를 신청해 주세요.'
+- PUT /api/products/{productId}/sales-settings: {salesLimitGrams,salesPaused,version}; 응답은 `SalesState`(중량 집계 approvedSupplyGrams·salesLimitGrams·reservedGrams·shippedGrams·soldQuantity·remainingGrams, 판매 상태 salesPaused·availability, version)다. 상품 ID(경로에 있음)와 한 주문 상한(요청에 보낸 값을 그대로 저장)은 응답에 없다. 화면은 저장 뒤 상품 상세를 다시 읽는다(DEV-342에서 코드에 맞춰 정정). 초안은 salesLimitGrams=0만, 승인 상품은 사용량≤한도≤승인량. 재개 검사(현재 또는 미래 기간의 판매 가능 옵션 존재 여부, 없으면 409 NOT_RESUMABLE)는 salesPaused true→false일 때만 한다. 중지가 아닌 상품의 한도·주문당 상한 저장은 품절이어도 검사하지 않는다(DEV-344: 품절 상품이 한도를 먼저 올리거나 주문당 상한을 바꿀 수 있어야 한다). 승인량을 넘는 한도는 409 APPROVED_CAP_EXCEEDED '승인 물량을 넘어요. 물량 추가를 신청해 주세요.'
 - PATCH /api/products/{productId}: 편집 입력에 version 필수. 신청 중 최초 상품은 변경 불가. 승인 상품은 검증 후 즉시 반영하며 상품 version 증가. `photos`는 대표사진 포함 최대 10장이고 넘으면 400 `VALIDATION_ERROR` `fields.photos` ‘사진은 대표사진 포함 10장까지예요.’(상품 초안 PUT은 `fields.fields.photos`). 반영(apply-all)이 새 대표사진을 맨 앞에 넣어 10장을 넘기면 사진을 복사하기 전에 400 `fields.photos` ‘…사진은 10장까지라 N장을 빼 주세요.’로 거절하고 아무것도 반영하지 않는다(DEV-361 PM 11/18).
 - (DEV-361) 판매 중·승인 대기 상품의 상품 칸·가격·기간·박스 변경은 composer의 비공개 상품 초안에 두고 `POST /api/source-analysis/product-workspaces/{productId}/apply-all`로 한 번에 반영한다. PATCH·PUT stages와 같은 검증(R-18, PERIOD_LOCKED, 예약 박스 이상)을 쓰고 R-25대로 새 주문부터 적용된다. 승인 대기 상품도 이 경로로는 다시 승인받지 않고 운영자 변경 기록(`GET /admin/products/{productId}/changes`)에 남는다. 공급 물량 신청과 판매 설정은 바로 적용 그대로다. 자료 분석이 꺼진 서버(초안 API 404)에서는 앱(상품 수정)이 같은 확인 시트 뒤 PATCH·PUT stages로 바로 반영한다(DEV-361 PR C, 승인 대기 상품은 409). 상세는 [source-integration.md DEV-361 절](./source-integration.md).
 - PUT /api/products/{productId}/stages: 기존 입력 유지, 응답 {version,stages}. 기존 기간은 stageId로 대응하고 빠진 ID만 삭제한다. ID 없는 입력은 새 기간이며 다른 상품·모르는·중복 ID는 400이다. 날짜순 seq와 단계 이름을 다시 매기고, 주문 잠금·예약 박스 검사는 같은 stageId 기준으로 수행한다(AC-05-4, DEV-336). 승인 사본 없음.
@@ -62,7 +62,7 @@
 ## 5. 화면
 
 - 상품 필터: 판매 중 → 심사 중 → 작성 중 → 판매 중지 → 판매 종료. 심사 중은 최초 물량 심사만. 증액 심사는 기존 그룹에 '물량 추가 심사 중' 배지.
-- 판매 설정: 맨 위 옵션별 박스당 가격(지금 판매 기간) · 예약+출하 / 판매 박스 표(박스는 모든 기간 합, DEV-300), 그 아래 보조 글자로 승인 물량/현재 판매 한도/예약 중/출하 완료/추가 예약 가능(kg), 주문당 상한(박스), 중지/재개, 공급 신청·이력. 상품 목록 카드도 옵션별 박스당 가격·예약+출하 / 판매 박스를 보이고 kg 줄은 메타 회색 보조다(DEV-300, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조). 한도·승인·신청은 계속 kg다. 판매 중(PUBLISHED) 상품이 품절이면 맨 위에 무엇을 늘릴지 안내한다: 전체 물량 품절은 판매 한도(승인량까지) 또는 물량 추가 신청, 이번 기간 품절은 상품 수정의 판매 조건 시트에서 박스 수(‘판매 조건에서 박스 늘리기’ → `/products/:id/detail?terms=1`, 늘린 박스는 ‘상품에 반영’ 뒤 적용. DEV-361 PR C 전에는 기간·가격 화면). 오류·성공 안내는 누른 버튼 아래, `APPROVED_CAP_EXCEEDED`는 신청 칸으로 이동한다. 기간·가격 저장 뒤에도 판매 중 상품이 전체 물량 품절이면 그 화면에 머물러 판매 한도 늘리기로 안내했다(DEV-345, 기간·가격 화면(SCR-26)과 함께 DEV-361 PR C에서 없어짐. 문구는 [screens.md](./screens.md) 판매 설정).
+- 판매 설정: 맨 위 옵션별 박스당 가격(지금 판매 기간) · 예약+출하 / 판매 박스 표(박스는 모든 기간 합, DEV-300), 그 아래 보조 글자로 승인 물량/현재 판매 한도/예약 중/출하 완료/추가 예약 가능(kg), 중지/재개, 공급 신청·이력. 상품 목록 카드도 옵션별 박스당 가격·예약+출하 / 판매 박스를 보이고 kg 줄은 메타 회색 보조다(DEV-300, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조). 한도·승인·신청은 계속 kg다. 판매 중(PUBLISHED) 상품이 품절이면 맨 위에 무엇을 늘릴지 안내한다: 전체 물량 품절은 판매 한도(승인량까지) 또는 물량 추가 신청, 이번 기간 품절은 상품 수정의 판매 조건 시트에서 박스 수(‘판매 조건에서 박스 늘리기’ → `/products/:id/detail?terms=1`, 늘린 박스는 ‘상품에 반영’ 뒤 적용. DEV-361 PR C 전에는 기간·가격 화면). 오류·성공 안내는 누른 버튼 아래, `APPROVED_CAP_EXCEEDED`는 신청 칸으로 이동한다. 기간·가격 저장 뒤에도 판매 중 상품이 전체 물량 품절이면 그 화면에 머물러 판매 한도 늘리기로 안내했다(DEV-345, 기간·가격 화면(SCR-26)과 함께 DEV-361 PR C에서 없어짐. 문구는 [screens.md](./screens.md) 판매 설정).
 - 최초 신청은 판매·가격(SCR-24b) '판매 시작 요청'에서만 하고, 판매 설정은 승인 뒤 '물량 추가 신청'만 받는다. 판매 전 상품(DRAFT/REJECTED, 승인 0)이 판매 설정에 들어오면 판매·가격으로 보낸다. 최초 신청 심사 중이면 판매 설정에서 상태와 철회를 보인다(DEV-361, PM 11/17). 증액 신청 전 기존 승인량·추가량·신청 후 총량을 표시한다. 대기 중 철회, 반려 시 사유(상품 카드·판매·가격 맨 위 Notice, DEV-361 PR C 전에는 상품 편집)와 재신청(판매·가격)을 제공한다.
 - 신규 상품은 판매 한도 입력 대신 공급 신청 kg을 입력한다. 최초 신청 시 필수 항목·기간 검증. 상품·기간 편집에 '승인 전 가격 유지' 문구를 없앤다.
 - 상단 탭은 확정 → 미확정 → 취소·환불이며 기본은 미확정이다. 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED/PARTIALLY_REFUNDED다. 결제 전 주문은 제외한다. 모든 페이지를 집계한 건수를 표시하고, 미확정 내 응답 필요 주문을 우선한 뒤 최신순으로 정렬한다. 선택은 filter=pending|confirmed|canceled로 상세 왕복·로그인 복귀에도 유지한다. 기존 API 반환 범위는 변경하지 않는다.
@@ -73,7 +73,7 @@
 - 실데이터의 박스 한도에서 승인 kg을 자동 추정하지 않는다. 공급 확인 후 확정한 상품별 승인량·판매 한도 전환표가 필요하다. 주문 스냅샷은 보존된 옵션 중량으로 복원하며 불명확하면 중단한다.
 - 로컬 데모는 외부 백업 후 명시적인 상품별 g 전환표로 1회 변환한다. 기존 주문·채팅·ID·중지 상태를 보존한다. 폐기된 중간 API/저장 형식의 런타임 호환 분기는 남기지 않는다.
 - AC-04-8: 최초 신청/승인/반려/철회/재신청, 증액 중 기존 판매·반려 유지·승인 한도만 증가, 한 건 대기·멱등·버전/권한 검사.
-- AC-04-9: 판매 한도는 사용량~승인량 사이. 중지·재개·기간 변경으로 한도가 초기화되지 않는다. 품절(총 한도 소진·이번 기간 품절) 상품도 한도를 승인량까지 올리고 주문당 상한을 바꿀 수 있으며, 재개 가능 검사는 중지→재개 때만 한다(DEV-344).
+- AC-04-9: 판매 한도는 사용량~승인량 사이. 중지·재개·기간 변경으로 한도가 초기화되지 않는다. 품절(총 한도 소진·이번 기간 품절) 상품도 총 판매 한도를 승인량까지 올릴 수 있으며, 재개 가능 검사는 중지→재개 때만 한다(DEV-344).
 - AC-05-6: 예약 있는 기간도 가격 즉시 반영, 기존 결제 주문 보존, 미결제 재확인. 기간/중량 잠금 유지.
 - AC-09-6: 5kg×2와 10kg×1은 각각 10kg 차감. 마지막 물량 동시 결제는 한 건만 성공, 잔여 3kg은 5kg 옵션 품절. 중복 취소·부분 미공급·출하/환불 집계를 검증한다.
 - AC-10-6: 구매 확정 기준의 상단 상태 탭·건수·선택 유지. 타입·Mock 회귀·두 앱 웹 export·모바일 검증과 PR CI 통과.

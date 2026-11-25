@@ -157,9 +157,11 @@ for (const width of [360, 390, 430]) {
     await sell.getByLabel("5kg 가격", { exact: true }).first().fill("35000");
     await sell.getByLabel("5kg 박스 수", { exact: true }).first().fill("10");
     await sell.getByLabel("판매할 총 물량", { exact: true }).fill("300");
-    await sell.getByLabel("한 주문 최대", { exact: true }).fill("3");
+    await expect(sell.getByLabel("한 주문 최대", { exact: true })).toHaveCount(0);
     await sell.getByRole("button", { name: "저장", exact: true }).click();
-    await expect(sell.getByText(/뒤 기간 가격이 앞 기간보다 비싸야/)).toBeVisible();
+    const priceError = sell.getByTestId("price-period").nth(1).getByRole("alert");
+    await expect(priceError).toBeVisible();
+    await expect(priceError).toContainText(/뒤 기간 가격이 앞 기간보다 비싸야/);
     await sell.getByLabel("5kg 가격", { exact: true }).first().fill("29000");
     if (shots && width === 390)
       await page.screenshot({ path: `${shots}/v2-3-sell.png` });

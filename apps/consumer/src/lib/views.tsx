@@ -218,7 +218,6 @@ export function OptionSheet({
   const price = stage?.options[optionId]?.price ?? 0;
   const selected = stage?.options[optionId];
   const max = Math.min(
-    product.maxQuantityPerOrder,
     Math.floor(
       product.remainingGrams /
         ((product.options.find((o) => o.optionId === optionId)?.weightKg ??
@@ -255,7 +254,7 @@ export function OptionSheet({
                   o.optionId,
                   Math.max(
                     1,
-                    Math.min(quantity, product.maxQuantityPerOrder, left),
+                    Math.min(quantity, left),
                   ),
                 )
               }

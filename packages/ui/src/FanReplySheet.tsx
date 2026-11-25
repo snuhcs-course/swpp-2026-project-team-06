@@ -1,7 +1,10 @@
+import type { EmoticonId } from "@farmclub/api";
+import { EmoticonMessage } from "./Emoticon";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { Sheet } from "./bars";
 import { Button } from "./Button";
+import { PrivatePhoto } from "./PrivatePhotos";
 import { ProfileAvatar } from "./Messenger";
 import { T } from "./Text";
 import { time } from "./format";
@@ -18,11 +21,14 @@ export type FanReplyRow = {
   consumerId: string;
   senderName: string;
   body: string;
+  emoticonId?: EmoticonId | null;
   createdAt: string;
   editVersion: number;
   unread: boolean;
   reservedCustomer: boolean;
   quoted: boolean;
+  /** 비공개 사진 id(DEV-467) */
+  attachmentIds?: string[];
 };
 export type FanReplyPageData = {
   broadcast: { broadcastId: string; body: string; mediaCount: number; createdAt: string };
@@ -50,6 +56,7 @@ export function FanReplySheet({
   onClose,
   onQuote,
   onPrivate,
+  loadPhoto,
 }: {
   /** 열린 소식. null이면 닫힘 */
   broadcastId: string | null;
@@ -60,6 +67,8 @@ export function FanReplySheet({
   onQuote: (reply: FanReplyRow) => void;
   /** ‘1:1 채팅’ */
   onPrivate?: (consumerId: string, replyId: string) => void;
+  /** 답장 비공개 사진 열기(DEV-467). 없으면 사진을 그리지 않는다 */
+  loadPhoto?: (id: string) => Promise<string>;
 }) {
   const [loaded, setPage] = useState<FanReplyPageData | null>(null);
   const [loadedItems, setItems] = useState<FanReplyRow[]>([]);
@@ -172,6 +181,7 @@ export function FanReplySheet({
                 reply={r}
                 onQuote={() => onQuote(r)}
                 onPrivate={onPrivate ? () => onPrivate(r.consumerId, r.messageId) : undefined}
+                loadPhoto={loadPhoto}
               />
             ))}
           </View>
@@ -185,10 +195,12 @@ function ReplyRow({
   reply,
   onQuote,
   onPrivate,
+  loadPhoto,
 }: {
   reply: FanReplyRow;
   onQuote: () => void;
   onPrivate?: () => void;
+  loadPhoto?: (id: string) => Promise<string>;
 }) {
   return (
     <View
@@ -234,7 +246,13 @@ function ReplyRow({
             {time(reply.createdAt)}
           </T>
         </View>
-        <T>{reply.body}</T>
+        {reply.emoticonId ? <EmoticonMessage id={reply.emoticonId} /> : reply.body ? <T>{reply.body}</T> : null}
+        {/* 답장 비공개 사진(눌러 크게, DEV-467) */}
+        {loadPhoto && reply.attachmentIds?.length ? (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {reply.attachmentIds.map((id) => <PrivatePhoto key={id} id={id} load={loadPhoto} label="답장 사진" />)}
+          </View>
+        ) : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
           <Pressable
             accessibilityRole="button"

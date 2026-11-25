@@ -369,3 +369,39 @@ test("DEV-434 AC-01-20: the withdraw sheet's kept line differs by app and shares
   const sheet = await readFile("packages/ui/src/WithdrawSheet.tsx", "utf8");
   assert.ok(sheet.includes("{KEPT[role]}"), "the sheet picks the kept line by role");
 });
+
+test("DEV-476: privacy policy says where the apps keep the login token, without a version bump", () => {
+  // 고지일(배포일)과 시행일. legalContent.ts의 TOKEN_STORAGE_NOTICE_DATE·_EFFECTIVE와 같아야 하고, 배포가 밀리면 셋을 함께 고친다
+  const NOTICE = "2026년 11월 24일";
+  const EFFECTIVE = "2026년 12월 1일";
+  const day = (k) => new Date(k.replace(/(\d+)년 (\d+)월 (\d+)일/, "$1-$2-$3").replace(/-(\d)(?=-|$)/g, "-0$1"));
+  assert.equal((day(EFFECTIVE) - day(NOTICE)) / 86_400_000, 7, "제14조: 시행 7일 전 고지");
+  const html = pages.pageHtml(content.privacyPolicy);
+  // 웹은 localStorage, 앱은 expo-secure-store(packages/api/src/storage.native.ts)
+  assert.ok(html.includes(`웹 화면에서는 브라우저 저장소(localStorage)에, iOS·Android 앱에서는 기기의 보안 저장소(iOS 키체인, Android Keystore로 암호화한 저장소)에 저장하고, 로그아웃하면 지웁니다(앱 부분은 ${EFFECTIVE}부터 시행).`));
+  assert.ok(!html.includes("서비스는 로그인 상태를 유지하기 위해 브라우저 저장소(localStorage)에 로그인 토큰을 저장합니다."));
+  assert.match(html, new RegExp(`${NOTICE} 변경: 제10조의 로그인 토큰 저장 위치[^<]*다시 동의를 받지 않습니다`));
+  assert.ok(html.includes(`${NOTICE} 변경분(제10조 앱의 로그인 토큰 저장 위치)은 ${EFFECTIVE}부터 시행합니다.`));
+  // 고지 문구 정정이라 문서 시행일·동의 버전은 그대로(DEV-122 규칙)
+  assert.equal(content.privacyPolicy.effective, "2026년 11월 20일");
+  assert.equal(content.LEGAL_VERSION, "2026-11-20");
+});
+
+test("DEV-476: the store-facing consumer copy no longer calls the service a test", async () => {
+  const { readFile } = await import("node:fs/promises");
+  for (const file of [
+    "apps/consumer/src/app/checkout/[productId]/index.tsx",
+    "apps/consumer/src/app/checkout/[productId]/pay.tsx",
+    "apps/consumer/src/app/onboarding/index.tsx",
+    "apps/consumer/src/app/login.tsx",
+    "apps/consumer/src/lib/onboarding.ts",
+  ]) {
+    const text = await readFile(file, "utf8");
+    assert.doesNotMatch(text, /테스트 서비스|실제 (입금|결제|돈)/, file);
+  }
+  const onboarding = await readFile("apps/consumer/src/lib/onboarding.ts", "utf8");
+  assert.ok(onboarding.includes("입금은 농가 계좌로 직접 하고, farmclub은 거래를 중개해요."));
+  // 약관 본문에는 처음부터 테스트 전제 문장이 없다
+  for (const doc of [content.termsOfService, content.privacyPolicy])
+    assert.doesNotMatch(pages.pageHtml(doc), /테스트 서비스|실제 (결제|입금|돈)[^<]{0,20}(없|않)/, doc.path);
+});

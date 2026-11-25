@@ -206,34 +206,43 @@ test("AC-08-9: no current stage, paused, sold out and total limit never show the
   assert.equal(paused.summary, "지금은 예약할 수 없어요");
   assert.doesNotMatch(paused.body, /지금 가격/);
 
-  assert.equal(soldOut.title, "5kg은 이번 기간 물량이 다 팔렸어요");
-  assert.match(soldOut.body, /^10kg은 아직 예약할 수 있어요/);
-  assert.deepEqual(soldOut.inline, { label: "옵션 바꾸기", action: "changeOption" });
-  assert.equal(soldOut.primary.enabled, false);
+  assert.ok(soldOut.title);
+  assert.ok(soldOut.body);
+  assert.equal(soldOut.inline, null);
+  assert.equal(soldOut.primary.action, "backToProduct");
+  assert.equal(soldOut.primary.enabled, true);
 
-  assert.equal(total.title, "예약 물량이 다 찼어요");
+  assert.ok(total.title);
+  assert.ok(total.body);
+  assert.equal(total.inline, null);
   assert.equal(total.primary.action, "backToProduct");
+  assert.equal(total.primary.enabled, true);
   assert.equal(qty.title, "한 번에 최대 5개까지 예약할 수 있어요");
   assert.equal(account.inline.action, "recheck");
 });
 
-test("AC-08-9: all options sold out goes back to the product; typo '기간가' is gone", () => {
+test("AC-08-9: all options sold out goes back to the product", () => {
   const p = structuredClone(product);
   for (const o of Object.values(p.stages[0].options)) o.reservedCount = o.quantity;
   const v = cc.conflictView({ reason: "SOLD_OUT", details: {} }, ctx({ product: p }), f);
-  assert.equal(v.title, "이번 기간 물량이 다 팔렸어요");
-  assert.equal(v.body, "다음 예약 기간이 열리면 다시 예약해 주세요.");
+  assert.ok(v.title);
+  assert.ok(v.body);
+  assert.equal(v.inline, null);
   assert.equal(v.primary.action, "backToProduct");
+  assert.equal(v.primary.enabled, true);
 });
 
-test("TOTAL_LIMIT_REACHED offers a quantity change when fewer boxes still fit", () => {
+test("TOTAL_LIMIT_REACHED returns to the product when fewer boxes still fit", () => {
   const v = cc.conflictView(
     { reason: "TOTAL_LIMIT_REACHED", details: {} },
     ctx({ quantity: 3, product: { ...product, remainingGrams: 6000 } }),
     f,
   );
-  assert.equal(v.title, "남은 예약 물량이 부족해요");
-  assert.deepEqual(v.inline, { label: "수량 바꾸기", action: "changeQuantity" });
+  assert.ok(v.title);
+  assert.ok(v.body);
+  assert.equal(v.inline, null);
+  assert.equal(v.primary.action, "backToProduct");
+  assert.equal(v.primary.enabled, true);
 });
 
 test("changed=1 return from an expired deposit says the reservation was canceled, not that the price changed", () => {

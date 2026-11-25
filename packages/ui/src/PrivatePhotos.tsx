@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState, type ReactNode } from "react";
+import { createElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Modal, Platform, Pressable, View } from "react-native";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
@@ -6,16 +6,8 @@ import { safe } from "./web";
 import { T } from "./Text";
 import { pickPhoto, type PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
-export function PrivatePhoto({
-  id,
-  load,
-  onLongPress,
-}: {
-  id: string;
-  load: (id: string) => Promise<string>;
-  /** 사진을 길게 눌렀을 때(메시지 메뉴). 겹친 누르는 칸이 터치를 가져가므로 넘겨 받는다 */
-  onLongPress?: () => void;
-}) {
+/** 비공개 사진 주소를 불러오고, 바뀌거나 사라질 때 blob 주소를 놓는다(PrivatePhoto·소식방 썸네일 공용) */
+function usePrivateImage(id: string, load: (id: string) => Promise<string>) {
   const [uri, setUri] = useState<string | null>(null),
     [error, setError] = useState(false);
   useEffect(() => {
@@ -35,11 +27,27 @@ export function PrivatePhoto({
       if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
     };
   }, [id, load]);
+  return { uri, error };
+}
+export function PrivatePhoto({
+  id,
+  load,
+  onLongPress,
+  label = "비공개 문의 사진",
+}: {
+  id: string;
+  load: (id: string) => Promise<string>;
+  /** 사진을 길게 눌렀을 때(메시지 메뉴). 겹친 누르는 칸이 터치를 가져가므로 넘겨 받는다 */
+  onLongPress?: () => void;
+  /** 접근성 이름. 소식방 답장은 ‘답장 사진’(DEV-467) */
+  label?: string;
+}) {
+  const { uri, error } = usePrivateImage(id, load);
   return uri ? (
     <ViewablePhoto uri={uri} onLongPress={onLongPress}>
       <Image
         source={{ uri }}
-        accessibilityLabel="비공개 문의 사진"
+        accessibilityLabel={label}
         style={{ width: 220, height: 160, borderRadius: 14 }}
         resizeMode="cover"
       />
@@ -219,5 +227,149 @@ export function PrivatePhotos({
         </T>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * 소식방 답장의 작은 사진 첨부(DEV-467). 1:1의 PrivatePhotos 모양은 그대로 두고 소식방 입력칸만 쓴다.
+ * 입력칸 왼쪽 ‘+’가 open()을 불러 숨긴 파일 칸(웹)·사진 보관함(앱)을 바로 연다. 보이는 기본 파일 칸은 없다.
+ * 제한은 1:1과 같다(한 장 10MB, 3장).
+ */
+export function usePhotoAttach({
+  count,
+  max = 3,
+  upload,
+  onAdd,
+  onBusy,
+  scope,
+}: {
+  count: number;
+  max?: number;
+  upload: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
+  onAdd: (id: string) => void;
+  onBusy?: (busy: boolean) => void;
+  /** 대화(받는 사람)가 바뀌면 진행 중 표시·오류를 비운다(DEV-478, 예전 PrivatePhotos의 key와 같은 역할) */
+  scope?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  // 대화가 바뀐 뒤 끝난 예전 업로드는 새 대화에 진행 표시·오류를 남기지 않는다
+  const generation = useRef(0);
+  useEffect(() => {
+    generation.current++;
+    setBusy(false);
+    setError("");
+  }, [scope]);
+  async function send(file: File | PickedPhoto) {
+    if (file.size > 10 * 1024 * 1024) {
+      setError("사진 한 장은 10MB까지예요");
+      return;
+    }
+    const mine = generation.current;
+    setBusy(true);
+    onBusy?.(true);
+    setError("");
+    try {
+      onAdd((await upload(file)).attachmentId);
+    } catch (e) {
+      if (generation.current === mine) setError(e instanceof Error ? e.message : "사진을 올리지 못했어요");
+    } finally {
+      if (generation.current === mine) setBusy(false);
+      onBusy?.(false);
+    }
+  }
+  const open = () => {
+    if (busy || count >= max) return;
+    if (Platform.OS === "web") inputRef.current?.click();
+    else void pickPhoto().then((f) => f && send(f));
+  };
+  const input =
+    Platform.OS === "web"
+      ? createElement("input", {
+          ref: inputRef,
+          type: "file",
+          accept: "image/jpeg,image/png,image/webp",
+          "aria-label": "비공개 사진 첨부",
+          style: { display: "none" },
+          onChange: (e: { target: HTMLInputElement }) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void send(file);
+          },
+        })
+      : null;
+  return { open, input, busy, error, full: count >= max };
+}
+
+/** 입력줄 위 한 줄 썸네일(72×72, 모서리 8, 간격 8). 오른쪽 위 어두운 원 ×(보이는 24, 누르는 48) */
+export function AttachedPhotoRow({
+  ids,
+  load,
+  onRemove,
+  busy = false,
+  error,
+  max = 3,
+  disabled = false,
+}: {
+  ids: string[];
+  load: (id: string) => Promise<string>;
+  onRemove: (id: string) => void;
+  busy?: boolean;
+  error?: string;
+  max?: number;
+  disabled?: boolean;
+}) {
+  if (!ids.length && !busy && !error) return null;
+  return (
+    <View style={{ gap: 4 }}>
+      <View testID="attached-photo-row" style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
+        {ids.map((id, i) => (
+          <View key={id} style={{ width: 72, height: 72 }}>
+            <Thumb id={id} load={load} label={`첨부 사진 ${i + 1}`} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`첨부 사진 ${i + 1} 삭제`}
+              disabled={disabled}
+              onPress={() => onRemove(id)}
+              hitSlop={12}
+              style={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: tokens.color.photoOverlay,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="close" size={14} color={tokens.color.onAccent} />
+            </Pressable>
+          </View>
+        ))}
+        {busy ? (
+          <View
+            accessibilityRole="text"
+            accessibilityLabel="사진 올리는 중"
+            style={{ width: 72, height: 72, borderRadius: tokens.radius.sm, backgroundColor: tokens.color.surface, alignItems: "center", justifyContent: "center" }}
+          >
+            <T variant="caption" muted>올리는 중</T>
+          </View>
+        ) : null}
+        {ids.length ? <T variant="caption" muted>{`${ids.length}/${max}`}</T> : null}
+      </View>
+      {error ? <T variant="caption" color={tokens.color.error}>{error}</T> : null}
+    </View>
+  );
+}
+
+function Thumb({ id, load, label }: { id: string; load: (id: string) => Promise<string>; label: string }) {
+  const { uri } = usePrivateImage(id, load);
+  return uri ? (
+    <Image source={{ uri }} accessibilityLabel={label} style={{ width: 72, height: 72, borderRadius: tokens.radius.sm }} resizeMode="cover" />
+  ) : (
+    <View accessibilityLabel={label} style={{ width: 72, height: 72, borderRadius: tokens.radius.sm, backgroundColor: tokens.color.surface }} />
   );
 }

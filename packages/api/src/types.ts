@@ -1,3 +1,4 @@
+import type { EmoticonId } from "./emoticons";
 // API 타입. 원본: docs/spec/screens.md 7장, 데이터 모델·주문 상태: docs/spec/tech-design/README.md.
 // 디자인에서 더한 필드(reservedCount, brixRecordCount)는 docs/design/README.md "스펙과 다른 점" 2.
 
@@ -26,6 +27,7 @@ export type ConflictReason =
   | "SOLD_OUT"
   | "QUANTITY_LIMIT"
   | "INVALID_TRANSITION"
+  | "UNDO_CONFLICT"
   | "IDEMPOTENCY_MISMATCH"
   | "SALES_PAUSED"
   | "TOTAL_LIMIT_REACHED"
@@ -74,12 +76,14 @@ export type CurrentStageSnapshot = StageSnapshot & {
   endsAt: string;
 };
 
+/** 404에 붙는 이유(DEV-467): 소식방 답장의 고른 소식이 사라짐 · 쓸 수 없는 첨부 사진 */
+export type NotFoundReason = "REPLY_TARGET_GONE" | "ATTACHMENT_UNUSABLE";
 export type ErrorBody = {
   code: ErrorCode;
   message: string;
   details: {
     fields?: Record<string, string>;
-    reason?: ConflictReason | ForbiddenReason | UnauthenticatedReason;
+    reason?: ConflictReason | ForbiddenReason | UnauthenticatedReason | NotFoundReason;
     /** STAGE_CHANGED·SOLD_OUT: 고른 옵션 */
     optionId?: string | null;
     previous?: StageSnapshot;
@@ -241,7 +245,7 @@ export type SalesState = {
 };
 export type SalesInput = {
   salesLimitGrams: number;
-  maxQuantityPerOrder: number;
+  maxQuantityPerOrder?: number;
   salesPaused: boolean;
   version: number;
 };
@@ -264,6 +268,7 @@ export type ProductCard = SalesState & {
 };
 
 export type NewsItem = {
+  emoticonId?: EmoticonId | null;
   replyTo?: {senderType: string; body: string} | null;
   editedAt?: string | null;
   editVersion?: number;
@@ -280,6 +285,7 @@ export type NewsItem = {
 };
 
 export type NewsRoomMessage = {
+  emoticonId?: EmoticonId | null;
   replyTo?: {senderType: string; body: string} | null;
   editedAt?: string | null;
   editVersion?: number;
@@ -300,6 +306,8 @@ export type NewsRoomMessage = {
   /** 소유 생산자의 방송에만 숫자: 읽음 위치가 이 소식 이상인 팔로워 수, 이 소식에 연결된 답장 수(DEV-297). 그 밖에는 null */
   readCount?: number | null;
   replyCount?: number | null;
+  /** 소비자 답장의 비공개 사진 id(DEV-467). 답장 쓴 소비자와 그 농가 생산자만 받는다. privateImage로 연다 */
+  attachmentIds?: string[];
 };
 export type NewsRoomSummary = {
   canReply: boolean;
@@ -312,6 +320,7 @@ export type NewsRoomSummary = {
 export type NewsRoomPage = Paged<NewsRoomMessage> & { room: NewsRoomSummary };
 /** 팬 답장 시트 한 줄(DEV-297). 이름은 생산자 방과 같은 가린 이름 */
 export type FanReply = {
+  emoticonId?: EmoticonId | null;
   messageId: string;
   consumerId: string;
   senderName: string;
@@ -324,6 +333,8 @@ export type FanReply = {
   reservedCustomer: boolean;
   /** 이 답장을 인용한 소식(모두에게 답장)이 있음 */
   quoted: boolean;
+  /** 비공개 사진 id(DEV-467) */
+  attachmentIds?: string[];
 };
 export type FanReplyPage = Paged<FanReply> & {
   broadcast: { broadcastId: string; body: string; mediaCount: number; createdAt: ISODate };
@@ -397,6 +408,8 @@ export type Stage = {
 
 /** 생산자 예약 기간 화면용(DEV-231). 주문 수는 박스가 아니라 주문 건수 */
 export type MyStage = Stage & {
+  /** 취소·환불을 포함해 주문 이력이 있으면 날짜 변경·삭제 불가. */
+  hasOrders: boolean;
   reservedOrderCount: number;
   awaitingOrderCount: number;
   preparingOrderCount: number;
@@ -724,7 +737,17 @@ export type Dashboard = {
   }[];
 };
 
+export type ProducerOrderUndo = {
+  actionId: string;
+  label: string;
+  previousStatus: OrderStatus;
+  createdAt: ISODate;
+};
+
 export type ProducerOrder = Recipient & {
+  /** 서버가 확인한 마지막 처리. 이전 서버 응답에는 없을 수 있다. */
+  undoAction?: ProducerOrderUndo | null;
+  deliveryWindow: { start: ISODate; end: ISODate };
   trackingVersion: number;
   orderId: string;
   orderNo: string;
@@ -759,6 +782,7 @@ export type HarvestProduct = {
 /* ---------------- messaging ---------------- */
 
 export type NewsInput = {
+  emoticonId?: EmoticonId;
   body: string;
   photos: string[];
   videos?: string[];
@@ -785,6 +809,7 @@ export type SenderType = "CONSUMER" | "PRODUCER" | "AI" | "OPERATOR";
 export const SUPPORT_ID = "u-farmclub";
 
 export type ChatMessage = {
+  emoticonId?: EmoticonId | null;
   editedAt?: string | null;
   editVersion?: number;
   replyToMessageId?: string | null;
@@ -802,6 +827,8 @@ export type ChatMessage = {
   sourceRefs?: string[];
   settingsVersion?: number | null;
   needsHuman?: boolean;
+  /** 자동 전달된 소비자 질문에 열린 답장 요청이 있는지 */
+  replyRequested?: boolean;
   /** AI 근거 요약 */
   sourceSummary: string | null;
   handoffStatus: "FORWARDED" | null;
@@ -938,3 +965,5 @@ export type DetailBlock =
 export type DetailContent = { blocks: DetailBlock[] };
 export type DetailDraftInput = { inputText: string; photos: string[] };
 export type DetailDraft = { content: DetailContent; mode: "mock" | "ai" };
+
+export type { EmoticonId } from "./emoticons";

@@ -1,6 +1,6 @@
 // 판매 조건 편집부(DEV-361 PR C): 중량 옵션·받는 시기·전액 환불 날짜·예약 기간·가격·박스·배송비.
 // 판매 전 상품의 판매·가격(SCR-24b, `mode="new"`)과 구매자에게 보이는 상품의 composer 판매 조건 시트(`mode="live"`)가 같이 쓴다.
-// 판매할 총 물량·한 주문 최대는 여기 없다(판매·가격 화면에만, 승인 뒤 한 주문 최대는 물량·판매 설정, 결정 9).
+// 판매할 총 물량은 판매·가격 화면에서 입력한다.
 import {
   newIdempotencyKey,
   type MyProduct,
@@ -8,12 +8,12 @@ import {
   type StageInput,
 } from "@farmclub/api";
 import { Button, Checkbox, Segmented, T, md, tokens } from "@farmclub/ui";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { View } from "react-native";
 
 import { FieldFeedback, FieldFeedbackContext } from "./FieldFeedback";
 import { DateInput, DateSheet, NumField, addDays } from "./fields";
-import { seoulToday } from "./HarvestStart";
+import { seoulToday } from "./seoulToday";
 import { FieldButton } from "./views";
 
 const WEIGHTS = [3, 5, 10];
@@ -122,7 +122,7 @@ export const cellOf = (r: TermsRow, optionId: string): Cell =>
 
 /** 기간 저장 본문(PUT stages·상품 초안). 칸이 모두 찼을 때만 부른다(checkTerms 뒤) */
 export function termsStages(t: Terms): StageInput[] {
-  return t.rows.map((r) => ({
+  return [...t.rows].sort((a, b) => a.startsAt.localeCompare(b.startsAt)).map((r) => ({
     ...(r.stageId ? { stageId: r.stageId } : {}),
     startsAt: r.startsAt,
     endsAt: r.endsAt,
@@ -136,28 +136,45 @@ export function termsStages(t: Terms): StageInput[] {
 }
 
 /** 화면 검사. 서버도 같은 규칙(R-18 기간·가격, AC-04-1 필수 칸)을 다시 본다. 첫 문제만 돌려준다 */
-export function checkTerms(t: Terms): { field: TermsField; message: string } | null {
-  const bad = (field: TermsField, message: string) => ({ field, message });
+export type TermsProblem = {
+  field: TermsField;
+  message: string;
+  rowKey?: string;
+  optionId?: string;
+  input?: "startsAt" | "endsAt" | "period" | "price" | "quantity";
+};
+export function checkTerms(t: Terms): TermsProblem | null {
+  const bad = (field: TermsField, message: string, target: Partial<TermsProblem> = {}): TermsProblem => ({ field, message, ...target });
   if (!t.options.length) return bad("options", "중량 옵션을 하나 이상 골라 주세요.");
   if (!t.deliveryWindow) return bad("delivery", "받는 시기를 정해 주세요.");
   if (!t.maxDelayUntil) return bad("delivery", "전액 환불 날짜를 정해 주세요.");
   if (t.maxDelayUntil <= t.deliveryWindow.end)
     return bad("delivery", "전액 환불 날짜는 받는 시기가 끝난 다음 날 이후여야 해요.");
   if (!t.rows.length) return bad("prices", "예약 기간을 하나 이상 두어 주세요.");
-  for (const r of t.rows)
+  const rows = [...t.rows].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const validDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) &&
+    Number.isFinite(Date.parse(d)) && new Date(d).toISOString().slice(0, 10) === d;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!validDate(row.startsAt) || !validDate(row.endsAt))
+      return bad("prices", "예약 시작일과 종료일을 올바른 날짜로 적어 주세요.", { rowKey: row.key, input: !validDate(row.startsAt) ? "startsAt" : "endsAt" });
+    if (row.startsAt > row.endsAt)
+      return bad("prices", "예약 시작일은 종료일보다 늦을 수 없어요.", { rowKey: row.key, input: "period" });
+    if (i > 0 && rows[i - 1].endsAt >= row.startsAt)
+      return bad("prices", "예약 기간이 겹쳐요. 앞 기간이 끝난 다음 날부터 정해 주세요.", { rowKey: row.key, input: "period" });
+  }
+  for (const r of rows)
     for (const o of t.options) {
       const c = cellOf(r, o.optionId);
       if (!c.price || c.quantity == null)
-        return bad("prices", `${o.label}의 가격과 박스 수를 모두 적어 주세요.`);
+        return bad("prices", `${o.label}의 가격과 박스 수를 모두 적어 주세요.`, { rowKey: r.key, optionId: o.optionId, input: !c.price ? "price" : "quantity" });
     }
   for (const o of t.options)
-    for (let i = 1; i < t.rows.length; i++)
-      if (cellOf(t.rows[i], o.optionId).price! <= cellOf(t.rows[i - 1], o.optionId).price!)
-        return bad("prices", `${o.label}: 뒤 기간 가격이 앞 기간보다 비싸야 해요(얼리버드).`);
-  if (t.rows.some((r) => r.startsAt > r.endsAt))
-    return bad("delivery", "예약 기간의 시작일이 끝일보다 늦어요. 기간을 지우거나 받는 시기를 늦춰 주세요.");
-  if (t.rows.at(-1)!.endsAt >= t.deliveryWindow.start)
-    return bad("delivery", "예약 기간은 받는 시기 전날까지 끝나야 해요.");
+    for (let i = 1; i < rows.length; i++)
+      if (cellOf(rows[i], o.optionId).price! <= cellOf(rows[i - 1], o.optionId).price!)
+        return bad("prices", `${o.label}: 뒤 기간 가격이 앞 기간보다 비싸야 해요(얼리버드).`, { rowKey: rows[i].key, optionId: o.optionId, input: "price" });
+  if (rows.at(-1)!.endsAt >= t.deliveryWindow.start)
+    return bad("prices", "예약 기간은 받는 시기 전날까지 끝나야 해요.", { rowKey: rows.at(-1)!.key, input: "endsAt" });
   if (t.shippingFeeType === "SEPARATE" && !t.shippingFee)
     return bad("shipping", "배송비를 따로 받으면 금액을 적어 주세요.");
   return null;
@@ -200,6 +217,8 @@ export function SalesTermsEditor({
 }) {
   const [sheet, setSheet] = useState<null | "delivery" | "maxDelay">(null);
   const t = value;
+  const feedback = useContext(FieldFeedbackContext);
+  const problem = feedback.fields.prices ? checkTerms(t) : null;
   // 이 편집부가 마지막으로 넘긴 값. 다른 값이 들어오면(부르는 쪽이 다시 불러와 채움) 밖에서 바꾼 것이다
   const emitted = useRef<Terms | null>(null);
   const set = <K extends keyof Terms>(k: K, v: Terms[K]) => {
@@ -263,19 +282,24 @@ export function SalesTermsEditor({
     product.stages.find((s) => s.stageId === r.stageId)?.options[optionId]?.reservedCount ?? 0;
   const locked = (r: TermsRow) =>
     mode === "live" &&
-    !!product.stages.find((s) => s.stageId === r.stageId && Object.values(s.options).some((v) => v.reservedCount > 0));
+    !!product.stages.find((s) => s.stageId === r.stageId && (s.hasOrders || Object.values(s.options).some((v) => v.reservedCount > 0)));
   const deliveryChanged =
     !!product.deliveryWindow &&
     !!t.deliveryWindow &&
     (t.deliveryWindow.start !== product.deliveryWindow.start || t.deliveryWindow.end !== product.deliveryWindow.end);
   // 기간이 하나면(판매 전) 받는 시기에 맞춰 끝을 당기므로 첫날 다음 날부터 고를 수 있다. 여럿이면 마지막 기간 뒤부터.
-  const last = t.rows.at(-1);
+  const orderedRows = [...t.rows].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const firstPeriod = orderedRows[0];
+  const last = orderedRows.at(-1);
   const deliveryMin = [
     addDays(seoulToday(), 1),
     ...(last ? [addDays(mode === "new" && t.rows.length === 1 ? t.rows[0].startsAt : last.endsAt, 1)] : []),
   ]
     .sort()
     .pop()!;
+  const nextStart = [seoulToday(), last ? addDays(last.endsAt, 1) : seoulToday()].sort().at(-1)!;
+  const nextEnd = lastStageDay(t.deliveryWindow?.start, nextStart);
+  const canAdd = mode === "live" ? nextStart <= nextEnd : !t.rows.length || t.rows[0].startsAt < t.rows[0].endsAt;
   return (
     <View style={{ gap: 24 }} testID="sales-terms-editor">
       <FieldFeedback field="options">
@@ -284,6 +308,7 @@ export function SalesTermsEditor({
             {weightChoices.map((c) => (
               <Checkbox
                 key={c.key}
+                inline
                 label={c.label}
                 checked={t.options.some((o) => o.weightKg === c.weightKg)}
                 onPress={() => !off && toggleWeight(c.weightKg)}
@@ -377,6 +402,7 @@ export function SalesTermsEditor({
           </T>
           {t.rows.map((r, i) => {
             const fixed = locked(r);
+            const invalid = problem?.rowKey === r.key ? problem : null;
             return (
               <View
                 key={r.key}
@@ -404,12 +430,13 @@ export function SalesTermsEditor({
                       예약 이력이 있어 날짜는 유지해요. 가격은 새 주문부터 적용돼요.
                     </T>
                   ) : editable ? (
-                    <View style={{ flexDirection: "row", gap: 10 }}>
-                      <DateInput label="예약 시작일" value={r.startsAt} onChange={(startsAt) => setRow(i, { startsAt })} />
-                      <DateInput label="예약 종료일" value={r.endsAt} onChange={(endsAt) => setRow(i, { endsAt })} />
+                    <View style={{ gap: 10 }}>
+                      <DateInput error={invalid?.input === "startsAt" || invalid?.input === "period"} label="예약 시작일" value={r.startsAt} onChange={(startsAt) => setRow(i, { startsAt })} />
+                      <DateInput error={invalid?.input === "endsAt" || invalid?.input === "period"} label="예약 종료일" value={r.endsAt} onChange={(endsAt) => setRow(i, { endsAt })} />
                     </View>
                   ) : null
                 ) : null}
+                {invalid && !invalid.optionId ? <View accessibilityRole="alert"><T variant="caption" color={tokens.color.error}>이 기간: {invalid.message}</T></View> : null}
                 {byWeight.length ? (
                   byWeight.map((o) => (
                     <View key={o.optionId} style={{ gap: 6 }}>
@@ -417,6 +444,7 @@ export function SalesTermsEditor({
                         <NumField
                           highlight={editable}
                           disabled={off}
+                          error={invalid?.optionId === o.optionId && invalid?.input === "price"}
                           label={`${o.label} 가격`}
                           value={cellOf(r, o.optionId).price}
                           unit="원"
@@ -425,12 +453,14 @@ export function SalesTermsEditor({
                         <NumField
                           highlight={editable}
                           disabled={off}
+                          error={invalid?.optionId === o.optionId && invalid?.input === "quantity"}
                           label={`${o.label} 박스 수`}
                           value={cellOf(r, o.optionId).quantity}
                           unit="박스"
                           onChange={(quantity) => !off && setCell(i, o.optionId, { quantity })}
                         />
                       </View>
+                      {invalid?.optionId === o.optionId ? <View accessibilityRole="alert"><T variant="caption" color={tokens.color.error}>이 기간: {invalid.message}</T></View> : null}
                       {reserved(r, o.optionId) ? (
                         <T variant="caption" muted>
                           {reserved(r, o.optionId)}박스 확보됨
@@ -450,10 +480,11 @@ export function SalesTermsEditor({
             <Button
               label={mode === "new" ? "＋ 얼리버드 기간 추가" : "＋ 예약 기간 추가"}
               variant="outline"
-              disabled={busy}
+              disabled={busy || !canAdd}
               onPress={() => {
+                if (!canAdd) return;
                 if (mode === "live" || !t.rows.length) {
-                  const start = addDays(t.rows.at(-1)?.endsAt ?? seoulToday(), 1);
+                  const start = nextStart;
                   set("rows", [
                     ...t.rows,
                     { key: newIdempotencyKey(), startsAt: start, endsAt: lastStageDay(t.deliveryWindow?.start, start), options: {} },
@@ -472,6 +503,12 @@ export function SalesTermsEditor({
                 set("rows", [early, { ...first, startsAt: addDays(early.endsAt, 1) }, ...t.rows.slice(1)]);
               }}
             />
+          ) : null}
+          {!canAdd && editable ? <T variant="caption" muted>추가할 수 있는 날짜가 없어요. 받는 시기를 늦추거나 기존 예약 기간을 조정해 주세요.</T> : null}
+          {mode === "live" && editable && firstPeriod?.startsAt > seoulToday() ? (
+            <Button label="＋ 얼리버드 기간 추가" variant="outline" disabled={busy} onPress={() => set("rows", [
+              { key: newIdempotencyKey(), startsAt: seoulToday(), endsAt: addDays(firstPeriod.startsAt, -1), options: {} }, ...t.rows,
+            ])} />
           ) : null}
           {mode === "live" ? (
             <T variant="caption" muted>

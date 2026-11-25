@@ -588,3 +588,174 @@ test("AC-01-31 임시 비밀번호는 아이디 계정·사용자 화면에서 �
     }
   }
 });
+
+// DEV-479: execute the public user-page handlers; the VM supplies only a tiny DOM/API adapter.
+async function productVisibilityHarness({ hidden = false, status = "PUBLISHED", post } = {}) {
+  const product = {
+    productId: "p-target-479", name: "(테스트)황금향", status, isHidden: hidden, version: 7,
+    options: [], photos: [], approvedSupplyGrams: 10000, salesLimitGrams: 8000,
+    salesPaused: false, availability: "AVAILABLE", updatedAt: "2026-11-24T00:00:00Z",
+  };
+  const detail = {
+    userId: "u-kang", nickname: "강영수", name: "강영수", role: "PRODUCER",
+    isTestAccount: true, accountKind: "SEED_TEST", signup: "SEED", withdrawn: false,
+    farm: { farmId: "f-kang", name: "강씨네 귤밭", approvalStatus: "APPROVED" },
+    products: [product], drafts: [], orders: [], consents: [], ordersTruncated: false,
+  };
+  const error = { textContent: "", innerHTML: "" };
+  const reload = { hidden: true };
+  let markup = "", reason = { value: "", focus() {}, reportValidity: () => true };
+  const slot = {
+    get innerHTML() { return markup; },
+    set innerHTML(value) {
+      markup = String(value);
+      const textarea = /<textarea\b[^>]*data-f=["']visibility-reason["'][^>]*>([\s\S]*?)<\/textarea>/i.exec(markup);
+      const input = /<input\b[^>]*data-f=["']visibility-reason["'][^>]*>/i.exec(markup);
+      const initial = textarea?.[1] ?? (input ? /\bvalue=["']([^"']*)/.exec(input[0])?.[1] ?? "" : "");
+      reason = { value: initial, focus() {}, reportValidity: () => true };
+    },
+    querySelector(selector) {
+      if (selector.includes("visibility-reload")) return reload;
+      if (selector === "input" || selector.includes("visibility-reason")) return /data-f=["']visibility-reason["']/.test(markup) ? reason : null;
+      if (selector.includes("data-visibility-error")) return error;
+      return null;
+    },
+    querySelectorAll() { return []; },
+  };
+  const article = {
+    dataset: { productId: product.productId },
+    querySelector(selector) { return selector === ".slot" ? slot : slot.querySelector(selector); },
+    querySelectorAll() { return []; },
+  };
+  const nodes = new Map([["#view", { innerHTML: "", onclick: null }]]);
+  const calls = [], notifications = [];
+  const context = {
+    location: { pathname: "/users/u-kang", search: "", href: "http://127.0.0.1:8090/users/u-kang" },
+    URL, URLSearchParams, console,
+    $: (selector) => {
+      if (!nodes.has(selector)) nodes.set(selector, { innerHTML: "", textContent: "", value: "" });
+      return nodes.get(selector);
+    },
+    document: { querySelector: (selector) => context.$(selector), querySelectorAll: () => [article] },
+    esc: (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;"),
+    when: (value) => String(value ?? ""), won: (value) => `${value ?? 0}원`,
+    toast: (...args) => notifications.push(args),
+    call: async (route, method = "GET", body) => {
+      calls.push({ route, method, body });
+      if (method === "POST") {
+        const result = post ? await post(route, method, body) : {
+          productId: product.productId, isHidden: body.isHidden, version: product.version + 1,
+        };
+        Object.assign(product, result);
+        return result;
+      }
+      return detail;
+    },
+  };
+  context.window = context;
+  const script = source("./api/_views/user.html").match(/<script>([\s\S]*?)<\/script>/)[1];
+  runInNewContext(script, context);
+  await new Promise((resolve) => setImmediate(resolve));
+  await context.load("u-kang");
+  calls.length = 0;
+  const buttons = [];
+  function button(act) {
+    const b = {
+      dataset: { act }, disabled: false,
+      closest(selector) {
+        if (selector === "button[data-act]") return this;
+        if (selector === "article") return article;
+        if (selector === ".slot") return slot;
+        return null;
+      },
+    };
+    buttons.push(b);
+    return b;
+  }
+  return {
+    context, product, slot, calls, notifications, error,
+    get input() { return reason; },
+    button,
+    click: async (actOrButton) => {
+      const target = typeof actOrButton === "string" ? button(actOrButton) : actOrButton;
+      return nodes.get("#view").onclick({ target, preventDefault() {} });
+    },
+  };
+}
+
+test("AC_23_13 product cards expose hide/restore only for eligible products and explain the isolated effect", async () => {
+  const h = await productVisibilityHarness();
+  const visible = h.context.productCard(h.product);
+  const hidden = h.context.productCard({ ...h.product, isHidden: true });
+  assert.match(visible, /data-act="visibility-form"/);
+  assert.match(hidden, /data-act="visibility-form"/);
+  assert.match(visible, />공개</);
+  assert.match(hidden, />숨김</);
+  assert.notEqual(hidden, visible, "the card must distinguish hidden from visible");
+  assert.doesNotMatch(h.context.productCard({ ...h.product, status: "DRAFT" }), /data-act="visibility-form"/);
+  assert.match(h.context.productCard({ ...h.product, status: "DRAFT", isHidden: true }), /data-act="visibility-form"/);
+  await h.click("visibility-form");
+  assert.match(h.slot.innerHTML, /\(테스트\)황금향/);
+  assert.match(h.slot.innerHTML, /주문/);
+  assert.match(h.slot.innerHTML, /그대로|유지|계속/);
+  assert.ok(h.input);
+  assert.equal(h.calls.length, 0);
+  await h.click("cancel");
+  assert.equal(h.calls.length, 0);
+  assert.doesNotMatch(h.slot.innerHTML, /data-act="visibility-save"/);
+});
+
+test("AC_23_14 visibility handler requires a reason, trims it, blocks duplicate clicks and reloads after success", async () => {
+  let finish;
+  const pending = new Promise((resolve) => { finish = resolve; });
+  const h = await productVisibilityHarness({ post: () => pending });
+  await h.click("visibility-form");
+  h.input.value = "  \n ";
+  await h.click("visibility-save");
+  assert.equal(h.calls.length, 0);
+  assert.match(h.slot.innerHTML, /data-act="visibility-save"/);
+  h.input.value = "  합성 테스트 상품만 숨겨요  ";
+  const save = h.button("visibility-save");
+  const saving = h.click(save);
+  await h.click(save);
+  const mutations = () => h.calls.filter((entry) => entry.method === "POST");
+  assert.equal(mutations().length, 1);
+  assert.equal(mutations()[0].route, "/admin/products/p-target-479/visibility");
+  assert.deepEqual(JSON.parse(JSON.stringify(mutations()[0].body)), { isHidden: true, version: 7, reason: "합성 테스트 상품만 숨겨요" });
+  assert.equal(save.disabled, true);
+  finish({ productId: "p-target-479", isHidden: true, version: 8 });
+  await saving;
+  assert.ok(h.calls.some((entry) => entry.method === "GET" && entry.route === "/admin/users/u-kang"));
+});
+
+test("AC_23_14 restore sends inverse visibility and a failed request preserves reason with refresh available", async () => {
+  const h = await productVisibilityHarness({ hidden: true, post: async () => { throw new Error("version changed"); } });
+  await h.click("visibility-form");
+  h.input.value = "확인 후 다시 공개";
+  await h.click("visibility-save");
+  const mutation = h.calls.find((entry) => entry.method === "POST");
+  assert.equal(mutation.route, "/admin/products/p-target-479/visibility");
+  assert.deepEqual(JSON.parse(JSON.stringify(mutation.body)), { isHidden: false, version: 7, reason: "확인 후 다시 공개" });
+  assert.equal(h.input.value, "확인 후 다시 공개");
+  assert.ok(/visibility-reload/.test(h.slot.innerHTML) || /visibility-reload/.test(h.error.innerHTML));
+  assert.equal(h.calls.filter((entry) => entry.method === "GET").length, 0);
+  await h.click("visibility-reload");
+  assert.ok(h.calls.some((entry) => entry.method === "GET" && entry.route === "/admin/users/u-kang"));
+});
+
+test("AC_23_13 visibility proxy permits only the exact safe POST path with session and same origin", async () => {
+  const target = "/admin/products/p-target_479/visibility";
+  const url = "/api/proxy?path=" + encodeURIComponent(target);
+  assert.equal((await call(proxy, { method: "POST", url })).status, 401);
+  const cookie = await signIn();
+  assert.equal((await call(proxy, { method: "POST", url, headers: { cookie, origin: "https://evil.example" } })).status, 403);
+  assert.equal((await call(proxy, { method: "POST", url, headers: { cookie, origin: "http://127.0.0.1:8090" } })).status, 502);
+  for (const [route, method] of [
+    [target, "GET"], [target, "DELETE"], [target + "/extra", "POST"], [target + "?x=1", "POST"],
+    ["/admin/products/../orders/visibility", "POST"], ["/admin/products/p%2Fother/visibility", "POST"],
+    ["/admin/products/p-target_479/visibility-reset", "POST"],
+  ]) {
+    const response = await call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(route), headers: { cookie } });
+    assert.equal(response.status, 400, `${method} ${route}`);
+  }
+});

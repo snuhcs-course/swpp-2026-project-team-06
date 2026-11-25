@@ -244,7 +244,9 @@ test("AC-08-8 DEV-320: definitive deposit price conflict permits a corrected res
     await expect(page.getByText("가격이 바뀌었어요", { exact: true })).toBeVisible();
     expect((await getOrder(request, token, rejectedId)).status).toBe("PENDING_PAYMENT");
     expect((await consumerOrders(request, token)).filter((order) => !before.has(order.orderId))).toEqual([]);
+    await page.getByRole("button", { name: "주문서로 돌아가기", exact: true }).click();
     await page.getByLabel("배송 메모", { exact: true }).fill("새 금액 확인 후 수정");
+    await page.getByRole("button", { name: "바뀐 금액 확인하기", exact: true }).click();
     await page.getByRole("button", { name: "바뀐 금액으로 예약하기", exact: true }).click();
     await expect(page).toHaveURL(/\/pay(?:\?|$)/);
     expect(calls.creates).toHaveLength(2);

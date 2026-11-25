@@ -10,7 +10,7 @@ import { useSession } from "./session";
 import { copyText } from "./views";
 
 /** 연주황 면은 생산자 기준표 accent 옅은 배경(apps/producer/spec.md DEV-294), 테두리는 Figma C3·D 값 */
-const TINT = "#FDECE2";
+const TINT = tokens.color.accentSoft;
 const TINT_BORDER = "#F6D9C4";
 
 export function ConsumerShareBar({ farm }: { farm: MyFarm }) {

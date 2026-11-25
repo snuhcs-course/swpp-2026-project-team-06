@@ -16,7 +16,9 @@ import {
   farms,
   newIdempotencyKey,
   productWorkspace,
+  readStore,
   uploadSource,
+  writeStore,
   sourceAnalysis as api,
   type DraftStage,
   type MyProduct,
@@ -66,7 +68,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, Pressable, TextInput, View, type ScrollView } from "react-native";
+import { ActivityIndicator, Platform, Pressable, TextInput, View, type ScrollView } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { toPageData } from "./BuyerPreview";
 import { useHideTabBar, useSession } from "./session";
@@ -336,10 +338,12 @@ const isFresh = (d: SourceDraft, reviewVersion: number, batchVersion: number) =>
   // 서버 apply와 같은 판정: batchVersion 없는 초안은 최신이 아니다.
   (d.snapshot.batchVersion ?? -1) === batchVersion;
 // 이 상품에 마지막으로 반영한 초안(id:version). 같은 초안을 다시 apply하면 서버가 대표사진을 또 복사하므로
-// 새로고침 뒤에도 알 수 있게 세션 저장소에 둔다. 초안이 바뀌면(사진만 바뀌어도 새 버전) 다시 반영한다.
+// 새로고침 뒤에도 알 수 있게 웹은 세션 저장소에 둔다. 앱에는 sessionStorage가 없어(DEV-471) 공용 저장소
+// (readStore/writeStore, SecureStore)에 둔다. 초안이 바뀌면(사진만 바뀌어도 새 버전) 다시 반영한다.
 const appliedKey = (productId: string) =>
   `farmclub-producer:applied-draft:${productId}`;
 const readApplied = (productId: string) => {
+  if (Platform.OS !== "web") return readStore(appliedKey(productId)) ?? "";
   try {
     return sessionStorage.getItem(appliedKey(productId)) ?? "";
   } catch {
@@ -347,6 +351,7 @@ const readApplied = (productId: string) => {
   }
 };
 const writeApplied = (productId: string, value: string) => {
+  if (Platform.OS !== "web") return writeStore(appliedKey(productId), value);
   try {
     sessionStorage.setItem(appliedKey(productId), value);
   } catch {
@@ -863,7 +868,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         event.returnValue = "";
       }
     };
-    if (typeof window === "undefined") return;
+    // 웹 전용: 탭을 닫을 때 경고. 앱(React Native)은 window가 전역 객체라 있지만 addEventListener가 없어서
+    // typeof window 검사만으로는 막지 못하고 TypeError로 화면 전체가 지워졌다(DEV-471 원스토어 반려, DetailEditor와 같은 분기).
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty, busy]);
@@ -2254,6 +2261,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                                 review={review}
                                 drafts={drafts}
                                 saveRef={saveEditor}
+                                onReload={async () => {
+                                  // Parent form/terms remain untouched. Clear only editor errors after all reads succeed.
+                                  await load();
+                                  setError(null);
+                                  setNotice("판매페이지를 다시 불러왔어요. 다른 입력 내용은 그대로 남아 있어요.");
+                                }}
                                 onDirty={setEditorDirty}
                                 onBusy={editorBusy}
                                 onSaved={async () => {

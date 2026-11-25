@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import * as Clipboard from "expo-clipboard";
-import { Linking, Pressable, View } from "react-native";
+import { Keyboard, Linking, Pressable, View } from "react-native";
 
 const CONSUMER_URL = process.env.EXPO_PUBLIC_CONSUMER_URL || "https://farmclub.kr";
 
@@ -16,7 +16,7 @@ export const ORDER_STATUS: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "입금 안내 전",
   AWAITING_DEPOSIT: "입금 대기",
   RESERVED: "예약 완료",
-  PREPARING: "출하 준비",
+  PREPARING: "배송 대기",
   SHIPPED: "출하",
   DELIVERED: "배송 완료",
   COMPLETED: "구매 확정",
@@ -164,7 +164,12 @@ export function FieldButton({
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value || "비어 있음"}`}
         disabled={disabled}
-        onPress={onPress}
+        onPress={() => {
+          // 칸 모양 버튼은 다른 입력칸 대신 시트를 연다. 키보드가 떠 있으면 먼저 닫는다(DEV-477: 시트가 첫 탭을 받게 된 뒤
+          // 판매 조건에서 키보드를 띄운 채 날짜 칸을 누르면 키보드 위에 날짜 시트가 겹쳤다)
+          Keyboard.dismiss();
+          onPress();
+        }}
         style={{
           height: 48,
           borderRadius: tokens.radius.sm,

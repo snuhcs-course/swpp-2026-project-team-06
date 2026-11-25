@@ -137,9 +137,11 @@ def test_DEV_93_restore_reopens_only_farms_this_command_hid(client):
     restore("f-kang", commit=True)
 
     assert farm_state("f-kang") == ("APPROVED", None)
-    assert [e.event_type for e in farm_events("f-kang")] == [
-        "test_farm_retired",
+    # FIXED_NOW라 두 감사 행의 시각이 같아 created_at 정렬 순서가 정해지지 않는다.
+    # 두 기록이 모두 남았는지만 본다(순서 비교는 행 위치에 따라 흔들렸다)
+    assert sorted(e.event_type for e in farm_events("f-kang")) == [
         "test_farm_restored",
+        "test_farm_retired",
     ]
     assert client.get("/api/farms/f-kang").status_code == 200
     # 제재로 정지된 농가는 풀지 않는다.
