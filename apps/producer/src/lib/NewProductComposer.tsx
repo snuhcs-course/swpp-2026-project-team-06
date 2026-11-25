@@ -255,7 +255,6 @@ function changedKeys(p: MyProduct, form: ProductForm, terms: Terms | null): stri
 type ChangeRow = { label: string; before: string | null; after: string | null };
 type ChangeRows = { now: ChangeRow[]; newOrders: ChangeRow[]; consent: ChangeRow[] };
 const won = (n: number | null | undefined) => (n == null ? null : `${n.toLocaleString("ko-KR")}원`);
-const boxes = (n: number | null | undefined) => (n == null ? null : `${n.toLocaleString("ko-KR")}박스`);
 const shortDay = (iso: string) => iso.slice(5).replace("-", ".");
 /** '11월 10일~20일'(같은 달), '11월 28일~12월 3일' */
 function rangeText(w: { start: string; end: string } | null): string | null {
@@ -268,7 +267,7 @@ const feeText = (t: Pick<Terms, "shippingFeeType" | "shippingFee">) =>
   t.shippingFeeType === "FREE" ? "무료" : (won(t.shippingFee ?? 0) ?? "무료");
 /**
  * 화면 값(상품 칸·판매 조건)과 지금 상품의 차이를 바뀐 칸 하나에 한 줄로(PM 11/18). 묶음은 서버 저장 방식과 같다:
- * 바로 보임(상품 칸·중량 옵션) / 새 예약부터(기간·가격·박스·배송비·환불 날짜, 예약자가 없을 때 받는 시기) /
+ * 바로 보임(상품 칸·중량 옵션) / 새 예약부터(기간·가격·배송비·환불 날짜, 예약자가 없을 때 받는 시기) /
  * 예약자 동의 필요(예약자가 있을 때 받는 시기, R-21)
  */
 function diffRows(p: MyProduct, form: ProductForm, terms: Terms | null, reserved: number): ChangeRows {
@@ -308,7 +307,6 @@ function diffRows(p: MyProduct, form: ProductForm, terms: Terms | null, reserved
       const a = cellOf(r, o.optionId),
         b = old ? cellOf(old, o.optionId) : { price: null, quantity: null };
       row(newOrders, `${name} · ${o.label} 가격`, won(b.price), won(a.price));
-      row(newOrders, `${name} · ${o.label} 박스`, boxes(b.quantity), boxes(a.quantity));
     }
     // 옵션을 뺀 기간의 칸은 따로 적지 않는다(중량 옵션 줄이 보인다)
   });
@@ -1802,7 +1800,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       return (
         <View testID="sales-next-step" style={{ padding: 14, borderRadius: 16, borderWidth: 1.5, borderStyle: "dashed", borderColor: "#E9B980", backgroundColor: "#FFF7EB", gap: 4 }}>
           <T weight="semibold">판매 조건은 다음 단계에서 정해요</T>
-          <T variant="caption" muted>받는 시기 · 가격 · 박스 수 · 배송비</T>
+          <T variant="caption" muted>받는 시기 · 가격 · 배송비</T>
         </View>
       );
     if (!terms) return undefined;

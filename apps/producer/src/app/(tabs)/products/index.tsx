@@ -35,7 +35,7 @@ import {
   draftSaved,
 } from "../../../lib/productGroups";
 /**
- * DEV-300: 카드 물량 = 옵션마다 '5kg  32,000원   24박스 / 72박스'(가격은 지금 판매 기간, 박스는 모든 기간 합).
+ * DEV-300: 카드 물량 = 옵션마다 '5kg  32,000원   24박스 예약'(가격은 지금 판매 기간, 박스는 모든 기간 합. DEV-487부터 판매 박스는 안 보임).
  * 목록 카드(`GET /api/products/mine`)의 `options`를 바로 쓴다(카드마다 상세를 읽지 않는다). 옵션이 없으면 예전 kg 줄.
  */
 function SalesLine({ product }: { product: MyProductCard }) {

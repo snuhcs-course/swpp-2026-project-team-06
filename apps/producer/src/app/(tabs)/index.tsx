@@ -1,6 +1,6 @@
 // SCR-22 / FEAT-14: order and shipping management only (plus the pinned consumer share bar under the header, DEV-331).
 // DEV-294: 머리 1단(현황 + 농가·날짜), 할 일 한 줄 목록, 주문 4칸 카드, 예약·출하 물량 줄(Figma 검토본 1:62)
-// DEV-300: 물량은 중량 옵션마다 '5kg  32,000원   예약+출하 N박스 / 판매 M박스'(가격은 지금 기간, 박스는 모든 기간 합), 상품 kg 합계는 보조 글자
+// DEV-300: 물량은 중량 옵션마다 '5kg  32,000원   N박스 예약'(가격은 지금 기간, 박스는 모든 기간 합), 상품 kg 합계와 kg 막대(DEV-487부터 옵션별 막대 대신)
 import { allPages, catalog, farms, orders } from "@farmclub/api";
 import {
   BrandLogo,
@@ -23,7 +23,6 @@ import { OptionBoxRow } from "../../lib/OptionBoxRow";
 import {
   optionBoxesFromDashboard,
   optionBoxesLabel,
-  optionBoxesRatio,
 } from "../../lib/optionBoxes";
 import { HelpButton } from "../../lib/Tour";
 import { useSession } from "../../lib/session";
@@ -417,34 +416,17 @@ export default function Home() {
                       {boxes.length ? `총 ${totalKg}` : totalKg}
                     </T>
                   </View>
-                  {boxes.length ? (
-                    boxes.map((row) => (
-                      <View
-                        key={row.optionId}
-                        style={{ gap: tokens.space.xs }}
-                      >
-                        <OptionBoxRow row={row} />
-                        <View
-                          accessibilityRole="progressbar"
-                          accessibilityLabel={`${row.label} 판매 박스 대비 예약·출하`}
-                          accessibilityValue={{
-                            min: 0,
-                            max: 100,
-                            now: Math.round(optionBoxesRatio(row) * 100),
-                          }}
-                        >
-                          <Bar ratio={optionBoxesRatio(row)} height={4} />
-                        </View>
-                      </View>
-                    ))
-                  ) : (
-                    <View
-                      accessibilityRole="progressbar"
-                      accessibilityValue={{ min: 0, max: 100, now: Math.round(ratio * 100) }}
-                    >
-                      <Bar ratio={ratio} height={6} />
-                    </View>
-                  )}
+                  {/* DEV-487: 기간 박스 수가 없어(제한 없음) 옵션별 막대 대신 상품 kg 막대 하나 */}
+                  {boxes.map((row) => (
+                    <OptionBoxRow key={row.optionId} row={row} />
+                  ))}
+                  <View
+                    accessibilityRole="progressbar"
+                    accessibilityLabel="판매 한도 대비 예약·출하"
+                    accessibilityValue={{ min: 0, max: 100, now: Math.round(ratio * 100) }}
+                  >
+                    <Bar ratio={ratio} height={6} />
+                  </View>
                 </View>
               </Pressable>
             </View>
