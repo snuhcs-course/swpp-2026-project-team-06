@@ -409,8 +409,8 @@ export function SalesTermsEditor({
           {t.rows.map((r, i) => {
             const fixed = locked(r);
             const invalid = problem?.rowKey === r.key ? problem : null;
-            // 예약이 있는 기간은 날짜를 못 바꾼다(서버 PERIOD_LOCKED). 칸은 회색으로 두고 누르지 못한다
-            const dateEditable = editable && !fixed && !off;
+            // 예약이 있는 기간도 날짜는 고친다. 받은 예약은 그 기간에 그대로 속하고, 지우기만 막는다(DEV-489)
+            const dateEditable = editable && !off;
             const dates = `${md(r.startsAt)} ~ ${md(r.endsAt)}`;
             const label = `${t.rows.length > 1 ? `${i + 1}기간 · ` : ""}${dates} 예약`;
             // 날짜 순서로 마지막 기간이 아니면 다음 기간이 있다(얼리버드 안내)
@@ -460,12 +460,6 @@ export function SalesTermsEditor({
                     </Pressable>
                   ) : null}
                 </View>
-                {fixed ? (
-                  // 회색 날짜 칸이 왜 눌리지 않는지(scan). 예약 있는 기간 날짜 고치기는 다음 PR
-                  <T variant="caption" muted>
-                    예약 이력이 있어 날짜는 유지해요. 가격은 새 주문부터 적용돼요.
-                  </T>
-                ) : null}
                 {/* 오류 문구는 부르는 쪽이 토스트·하단 줄로 한 번만 보인다(DEV-486). 여기서는 칸만 강조한다 */}
                 {byWeight.length ? (
                   byWeight.map((o) => (
