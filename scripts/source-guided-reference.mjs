@@ -38,6 +38,8 @@ async function prepare() {
   const fixture = JSON.parse(await readFile(path.resolve(fixturePath), 'utf8'));
   const design = getSourceStoryDesign(fixture.content?.modules ?? [], fixture.design);
   if (!design || !Array.isArray(fixture.localAssets)) throw Error('Invalid reference fixture or bounded source design');
+  const label = fixture.previewLabel ?? "Local design reference · curated source plan · human review pending";
+  if (typeof label !== "string" || label.length > 240 || /[\u0000-\u001f]/.test(label)) throw Error("Invalid preview label");
   const expected = new Set(Object.values(design.media).map(m => m.uri));
   const assets = [];
   for (const a of fixture.localAssets) {
@@ -65,10 +67,13 @@ export default function SourceReferenceLocal() {
   if (mode === "invalid") design = { ...fixture.design, theme: "invalid" };
   if (mode === "hidden") content = { ...content, hiddenSectionIds: ["taste"] };
   if (mode === "empty") content = { ...content, modules: [] };
-  if (mode === "broken") design = { ...fixture.design, media: { ...fixture.design.media, heroFruit: { ...fixture.design.media.heroFruit, uri: "/__source_reference/missing.png" } } };
+  if (mode === "broken") {
+    const id = Object.keys(fixture.design.media)[0] as keyof typeof fixture.design.media;
+    if (id) design = { ...fixture.design, media: { ...fixture.design.media, [id]: { ...fixture.design.media[id], uri: "/__source_reference/missing.png" } } };
+  }
   return <ScrollView style={{ flex: 1, backgroundColor: "#E8E2D8" }}>
     <View style={{ width: "100%", maxWidth: 480, alignSelf: "center" }}>
-      <View style={{ padding: 16, backgroundColor: "#FFF6E9" }}><Text style={{ fontSize: 14, lineHeight: 20, color: "#493B2D" }}>Local design reference · curated source plan · saved experimental text · human review pending</Text></View>
+      <View style={{ padding: 16, backgroundColor: "#FFF6E9" }}><Text style={{ fontSize: 14, lineHeight: 20, color: "#493B2D" }}>{${JSON.stringify(label)}}</Text></View>
       <ModuleStory content={content} design={design} />
     </View>
   </ScrollView>;

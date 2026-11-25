@@ -87,6 +87,7 @@ test-source-final: ## Offline stage-2 evaluator and final-text scorer tests (DEV
 test-source-design: ## Bounded automatic source visual/page-plan tests (DEV-463)
 	@$(LOCAL_DB_ONLY)
 	$(SERVER) uv run pytest tests/test_source_design.py tests/test_design_preview.py
+	node --test scripts/test-source-guided-story.mjs scripts/test-source-story-presentation.mjs
 
 .PHONY: test-source-copy
 test-source-copy: ## Source-bound copy and option grouping regressions (DEV-450)

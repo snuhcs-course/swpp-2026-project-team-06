@@ -212,3 +212,5 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 Implementation contracts: docs/evaluation/i5-source-guided-reference/spec.md. ModuleStory gains only an explicit optional design prop for a local readonly reference; default/editor paths stay unchanged. Shared renderer/typed plan use bounded citrus theme and source-bound visual roles. No server persistence or automatic source-design inference.
 
 DEV-464: web PhotoViewer focuses its close button on modal show so the existing local Escape listener receives keyboard events. Native behavior unchanged.
+
+- DEV-464 visual refresh uses exact frozen current copy with contextual source-photo evidence. Explicit SourceGuidedStory opt-in adds icon headings, stronger type hierarchy, structured source option cards and conservative exact-duplicate presentation accounting. Source strings remain unchanged; unsupported prose stays prose. Comparison graphic is inspectable without being repeated at full length in the main story. No default/editor/persistence change or product claims.
