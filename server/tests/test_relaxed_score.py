@@ -253,3 +253,57 @@ def test_AC_SRC_2_format_identity_cannot_be_overridden():
     data[1][0]["format"] = "pdf"
     with pytest.raises(ValueError, match="format"):
         score(data)
+
+
+@pytest.mark.parametrize(
+    "actual,tokens",
+    [
+        (["포장합니다.", "1~2개 더 넣습니다."], ["1~2개"]),
+        (["박스 무게 0.5kg\nSince1966"], ["0.5kg"]),
+    ],
+)
+def test_AC_SRC_2_v2_pagewide_preserves_paragraph_boundaries(actual, tokens):
+    report = score(inputs("포장 단위 설명입니다.", actual, tokens=tokens))
+    assert report["byFact"][0]["pageWideSelectorHit"] is True
+
+
+def test_AC_SRC_2_v2_selector_alias_is_fact_source_bound_and_lexical_only():
+    data = inputs(
+        "비닐팩에 담아 실온에서 후숙합니다.",
+        ["비닐펙에 담아 실온에서 후숙합니다."],
+        tokens=["비닐팩", "실온", "후숙"],
+    )
+    data[2]["sample"] = data[1][0]["modules"][0]["texts"][0]
+    meta = data[3]["sources"]["sample"]["facts"]["f1"]
+    meta["selectorAliases"] = [["비닐펙", "실온", "후숙"]]
+    meta["evidenceSafeTextSha256"] = sha256(data[2]["sample"].encode())
+    report = score(data)
+    assert report["byFact"][0]["linkedSelectorHit"] is True
+    assert report["byFact"][0]["selectorAliasHit"] is True
+    assert report["byFact"][0]["status"] == "SELECTOR_MATCH"
+    assert report["byRequirement"]["essential"]["boundedPreservation"]["hit"] == 0
+
+
+@pytest.mark.parametrize("actual", ["당도12브릭스 이하입니다.", "당도14브릭스 이상입니다."])
+def test_AC_SRC_3_v2_threshold_or_number_change_cannot_be_bounded_preserved(actual):
+    report = score(inputs("당도12브릭스 이상입니다.", [actual], tokens=["당도", "브릭스"]))
+    assert report["byFact"][0]["status"] != "PRESERVED"
+    assert report["byRequirement"]["essential"]["boundedPreservation"]["hit"] == 0
+
+
+@pytest.mark.parametrize("mutation", ["safeHash", "missingHash", "wrongOption", "wrongNumber"])
+def test_AC_SRC_3_v2_relaxed_alias_stale_or_wrong_scope_rejected(mutation):
+    data = inputs()
+    meta = data[3]["sources"]["sample"]["facts"]["f1"]
+    meta["selectorAliases"] = [["A옵션", "4kg"]]
+    meta["evidenceSafeTextSha256"] = sha256(data[2]["sample"].encode())
+    if mutation == "safeHash":
+        meta["evidenceSafeTextSha256"] = "0" * 64
+    elif mutation == "missingHash":
+        del meta["evidenceSafeTextSha256"]
+    elif mutation == "wrongOption":
+        meta["selectorAliases"] = [["B옵션", "4kg"]]
+    elif mutation == "wrongNumber":
+        meta["selectorAliases"] = [["A옵션", "14kg"]]
+    with pytest.raises(ValueError):
+        score(data)

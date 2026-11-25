@@ -7,31 +7,17 @@ Reports contain hashes, IDs and counts, never source or output text.
 
 import re
 from collections import Counter
-from decimal import Decimal
 
 from app.source_analysis import final_score as legacy
 from app.source_analysis.corpus_score import FORMATS, canonical_bytes, sha256
+from app.source_analysis.scoring_text import (
+    mechanical,
+    selector_contains,
+    sensitive_tokens,
+    validate_selector_aliases,
+)
 
-VERSION = "dev448-text-v1"
-
-
-def mechanical(text):
-    """Small meaning-preserving envelope; no dictionary of broad synonyms."""
-    value = legacy.normalize_final(text).casefold()
-    value = re.sub(r"브릭\s+스", "brix", value)
-    value = re.sub(r"(?<=\d)\s*[-–]\s*(?=\d)", "~", value)
-    # Expand a shared range unit before converting either endpoint.
-    value = re.sub(
-        r"(?<![\d.])(\d+(?:\.\d+)?)\s*~\s*(\d+(?:\.\d+)?)\s*(kg|g)(?![a-z])", r"\1\3~\2\3", value
-    )
-    # Both endpoints of a range keep the same physical dimension.
-    value = re.sub(
-        r"(?<![\d.])(\d+(?:\.\d+)?)\s*(kg|g)(?![a-z])",
-        lambda m: f"{Decimal(m[1]) * (1000 if m[2] == 'kg' else 1):f}g",
-        value,
-    )
-    value = re.sub(r"(?<=\d)\.0+(?=g)", "", value)
-    return re.sub(r"\s+", "", value).strip(".。!?;:")
+VERSION = "dev448-text-v2"
 
 
 def _clauses(text):
@@ -74,16 +60,7 @@ def _source_bound(text, safe):
 
 
 def _lexical_match(tokens, text):
-    """Page-wide selector diagnostic only; never semantic support or truth."""
-    value = mechanical(text)
-    for token in tokens:
-        normalized = mechanical(token)
-        # Prevent a selector 4kg matching 14kg (including normalized g units).
-        before = r"(?<![\d.])" if normalized[:1].isdigit() else ""
-        after = r"(?![\d.])" if normalized[-1:].isdigit() else ""
-        if not re.search(before + re.escape(normalized) + after, value):
-            return False
-    return True
+    return selector_contains(tokens, text)
 
 
 def _quantities(text):
@@ -143,7 +120,7 @@ def _presence_relations(text):
     result = set()
     for clause in _clauses(text):
         for match in re.finditer(r"(씨|점|흠)(?:이|가|은|는)?(없|있)", clause):
-            subject = re.sub(r"(?:에는|에서는|은|는|에|의|이|가)$", "", clause[:match.start()])
+            subject = re.sub(r"(?:에는|에서는|은|는|에|의|이|가)$", "", clause[: match.start()])
             result.add((subject, match[1], match[2]))
     return result
 
@@ -153,18 +130,25 @@ def _conflict(output, evidence, *, safe=None, source_alternative=None):
     out = mechanical(output)
     alternative = (
         safe is not None and _source_alternative(output, safe)
-        if source_alternative is None else source_alternative
+        if source_alternative is None
+        else source_alternative
     )
     for reference in evidence:
         ref = mechanical(reference)
-        if (not alternative and _skeleton(out) == _skeleton(ref)
-                and _quantities(out) != _quantities(ref)):
+        if (
+            not alternative
+            and _skeleton(out) == _skeleton(ref)
+            and _quantities(out) != _quantities(ref)
+        ):
             return "QUANTITY_RELATION_CHANGED"
         # Compare each typed subject/value clause, preserving option/product labels.
         for oc in _clauses(output):
             for rc in _clauses(reference):
-                if (not alternative and _skeleton(oc) == _skeleton(rc)
-                        and _quantities(oc) != _quantities(rc)):
+                if (
+                    not alternative
+                    and _skeleton(oc) == _skeleton(rc)
+                    and _quantities(oc) != _quantities(rc)
+                ):
                     return "QUANTITY_RELATION_CHANGED"
         output_measurements = tuple(
             q for q in _quantities(output) if not re.fullmatch(r"\d{4}년", q)
@@ -338,6 +322,7 @@ def score(
     fact_judgments=None,
     placement_rules=None,
     correct_empty_ids=(),
+    selector_aliases=None,
 ):
     """Opt-in report wrapping an unchanged legacy report.
 
@@ -361,6 +346,7 @@ def score(
             {} if fact_judgments is None else fact_judgments,
             {} if placement_rules is None else placement_rules,
             correct_empty_ids,
+            {} if selector_aliases is None else selector_aliases,
         )
     except (ValueError, TypeError, KeyError, AttributeError, IndexError):
         raise ValueError("Invalid text-score input (details redacted)") from None
@@ -376,13 +362,14 @@ def _score(
     fact_judgments,
     placement_rules,
     correct_empty_ids,
+    selector_aliases,
 ):
     parsed = legacy.Gold.model_validate(gold)
     runs = {r.id: r for r in (legacy.Run.model_validate(r) for r in records)}
     ids = {s.id for s in parsed.sources}
     if any(
         not isinstance(m, dict) or set(m) - ids
-        for m in (semantic_judgments, fact_judgments, placement_rules)
+        for m in (semantic_judgments, fact_judgments, placement_rules, selector_aliases)
     ):
         raise ValueError
     empty_ids = set(correct_empty_ids)
@@ -392,6 +379,33 @@ def _score(
     rows = []
     for source in parsed.sources:
         safe = safe_texts[source.id]
+        raw_source = next(
+            s
+            for s in (gold["sources"] if isinstance(gold, dict) else gold.model_dump()["sources"])
+            if s["id"] == source.id
+        )
+        aliases = selector_aliases.get(source.id, {})
+        if aliases and (
+            set(aliases) != {"sourceSha256", "safeTextSha256", "facts"}
+            or aliases["sourceSha256"] != sha256(canonical_bytes(raw_source))
+            or aliases["safeTextSha256"] != sha256(safe.encode())
+        ):
+            raise ValueError
+        alias_facts = aliases.get("facts", {})
+        known_facts = {f.id: f for sentence in source.sentences for f in sentence.facts}
+        if not isinstance(alias_facts, dict) or set(alias_facts) - set(known_facts):
+            raise ValueError
+        for fid, meta in alias_facts.items():
+            if (
+                not isinstance(meta, dict)
+                or set(meta) != {"selectorAliases", "reason", "sourceRef"}
+                or not isinstance(meta["reason"], str)
+                or not meta["reason"].strip()
+                or not isinstance(meta["sourceRef"], str)
+                or not meta["sourceRef"].strip()
+            ):
+                raise ValueError
+            validate_selector_aliases(known_facts[fid].mustContain, meta["selectorAliases"], safe)
         run = runs.get(source.id)
         output = (
             [(m.module, s) for m in run.modules for t in m.texts for s in legacy.split_sentences(t)]
@@ -438,15 +452,15 @@ def _score(
                 state, reason = "UNSUPPORTED", conflict_reason
             elif any(
                 legacy.unsupported_tokens(
-                    legacy.sensitive_tokens(sentence, cultivar_words),
-                    legacy.sensitive_tokens(safe, cultivar_words),
+                    sensitive_tokens(sentence, cultivar_words),
+                    sensitive_tokens(safe, cultivar_words),
                 ).values()
             ):
                 # Use normalized quantities so approved g/kg conversions are not rejected.
                 extra = set(_quantities(sentence)) - set(_quantities(safe))
                 nonnumeric = legacy.unsupported_tokens(
-                    legacy.sensitive_tokens(sentence, cultivar_words),
-                    legacy.sensitive_tokens(safe, cultivar_words),
+                    sensitive_tokens(sentence, cultivar_words),
+                    sensitive_tokens(safe, cultivar_words),
                 )
                 if extra or nonnumeric["cultivar"] or nonnumeric["certification"]:
                     state, reason = "UNSUPPORTED", "NEW_SENSITIVE_VALUE"
@@ -527,12 +541,19 @@ def _score(
                 fid,
                 [m for m in legacy.TEXT_MODULES if legacy.MODULE_SECTIONS[m] == reference.section],
             )
+            selectors = [fact.mustContain, *alias_facts.get(fid, {}).get("selectorAliases", [])]
             lexical = [
                 i
                 for i, (_, text) in enumerate(output)
-                if usable and _lexical_match(fact.mustContain, text)
+                if usable and any(_lexical_match(tokens, text) for tokens in selectors)
             ]
-            pagewide_lexical = usable and _lexical_match(fact.mustContain, "\n".join(sentences))
+            page_texts = [text for module in run.modules for text in module.texts] if run else []
+            pagewide_lexical = usable and any(
+                _lexical_match(tokens, page_texts) for tokens in selectors
+            )
+            selector_alias_hit = usable and any(
+                _lexical_match(tokens, page_texts) for tokens in selectors[1:]
+            )
             c["lexicalHit"] += int(pagewide_lexical)
             c["lexicalCriticalHit"] += int(pagewide_lexical and fact.critical)
             c["lexicalPrimary"] += int(any(output[i][0] == reference.module for i in lexical))
@@ -588,12 +609,28 @@ def _score(
             fact_rows.append(
                 {
                     "factId": fid,
+                    "pageWideSelectorHit": bool(pagewide_lexical),
+                    "primarySelectorHit": any(output[i][0] == reference.module for i in lexical),
+                    "permittedSelectorHit": any(output[i][0] in allowed for i in lexical),
+                    "selectorAliasHit": bool(selector_alias_hit),
                     "status": state,
                     "placement": placement,
                     "outputSentenceIndices": matched,
                 }
             )
+        extras = (
+            set().union(
+                *(sensitive_tokens(sentence, cultivar_words)["number"] for sentence in sentences)
+            )
+            - sensitive_tokens(safe, cultivar_words)["number"]
+        )
         row = {
+            "numericDiagnostics": {
+                "version": "dev448-mechanical-v2",
+                "legacyUnsupportedNumbers": legacy_rows[source.id]["unsupported"].get("number", 0),
+                "normalizedUnsupportedNumbers": len(extras),
+                "unsupportedNumberHashes": sorted(sha256(token.encode()) for token in extras),
+            },
             "id": source.id,
             "format": source.format,
             "counts": dict(c),
@@ -626,6 +663,16 @@ def _score(
             "Lexical diagnostics never establish correctness or acceptance.",
             "Unresolved reference-to-source paraphrases require source-bound review.",
         ],
+        "numericDiagnostics": {
+            "version": "dev448-mechanical-v2",
+            "legacyUnsupportedNumbers": sum(
+                row["numericDiagnostics"]["legacyUnsupportedNumbers"] for row in rows
+            ),
+            "normalizedUnsupportedNumbers": sum(
+                row["numericDiagnostics"]["normalizedUnsupportedNumbers"] for row in rows
+            ),
+        },
+        "selectorAliasesSha256": sha256(canonical_bytes(selector_aliases)),
         "legacy": historical,
         "sources": rows,
         "byFormat": by_format,

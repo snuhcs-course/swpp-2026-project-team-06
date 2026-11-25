@@ -9,6 +9,16 @@ from app.source_analysis import text_score
 from app.source_analysis.corpus_score import canonical_bytes, sha256
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _schema():
+    yield
+
+
+@pytest.fixture(autouse=True)
+def seeded():
+    yield
+
+
 def inputs(reference="감귤 4kg 한 상자입니다.", output=None, *, safe=None, critical=True):
     gold = {
         "schemaVersion": 1,
@@ -443,8 +453,7 @@ def test_AC_SRC_10_invalid_input_errors_never_expose_private_payload():
 
 @pytest.mark.parametrize("weight", ["2kg", "3kg", "5kg", "9kg"])
 def test_AC_SRC_3_exact_alternative_option_not_conflict_or_automatic_support(weight):
-    safe = "\n".join(f"0{i} 실속형 감귤 {w}" for i, w in
-                     enumerate(["2kg", "3kg", "5kg", "9kg"], 1))
+    safe = "\n".join(f"0{i} 실속형 감귤 {w}" for i, w in enumerate(["2kg", "3kg", "5kg", "9kg"], 1))
     output = f"실속형 감귤 {weight}"
     report = run(reference="실속형 감귤 2kg입니다.", safe=safe, output=[output])
     row = report["sources"][0]
@@ -468,10 +477,13 @@ def test_AC_SRC_3_complete_supported_options_do_not_contradict_each_other():
     assert report["acceptance"] == "PASS"
 
 
-@pytest.mark.parametrize("output", [
-    "껍질을 벗기고 먹다 보면 간혹 씨가 있는 경우도 있습니다.",
-    "외모가 울퉁불퉁 덜 예쁠 수 있으나 껍질을 쉽게 벗길 수 있습니다.",
-])
+@pytest.mark.parametrize(
+    "output",
+    [
+        "껍질을 벗기고 먹다 보면 간혹 씨가 있는 경우도 있습니다.",
+        "외모가 울퉁불퉁 덜 예쁠 수 있으나 껍질을 쉽게 벗길 수 있습니다.",
+    ],
+)
 def test_AC_SRC_3_unrelated_negative_season_or_appearance_cannot_reverse_property(output):
     safe = "감귤이 없는 시즌입니다. 껍질이 예쁘지 않습니다."
     report = run(reference="감귤 4kg 한 상자입니다.", safe=safe, output=[output])
@@ -493,8 +505,7 @@ def test_AC_SRC_3_exact_option_fragment_cannot_bypass_preceding_scope_heading():
 def test_AC_SRC_3_literal_numbered_option_keeps_ordinal_without_cross_option_conflict(
     ordinal, weight
 ):
-    safe = "\n".join(f"0{i} 실속형 감귤 {w}" for i, w in
-                     enumerate(["2kg", "3kg", "5kg", "9kg"], 1))
+    safe = "\n".join(f"0{i} 실속형 감귤 {w}" for i, w in enumerate(["2kg", "3kg", "5kg", "9kg"], 1))
     output = f"{ordinal} 실속형 감귤 {weight}"
     report = run(reference="감귤 2kg 한 상자입니다.", safe=safe, output=[output])
     assert report["sources"][0]["sentences"][0]["status"] == "UNKNOWN"
@@ -509,3 +520,100 @@ def test_AC_SRC_3_option_ordinals_are_not_globally_removed_to_rescue_swapped_val
     report = run(reference="감귤 2kg 한 상자입니다.", safe=safe, output=[output])
     assert report["sources"][0]["sentences"][0]["status"] == "UNSUPPORTED"
     assert report["acceptance"] == "FAIL"
+
+
+def test_AC_SRC_2_v2_pagewide_paragraph_numeric_boundary_has_per_fact_diagnostic():
+    gold, records, safe = inputs(
+        reference="추가 과수 1~2개입니다.", output=["포장합니다.", "1~2개 더 넣습니다."]
+    )
+    gold["sources"][0]["sentences"][0]["facts"][0]["mustContain"] = ["1~2개"]
+    report = text_score.score(gold, records, safe)
+    assert report["overall"]["lexicalDiagnostics"]["pagewideFactRecall"]["hit"] == 1
+    assert report["sources"][0]["facts"][0]["pageWideSelectorHit"] is True
+
+
+def test_AC_SRC_3_v2_corrected_brix_number_diagnostic_leaves_legacy_raw_immutable():
+    gold, records, safe = inputs(reference="당도 12브릭 스입니다.", output=["당도 12브릭스입니다."])
+    gold["sources"][0]["sentences"][0]["facts"][0]["mustContain"] = ["당도"]
+    report = text_score.score(gold, records, safe)
+    assert report["sources"][0]["numericDiagnostics"]["normalizedUnsupportedNumbers"] == 0
+    assert report["legacy"] == legacy.score(gold, records, safe)
+
+
+def selector_sidecar(gold, safe):
+    return {
+        "example": {
+            "sourceSha256": sha256(canonical_bytes(gold["sources"][0])),
+            "safeTextSha256": sha256(safe["example"].encode()),
+            "facts": {
+                "f1": {
+                    "selectorAliases": [["비닐펙", "실온", "후숙"]],
+                    "reason": "Invented source-specific spelling review",
+                    "sourceRef": "line1",
+                }
+            },
+        }
+    }
+
+
+def alias_inputs():
+    gold, records, safe = inputs(
+        reference="비닐팩에 담아 실온에서 후숙합니다.",
+        output=["비닐펙에 담아 실온에서 후숙합니다."],
+        safe="비닐펙에 담아 실온에서 후숙합니다.",
+    )
+    gold["sources"][0]["sentences"][0]["facts"][0]["mustContain"] = ["비닐팩", "실온", "후숙"]
+    return gold, records, safe
+
+
+def test_AC_SRC_2_v2_optional_alias_layer_is_lexical_only_and_source_scoped():
+    gold, records, safe = alias_inputs()
+    aliases = selector_sidecar(gold, safe)
+    other = copy.deepcopy(gold["sources"][0])
+    other["id"] = "other"
+    gold["sources"].append(other)
+    records.append({**copy.deepcopy(records[0]), "id": "other"})
+    safe["other"] = safe["example"]
+    primary = text_score.score(gold, records, safe)
+    reviewed = text_score.score(gold, records, safe, selector_aliases=aliases)
+    assert primary["overall"]["lexicalDiagnostics"]["pagewideFactRecall"]["hit"] == 0
+    assert reviewed["overall"]["lexicalDiagnostics"]["pagewideFactRecall"]["hit"] == 1
+    assert reviewed["sources"][0]["facts"][0]["selectorAliasHit"] is True
+    assert reviewed["sources"][1]["facts"][0]["selectorAliasHit"] is False
+    assert reviewed["overall"]["semanticPreservation"]["hit"] == 0
+    assert reviewed["overall"]["correctness"]["hit"] == 0
+
+
+@pytest.mark.parametrize(
+    "mutation", ["sourceHash", "safeHash", "factId", "sourceId", "metadata", "unsupportedPhrase"]
+)
+def test_AC_SRC_3_v2_alias_bindings_fail_closed(mutation):
+    gold, records, safe = alias_inputs()
+    aliases = selector_sidecar(gold, safe)
+    if mutation == "sourceHash":
+        aliases["example"]["sourceSha256"] = "0" * 64
+    elif mutation == "safeHash":
+        aliases["example"]["safeTextSha256"] = "0" * 64
+    elif mutation == "factId":
+        aliases["example"]["facts"]["foreign"] = aliases["example"]["facts"].pop("f1")
+    elif mutation == "sourceId":
+        aliases["foreign"] = aliases.pop("example")
+    elif mutation == "metadata":
+        aliases["example"]["facts"]["f1"]["reason"] = 1
+    elif mutation == "unsupportedPhrase":
+        aliases["example"]["facts"]["f1"]["selectorAliases"] = [["없는 문장"]]
+    with pytest.raises(ValueError, match="Invalid text-score input"):
+        text_score.score(gold, records, safe, selector_aliases=aliases)
+
+
+def test_AC_SRC_2_v2_pagewide_layout_invariant_for_raw_or_sentence_split_text():
+    raw = "서귀포에서 재배합니다. 50년 동안 전통 방식으로 길렀습니다."
+    gold, records, safe = inputs(
+        reference="50년 동안 전통 방식으로 길렀습니다.", output=[raw], safe=raw
+    )
+    gold["sources"][0]["sentences"][0]["facts"][0]["mustContain"] = ["50년"]
+    first = text_score.score(gold, records, safe)
+    records[0]["modules"][0]["texts"] = legacy.split_sentences(raw)
+    second = text_score.score(gold, records, safe)
+    assert first["sources"][0]["facts"][0]["pageWideSelectorHit"] is True
+    assert first["overall"]["lexicalDiagnostics"] == second["overall"]["lexicalDiagnostics"]

@@ -176,3 +176,8 @@ Ownership amendment: coordinator took quality-module implementation after initia
 
 ## User-authorized relaxed gold and draft-first revision — 2026-11-25
 Supersedes earlier policy pending/withholding behavior for new revision only. New versioned gold migration and relaxed evaluator are in ../i5-relaxed-gold/. Same historical scorer: full private source draft81/94facts29/38critical vs saved baseline73/94and27/38; earlier withholding61/94and22/38 retained as failed history. Revised policy separately scores essentials24/31 vs23/31baseline, optional51/55 vs45/55; these are pagewide diagnostics, not semantic accuracy or release approval. Linked-clause essentials remain18/31 vs22/31, so source-copy assembly still needs relationship/option review. All raw historical gold/output/scorer files unchanged; no new provider calls.
+
+
+## Formatting-only scorer v2 correction
+
+See [corrected all47case comparison](../i5-relaxed-gold/SCORER-CORRECTIONS-2026-11-25.md). Primary142essential coverage legacy122/125versus preservation/guardedAstra132; original354coverageunchanged. Spelling/phrase3facts separate diagnostics. Final1155related+13migrationpassed; independent154pureoverlap. No paidcalls/gold/generationchanges; initialtwofailedreplaysretained. Agentapprox0.5h / Tokens / Humanunconfirmed.

@@ -2,32 +2,18 @@
 
 import re
 from collections import Counter
-from decimal import Decimal
 
 from app.source_analysis import final_score as legacy
 from app.source_analysis.corpus_score import canonical_bytes, sha256
+from app.source_analysis.scoring_text import (
+    mechanical,
+    selector_contains,
+    validate_selector_aliases,
+)
 
-VERSION = "dev448-relaxed-v1"
+VERSION = "dev448-relaxed-v2"
 REQUIREMENTS = ("essential", "optional", "review")
-
-
-def normalize(text):
-    """Bounded spelling/unit equivalence; retain signs, limits and polarity."""
-    value = legacy.normalize_final(text).casefold()
-    value = re.sub(r"브릭\s+스", "brix", value)
-    value = re.sub(r"(?<=\d)\s*[–—−-]\s*(?=\d)", "~", value)
-    value = re.sub(
-        r"(?<![\d.])(\d+(?:\.\d+)?)\s*~\s*(\d+(?:\.\d+)?)\s*(kg|g)(?![a-z])",
-        r"\1\3~\2\3",
-        value,
-    )
-    value = re.sub(
-        r"(?<![\d.])(\d+(?:\.\d+)?)\s*(kg|g)(?![a-z])",
-        lambda m: f"{Decimal(m[1]) * (1000 if m[2] == 'kg' else 1):f}g",
-        value,
-    )
-    value = re.sub(r"(?<=\d)\.0+(?=g)", "", value)
-    return re.sub(r"\s+", "", value).strip(".。!?;:")
+normalize = mechanical
 
 
 def _clauses(text):
@@ -43,20 +29,7 @@ def _clauses(text):
 
 
 def _contains(tokens, text):
-    value = normalize(text)
-    for token in tokens:
-        token = normalize(token)
-        before = r"(?<![\d.])" if token[:1].isdigit() else ""
-        after = (
-            r"(?![a-z])"
-            if token[-1:].isascii() and token[-1:].isalpha()
-            else r"(?![\d.])"
-            if token[-1:].isdigit()
-            else ""
-        )
-        if not token or not re.search(before + re.escape(token) + after, value):
-            return False
-    return True
+    return selector_contains(tokens, text)
 
 
 def _linked(tokens, clause):
@@ -137,6 +110,19 @@ def _validate(gold, records, safe_texts, policy):
                 not isinstance(a, str) or not normalize(a) for a in aliases
             ):
                 raise ValueError("Aliases must be explicit complete propositions")
+            if "selectorAliases" in meta:
+                if (
+                    not isinstance(meta["reason"], str)
+                    or not meta["reason"].strip()
+                    or not isinstance(meta["sourceRef"], str)
+                    or not meta["sourceRef"].strip()
+                ):
+                    raise ValueError("Selector aliases require source-bound metadata")
+                if meta.get("evidenceSafeTextSha256") != sha256(safe_texts[source["id"]].encode()):
+                    raise ValueError("Stale selector alias source text")
+                validate_selector_aliases(
+                    fact["mustContain"], meta["selectorAliases"], safe_texts[source["id"]]
+                )
         expected = {str(i) for i in range(len(source["forbidden"]))}
         if set(config["forbidden"]) != expected:
             raise ValueError("Every forbidden item requires explicit disposition")
@@ -192,10 +178,14 @@ def score(gold, records, safe_texts, *, policy):
                 exact = any(
                     normalize(t) == normalize(a) for t in [*texts, *clauses] for a in allowed
                 )
-                linked = any(_linked(fact["mustContain"], c) for c in clauses)
+                selectors = [fact["mustContain"], *meta.get("selectorAliases", [])]
+                linked = any(_linked(tokens, c) for tokens in selectors for c in clauses)
                 # Complete alias equivalence can cover selectors intentionally reworded.
                 linked = processed and not conflict and (linked or exact)
-                page = processed and _contains(fact["mustContain"], "\n".join(texts))
+                page = processed and any(_contains(tokens, texts) for tokens in selectors)
+                selector_alias_hit = processed and any(
+                    _contains(tokens, texts) for tokens in selectors[1:]
+                )
                 status = (
                     "NOT_PROCESSED"
                     if not processed
@@ -218,6 +208,7 @@ def score(gold, records, safe_texts, *, policy):
                         "requirement": meta["requirement"],
                         "critical": fact["critical"],
                         "status": status,
+                        "selectorAliasHit": bool(selector_alias_hit),
                         "linkedSelectorHit": bool(linked),
                         "pageWideSelectorHit": bool(page),
                     }
