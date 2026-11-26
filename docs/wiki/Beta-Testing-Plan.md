@@ -1,6 +1,6 @@
 # Beta Testing Plan (Iteration 5)
 
-> **Status:** plan, written before testing (Nov 26, 2026). Submitted to eTL as a PDF by Nov 29, 23:59. If anything changes after submission, it is recorded in [§9 Change log](#9-change-log) with the reason. The original objectives and thresholds are not replaced silently.
+> **Status:** plan, written before testing (Nov 26, 2026). Submitted to eTL as a PDF by Nov 29, 23:59. If anything changes after submission, it is recorded in [§10 Change log](#10-change-log) with the reason. The original objectives and thresholds are not replaced silently.
 >
 > Linear: DEV-386 (plan), DEV-410 (telemetry), DEV-411 (outage plan), DEV-385 (Alpha), DEV-390 (Beta).
 
@@ -14,7 +14,8 @@
 6. [AI quality evaluation](#6-ai-quality-evaluation)
 7. [Feedback, interviews and bug handling](#7-feedback-interviews-and-bug-handling)
 8. [Operations during Beta](#8-operations-during-beta)
-9. [Change log](#9-change-log)
+9. [Results for the poster (Dec 11)](#9-results-for-the-poster-dec-11)
+10. [Change log](#10-change-log)
 
 ---
 
@@ -318,10 +319,31 @@ AI calls have a spending cap. If the AI is unavailable, chat hands questions to 
 
 ---
 
-## 9. Change log
+## 9. Results for the poster (Dec 11)
+
+The A0 poster is due on eTL on **Dec 11**, the last day of Beta (DEV-421). The course asks for testing results to show how problems found in testing were fixed and what data shows the app's strengths. So Beta is run to have results before the poster is finished:
+
+| When | What |
+| --- | --- |
+| Dec 7 (Beta day 1) | Telemetry and server logs collected from the first session (M1–M17). Interviews booked |
+| Dec 7–9 | Interviews (§7.1) done in the first three days, not at the end |
+| **Dec 9, 23:59** | **Results cut-off for the poster.** Numbers are taken from this point, with the sample size and date |
+| Dec 10 | Poster reviewed (DEV-421) |
+| Dec 11 | Poster submitted. Beta continues; later data goes into the final report (Dec 13) |
+
+Every number on the poster shows its source, sample size and cut-off date. Synthetic or AI-judged results are labeled as such.
+
+**Found in testing → fixed.** Each finding from HE, UAT cycles 1–2, Alpha and Beta that led to a change is kept as one row: finding, where it was found, issue, fix (PR), and retest result. For example, the UAT cycle 2 comment "AI를 생산자 사이드로" (show AI replies on the farm's side of the chat) was fixed in DEV-443. This table is the source for the poster's Testing & Evaluation section and the final report.
+
+**Live demo.** The poster presentation (Dec 14) requires a live demo. It uses the test farm and test accounts (DEV-428), never a real farm's data. A recorded video of the same flow is kept as a fallback if the network fails (DEV-422).
+
+---
+
+## 10. Change log
 
 | Date | Change | Reason |
 | --- | --- | --- |
 | 2026-11-26 | First version | — |
 | 2026-11-26 | Before submission: added the course-required telemetry (ANR, crashes, feature usage, response time) as M13–M16, plus AI response time (M17) | TA announcement on Nov 26 (#announcements) |
 | 2026-11-26 | Before submission: switched from test products to real farms and real purchases; 4 farms and 12+ consumers; OneStore status; native telemetry risk | Team decision in the Nov 26 chat. Four farms agreed to join, and the consumer app was approved |
+| 2026-11-26 | Before submission: added §9, results timeline for the poster (cut-off Dec 9), the found-in-testing → fixed table and the live demo | Poster announcement on Nov 26: due Dec 11 (the last day of Beta), live demo required |
