@@ -218,6 +218,14 @@ Conversation headers use goBackOr with roomBackTarget as the direct-entry fallba
 ## DEV-356 로그인·주문서·입금 안내 (2026-11-17)
 로그인(SCR-05)은 제목 왼쪽 · 조합형 `BrandLogo variant="full"` 오른쪽(생산자 SCR-19 배치), 폭은 `min(150, max(96, 창 폭 − 236))`라 390에서 150, 좁은 폭에서도 제목 두 줄. 제목은 `from=reserve`만 ‘로그인하고 예약을 이어 가요’. 관문 시트(`lib/session.tsx`)는 예약 관문에서만 `lib/GateSummary.tsx`(next의 `/products/:id`·data의 optionId·quantity로 상품을 읽음, 순수 계산 `lib/reserveSummary.ts`)와 예약용 본문을 그리고, 닫히는 동안 마지막 관문 문구를 유지한다. 주문서는 `control.placed`(이 주문서로 만든 입금 대기 주문)가 있으면 화면이 다시 보일 때(useFocusEffect) ‘이미 만든 예약’ Notice를 띄우고 첫 줄을 `orders.get` + `placedLine`(lib/orderText.ts)으로 채운다. 강조색은 하단 버튼 하나(‘변경’·총 입금액은 글자색). 입금 안내는 `DepositCard hideAmount hideHint`로 ‘입금액’ 줄과 카드 아래 안내 한 줄을 빼고(완료·주문 상세는 그대로) 큰 금액 옆에 복사, 입금자명 안내는 Notice + `depositorNameTitle(depositCode ?? orderNo)`(끝 숫자 읽기로 로/으로, DEV-342 짧은 입금 코드), 상자는 `privateArea`로 녹화에서 가림. FEAT-01 AC-01-21, FEAT-08 AC-08-10, FEAT-09 AC-09-11·12.
 
+
+## DEV-465 고객 참여 (AC-ENG-1~5)
+
+- 명세는 `docs/spec/customer-engagement.md`. `FollowWelcome`은 명시적 팔로우 진입 세 곳(FarmRoom·농가 정보·주문 완료)이 공유하며 서버 firstFollow/fanNumber 성공 응답만 환영 시트를 연다. 확인·닫기·뒤로는 한 번만 농가 정보로 이동한다. 동기 잠금과 검증된 auth generation·farm 문맥을 확인해 중복/이전 세션 응답을 폐기한다.
+- 농가 정보 맨 위 `FarmTemperature`는 서버 정수 tenths를 소수 한 자리로 표시한다. 실제 기여와 정책을 설명하며 실패 시 재시도를 제공한다. 기존 강조색/중립 surface 토큰을 재사용한다.
+- `/me/achievements`는 서버 판정만 표시하고 focus마다 새로 읽는다. 검증된 세션 generation으로 화면을 분리한다. CTA는 관련 실제 화면만 열고 완료를 쓰지 않는다.
+- 2026-11-25 승인 디자인: `FollowWelcome`은 기존 `EmoticonImage`의 고마워요 감귤 일러스트와 실제 번호 카드(숫자44px)를 조합하고, 기존 `Sheet`·단일 CTA·한 번 이동 규칙은 유지한다. `/me/achievements`는 기존 브랜드 아이콘을 요약에 두고5개 독립 스탬프와 재사용 `ActivityRow`로 실제 서버 상태를 표시한다. 미달성 행은 기존 목적지로 이동하며 제목·상태·설명·행동을 접근성 이름으로 제공한다. 첫 공감의 화면용 설명만 좁은 폭에 맞춰 줄인다. 색·글꼴·반경은 공용 토큰을 쓰고 작은 강조 글자는 accentPressed로 구분한다. 제품 기준은 AC-ENG-1/4이며 판정·반전·세션 경계는 바꾸지 않는다.
+- 완료·미환불 주문의 `PurchaseReview`는 기존 별점을 조회하고 정수1~5 선택을 저장한 성공 응답만 반영한다. 농가 신고는 별도 인증 관문 action(report) 및 실제 저장 폼을 쓰며 성공 접수와 운영 검토 전 온도 미반영을 안내한다.
 ## DEV-454 UAT cycle 2
 The checkout uses a dedicated condition-change modal while preserving the existing submission and deposit-recovery path. Dismissal does not acknowledge a reservation; the footer reopens the prompt.
 

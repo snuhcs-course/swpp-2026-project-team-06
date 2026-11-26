@@ -72,6 +72,7 @@ const PRODUCER_ROUTES = [
   /^\/api\/messaging\/questions(\/|$)/,
 ];
 const CONSUMER_ROUTES = [
+  /^\/api\/engagement\/(achievements|reviews\/[^/]+|farms\/[^/]+\/reports)$/,
   /^\/api\/auth\/me\/addresses(\/|$)/,
   /^\/api\/farms\/following$/,
   /^\/api\/farms\/:farmId\/follow$/,
@@ -85,6 +86,8 @@ function needsOnboarded(method: string, path: string): boolean {
     (method === "POST" && path === "/api/orders") ||
     (method === "PUT" && path === "/api/farms/:farmId/follow") ||
     (method === "PUT" && path === "/api/messaging/news/:broadcastId/reaction") ||
+    (method === "PUT" && path === "/api/engagement/reviews/:orderId") ||
+    (method === "POST" && path === "/api/engagement/farms/:farmId/reports") ||
     (method === "POST" && path === "/api/messaging/chats") ||
     (method === "POST" && path === "/api/messaging/chats/:farmId/messages") ||
     (method === "POST" && path === "/api/messaging/support/messages")

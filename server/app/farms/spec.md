@@ -51,6 +51,12 @@ DEV-38: `share.py`의 `/s/farms/{farm_id}`는 Jinja2 자동 이스케이프 HTML
 - `get_farm_shared`(FOR SHARE)는 orders 입금 안내가 쓴다. 운영자 정지(`admin/farm_status.py`)의 FOR UPDATE와 겹치면 기다린다.
 - `decision_history`(`GET /admin/producers/{id}/decisions`)는 승인·반려 행만 돌려준다. 정지·풀기·되돌림(`SUSPENDED`·`UNSUSPENDED`·`REVERTED`)은 같은 `producer_decisions`에 쌓이고 `GET /admin/farms/{id}/history`에서 본다.
 
+## DEV-465 참여 계약
+- AC-ENG-1: set_follow는 Farm 행 잠금 안에서 engagement FollowReceipt를 생성/조회하고 firstFollow·fanNumber를 반환한다. 언팔은 receipt를 지우지 않는다. 기존 팔로워 수 계약은 유지한다.
+- AC-ENG-2: /farms/{id}/temperature는 engagement 공개 라우터에서 승인 농가의 집계만 제공한다. 전체 기준은 docs/spec/customer-engagement.md.
+
+- AC-ENG-2: Follow.farm_id has a dedicated index in0040 so real-follow temperature aggregation does not scan all consumers.
+- AC-ENG-1: the locking follow read refreshes any existing ORM Farm object before counting, preventing a cached earlier read from overwriting another committed follow.
 ## DEV-472 테스트 농가 공개 범위 (R-29)
 - 공개 경로와 주문 생성은 `public_farm_clause(db, viewer)` 하나로 거른다. 조건은 `APPROVED`이고, 보는 사람이 테스트 계정(`accounts.account_kind`가 REAL이 아님)이 아니면 생산자가 테스트 계정(`accounts.test_account_clause`)인 농가를 뺀다. 한 농가는 `public_farm`, 여러 농가는 `public_farms`·`public_farm_names`로 같은 조건을 다시 조회한다. 승인 상태만 보던 `get_approved_farm`·`approved_farm_names`는 지웠다(호출부가 모두 옮겨 갔다). 주문 생성(`orders.create_order`)도 `public_farm(db, farm_id, consumer)`를 쓴다. 기존 주문의 입금 안내는 승인 상태만 본다(`get_farm_shared`).
 - `viewer`(타입 `Viewer`)는 사용자 객체, 사용자 ID(messaging의 `consumer_id` — 이미 인증한 요청이라 세션에 있는 행을 다시 쓴다), `None`(비로그인), `ANY_VIEWER`(인증 헤더 없는 공개 사진 `/api/source-media/{id}`) 중 하나다. 공개 GET(`/api/home`, `/api/farms`, `/api/products/{id}`)은 `OptionalUser`로 보는 사람을 받는다. 공유 페이지 `/s/farms/{id}`는 로그인이 없어 늘 비로그인으로 본다.

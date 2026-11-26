@@ -110,3 +110,7 @@ server/
 - DEV-58 / AC-SRC-11: 자료 텍스트는 첨부 카드 안에서 생성·수정하고 blur/분석 전 저장한다. 대표사진은 대상별 representativeAssetId와 비공개 스냅샷에 저장하며 첫 성공 상품사진 자동 선택/별 지정/삭제 시 다음 사진 대체를 지원한다. 분석 및 공개 반영 시 유효한 상품사진 필수. product workspace는 representativeUri를 저장하며 기존 상품 대표를 초기값으로 사용한다. 대표 커버는 숨긴 섹션과 독립적이며 공개 반영 시 product.photos 첫 사진과 동기화한다. 공용 Photo는 /api/source-media 상대 경로를 API 주소로 해석한다.
 
 DEV-58 PR113 최종 리뷰: PageSnapshot 대표 URI는 필수 키/nullable이고 누락 요청은 검증 오류다. 작업 생성에서만 현재 상품 대표사진을 초기화한다. 비공개 null 저장은 허용하되 공개 적용은 대표사진을 요구한다.
+
+## DEV-465 Customer engagement
+- AC-ENG-1~5 구현은 app/engagement가 담당한다. Farm 팔로우 행 잠금·Order 검증 행 잠금을 재사용하며 기존 주문 상태 전이를 바꾸지 않는다.
+- models/migration0040: 실제 Follow 기반 번호 backfill, 주문당별점, 농가 신고. seed는 장식 follower_count 대신 실제 Follow 쌍만 receipt로 만든다.

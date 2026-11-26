@@ -39,6 +39,9 @@ test("DEV-225 FEAT-08: option sheet and address sheet are gone once checkout and
   await page.getByRole("button", { name: "받는 곳 변경" }).click();
   const addressSheet = page.getByRole("button", { name: "새 주소 입력" });
   await expect(addressSheet).toBeVisible();
+  // DEV-465: the modal can enter after getAnimations() briefly reports no running animation.
+  // Freeze only once the actual target is on screen; otherwise the test freezes it offscreen.
+  await expect(addressSheet).toBeInViewport({ ratio: 1 });
   resume = await freezeAnimations(page);
   await addressSheet.click();
   await expect(page.getByLabel("우편번호", { exact: true })).toBeVisible();

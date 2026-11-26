@@ -674,6 +674,7 @@ register({
         order: order(ctx.db, o),
       });
     o.status = "COMPLETED";
+    o.completedAt = nowIso();
     return order(ctx.db, o);
   },
 

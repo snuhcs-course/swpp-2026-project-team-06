@@ -8,7 +8,7 @@ import {
   Scroll,
   T,
   tokens,
-  useAsync,
+  FollowButton,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { View } from "react-native";
@@ -17,15 +17,24 @@ import { useSession } from "../../../../lib/session";
 import { LoadError, copyText } from "../../../../lib/views";
 import { useToast } from "../../../../lib/toast";
 import { goBackOr } from "../../../../lib/nav";
+import { useFocusedAsync } from "../../../../lib/useFocusedAsync";
+import { useFollowWelcome } from "../../../../lib/FollowWelcome";
+import { FarmReportForm, FarmTemperature } from "../../../../lib/FarmTemperature";
+import { useEngagementSession } from "../../../../lib/engagementSession";
 export default function FarmInfo() {
   const { farmId } = useLocalSearchParams<{ farmId: string }>();
   const router = useRouter();
   const { user, requireLogin, resume, clearResume } = useSession();
-  const farm = useAsync(() => farms.get(farmId), [farmId, user?.userId]);
+  const farm = useFocusedAsync(() => farms.get(farmId), [farmId, user?.userId]);
   const [confirm, setConfirm] = useState(false);
+  const [report, setReport] = useState(false);
+  const [followError, setFollowError] = useState("");
+  const welcome = useFollowWelcome(farmId);
+  const session = useEngagementSession();
   const here = `/farms/${farmId}/info`;
   const start = () => router.push(`/chats/${farmId}?start=1&from=info`);
   const chat = () => (farm.data?.isFollowing ? start() : setConfirm(true));
+  useEffect(() => { setReport(false); setFollowError(""); setConfirm(false); }, [session.key, farmId]);
   useEffect(() => {
     if (
       user &&
@@ -38,6 +47,28 @@ export default function FarmInfo() {
       chat();
     }
   }, [user?.userId, farm.data, farm.loading, resume]);
+  useEffect(() => {
+    if (session.valid() && user && farm.data && !farm.loading && resume?.next === here && resume.action === "follow") {
+      clearResume();
+      if (!farm.data.isFollowing) void follow();
+    }
+  }, [user?.userId, farm.data, farm.loading, resume]);
+  useEffect(() => {
+    if (session.valid() && user && resume?.next === here && resume.action === "report") {
+      clearResume();
+      setReport(true);
+    }
+  }, [user?.userId, resume]);
+  async function follow() {
+    if (!farm.data) return;
+    setFollowError("");
+    try {
+      const result = await welcome.change(farm.data, !farm.data.isFollowing);
+      if (result) farm.setData((p) => p ? { ...p, isFollowing: result.following, followerCount: result.followerCount } : p);
+    } catch (e) {
+      setFollowError(e instanceof Error ? e.message : "팔로우를 변경하지 못했어요.");
+    }
+  }
   const toast = useToast();
   return (
     <Screen>
@@ -53,6 +84,7 @@ export default function FarmInfo() {
         ) : null}
         {farm.data ? (
           <View style={{ padding: tokens.space.gutter, gap: 24 }}>
+            <FarmTemperature key={`${farmId}:${session.key}:${farm.data.isFollowing}`} farmId={farmId} />
             <ProfileAvatar
               name={farm.data.name}
               uri={farm.data.photo}
@@ -61,6 +93,8 @@ export default function FarmInfo() {
             <T variant="title">{farm.data.name}</T>
             <T muted>{farm.data.region}</T>
             <T>{farm.data.intro}</T>
+            {followError ? <T color={tokens.color.error}>{followError}</T> : null}
+            <FollowButton following={farm.data.isFollowing} loading={welcome.busy} onPress={() => requireLogin("follow", here, () => void follow())} />
             <Button
               label="소식방으로"
               onPress={() => router.replace(`/farms/${farmId}`)}
@@ -81,6 +115,7 @@ export default function FarmInfo() {
                 )
               }
             />
+            <Button label="농가 신고" variant="text" icon="flag" onPress={() => requireLogin("report", here, () => setReport(true))} />
           </View>
         ) : null}
       </Scroll>
@@ -100,6 +135,8 @@ export default function FarmInfo() {
           onPress={() => setConfirm(false)}
         />
       </Sheet>
+      <FarmReportForm key={`${farmId}:${session.key}`} farmId={farmId} visible={report} onClose={() => setReport(false)} />
+      {welcome.node}
       {toast.node}
     </Screen>
   );

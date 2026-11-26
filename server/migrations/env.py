@@ -12,6 +12,7 @@ from app.catalog import models as _catalog_models  # noqa: F401
 from app.core import models as _core_models  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import Base
+from app.engagement import models as _engagement_models  # noqa: F401
 from app.farms import models as _farms_models  # noqa: F401
 from app.media import models as _media_models  # noqa: F401
 from app.messaging import models as _messaging_models  # noqa: F401

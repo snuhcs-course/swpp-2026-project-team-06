@@ -131,6 +131,7 @@ export const farms = {
   list: (q: { q?: string } & A.PageQuery = {}) =>
     request<A.Paged<A.FarmCard>>("GET", "/api/farms", { query: q }),
   get: (farmId: string) => request<A.FarmDetail>("GET", `/api/farms/${farmId}`),
+  temperature: (farmId: string) => request<A.FarmTemperature>("GET", `/api/farms/${farmId}/temperature`),
   follow: (farmId: string) =>
     request<A.FollowState>("PUT", `/api/farms/${farmId}/follow`),
   unfollow: (farmId: string) =>
@@ -155,6 +156,19 @@ export const farms = {
 };
 
 /* ---------------- catalog (/api/products) ---------------- */
+
+export const engagement = {
+  achievements: () => request<A.Achievements>("GET", "/api/engagement/achievements"),
+  getReview: (orderId: string) => request<A.ReviewState>("GET", `/api/engagement/reviews/${orderId}`),
+  review: (orderId: string, stars: number) =>
+    request<A.VerifiedReview>("PUT", `/api/engagement/reviews/${orderId}`, { body: { stars } }),
+  report: (farmId: string, reason: string) =>
+    request<A.FarmReport>("POST", `/api/engagement/farms/${farmId}/reports`, { body: { reason } }),
+  reports: (q: { status?: A.FarmReportStatus } & A.PageQuery = {}) =>
+    request<A.Paged<A.FarmReportRecord>>("GET", "/api/engagement/reports", { query: q }),
+  moderateReport: (reportId: string, status: Exclude<A.FarmReportStatus, "PENDING">, incidentKey?: string) =>
+    request<A.FarmReport>("PATCH", `/api/engagement/reports/${reportId}`, { body: { status, ...(incidentKey === undefined ? {} : { incidentKey }) } }),
+};
 
 export const catalog = {
   detailDraft: (productId: string, input: A.DetailDraftInput) =>

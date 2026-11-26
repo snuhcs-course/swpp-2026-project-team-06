@@ -30,13 +30,14 @@ import { TabsKey } from "./tabsKey";
 
 configureApi({ namespace: "consumer" });
 
-export type GateAction = "follow" | "reserve" | "chat" | "like" | "tab";
+export type GateAction = "follow" | "reserve" | "chat" | "like" | "tab" | "report";
 const GATE_TITLE: Record<GateAction, string> = {
   follow: "로그인하고 팔로우해요",
   reserve: "로그인하고 예약해요",
   chat: "로그인하고 물어봐요",
   like: "로그인하고 좋아요를 눌러요",
   tab: "로그인이 필요해요",
+  report: "로그인하고 신고해요",
 };
 /** 관문 시트 본문. 예약만 ‘고른 것이 그대로 이어진다’는 문장(DEV-268 UX ⑤, DEV-356), 나머지는 지금 문장 그대로 */
 const GATE_BODY_DEFAULT =

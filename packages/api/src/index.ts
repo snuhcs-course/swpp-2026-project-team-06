@@ -20,7 +20,7 @@ export {
   writeStore,
 } from "./client";
 export { CARRIERS, carrierLabel, trackingUrl, formatTrackingNumber, editTrackingNumber } from "./carriers";
-export { auth, farms, catalog, orders, messaging, admin } from "./endpoints";
+export { auth, farms, engagement, catalog, orders, messaging, admin } from "./endpoints";
 export type * from "./types";
 export type { NativeFile, UploadFile } from "./upload";
 export { appendFile, isNativeFile, pickedImage, PICK_QUALITY } from "./upload";

@@ -299,10 +299,25 @@ def test_AC_06_3_follow_and_unfollow(client, login):
     page = client.get("/api/farms/f-halla", headers=headers).json()
     off = client.delete("/api/farms/f-halla/follow", headers=headers)
 
-    assert on.json() == {"following": True, "followerCount": 87}
-    assert again.json() == {"following": True, "followerCount": 87}
+    assert on.json() == {
+        "following": True,
+        "followerCount": 87,
+        "firstFollow": True,
+        "fanNumber": 2,
+    }
+    assert again.json() == {
+        "following": True,
+        "followerCount": 87,
+        "firstFollow": False,
+        "fanNumber": 2,
+    }
     assert page["isFollowing"] is True
-    assert off.json() == {"following": False, "followerCount": 86}
+    assert off.json() == {
+        "following": False,
+        "followerCount": 86,
+        "firstFollow": False,
+        "fanNumber": 2,
+    }
 
 
 def test_follow_requires_consumer(client, login):

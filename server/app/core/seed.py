@@ -21,6 +21,8 @@ from app.catalog.models import (
     StagePrice,
 )
 from app.core.db import Base, get_sessionmaker
+from app.engagement import models as _engagement_models  # noqa: F401
+from app.engagement.models import FollowReceipt
 from app.farms.models import Farm, Follow
 from app.media import models as _media_models  # noqa: F401  시드 초기화가 public_media도 지운다
 from app.messaging.models import (
@@ -1043,8 +1045,18 @@ def seed(session: Session) -> None:
         ("u-seojun", "f-kang"),
         ("u-buyer-park", "f-kang"),
     )
-    for consumer, farm in follows:
+    fan_numbers = {}
+    for consumer, farm in sorted(follows, key=lambda pair: (pair[1], pair[0])):
+        fan_numbers[farm] = fan_numbers.get(farm, 0) + 1
         session.add(Follow(consumer_id=consumer, farm_id=farm, created_at=created))
+        session.add(
+            FollowReceipt(
+                consumer_id=consumer,
+                farm_id=farm,
+                fan_number=fan_numbers[farm],
+                created_at=created,
+            )
+        )
     for bid, farm, when, body, photos, visibility, count in BROADCASTS:
         session.add(
             Broadcast(

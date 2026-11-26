@@ -32,6 +32,7 @@ import { useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 
 import { DepositCard } from "../../../../lib/DepositCard";
+import { PurchaseReview } from "../../../../lib/PurchaseReview";
 import {
   STEPS,
   bottomSummary,
@@ -336,6 +337,7 @@ export default function OrderDetail() {
             />
             <Row k="배송 메모" v={o.deliveryNote ?? "없음"} last masked />
           </View>
+          {o.status === "COMPLETED" && !o.refundedAt ? <PurchaseReview orderId={o.orderId} /> : null}
           {askInBar(o) ? null : (
             <Button
               label="농가에 물어보기 ›"

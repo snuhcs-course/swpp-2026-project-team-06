@@ -170,3 +170,19 @@ test("full run: every spec lands in exactly one shard, shards stay balanced", ()
   const total = full.reduce((sum, s) => sum + s.seconds, 0);
   assert.ok(max <= total / 3 + 60, `max shard ${max}s of ${total}s`);
 });
+
+// DEV-465 / AC-ENG-5: new engagement suites remain in the normal PR lanes.
+test("AC-ENG-5: server, mock and browser engagement tests are selected by CI", () => {
+  const spec = "scripts/e2e/customer-engagement.spec.ts";
+  assert.ok(config.specFiles.includes(spec));
+  assert.deepEqual(run("pr", [spec]).specs, [spec]);
+  assert.equal(run("pr", ["server/tests/test_customer_engagement.py"]).jobs.server, true);
+  assert.equal(run("pr", ["scripts/test-engagement.mjs"]).jobs.apps, true);
+  const consumer = run("pr", ["apps/consumer/src/lib/FarmTemperature.tsx"]);
+  assert.equal(consumer.jobs.apps, true);
+  assert.ok(consumer.specs.includes(spec));
+  const server = run("pr", ["server/app/engagement/service.py"]);
+  assert.equal(server.jobs.server, true);
+  assert.ok(server.specs.includes(spec));
+  assert.ok(!(config.quarantine.specs ?? []).some((entry) => entry.file === spec));
+});

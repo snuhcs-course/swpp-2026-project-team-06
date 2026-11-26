@@ -119,6 +119,10 @@ export default function Me() {
           </View>
         ) : null}
 
+        <Section title="농가와 함께하기">
+          <ListRow label="나의 도전과제" sub="첫 팔로우부터 첫 구매 후기까지" onPress={() => router.push("/me/achievements")} last />
+        </Section>
+
         <Section title="팔로우한 농가">
           {following.data && following.data.items.length === 0 ? (
             <EmptyState
