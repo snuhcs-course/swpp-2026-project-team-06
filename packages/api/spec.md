@@ -137,3 +137,7 @@ AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달�
 - 앱에서 응답을 못 받으면 `ApiError(0, "인터넷 연결을 확인하고 다시 시도해 주세요.")`(`request()`와 같은 문구)로 던지고, 원인은 `cause`와 경고 로그에 남긴다. JSON이 아닌 오류 응답(프록시 413·502)은 두 플랫폼 모두 본문 `{}`의 ApiError다.
 - 고른 사진의 형식·이름은 `pickedImage`로 다시 압축한 파일(uri 확장자) 기준으로 정한다. quality < 1이면 PNG 밖은 JPEG 바이트인데 picker의 mimeType·fileName은 원본(HEIC·WebP)이라 서버가 400을 줬다.
 - `scripts/test-native-upload.mjs`가 fetch로 FormData 보내기, `{uri}` 파트 직접 붙이기, 허용 목록 밖 직접 fetch, picker 원본 형식 직접 쓰기를 막는다. 상세는 tasks/DEV-493.md.
+
+## DEV-494 관문 중 내 정보·배지
+- `keepUser`(`src/userState.ts`): 다시 읽은 내 정보가 이전과 같으면 이전 객체를 그대로 둔다. 두 앱 세션이 refresh에서 쓴다. 403 관문 응답마다 내 정보를 다시 읽어도 `[user]` effect가 요청을 되풀이하지 않는다.
+- `accountGated`: 비밀번호 변경·가입 온보딩·약관 재동의 관문이 남았는가. 탭 배지 같은 주기 요청은 이때 쉰다. 상세는 `apps/consumer/tasks/DEV-494.md`.
