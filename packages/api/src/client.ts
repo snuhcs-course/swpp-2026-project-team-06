@@ -17,6 +17,7 @@ import { blobUrl } from "./objectUrl";
 import { recordServerTime, SERVER_TIME_HEADER } from "./serverClock";
 import { storageGet, storageSet } from "./storage";
 import type { ErrorBody, ErrorCode } from "./types";
+import { postForm } from "./formPost";
 import { appendFile, type UploadFile } from "./upload";
 
 const DEFAULT_API_URL = "http://localhost:8000";
@@ -249,7 +250,7 @@ function readDataUrl(blob: Blob): Promise<string> {
 
 /** 공개 사진·영상(농가 프로필·상품·소식·상세)을 올리고 저장할 주소를 돌려준다(DEV-102).
  *  실제 서버는 POST /api/media, 공유 Mock은 /__mock/media, 브라우저 Mock은 data URL 그대로.
- *  네이티브는 {uri, name, type}(UploadFile)로 보낸다(DEV-33). Mock은 웹 전용이라 Blob만 data URL로 읽는다. */
+ *  네이티브는 {uri, name, type}(UploadFile)을 XMLHttpRequest로 보낸다(DEV-33, DEV-493). Mock은 웹 전용이라 Blob만 data URL로 읽는다. */
 export async function uploadMedia(file: UploadFile, name: string): Promise<string> {
   if (isMock && !sharedMockUrl) return readDataUrl(file as Blob);
   if (sharedMockUrl) {
@@ -260,13 +261,12 @@ export async function uploadMedia(file: UploadFile, name: string): Promise<strin
   }
   const form = new FormData();
   appendFile(form, "file", file, name);
-  const res = await fetch(`${apiUrl}/api/media`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
-    body: form,
+  // 앱은 XMLHttpRequest, 웹은 fetch(formPost, DEV-493). 프록시의 413·502처럼 JSON이 아닌 오류도 본문 {}로 받아
+  // ApiError로 넘겨 화면이 '읽지 못했어요'로 오해하지 않게 한다
+  const res = await postForm(`${apiUrl}/api/media`, form, {
+    Authorization: `Bearer ${getToken() ?? ""}`,
   });
-  // 프록시의 413·502처럼 JSON이 아닌 오류도 ApiError로 넘겨 화면이 '읽지 못했어요'로 오해하지 않게 한다
-  const body = await res.json().catch(() => ({}));
+  const body = res.body;
   if (!res.ok) throw new ApiError(res.status, body);
   // 소비자 앱·공유 미리보기가 그대로 쓰도록 API 주소를 붙여 저장한다
   return apiUrl + (body as { url: string }).url;
@@ -291,15 +291,13 @@ export async function uploadAttachment(
   if (resource.orderId) form.append("orderId", resource.orderId);
   if (resource.threadId) form.append("threadId", resource.threadId);
   if (resource.roomFarmId) form.append("roomFarmId", resource.roomFarmId);
-  const res = await fetch(`${apiUrl}/api/messaging/attachments`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${attempt.token ?? ""}` },
-    body: form,
+  const res = await postForm(`${apiUrl}/api/messaging/attachments`, form, {
+    Authorization: `Bearer ${attempt.token ?? ""}`,
   });
-  const body = await res.json().catch(() => ({}));
+  const body = res.body;
   handleAuthResponse(res.status, body, attempt);
   if (!res.ok) throw new ApiError(res.status, body);
-  return body;
+  return body as import("./types").Attachment;
 }
 export async function privateImage(id: string): Promise<string> {
   if (isMock && !sharedMockUrl)
