@@ -103,7 +103,7 @@ The Beta asks four questions. Each question comes from the definition in §1. Th
   - AI review: §6.
   - Interview questions F1 and F3.
 - **Success criteria:**
-  - At least **80%** of farmer testers who request a draft submit a sale request without our help.
+  - At least **3 of the 4** participating farms submit a sale request without our help after requesting a draft. With this few farms we report each farm individually rather than a percentage.
   - Every reported deposit is confirmed or rejected within **24 hours**.
   - No farmer gets stuck on a form error they cannot fix.
 
@@ -117,9 +117,10 @@ The in-class Alpha on Nov 30 is a rehearsal for the Beta. It confirms that the r
 | --- | --- | --- |
 | Alpha build tagged `i5-alpha` and installed on a team device | Jinwoo | DEV-404 |
 | Missing telemetry events added (§5.3) and seen in PostHog | Unassigned | DEV-492 |
-| Labeled test farm and test accounts set up | Jinwoo | DEV-428 |
+| Labeled test farm and test accounts for the in-class Alpha session | Jinwoo | DEV-428 |
 | Tester instructions: install route, core scenario, how to report a problem | Minsun | DEV-405 |
-| OneStore registration complete, or the APK/web fallback written into the instructions | Hyun | DEV-491 |
+| OneStore: consumer app approved (Nov 26). Farmer app fixed and resubmitted, with the web app as the fallback in the instructions | Hyun | DEV-491 |
+| PostHog switched on in the native apps, or testers sent to the web apps (see §4) | Hyun | DEV-436 |
 
 **During Alpha.** Testers do the core flows on their own devices with no coaching:
 - **Consumer:** find a farm, follow it, react to a post, ask a question in chat, reserve and report the transfer.
@@ -140,29 +141,29 @@ Findings are triaged by Dec 2 (DEV-407) and fixed and retested before the Beta b
 
 | | In-class testers | Out-of-class testers (Beta) |
 | --- | --- | --- |
-| **Who** | About 3 students assigned by the course (same people for Alpha and Beta) | **6+ consumers** and **2+ farmers** |
+| **Who** | About 3 students assigned by the course (same people for Alpha and Beta) | **12+ consumers** and **4 farms** (confirmed Nov 26; up to 6) |
 | **Characteristics** | Classmates, on their own devices | Consumers: adults who buy seasonal fruit online. This includes our two personas: 40s–50s buyers who put taste first, and 20s–30s buyers sending fruit to their parents. Farmers: small Jeju citrus farms that already sell through KakaoTalk or BAND |
-| **Recruitment** | Course slot sheet (signed up by Nov 26) | Consumers: personal networks and family, invitation message (Minsun, DEV-408). Farmers: farms we already know from interviews and the pilot. Jinwoo is contacting at least four (DEV-409) |
-| **Dates** | Alpha Nov 30, Beta Dec 7–11 | Dec 7–11, evidence cutoff Dec 11 23:59 KST |
+| **Recruitment** | Course slot sheet (signed up by Nov 26) | Consumers: personal networks, invitation message. Minsun recruits 6, and each other member recruits 2 (DEV-408). Farmers: Jinwoo phoned six farms we know from interviews and the pilot. Four agreed, one declined because its harvest was sold out, and one has not answered yet (DEV-409) |
+| **Dates** | Alpha Nov 30, Beta Dec 7–11 | Farms start onboarding from Nov 26 so that products are listed before Beta. Beta measurement window Dec 7–11, evidence cutoff Dec 11 23:59 KST |
 
-The course recommends at least 3 out-of-class testers. We aim for 8 or more because Farmclub has two sides, and each side needs its own data.
+The course recommends at least 3 out-of-class testers. We aim for at least 16 (12 consumers and 4 farms) because Farmclub has two sides, and each side needs its own data. We kept to about four farms on purpose: all of them sell citrus, and too many similar farms would make choosing harder for testers and support harder for the team.
 
-**Closed, invitation-only Beta.** An open beta is not practical because farmers have to be approved and real money must not move. Testers get a personal invitation with the install link, a test account or sign-up guidance, and a consent note.
+**Closed, invitation-only Beta.** An open beta is not practical because every farm has to be approved by the team first. Farmers get Jinwoo's onboarding message: how to register the farm, the in-app guide, adding a bank account, creating a product with "AI로 채우기", requesting a sale, AI reply settings, the news room, and confirming deposits and shipping. Consumers get an invitation with the install link and a consent note.
 
 **Access routes:**
 
 | Platform | Consumer | Farmer |
 | --- | --- | --- |
-| Android | OneStore app (once approved); APK link as the fallback | OneStore / APK |
+| Android | OneStore app (approved Nov 26) | Web app until the farmer app passes OneStore review |
 | iPhone, desktop | Web app at **farmclub.kr** | Web app at **farm.farmclub.kr** |
 
-Testers use the **official domains**. PostHog records events only there, and the Vercel preview addresses do not send telemetry.
+Testers use the **official domains**. PostHog records events only there, and the Vercel preview addresses do not send telemetry. **Open risk:** the native apps send events only if a PostHog key was built in, and the privacy policy currently covers analytics on the web only (DEV-436). Until DEV-436 is done, a consumer using the OneStore app may not be counted. If DEV-436 is not done before Alpha, testers are asked to use the web app.
 
 **Testing conditions:**
 - Testers give consent before taking part.
-- Testers browse, follow and chat with real or test farms.
-- Reservations and transfers are made only on **clearly labeled test products** with a simulated transfer. **No real money moves.**
-- The test farm and test accounts are cleaned up by a person after the Beta.
+- **The Beta uses real farms and real products.** Buying is welcome but not required. A consumer who reserves pays the farm directly by bank transfer. Farmclub never receives or holds the money, so a farm loses nothing if no one buys. One real transaction already took place on Nov 26.
+- Purchase measures (M4–M6, M10) count only real orders. Testers who only browse, follow or chat still count for M1–M3 and M7–M8.
+- The labeled test farm (DEV-428) is used only for the in-class Alpha session. It is visible only to test accounts (DEV-472) and is cleaned up by a person afterwards.
 
 ---
 
@@ -308,3 +309,4 @@ AI calls have a spending cap. If the AI is unavailable, chat hands questions to 
 | Date | Change | Reason |
 | --- | --- | --- |
 | 2026-11-26 | First version | — |
+| 2026-11-26 | Before submission: switched from test products to real farms and real purchases; 4 farms and 12+ consumers; OneStore status; native telemetry risk | Team decision in the Nov 26 chat. Four farms agreed to join, and the consumer app was approved |
