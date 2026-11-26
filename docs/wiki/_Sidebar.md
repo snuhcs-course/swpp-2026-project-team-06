@@ -5,6 +5,7 @@
 - [[Requirements and Specifications|Requirements-and-Specifications]]
 - [[Design Documentation|Design-Documentation]]
 - [[Testing Documentation|Testing-Documentation]]
+  - [[Beta Testing Plan|Beta-Testing-Plan]]
 - [[User Study Results|User-Study-Results]]
 - [[Risk Management|Risk-Management]]
 
