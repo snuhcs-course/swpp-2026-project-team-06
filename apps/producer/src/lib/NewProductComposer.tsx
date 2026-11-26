@@ -963,7 +963,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   };
   const pickCover = async () => {
     if (!batch || !target || busy || activeRun) return;
-    const files = await chooseSourceFiles(true, false).catch(() => {
+    const files = await chooseSourceFiles(true, false).catch((e) => {
+      console.warn("[cover] 사진 고르기 실패", e); // 화면에는 한국어만, 원인은 로그에(DEV-493)
       setNotice("사진을 선택하지 못했어요. 다시 시도해 주세요.");
       return [];
     });
