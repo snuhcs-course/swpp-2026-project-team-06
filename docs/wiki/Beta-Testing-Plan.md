@@ -188,6 +188,20 @@ Each metric says what it means and which question it answers, as the TA asked. "
 | M11 | **Errors** | Where do people get stuck or the app breaks? | `form_error_shown` and `app_error_shown` per 100 sessions, by screen | PostHog | O2, O4 |
 | M12 | **Active testers** | Is the Beta large enough to trust the numbers? | unique testers per day, by app | PostHog | all |
 
+### 5.1a Course-required telemetry (TA announcement, Nov 26)
+
+The TA's Nov 26 announcement makes four items mandatory: ANR, crash reports, feature usage and response time. We also add AI response time, which shows one of Farmclub's strengths.
+
+| ID | Metric | What it tells us | How it is calculated | Source | Target | Status (Nov 26) |
+| --- | --- | --- | --- | --- | --- | --- |
+| M13 | **ANR rate** | Does the Android app freeze? | sessions with an "App Not Responding" event ÷ sessions, Android app only | Crash/ANR SDK in the Android store build (Sentry for React Native) | **< 1%** (course target) | **Blocked:** needs a new store build through the team's Expo organization (`snu-omm`); access requested from Hyun on Nov 26. If the build does not ship before Beta, M13 is reported as "not measured" with the reason |
+| M14 | **Crash rate** | How often does the app break? | 1 − crash-free sessions, by app and platform; each crash with screen, app version and device | Web and app: the error screen (#843) logs `app_error_shown` (DEV-492). Android app: crash SDK (same build as M13) | ≥ 99% crash-free sessions | Web: ready once DEV-492 ships. Android: blocked like M13 |
+| M15 | **Feature usage** | Which features do people actually use? | count of uses per feature per tester per day: follow, news reaction, 1:1 chat message, checkout, transfer report, AI draft, AI reply settings, news post, deposit decision, shipment | PostHog events (§5.2–5.3) and the server database (follows, posts, messages, orders) | Reported, no threshold. Every core feature is used by at least one tester | Web: ready (missing events in DEV-492). App: needs the PostHog key (DEV-436) |
+| M16 | **Response time** | Does the app feel fast? | p50/p95 server response time per API route; p95 time to open the product page | Railway HTTP request logs (duration per request); PostHog page timing on the web | p95 server response < 1 s; product page p95 < 3 s | Server logs: available now. Page timing: web only |
+| M17 | **AI response time** (strength) | How fast does a consumer get an answer without waiting for the farmer? | time from the consumer's question to the AI reply or handoff notice (p50/p95); AI draft time from `draft_created.durationMs` | Server database (message timestamps); PostHog | Chat p95 ≤ 8 s (the AI time limit); handed-off questions answered by the farmer within 12 h (M8) | Available now |
+
+ANR and native crash reporting cannot be added with a code-only app update: they need native code in a new store build. If Expo access does not arrive in time, we keep Alpha and Beta testers on the web apps, where M14–M17 are measured, and report M13 as not measured.
+
 Every metric is reported with its **sample size**. With fewer than 5 testers in a group, we report the counts and individual cases instead of a percentage.
 
 ### 5.2 Events already in the app
@@ -309,4 +323,5 @@ AI calls have a spending cap. If the AI is unavailable, chat hands questions to 
 | Date | Change | Reason |
 | --- | --- | --- |
 | 2026-11-26 | First version | — |
+| 2026-11-26 | Before submission: added the course-required telemetry (ANR, crashes, feature usage, response time) as M13–M16, plus AI response time (M17) | TA announcement on Nov 26 (#announcements) |
 | 2026-11-26 | Before submission: switched from test products to real farms and real purchases; 4 farms and 12+ consumers; OneStore status; native telemetry risk | Team decision in the Nov 26 chat. Four farms agreed to join, and the consumer app was approved |
