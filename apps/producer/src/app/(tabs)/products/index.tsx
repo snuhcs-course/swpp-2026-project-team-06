@@ -237,7 +237,10 @@ function SalesManageSheet({
       onDone();
     } catch (e) {
       // 시트 안에서 보인다(앱 토스트는 시트 뒤에 그려짐). 서버 문구를 그대로
-      setError(e instanceof Error && e.message ? e.message : "처리하지 못했어요. 다시 시도해 주세요.");
+      // 서버 400은 사유가 details.fields에 있다. 있으면 함께 보인다
+      const fields = e instanceof ApiError ? Object.values(e.details?.fields ?? {}) : [];
+      const base = e instanceof Error && e.message ? e.message : "처리하지 못했어요. 다시 시도해 주세요.";
+      setError(fields.length ? `${base} ${fields.join(" ")}` : base);
       // 서버가 답한 거절(409, 서버가 결과를 저장함)은 같은 키로는 같은 답만 온다. 다음 시도는 새 키.
       // 연결 실패(status 0)는 서버가 처리했을 수 있어 같은 키로 다시(스캔 4차)
       if (e instanceof ApiError && e.status === 409) pending.current = null;
@@ -258,6 +261,8 @@ function SalesManageSheet({
   const saveTotal = () => {
     const grams = Math.round((totalKg ?? 0) * 1000);
     if (!totalKg || grams <= 0) return setError("총 물량을 적어 주세요.");
+    // 서버는 g 정수다. 소수 셋째 자리(1g)까지만 받고 말없이 반올림하지 않는다(예전 화면과 같음, 스캔 5차)
+    if (Math.abs(totalKg * 1000 - grams) > 1e-6 || !Number.isSafeInteger(grams)) return setError("소수 셋째 자리까지 적어 주세요.");
     if (grams === product.salesLimitGrams) return setError("지금과 같은 총 물량이에요.");
     if (grams < committed) return setError(`이미 예약·출하된 ${kgText(committed)}보다 적게 할 수 없어요.`);
     if (grams > product.approvedSupplyGrams) {

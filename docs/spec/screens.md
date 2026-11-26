@@ -693,7 +693,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | --- | --- | --- | --- | --- | --- | --- |
 | `GET /api/products/{productId}` | 공개 | SCR-04, 10 | — | 판매 중 상품, 농가 요약(`brixRecordCount` 포함), 옵션, 단계별 가격·남은 물량·지금 단계·다음 단계, 배송비, `reservedCount`. 최신 소식은 없다(결정 26) | FEAT-07, 05 | Must |
 | `GET /api/products/mine` | 생산자 | SCR-23 | `status`, `cursor`, `limit` | 내 상품 목록과 상태, `reservedCount`, 지금 단계, `hasUnappliedChanges`(판매 중·승인 대기 상품에 ‘상품에 반영’하지 않은 비공개 수정이 있음: 상품 초안·반영 안 한 예전 편집기 수정본·반영한 것과 내용이 다른 판매페이지 초안, DEV-361 PR C) | FEAT-04 | Should |
-| `GET /api/products/mine/{productId}` | 생산자 | 상품 수정·SCR-24b·물량·판매 설정(DEV-361 PR C 전 SCR-25, 26) | — | 편집용 전체 값(초안·반려 사유·물량 신청 요약 포함) | FEAT-04 | Must |
+| `GET /api/products/mine/{productId}` | 생산자 | 상품 수정·SCR-24b(DEV-487 전 물량·판매 설정, DEV-361 PR C 전 SCR-25, 26) | — | 편집용 전체 값(초안·반려 사유·물량 신청 요약 포함) | FEAT-04 | Must |
 | `POST /api/products/drafts` | 생산자 | SCR-24 | `inputText`(3,000자 이하) | `draftId`, 추출 값, `missingFields`. AI 실패면 빈 값과 `failed` 표시 | FEAT-03 | Must |
 | `POST /api/products` | 생산자 | SCR-24 | `draftId`(선택) | 초안 상품(`DRAFT`) | FEAT-03, 04 | Must |
 | `PATCH /api/products/{productId}` | 생산자 | SCR-24b·상품 수정(판매 전 상품, 초안 API 없는 서버의 바로 반영. DEV-361 PR C 전 SCR-25) | 바꿀 필드 | 즉시 반영된 상품·version | FEAT-04 | Must |
@@ -794,7 +794,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 메서드·경로 | 권한 | 화면·우선순위 |
 | --- | --- | --- |
-| PUT /api/products/{productId}/sales-settings | 승인 생산자·본인 상품 | 물량·판매 설정(DEV-361 PR C 전 SCR-25) · Must |
+| PUT /api/products/{productId}/sales-settings | 승인 생산자·본인 상품 | SCR-23 판매 관리 시트(DEV-487 전 물량·판매 설정, DEV-361 PR C 전 SCR-25) · Must |
 | GET /api/messaging/rooms | 소비자/승인 생산자, 각각 허용 방 | SCR-18·28 · Should |
 | GET/POST /api/messaging/rooms/{farmId}/messages | 팔로워 또는 해당 생산자. 생산자 응답의 방송에만 `readCount`·`replyCount`(DEV-297) | SCR-18·28 · Should |
 | PUT /api/messaging/rooms/{farmId}/read | 팔로워(소비자). `lastReadMessageId` = 그 농가의 지우지 않은 소식, 위치는 앞으로만, 204(DEV-297) | SCR-03·18 · Should |
