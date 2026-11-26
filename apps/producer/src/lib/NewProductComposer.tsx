@@ -636,7 +636,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   >(null);
   const router = useRouter(),
     navigation = useNavigation(),
-    { batchId, notice: openNotice, terms: termsParam, from } = useLocalSearchParams<{ batchId?: string; notice?: string; terms?: string; from?: string }>();
+    { batchId, notice: openNotice, terms: termsParam } = useLocalSearchParams<{ batchId?: string; notice?: string; terms?: string }>();
   const productOnly = !!fixedProductId;
   const [batch, setBatch] = useState<SourceBatch | null>(null),
     [review, setReview] = useState<SourceReview | null>(null),
@@ -757,7 +757,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   const [leaving, setLeaving] = useState<Parameters<typeof navigation.dispatch>[0] | null>(null);
   // 나가기 감시는 렌더마다 갱신하는 값을 본다(리스너가 다시 붙기 전에도 최신 값)
   const leaveGuard = useRef({ live: false, unapplied: 0 });
-  // 반영했지만 판매 한도를 다 써서 여전히 전체 물량 품절이면 그 한도(g). 한도 늘리기로 안내한다(DEV-345, 예전 SCR-26)
+  // 반영했지만 총 물량(판매 한도)을 다 써서 여전히 전체 물량 품절이면 그 값(g). 판매 관리에서 늘릴 수 있다고 안내한다(DEV-345, DEV-487)
   const [soldOutAfter, setSoldOutAfter] = useState<number | null>(null);
   const [consentInvalid, setConsentInvalid] = useState(false);
   // 처음 연 때의 대표사진·판매페이지 초안(이 화면에서 바뀌었는지 보는 기준, C-9)
@@ -1914,20 +1914,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           <View style={{ paddingHorizontal: tokens.space.gutter, paddingVertical: 12 }}>
             <Notice
               title="상품에 반영했어요."
-              body={`판매 한도(${(soldOutAfter / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg)를 모두 써서 아직 예약을 받을 수 없어요.`}
-              action={
-                <Button
-                  label="판매 한도 늘리기"
-                  compact
-                  style={{ marginTop: 8 }}
-                  onPress={() => {
-                    allowLeave.current = true;
-                    // 물량·판매 설정의 품절 안내에서 왔으면 돌아가서 스택이 쌓이지 않게 한다
-                    if (from === "sales" && router.canGoBack()) router.back();
-                    else if (productId) router.push({ pathname: "/products/[id]/sales", params: { id: productId } });
-                  }}
-                />
-              }
+              // DEV-487 (2/2): 늘리기는 상품 목록 카드의 '판매 관리'(이 화면에 버튼 없음)
+              body={`총 물량(${(soldOutAfter / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg)을 모두 팔았어요. 상품 목록의 판매 관리에서 늘릴 수 있어요.`}
             />
           </View>
         ) : null}

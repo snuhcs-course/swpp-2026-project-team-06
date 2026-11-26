@@ -579,6 +579,22 @@ def test_AC_04_8_9_capacity_lifecycle_and_increase(client, login, admin_headers)
     history = client.get(f"/api/products/{pid}/capacity-requests", headers=headers).json()
     assert {item["status"] for item in history["items"]} == {"REJECTED", "APPROVED"}
 
+    # DEV-487: an approved increase raises the sales limit together (total = approved supply)
+    again = client.post(
+        f"/api/products/{pid}/capacity-requests",
+        headers=headers | key(),
+        json={"requestedTotalGrams": 150_000, "version": product["version"]},
+    ).json()
+    raised = client.post(
+        f"/admin/products/{pid}/capacity-requests/{again['requestId']}/approve",
+        headers=admin_headers | key(),
+        json={"version": again["version"]},
+    )
+    assert raised.status_code == 200, raised.text
+    product = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+    assert product["approvedSupplyGrams"] == 150_000
+    assert product["salesLimitGrams"] == 150_000
+
 
 def _sales(client, headers, pid: str, *, limit: int, per_order: int = 3, paused: bool = False):
     product = client.get(f"/api/products/mine/{pid}", headers=headers).json()

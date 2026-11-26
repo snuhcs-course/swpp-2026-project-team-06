@@ -1177,8 +1177,10 @@ def decide_capacity_request(
             item = load_products(db, [product])[0]
             if missing_fields(item):
                 raise conflict("INVALID_TRANSITION", "필수 상품 정보를 확인해 주세요.")
-            product.sales_limit_grams = request.requested_total_grams
             product.status = "PUBLISHED"
+        # DEV-487: 총 물량은 승인 물량 하나다.
+        # 증액 승인도 판매 한도를 같이 올린다(한도 입력 화면이 없음)
+        product.sales_limit_grams = request.requested_total_grams
         product.approved_supply_grams = request.requested_total_grams
         product.reject_reason = None
         request.status = "APPROVED"

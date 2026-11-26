@@ -383,10 +383,11 @@ export default function Home() {
                 accessibilityRole="link"
                 accessibilityLabel={
                   boxes.length
-                    ? `${product.productName} ${boxes.map(optionBoxesLabel).join(", ")}. 총 ${kg(usedGrams)}kg, 판매 한도 ${kg(product.salesLimitGrams)}kg`
-                    : `${product.productName} 예약·출하 ${kg(usedGrams)}kg, 판매 한도 ${kg(product.salesLimitGrams)}kg`
+                    ? `${product.productName} ${boxes.map(optionBoxesLabel).join(", ")}. 총 ${kg(usedGrams)}kg, 총 물량 ${kg(product.salesLimitGrams)}kg`
+                    : `${product.productName} 예약·출하 ${kg(usedGrams)}kg, 총 물량 ${kg(product.salesLimitGrams)}kg`
                 }
-                onPress={() => router.push(`/products/${product.productId}/sales`)}
+                // DEV-487 (2/2): 물량·판매 설정 화면이 없어 상품 수정으로 연다
+                onPress={() => router.push(`/products/${product.productId}/detail`)}
                 style={{
                   flexDirection: "row",
                   alignItems: boxes.length ? "flex-start" : "center",
@@ -422,7 +423,7 @@ export default function Home() {
                   ))}
                   <View
                     accessibilityRole="progressbar"
-                    accessibilityLabel="판매 한도 대비 예약·출하"
+                    accessibilityLabel="총 물량 대비 예약·출하"
                     accessibilityValue={{ min: 0, max: 100, now: Math.round(ratio * 100) }}
                   >
                     <Bar ratio={ratio} height={6} />
