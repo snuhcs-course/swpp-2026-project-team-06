@@ -36,6 +36,7 @@ export function health(): Promise<{ status: "ok" }> {
 }
 
 export { allPages } from "./pagination";
+export { accountGated, keepUser } from "./userState";
 export { serverNow } from "./serverClock";
 export { priceDDay, priceFrom, referencePrice, productPrices } from "./productPresentation";
 

@@ -5,6 +5,7 @@ import {
   auth,
   configureApi,
   getToken,
+  keepUser,
   onAccountGate,
   onAuthChange,
   onConsentRequired,
@@ -100,7 +101,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       const u = await auth.me();
       if (getToken() !== token) return null;
-      setUser(u);
+      // 내용이 같으면 같은 객체(DEV-494: 403마다 다시 읽어도 [user] effect가 요청을 되풀이하지 않게)
+      setUser((old) => keepUser(old, u));
       return u;
     } catch {
       if (getToken() === token) setUser(null);

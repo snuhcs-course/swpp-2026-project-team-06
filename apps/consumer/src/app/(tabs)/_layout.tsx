@@ -1,4 +1,4 @@
-import { messaging, allPages } from "@farmclub/api";
+import { accountGated, allPages, messaging } from "@farmclub/api";
 import { TabBar, inBackground, type IconName } from "@farmclub/ui";
 import { Tabs } from "expo-router";
 import { CommonActions } from "expo-router/react-navigation";
@@ -79,9 +79,13 @@ function openTabRoot(
 export default function TabsLayout() {
   const { user, tabsKey, tabBarHidden, requireLogin } = useSession();
   const [unread, setUnread] = useState(0);
+  // DEV-494: 관문(비밀번호 변경·온보딩·재동의) 중에는 서버가 채팅 목록을 403으로 막는다. 그때 배지를 읽으면
+  // 403 → 내 정보 다시 읽기 → effect 다시 실행 → 또 403의 고리가 돌았다. 관문 중엔 읽지 않고, 의존값은 원시값만 쓴다
+  const uid = user?.userId ?? null;
+  const badgeOn = !!user && !accountGated(user);
 
   useEffect(() => {
-    if (!user) {
+    if (!uid || !badgeOn) {
       setUnread(0);
       return;
     }
@@ -108,7 +112,7 @@ export default function TabsLayout() {
       clearInterval(t);
       resumed?.remove();
     };
-  }, [user]);
+  }, [uid, badgeOn]);
 
   return (
     <Tabs

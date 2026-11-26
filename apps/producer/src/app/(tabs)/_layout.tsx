@@ -1,4 +1,4 @@
-import { allPages, messaging } from "@farmclub/api";
+import { accountGated, allPages, messaging } from "@farmclub/api";
 import { TabBar, inBackground, type IconName } from "@farmclub/ui";
 import { Tabs, usePathname } from "expo-router";
 import { CommonActions } from "expo-router/react-navigation";
@@ -56,9 +56,13 @@ export default function TabsLayout() {
   const { user, ready, tabBarHidden } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = useState(0);
+  // DEV-494: 재동의·비밀번호 변경 관문 중에는 서버가 403으로 막는다. 의존값을 원시값으로 두어
+  // 403 → 내 정보 다시 읽기 → effect 다시 실행 → 또 403의 고리를 끊는다
+  const uid = user?.userId ?? null;
+  const badgeOn = user?.farmStatus === "APPROVED" && !accountGated(user);
 
   useEffect(() => {
-    if (user?.farmStatus !== "APPROVED") return;
+    if (!uid || !badgeOn) return;
     let alive = true;
     // DEV-325: 탭이 숨겨졌거나 앱이 백그라운드면 배지 요청을 쉬고, 돌아오면 바로 한 번 읽는다(useLiveList와 같은 규칙).
     const load = () => {
@@ -90,7 +94,7 @@ export default function TabsLayout() {
       clearInterval(t);
       resumed?.remove();
     };
-  }, [user, pathname]);
+  }, [uid, badgeOn, pathname]);
 
   if (!ready) return <ActivityIndicator accessibilityLabel="화면을 준비하고 있어요" />;
 
