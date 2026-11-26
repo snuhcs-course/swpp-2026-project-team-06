@@ -1,4 +1,5 @@
 import {
+  ApiError,
   isNativeFile,
   sourceAnalysis as api,
   uploadSource,
@@ -9,6 +10,7 @@ import { Button, Icon, T, StoryImage, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Image, Pressable, TextInput, View } from "react-native";
 import { chooseSourceFiles, type PickedFile } from "./sourceFiles";
+import { sourceActionError } from "./sourceFeedback";
 import { sourcePhotoUrl } from "./sourcePhoto";
 import { initialThumb, loadThumb, type ThumbState } from "./sourceThumb";
 function Tile({
@@ -282,6 +284,9 @@ function Tile({
     </View>
   );
 }
+/** 화면에 보일 오류 문구. 서버 오류는 그 안내 그대로, 그 밖의 영어 내부 문구는 한국어 안내로(DEV-493) */
+const errorText = (e: unknown) => (e instanceof ApiError ? e.message : sourceActionError(e).message);
+
 export function SourceAttachments({
   batch,
   busy,
@@ -449,7 +454,7 @@ export function SourceAttachments({
       await fn();
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setWorking(false);
       onBusy(false);
@@ -497,7 +502,8 @@ export function SourceAttachments({
           await upload(file, photo);
         } catch (e) {
           setFailed((old) => [...old, { file, photo }]);
-          setError(String(e));
+          // String(e)는 'Error: …'·영어 내부 문구까지 보여 준다. 한국어 안내만 보인다(DEV-493)
+          setError(errorText(e));
         }
       }
     });

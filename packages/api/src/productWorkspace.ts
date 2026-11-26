@@ -1,6 +1,7 @@
 import { ApiError, request, apiUrl, getToken } from "./client";
 import { blobUrl } from "./objectUrl";
 import { PhotoTimeoutError, privatePhotoBlob } from "./privatePhoto";
+import { postForm } from "./formPost";
 import { appendFile, type UploadFile } from "./upload";
 import type {
   DetailContent,
@@ -100,14 +101,13 @@ export const productWorkspace = {
   ): Promise<{ uri: string; alt: string }> => {
     const form = new FormData();
     appendFile(form, "file", file);
-    const response = await fetch(`${apiUrl}${base}/${productId}/photos`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${getToken()}` },
-      body: form,
+    // 앱은 XMLHttpRequest, 웹은 fetch(formPost, DEV-493)
+    const response = await postForm(`${apiUrl}${base}/${productId}/photos`, form, {
+      Authorization: `Bearer ${getToken()}`,
     });
     if (!response.ok)
       throw new Error("사진을 올리지 못했어요. 다시 시도해 주세요.");
-    return response.json();
+    return response.body as { uri: string; alt: string };
   },
   /** 작업 사진 주소. 사진 id 하나는 저장본 하나라 같은 id는 한 번만 받는다(DEV-341, 시간 제한 있음) */
   photo: async (productId: string, photoId: string) => {

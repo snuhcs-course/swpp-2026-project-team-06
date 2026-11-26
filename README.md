@@ -465,7 +465,9 @@ web page, so in a dev client use a test account (or set `EXPO_PUBLIC_API_URL` to
 
 Web-only code is split by platform (`*.native.ts` next to the web file, or `Platform.OS`
 branches). Tokens live in `expo-secure-store` on devices, analytics use `posthog-react-native`,
-photos come from `expo-image-picker`. Kakao login keeps the server contract: the app opens the
+photos come from `expo-image-picker`. Uploads go through `postForm` (`packages/api/src/formPost*.ts`): React
+Native `XMLHttpRequest` on devices, because SDK 57 replaces the global `fetch` with expo/fetch, which rejects
+`{uri, name, type}` FormData parts (DEV-493). Kakao login keeps the server contract: the app opens the
 Kakao page in an auth session with `state=app-…`, Kakao returns to the usual web page
 `https://farmclub.kr/auth/kakao` (or `https://farm.farmclub.kr/auth/kakao`), and that page hands
 the code to the app scheme (`farmclub-consumer://auth/kakao`). `scripts/test-native-config.mjs`
@@ -557,7 +559,9 @@ The link works for anyone who has it. iOS Simulator: download the build, unpack 
 the `.app` onto a booted simulator (or `xcrun simctl install booted <path>.app`). Check, in this
 order: install and launch, Kakao login and return to the app (on Android also that the screen
 you came from and the pending action are kept), onboarding, home / farm / product / order /
-chat, photo attachment in chat, and in the producer app sign-up and photo upload. Record each
+chat, photo attachment in chat, and in the producer app sign-up and photo upload. Check uploads and the
+new-product flow against a real server (a local one is enough), not in Mock mode: Mock sends no upload request,
+which is how a broken native upload reached ONE store review (DEV-493). Record each
 device in DEV-41 (model, OS version, install, login, problems). These builds send nothing to
 PostHog: the key is only set in the EAS `production` environment. Known limits: the ‘카카오톡으로
 로그인’ button inside the auth session may not switch to the KakaoTalk app (Kakao account
