@@ -41,5 +41,5 @@
 | Draft the app and feature definitions for the poster | Zahra, with the team |
 | Map telemetry measures to the definitions and check existing PostHog events | Zahra, Jinwoo |
 | Finish the producer editing page | Jinwoo (done Nov 26) |
-| Reach out to at least four groups for testing on Nov 26 | Jinwoo |
+| Contact at least four farms on Nov 26 to list real products | Jinwoo |
 | Sign up for an Alpha slot by Nov 26 23:59 | Everyone |
