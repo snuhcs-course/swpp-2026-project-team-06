@@ -2,6 +2,7 @@
 import {
   auth,
   configureApi,
+  keepUser,
   onAccountGate,
   onAuthChange,
   onOnboardingRequired,
@@ -145,7 +146,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (scope) {
         setTabsKey(tabs.current!.confirm(u.userId));
         setChatViewScope(scope);
-        setUser(u);
+        // 내용이 같으면 같은 객체(DEV-494: 403마다 다시 읽어도 [user] effect가 요청을 되풀이하지 않게)
+        setUser((old) => keepUser(old, u));
       }
     } catch {
       // A transient same-session failure hides private UI without erasing safe geometry.
