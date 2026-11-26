@@ -59,7 +59,7 @@ Why use it:
 
 ## 2. Beta objectives
 
-The Beta asks four questions. Each question comes from the definition in §1. The success criteria are targets set now, before testing. If they change, the change goes in §9.
+The Beta asks four questions. Each question comes from the definition in §1. The success criteria are targets set now, before testing. If they change, the change goes in §10.
 
 ### O1. Do consumers become fans of a farm?
 
