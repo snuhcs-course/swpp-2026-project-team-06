@@ -21,3 +21,26 @@ export function appendFile(
   else form.append(field, file);
 }
 
+/** expo-image-picker가 준 사진 한 장(필요한 칸만) */
+export type PickedImageAsset = { uri: string; fileName?: string | null; mimeType?: string | null; fileSize?: number | null };
+/** 사진 고르기의 압축 품질. 1보다 작아야 아래 pickedImage의 형식 판단이 맞다 */
+export const PICK_QUALITY = 0.8;
+
+/**
+ * 고른 사진을 올릴 파일로(DEV-493). 형식과 이름은 picker가 준 원본 mimeType·fileName이 아니라 실제로 만든 파일(uri)로 정한다.
+ * quality < 1이면 expo-image-picker는 사진을 다시 압축한다. Android는 출력 확장자가 .png일 때만 PNG이고 그 밖(HEIC·WebP·GIF 등)은
+ * 모두 JPEG 바이트다(expo-image-picker android MediaHandler.handleImage → CompressionImageExporter, ImagePickerUtils
+ * toBitmapCompressFormat). 그런데 mimeType·fileName은 원본 그대로(image/heic, IMG.heic)라, 서버가 선언 형식과 내용이 다르다며
+ * 400을 준다(server/app/core/images.py sanitize). iOS도 PNG 밖은 JPEG로 만든다.
+ */
+export function pickedImage(asset: PickedImageAsset, fallbackBase = "photo"): NativeFile & { size: number } {
+  const png = /\.png$/i.test(asset.uri.split(/[?#]/)[0]);
+  const ext = png ? "png" : "jpg";
+  const base = (asset.fileName || "").replace(/\.[^./\\]*$/, "") || `${fallbackBase}-${Date.now()}`;
+  return {
+    uri: asset.uri,
+    name: `${base}.${ext}`,
+    type: png ? "image/png" : "image/jpeg",
+    size: asset.fileSize ?? 0,
+  };
+}

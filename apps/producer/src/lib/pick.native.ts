@@ -1,7 +1,7 @@
 // 사진·영상 고르기(iOS·Android, expo-image-picker, DEV-33). 웹은 pick.ts(<input type="file"> + 600px 축소).
 // 고른 파일은 {uri, name, type}으로 uploadMedia에 보낸다(FormData). 축소는 하지 않고 picker quality 0.8로 압축한다.
 // 정책은 웹과 같다: 사진 장당 10MB, 영상 1개 60초·100MB(SCR-27). Mock은 웹 전용이라 여기서는 늘 서버로 올린다.
-import { ApiError, uploadMedia } from "@farmclub/api";
+import { ApiError, PICK_QUALITY, pickedImage, uploadMedia } from "@farmclub/api";
 import * as ImagePicker from "expo-image-picker";
 
 export type Picked =
@@ -26,16 +26,18 @@ export async function pickMedia({
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: video ? ["images", "videos"] : ["images"],
     allowsMultipleSelection: multiple,
-    quality: 0.8,
+    quality: PICK_QUALITY,
   });
   if (res.canceled) return [];
   const out: Picked[] = [];
   for (const a of res.assets) {
     const isVideo = a.type === "video";
-    const name =
-      a.fileName || `${isVideo ? "video" : "photo"}-${Date.now()}.${isVideo ? "mp4" : "jpg"}`;
+    // 사진은 다시 압축한 파일 기준으로 형식·이름을 정한다(원본 HEIC·WebP의 mimeType을 그대로 쓰면 서버가 거절, DEV-493).
+    // 영상은 다시 만들지 않고 복사만 한다(Android MediaHandler.handleVideo)
+    const photo = isVideo ? null : pickedImage(a);
+    const name = photo?.name ?? (a.fileName || `video-${Date.now()}.mp4`);
     const size = a.fileSize ?? 0;
-    const type = a.mimeType || (isVideo ? "video/mp4" : "image/jpeg");
+    const type = photo?.type ?? (a.mimeType || "video/mp4");
     try {
       if (isVideo) {
         if (size > 100 * MB) {
