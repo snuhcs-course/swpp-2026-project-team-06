@@ -159,7 +159,8 @@ test("DEV-122: PostHog transfer lists every item of Article 28-8(2) and the basi
   assert.ok(row, "PostHog row in the transfer table");
   assert.ok(row.includes("<td>미국</td>"));
   for (const item of ["접속 IP 주소", "세션 녹화", "*로 가려", "서비스 내부 회원 ID", "이름·연락처·주소·메시지 본문은 보내지 않음"]) assert.ok(row.includes(item), item);
-  assert.ok(row.includes("공식 주소(farmclub.kr, farm.farmclub.kr)의 웹 화면에서만"));
+  // DEV-436: 웹 화면과 정식 배포 앱에서만 보낸다(미리보기·테스트 빌드 제외)
+  assert.ok(row.includes("공식 주소(farmclub.kr, farm.farmclub.kr)의 웹 화면과 앱 마켓에 정식 배포한 iOS·Android 앱에서만 보냄"));
   // DEV-299: 보관 기간은 PostHog 실제 설정(이벤트 최대 7년, 녹화 30일). 무료 요금제 1년이 아니다
   assert.ok(row.includes("PostHog의 보관 기준에 따라 이용 기록은 수집한 날부터 최대 7년"));
   assert.match(row, /30일/);
@@ -170,7 +171,7 @@ test("DEV-122: PostHog transfer lists every item of Article 28-8(2) and the basi
   assert.match(html, /PostHog로의 이전\(이용 통계·세션 녹화\)은 서비스 안에 따로 끄는 설정이 아직 없습니다/);
   assert.ok(html.includes("막아도 서비스 이용에는 지장이 없습니다"));
   // 처리위탁 표에도 PostHog가 있다(제26조 제2항)
-  assert.ok(html.includes("<td>PostHog, Inc.</td><td>이용 통계·세션 녹화 분석(웹)</td>"));
+  assert.ok(html.includes("<td>PostHog, Inc.</td><td>이용 통계 분석(웹·앱)과 세션 녹화 분석(웹)</td>"));
   // 자동 수집 장치: 공식 주소에서만, 세션 녹화 포함, 쿠키 차단만으로 전송이 멈추지 않을 수 있음
   assert.match(html, /공식 주소\(farmclub\.kr, farm\.farmclub\.kr\)의 웹 화면에서는 이용 통계 도구 PostHog/);
   assert.ok(html.includes("쿠키·저장소를 막아도 PostHog 전송은 이어질 수 있으니"));
@@ -383,6 +384,27 @@ test("DEV-476: privacy policy says where the apps keep the login token, without 
   assert.match(html, new RegExp(`${NOTICE} 변경: 제10조의 로그인 토큰 저장 위치[^<]*다시 동의를 받지 않습니다`));
   assert.ok(html.includes(`${NOTICE} 변경분(제10조 앱의 로그인 토큰 저장 위치)은 ${EFFECTIVE}부터 시행합니다.`));
   // 고지 문구 정정이라 문서 시행일·동의 버전은 그대로(DEV-122 규칙)
+  assert.equal(content.privacyPolicy.effective, "2026년 11월 20일");
+  assert.equal(content.LEGAL_VERSION, "2026-11-20");
+});
+
+test("DEV-436: privacy policy covers PostHog analytics in the store apps, effective immediately, without a version bump", () => {
+  // legalContent.ts의 APP_ANALYTICS_EFFECTIVE와 같아야 한다. 배포가 밀리면 둘을 함께 고친다(PM 11/26: 사전 고지 기간 없이 바로 시행)
+  const EFFECTIVE = "2026년 11월 27일";
+  const html = pages.pageHtml(content.privacyPolicy);
+  // 제2조: 이용 통계는 웹·앱, 세션 녹화는 웹만
+  assert.ok(html.includes("이용 통계는 공식 주소의 웹 화면과 정식 배포한 iOS·Android 앱에서, 세션 녹화는 웹 화면에서만, 제10조"));
+  // 제6조: 앱에서 보내는 항목과 거부 방법
+  const row = html.match(/<tr><td>PostHog, Inc\. \(privacy@posthog\.com\)<\/td>(.*?)<\/tr>/s)?.[1];
+  assert.ok(row, "PostHog row in the transfer table");
+  for (const item of ["앱 버전", "앱 설치·열기·백그라운드 전환", "세션 녹화(웹 화면만.", "미리보기·테스트 빌드에서는 보내지 않음"]) assert.ok(row.includes(item), item);
+  assert.ok(html.includes("앱에는 전송을 막는 설정이 아직 없으니, 원하지 않으면 웹 화면을 이용하세요."));
+  // 제10조: 앱의 자동 수집 장치, 앱은 세션 녹화 없음
+  assert.ok(html.includes(`앱에서는 세션 녹화를 하지 않습니다(${EFFECTIVE}부터 시행).`));
+  // 제14조: 변경 기록과 시행일
+  assert.match(html, new RegExp(`${EFFECTIVE} 변경: PostHog 이용 통계를 웹 화면뿐 아니라[^<]*다시 동의를 받지 않습니다`));
+  assert.ok(html.includes(`${EFFECTIVE} 변경분(앱 이용 통계)은 ${EFFECTIVE}부터 시행합니다.`));
+  // 처리 근거·동의 항목은 그대로라 문서 시행일·동의 버전은 올리지 않는다(DEV-476과 같은 규칙)
   assert.equal(content.privacyPolicy.effective, "2026년 11월 20일");
   assert.equal(content.LEGAL_VERSION, "2026-11-20");
 });
