@@ -31,13 +31,13 @@
   --accent:#C94F0C; --accent-ink:#A8420A; --uline:#A9A7A0;
   --sans:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --float-bg:#FFFFFF; --float-line:#CBC8C1; --float-shadow:0 1px 2px rgba(17,17,17,.06),0 6px 20px rgba(17,17,17,.10);
+  --fc-bg:#111111; --fc-fg:#F4F3EF; --fc-tint:rgba(244,243,239,.10); --fc-shadow:0 1px 2px rgba(17,17,17,.10),0 6px 18px rgba(17,17,17,.12);
   --pad:40px; color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){--bg:#121211;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1C1B19;--accent:#EC7F45;--accent-ink:#EC7F45;--uline:#6E6C66;--float-bg:#1F1E1C;--float-line:#4A4843;--float-shadow:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.30);color-scheme:dark}
+  :root:not([data-theme="light"]){--bg:#121211;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1C1B19;--accent:#EC7F45;--accent-ink:#EC7F45;--uline:#6E6C66;--fc-bg:#EEEDE8;--fc-fg:#121211;--fc-tint:rgba(18,18,17,.08);--fc-shadow:0 1px 2px rgba(0,0,0,.30),0 6px 18px rgba(0,0,0,.40);color-scheme:dark}
 }
-:root[data-theme="dark"]{--bg:#121211;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1C1B19;--accent:#EC7F45;--accent-ink:#EC7F45;--uline:#6E6C66;--float-bg:#1F1E1C;--float-line:#4A4843;--float-shadow:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.30);color-scheme:dark}
+:root[data-theme="dark"]{--bg:#121211;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1C1B19;--accent:#EC7F45;--accent-ink:#EC7F45;--uline:#6E6C66;--fc-bg:#EEEDE8;--fc-fg:#121211;--fc-tint:rgba(18,18,17,.08);--fc-shadow:0 1px 2px rgba(0,0,0,.30),0 6px 18px rgba(0,0,0,.40);color-scheme:dark}
 
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -158,28 +158,49 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
 .bar-toc li a{display:flex;align-items:center;min-height:44px;border-bottom:1px solid var(--hair);font-size:16px}
 .lang-sw{flex:none;margin-left:auto;display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;color:var(--ink-2)}
 .lang-sw a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink-2);text-decoration:none}
-/* 넓은 화면(1200 이상): 위에는 아무것도 붙이지 않고, 화면 아래 가운데에 떠 있는 작은 조작부 하나.
-   차례 · 지금 절(단계) · EN | 한국어. 앵커는 화면 위로 착지하므로 아래에 둬야 방금 간 제목을 가리지 않는다.
-   바탕색 면, 가는 선 테두리, 모서리 4(페이지의 각진 조판에 맞춤), 그림자·아이콘 없음. 페이지 아래 여백으로 꼬리말이 가려지지 않게 한다. */
-.bar-cur{display:none}
+/* 넓은 화면(1200 이상): 위에는 아무것도 붙이지 않고, 화면 아래 가운데에 떠 있는 조작부(.fc) 하나. 좁은 화면 바(.bar)는 숨긴다.
+   먹색 면(어두운 테마는 종이색 면)으로 본문과 갈라지고, 두 부분: [‹ › 지금 절·단계 ▴] | [EN 한국어].
+   목록은 바와 같은 폭으로 8px 위에 열리고, 작업 순서 아래에 여덟 단계를 들여 보인다. 아래 2px 진행선. 모서리 11, 주황 없음. */
+.fc{display:none}
 @media (min-width:1200px){
-  .bar{position:static;height:0;border-bottom:0;background:none}
-  .bar-in{height:0;padding:0}
-  .bar-name{display:none}
-  .bar-ctl{display:flex;position:fixed;z-index:20;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom, 0px));height:44px;max-width:560px;align-items:center;background:var(--float-bg);border:1px solid var(--float-line);border-radius:4px;box-shadow:var(--float-shadow)}
-  .bar-ctl > .bar-toc{flex:none;padding:0 16px}
-  .bar-cur{display:block;padding:0 16px;border-left:1px solid var(--hair);font-size:14px;line-height:42px;color:var(--ink);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
-  .bar-cur:empty{display:none}
-  .lang-sw{margin-left:0;padding:0 16px;border-left:1px solid var(--hair)}
-  .bar-toc summary{height:42px;font-size:14px}
-  .bar-toc ol{left:-1px;right:auto;top:auto;bottom:52px;width:264px;background:var(--float-bg);border:1px solid var(--float-line);border-radius:4px;box-shadow:var(--float-shadow);padding:4px 16px 8px}
-  .bar-toc li a{font-size:15px}
-  .bar-toc li:last-child a{border-bottom:0}
+  .bar{display:none}
+  .fc{display:block;position:fixed;z-index:20;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom, 0px))}
+  .fc-bar{position:relative;display:flex;align-items:center;height:44px;min-width:320px;max-width:480px;padding:0 6px;background:var(--fc-bg);color:var(--fc-fg);border-radius:11px;box-shadow:var(--fc-shadow);font-size:13px;line-height:20px}
+  .fc button{appearance:none;-webkit-appearance:none;border:0;margin:0;padding:0;background:none;color:inherit;font:inherit;font-size:18px;line-height:32px;width:32px;height:32px;border-radius:7px;cursor:pointer;opacity:.8;flex:none}
+  .fc button:hover{opacity:1;background:var(--fc-tint)}
+  .fc button:disabled{opacity:.28;cursor:default;background:none}
+  .fc-toc{flex:1 1 auto;min-width:0}
+  .fc-label{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;margin-left:2px;border-radius:7px;font-weight:600;min-width:0}
+  .fc-label::-webkit-details-marker{display:none}
+  .fc-label:hover{background:var(--fc-tint)}
+  .fc-cur{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fc-caret{flex:none;font-size:13px;opacity:.7}
+  .fc-caret::before{content:"\25B4"}
+  .fc-toc[open] .fc-caret::before{content:"\25BE"}
+  .fc-div{flex:none;width:1px;height:20px;margin:0 6px;background:var(--fc-fg);opacity:.18}
+  .fc-lang{flex:none;display:flex;gap:2px}
+  .fc-lang a{display:flex;align-items:center;height:32px;padding:0 8px;border-radius:7px;color:inherit;text-decoration:none;opacity:.6}
+  .fc-lang a[aria-current]{opacity:1;font-weight:500}
+  .fc-lang a:hover{opacity:1;background:var(--fc-tint)}
+  .fc :focus-visible{outline:2px solid var(--fc-fg);outline-offset:2px}
+  .fc-list{position:absolute;left:0;right:0;bottom:calc(100% + 8px);max-height:calc(100vh - 120px);overflow:auto;padding:8px 6px;background:var(--fc-bg);color:var(--fc-fg);border-radius:11px;box-shadow:var(--fc-shadow)}
+  .fc-toc[open] .fc-list{animation:fc-in .12s ease-out}
+  .fc-head{margin:0;padding:4px 12px 6px;font-size:13px;line-height:20px;font-weight:600;opacity:.55}
+  .fc-list ol{list-style:none;margin:0;padding:0}
+  .fc-list a{position:relative;display:flex;align-items:center;height:36px;padding:0 12px;border-radius:7px;color:inherit;text-decoration:none;font-size:14px;line-height:20px;white-space:nowrap;opacity:.7}
+  .fc-list a:hover,.fc-list a:focus-visible{opacity:1;background:var(--fc-tint)}
+  .fc-list a[aria-current]{opacity:1;font-weight:600}
+  .fc-list a[aria-current]::before{content:"";position:absolute;left:2px;top:9px;bottom:9px;width:2px;border-radius:1px;background:var(--fc-fg)}
+  .fc-list .fc-steps a{padding-left:30px;font-size:13px}
+  .fc-steps .n{display:inline-block;width:20px;font-family:var(--mono);font-size:13px;opacity:.7}
+  .fc-prog{position:absolute;left:12px;right:12px;bottom:0;height:2px;border-radius:1px;background:var(--fc-fg);opacity:.5;transform-origin:left center;transform:scaleX(0)}
   [id],section.sec,.part,.idx > div,footer.foot{scroll-margin-top:24px}
   .sec > h2{top:24px}
   header.top{padding-top:96px}
   .page{padding-bottom:160px}
 }
+@keyframes fc-in{from{opacity:0;transform:translateY(4px)}}
+@media (prefers-reduced-motion:reduce){.fc-toc[open] .fc-list{animation:none}}
 @media (max-width:560px){.bar-name{display:none}}
 
 /* 작업 순서 표 위 단계 줄과 단계 링크 */
@@ -230,7 +251,7 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
   @page{size:A4;margin:16mm 14mm}
   body{font-size:10pt;line-height:1.6}
   .page{padding:0}
-  .toc,button.copy,.bar,.skip{display:none}
+  .toc,button.copy,.bar,.fc,.skip{display:none}
   .strip a span{color:inherit}
   h1{font-size:36pt;line-height:1}
   .sec > h2{position:static}
@@ -247,9 +268,20 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
     <a class="bar-name" href="#top">협업 지도</a>
     <div class="bar-ctl">
       <details class="bar-toc"><summary>차례</summary><ol><li><a href="#flow">작업 순서</a></li><li><a href="#roles">사람이 하는 일</a></li><li><a href="#controls">통제의 층</a></li><li><a href="#names">이름 규칙</a></li><li><a href="#checks">PR 체크와 머지</a></li><li><a href="#screens">화면을 바꿀 때</a></li><li><a href="#limits">알려진 한계</a></li><li><a href="#ref">찾아보기</a></li></ol></details>
-      <span class="bar-cur"></span>
       <span class="lang-sw" role="group" aria-label="언어"><a href="../" hreflang="en" lang="en">EN</a><span aria-hidden="true">|</span><a href="./" hreflang="ko" lang="ko" aria-current="page">한국어</a></span>
     </div>
+  </div>
+</nav>
+<nav class="fc" aria-label="페이지 이동">
+  <div class="fc-bar">
+    <button type="button" class="fc-prev" aria-label="이전 절이나 단계" hidden>&#8249;</button><button type="button" class="fc-next" aria-label="다음 절이나 단계" hidden>&#8250;</button>
+    <details class="fc-toc">
+      <summary class="fc-label"><span class="fc-cur">협업 지도</span><span class="fc-caret" aria-hidden="true"></span><span class="sr">차례</span></summary>
+      <div class="fc-list"><p class="fc-head" aria-hidden="true">차례</p><ol><li><a href="#flow">작업 순서</a><ol class="fc-steps"><li><a href="#step-1"><span class="n">1</span> Linear 이슈</a></li><li><a href="#step-2"><span class="n">2</span> 브랜치</a></li><li><a href="#step-3"><span class="n">3</span> spec</a></li><li><a href="#step-4"><span class="n">4</span> draft PR</a></li><li><a href="#step-5"><span class="n">5</span> 구현</a></li><li><a href="#step-6"><span class="n">6</span> 리뷰 요청</a></li><li><a href="#step-7"><span class="n">7</span> 리뷰 반영</a></li><li><a href="#step-8"><span class="n">8</span> 머지</a></li></ol></li><li><a href="#roles">사람이 하는 일</a></li><li><a href="#controls">통제의 층</a></li><li><a href="#names">이름 규칙</a></li><li><a href="#checks">PR 체크와 머지</a></li><li><a href="#screens">화면을 바꿀 때</a></li><li><a href="#limits">알려진 한계</a></li><li><a href="#ref">찾아보기</a></li></ol></div>
+    </details>
+    <span class="fc-div" aria-hidden="true"></span>
+    <span class="fc-lang" role="group" aria-label="언어"><a href="../" hreflang="en" lang="en">EN</a><a href="./" hreflang="ko" lang="ko" aria-current="page">한국어</a></span>
+    <span class="fc-prog" aria-hidden="true"></span>
   </div>
 </nav>
 <div class="page">
@@ -585,49 +617,63 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
 })();
 </script>
 <script>
-// 바: 지금 보는 절 표시(aria-current), 제목이 지나가면 페이지 이름, 다른 언어 링크에 지금 위치(#절·#단계) 싣기.
-// JS가 없어도 링크는 모두 그대로 이동한다. 외부 요청·저장 없음. 브라우저 언어로 옮기지 않는다.
+// 위 바(좁은 화면)와 떠 있는 조작부(넓은 화면): 지금 절·단계 표시, 이전·다음, 진행선, 다른 언어 링크에 지금 위치 싣기.
+// JS가 없어도 차례 목록과 언어 링크는 그대로 이동한다(이전·다음 단추와 지금 위치 글은 없다). 외부 요청·저장 없음. 브라우저 언어로 옮기지 않는다.
 (function(){
   document.documentElement.classList.add('js');
-  var bar=document.querySelector('.bar'); if(!bar) return;
-  var links=[].slice.call(bar.querySelectorAll('.bar-toc li a'));
+  var bar=document.querySelector('.bar'), fc=document.querySelector('.fc'); if(!bar) return;
+  var wide=matchMedia('(min-width:1200px)');
+  // 절과 작업 순서 행, 문서 순서. 이전·다음은 이 순서로 걷는다(작업 순서 안에서는 1~8단계를 먼저).
   var places=[].slice.call(document.querySelectorAll('main section.sec, .lane li[id]'));
-  var other=bar.querySelector('.lang-sw a:not([aria-current])');
-  var base=other?other.getAttribute('href').split('#')[0]:'';
-  var h1=document.querySelector('h1'), toc=bar.querySelector('.bar-toc'), queued=false;
-  var wide=matchMedia('(min-width:1200px)'), cur=bar.querySelector('.bar-cur');
+  var marks=[].slice.call(document.querySelectorAll('.bar-toc li a, .fc-list a'));
+  var others=[].slice.call(document.querySelectorAll('.lang-sw a:not([aria-current]), .fc-lang a:not([aria-current])'));
+  var bases=others.map(function(a){return a.getAttribute('href').split('#')[0];});
+  var tocs=[].slice.call(document.querySelectorAll('.bar-toc, .fc-toc'));
+  var h1=document.querySelector('h1'), queued=false, idx=-1;
+  var cur=fc&&fc.querySelector('.fc-cur'), page=cur?cur.textContent:'';
+  var prev=fc&&fc.querySelector('.fc-prev'), next=fc&&fc.querySelector('.fc-next'), prog=fc&&fc.querySelector('.fc-prog');
+  if(prev){prev.hidden=false; next.hidden=false;}
+  function link(id){ return fc&&fc.querySelector('.fc-list a[href="#'+id+'"]'); }
   function update(){
     queued=false;
-    // 기준선: 좁은 화면은 바 아래 24px, 넓은 화면은 위에서 48px. 착지 위치(64px, 넓은 화면 24px)보다 아래여야 방금 간 절이 표시된다.
-    var line=wide.matches?48:bar.getBoundingClientRect().bottom+24, sec=null, place=null;
+    // 기준선: 좁은 화면은 바 아래 24px, 넓은 화면은 위에서 48px. 착지 위치(64px, 넓은 화면 24px)보다 아래여야 방금 간 곳이 표시된다.
+    var line=wide.matches?48:bar.getBoundingClientRect().bottom+24, sec=null, place=null; idx=-1;
     for(var i=0;i<places.length;i++){
-      if(places[i].getBoundingClientRect().top<=line){place=places[i]; if(places[i].tagName==='SECTION') sec=places[i];}
+      if(places[i].getBoundingClientRect().top<=line){place=places[i]; idx=i; if(places[i].tagName==='SECTION') sec=places[i];}
     }
-    for(var j=0;j<links.length;j++){
-      if(sec && links[j].getAttribute('href')==='#'+sec.id) links[j].setAttribute('aria-current','true');
-      else links[j].removeAttribute('aria-current');
+    var step=place&&place.tagName==='LI'?place:null;
+    for(var j=0;j<marks.length;j++){
+      var h=marks[j].getAttribute('href'), inFc=!!marks[j].closest('.fc');
+      var on=inFc?(step?h==='#'+step.id:(sec&&h==='#'+sec.id)):(sec&&h==='#'+sec.id);
+      if(on) marks[j].setAttribute('aria-current','true'); else marks[j].removeAttribute('aria-current');
     }
-    if(other) other.setAttribute('href', base+(place?'#'+place.id:''));
-    // 떠 있는 조작부 가운데: 지금 절 이름, 작업 순서 표 안이면 단계까지("Workflow · 5 Build")
+    for(var k=0;k<others.length;k++) others[k].setAttribute('href', bases[k]+(place?'#'+place.id:''));
     if(cur){
-      var t='';
-      for(var k=0;k<links.length;k++) if(sec && links[k].getAttribute('href')==='#'+sec.id) t=links[k].textContent;
-      if(place && place.tagName==='LI'){ var st=place.querySelector('.st'), no=st.querySelector('.no').textContent; t+=' · '+no+' '+st.textContent.slice(no.length).trim(); }
+      var t=page;
+      if(sec){ var a=link(sec.id); t=a?a.textContent:t; }
+      if(step){ var s=link(step.id); if(s) t+=' · '+s.textContent; }
       if(cur.textContent!==t) cur.textContent=t;
     }
+    if(prev){ prev.disabled=idx<0; next.disabled=idx>=places.length-1; }
+    if(prog){ var m=document.documentElement.scrollHeight-innerHeight; prog.style.transform='scaleX('+(m>0?Math.min(1,scrollY/m):0)+')'; }
     if(h1) bar.classList.toggle('past', h1.getBoundingClientRect().bottom<bar.getBoundingClientRect().bottom);
   }
   function soon(){ if(!queued){queued=true; requestAnimationFrame(update);} }
-  // 절이 화면보다 길어 IntersectionObserver의 비율 문턱은 바 아래 선을 넘는 순간을 놓친다. 그래서 스크롤마다(프레임당 한 번) 계산한다.
+  function go(id){ if(location.hash==='#'+id){ var e=document.getElementById(id); if(e) e.scrollIntoView(); } else location.hash='#'+id; }
+  if(prev){
+    prev.addEventListener('click', function(){ update(); go(idx>0?places[idx-1].id:'top'); });
+    next.addEventListener('click', function(){ update(); if(idx<places.length-1) go(places[idx+1].id); });
+  }
+  // 절이 화면보다 길어 IntersectionObserver의 비율 문턱은 기준선을 넘는 순간을 놓친다. 그래서 스크롤마다(프레임당 한 번) 계산한다.
   addEventListener('scroll', soon, {passive:true});
   addEventListener('resize', soon);
   addEventListener('hashchange', soon);
-  if(other) other.addEventListener('click', update);
-  if(toc){
+  others.forEach(function(a){ a.addEventListener('click', update); });
+  tocs.forEach(function(toc){
     toc.addEventListener('click', function(e){ if(e.target.closest('li a')) toc.open=false; });
     document.addEventListener('keydown', function(e){ if(e.key==='Escape' && toc.open){ toc.open=false; toc.querySelector('summary').focus(); } });
     document.addEventListener('click', function(e){ if(toc.open && !toc.contains(e.target)) toc.open=false; });
-  }
+  });
   update();
 })();
 </script>
