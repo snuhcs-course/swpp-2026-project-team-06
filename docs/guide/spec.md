@@ -4,10 +4,10 @@
 > 동작·규칙 원본은 `AGENTS.md`·`README.md`·`.github/CI.md`다. 여기와 페이지에 다시 쓰지 않는다.
 
 ## 역할
-팀원용 협업 지도(`index.html`) 한 장. 이슈 하나가 운영에 닿기까지의 흐름과, 규칙이 있는 절을 링크로 보여 준다. main에 머지되면 GitHub Pages(설정의 legacy 빌드, main의 `/docs`)가 `https://snuhcs-course.github.io/swpp-2026-project-team-06/guide/`로 올린다.
+팀원용 협업 지도(`index.html`) 한 장. 작업 순서와 사람·에이전트·자동의 몫을 적고, 규칙이 있는 절을 링크로 보여 준다. main에 머지되면 GitHub Pages(설정의 legacy 빌드, main의 `/docs`)가 `https://snuhcs-course.github.io/swpp-2026-project-team-06/guide/`로 올린다.
 
 ## 구조
-- `index.html` — 빌드 없는 정적 HTML 한 파일. CSS는 안에, JS는 복사 버튼만, 외부 요청은 Google Fonts만. 절마다 `<section id>` 하나.
+- `index.html` — 빌드 없는 정적 HTML 한 파일. CSS는 안에, JS는 복사 버튼만. 외부 요청은 글꼴 둘(jsDelivr의 Pretendard, Google Fonts의 IBM Plex Mono)뿐이고, 못 받으면 기기 글꼴(Apple SD Gothic Neo·Noto Sans KR·기기 고정폭)로 읽힌다. 절과 소절마다 id 하나, id는 바꾸지 않는다.
 - `tasks/` — 이 폴더 작업의 이슈 파일.
 
 ## 계약
@@ -29,3 +29,4 @@
 | 2026-11-23 | 어긋남 검사는 CI의 별도 job `guide`로 돌고 `ci-ok`가 모은다. PR·머지 큐는 막고 main push는 경고만 | 문서 전용 길에서도 매번 돌고 새 필수 체크가 필요 없다. 다른 job의 분류를 막지 않고, 문서 검사가 배포를 멈추지 않는다 | DEV-437 |
 | 2026-11-23 | 절마다 규칙의 이유와 막는 실패를 먼저 쓰고, 근거는 저장소의 이슈 파일·ADR만 인용한다. 한계는 "알려진 한계" 절(#limits)에 모은다 | 규칙 나열만으로는 왜 지켜야 하는지가 안 보이고, 지어낸 근거는 신뢰를 잃는다 | DEV-437 |
 | 2026-11-23 | 배포는 저장소 GitHub Pages(legacy, `/docs`). 워크플로를 새로 만들지 않는다 | 이미 켜져 있고, 고위험 경로를 늘리지 않는다 | DEV-437 |
+| 2026-11-27 | 제안 v2 조판으로 다시 짰다: 12열 격자, 글꼴 Pretendard + IBM Plex Mono(jsDelivr 추가), 흐름을 표 하나(행 = 작업 순서 8단계, 열 = 사람·AI·자동·DEV-434 기록)로, 어미는 문서체(-다), 주황은 "승인" 표지에만 | PM 피드백("일잘러 느낌으로 명확하게, 담백하게", "AI 느낌 빼기"). 같은 흐름이 네 번 나왔고 글자의 절반이 13px였다. 어미는 페이지가 가리키는 AGENTS.md·CI.md와 맞췄다. 글꼴은 앱(`packages/ui`)과 같게 | DEV-437, 보드 `docs/design/proposals/DEV-437/redesign-v2*.html` |
