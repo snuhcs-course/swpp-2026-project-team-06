@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>협업 지도 v2 제안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!--
+  DEV-437 협업 지도 다시 짜기, 제안 보드 1/2 (승인 전). 진단 → 방향 → 구성 → 디자인 무브와 검산 → 결정.
+  시안 캡처와 전후 비교는 redesign-v2-compare.html, 실제로 움직이는 시안은 redesign-v2-page.html.
+  캡처는 v2/ 아래 뷰포트 JPEG(1280·390, 줄이지 않음).
+-->
+<style>
+:root{
+  --bg:#EFEEEA; --sheet:#FFFFFF; --ink:#111111; --ink-2:#55534E; --hair:#DEDCD6; --rule:#111111; --tint:#F4F3EF;
+  --accent:#C94F0C; --accent-ink:#A8420A; --grid:rgba(201,79,12,.10); --grid-line:rgba(201,79,12,.45);
+  --sans:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  --mono:"IBM Plex Mono","Pretendard Variable",Pretendard,ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0C0C0B;--sheet:#161615;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1E1D1B;--accent:#EC7F45;--accent-ink:#EC7F45;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#0C0C0B;--sheet:#161615;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1E1D1B;--accent:#EC7F45;--accent-ink:#EC7F45;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:28px;font-variant-numeric:tabular-nums;word-break:keep-all;overflow-wrap:break-word;padding:40px 0 80px}
+h1,h2,h3,p,ol,ul,dl,dd,figure{margin:0}
+ol,ul{list-style:none;padding:0}
+a{color:inherit;text-underline-offset:4px;text-decoration-thickness:1px}
+code{font-family:var(--mono);font-size:max(13px,.875em);background:var(--tint);padding:1px 4px;border-radius:2px}
+.sheet{width:1400px;margin:0 auto 40px;background:var(--sheet);padding:56px 60px 64px}
+.g12{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px}
+.k{font-family:var(--mono);font-size:13px;line-height:20px;color:var(--ink-2);letter-spacing:.02em}
+.lab{font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2)}
+.cap{font-size:13px;line-height:20px;color:var(--ink-2)}
+.mut{color:var(--ink-2)}
+.head{border-bottom:1px solid var(--rule);padding-bottom:16px;margin-bottom:40px;display:flex;justify-content:space-between;align-items:baseline;gap:24px}
+.head h2{font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.03em}
+.head .k{white-space:nowrap;font-family:var(--sans);font-weight:600;letter-spacing:0}
+.cover .eyebrow{font-family:var(--sans);font-weight:600;letter-spacing:0}
+h3{font-size:18px;line-height:28px;font-weight:600;letter-spacing:-.01em}
+table{border-collapse:collapse;width:100%;font-size:15px;line-height:24px}
+th,td{text-align:left;vertical-align:top;padding:12px 24px 12px 0;border-bottom:1px solid var(--hair)}
+th:last-child,td:last-child{padding-right:0}
+thead th{font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding-top:10px;padding-bottom:10px}
+td.n{font-family:var(--mono);font-size:13px;color:var(--ink-2);white-space:nowrap}
+td.b{font-weight:600}
+.tag{font-size:13px;line-height:20px;font-weight:600;white-space:nowrap}
+.tag.keep{color:var(--ink-2)} .tag.merge{color:var(--ink)} .tag.cut{color:var(--ink-2);text-decoration:line-through} .tag.new{color:var(--accent-ink)}
+.sq{display:inline-block;width:8px;height:8px;background:var(--accent);margin-right:6px;vertical-align:1px}
+
+/* 표지 */
+.cover .eyebrow{grid-column:1/-1;border-bottom:1px solid var(--rule);padding-bottom:16px;display:flex;justify-content:space-between}
+.cover h1{grid-column:1/-1;margin-top:96px;font-size:88px;line-height:88px;font-weight:600;letter-spacing:-.045em}
+.cover .one{grid-column:1/9;margin-top:32px;font-size:28px;line-height:40px;letter-spacing:-.02em}
+.recap{grid-column:1/-1;margin-top:72px}
+.recap h3{margin-bottom:12px}
+.recap ol{border-top:1px solid var(--rule);counter-reset:r}
+.recap li{counter-increment:r;display:grid;grid-template-columns:48px minmax(0,1fr) 360px;column-gap:24px;padding:16px 0;border-bottom:1px solid var(--hair);font-size:20px;line-height:32px;letter-spacing:-.01em}
+.recap li::before{content:counter(r,decimal-leading-zero);font-family:var(--mono);font-size:13px;line-height:32px;color:var(--ink-2)}
+.recap li .cap{font-size:13px;line-height:20px;padding-top:6px}
+.map{grid-column:1/-1;margin-top:56px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:24px}
+.map div{border-top:1px solid var(--hair);padding-top:12px;font-size:15px;line-height:24px}
+.map b{display:block;font-weight:600}
+
+/* 진단 */
+.diag{border-top:1px solid var(--rule)}
+.diag li{display:grid;grid-template-columns:48px 330px minmax(0,1fr) 190px;column-gap:24px;padding:16px 0;border-bottom:1px solid var(--hair);font-size:15px;line-height:24px}
+.diag .no{display:inline-grid;place-items:center;width:28px;height:28px;background:var(--ink);color:var(--sheet);font-family:var(--mono);font-size:13px;font-weight:500}
+.diag .t{font-size:18px;line-height:28px;font-weight:600;letter-spacing:-.01em}
+.shot{position:relative;width:1280px;margin-top:16px;border:1px solid var(--hair)}
+.shot img{display:block;width:1280px;height:auto}
+.shot .m{position:absolute;display:inline-grid;place-items:center;width:28px;height:28px;background:var(--ink);color:#fff;font-family:var(--mono);font-size:13px;font-weight:500;outline:3px solid #fff}
+.shot .box{position:absolute;border:2px solid var(--ink)}
+figure + figure{margin-top:40px}
+figcaption{display:flex;justify-content:space-between;gap:24px;font-size:13px;line-height:20px;color:var(--ink-2)}
+figcaption b{color:var(--ink);font-weight:600}
+
+.readers th[scope=row]{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap}
+.readers td{width:28%}
+
+/* 무브 */
+.moves{border-top:1px solid var(--rule)}
+.move{display:grid;grid-template-columns:96px 300px minmax(0,1fr) 300px;column-gap:24px;padding:28px 0;border-bottom:1px solid var(--hair)}
+.move .no{font-size:56px;line-height:56px;font-weight:600;letter-spacing:-.04em}
+.move h3{font-size:22px;line-height:32px;letter-spacing:-.015em}
+.move .what{font-size:16px;line-height:28px;display:grid;gap:8px}
+.move .num{font-size:13px;line-height:20px;color:var(--ink-2);display:grid;gap:6px;align-content:start}
+.move .num b{color:var(--ink);font-weight:600;font-family:var(--mono);font-size:13px}
+.grid-on{position:relative}
+.grid-on::after{content:"";position:absolute;inset:0 40px;pointer-events:none;
+  background:repeating-linear-gradient(90deg,var(--grid) 0 calc((100% - 264px)/12),transparent calc((100% - 264px)/12) calc((100% - 264px)/12 + 24px))}
+.spec{border-top:1px solid var(--rule)}
+.spec .row{display:grid;grid-template-columns:160px minmax(0,1fr) 220px;column-gap:24px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--hair)}
+.spec .s88{font-size:88px;line-height:88px;font-weight:600;letter-spacing:-.045em}
+.spec .s56{font-size:56px;line-height:56px;font-weight:600;letter-spacing:-.04em}
+.spec .s32{font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.03em}
+.spec .s28{font-size:28px;line-height:40px;letter-spacing:-.02em}
+.spec .s22{font-size:22px;line-height:32px;font-weight:500;letter-spacing:-.015em}
+.spec .s16{font-size:16px;line-height:28px}
+.spec .s15{font-size:15px;line-height:24px}
+.spec .s13{font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2)}
+.chips{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:24px;margin-top:32px}
+.chip{border-top:1px solid var(--rule);padding-top:12px;font-size:13px;line-height:20px}
+.chip i{display:block;height:56px;margin-bottom:10px;border:1px solid var(--hair)}
+.chip b{display:block;font-size:15px;line-height:24px;font-weight:600}
+
+/* 결정 */
+.decide{border-top:1px solid var(--rule)}
+.decide li{display:grid;grid-template-columns:48px 340px minmax(0,1fr) 300px;column-gap:24px;padding:24px 0;border-bottom:1px solid var(--hair);font-size:15px;line-height:24px}
+.decide .q{font-size:20px;line-height:30px;font-weight:600;letter-spacing:-.01em}
+.decide .rec{border-left:2px solid var(--accent);padding-left:14px}
+.decide .rec b{display:block;color:var(--accent-ink);font-size:13px;line-height:20px}
+.decide ul li{display:list-item;border:0;padding:0;font-size:15px}
+.opts{display:grid;gap:8px}
+.opts p{padding-left:16px;position:relative}
+.opts p::before{content:"";position:absolute;left:0;top:12px;width:8px;height:1px;background:var(--ink)}
+.weak li{padding:10px 0;border-bottom:1px solid var(--hair);font-size:15px;line-height:24px}
+</style>
+</head>
+<body>
+
+<!-- 0 표지 -->
+<section class="sheet cover g12">
+  <div class="eyebrow k"><span>DEV-437 · PR #771 · 협업 지도 · 제안 v2</span><span>2026-11-26 제안 · 2026-11-27 승인 · 보드 1/2</span></div>
+  <h1>협업 지도 다시 짜기</h1>
+  <p class="one">같은 내용을 덜 쓰고, 결론을 먼저 둔다. 첫 화면은 숫자 넷, 흐름은 표 하나, 절마다 첫 줄이 결론이다.</p>
+  <div class="recap" style="margin-top:56px">
+    <h3>승인 뒤 바뀐 것 (2026-11-27)</h3>
+    <ul class="weak" style="margin-top:8px;border-top:1px solid var(--rule)">
+      <li><span>방향과 결정 셋은 추천대로 승인됐다(Pretendard + IBM Plex Mono, 분량 축소, 제목 "협업 지도"). 피드백은 "AI 느낌을 빼 달라"였다.</span><span></span></li>
+      <li><span>첫 화면의 숫자 넷과 절 번호(01~08), 고정폭 머리 줄, 절마다 같던 "결론 한 줄 + 오른쪽 주석" 틀을 뺐다. 숫자는 머리글 한 문장(기계가 막는 곳은 둘)으로 남겼다.</span><span></span></li>
+      <li><span>어미를 해요체에서 AGENTS.md·spec.md·CI.md와 같은 문서체(-다)로 바꿨다. 이 보드의 무브 2·5와 견본 숫자(88 제호, 22 결론)는 승인 전 기준이고, 적용본은 72 제목 · 28 절 제목 · 16 본문이다.</span><span></span></li>
+      <li><span>아래 캡처는 적용본(<code>docs/collaboration/index.html</code>)으로 다시 찍었다.</span><span></span></li>
+    </ul>
+  </div>
+  <div class="recap">
+    <h3>방향을 글로 되짚기 · 이대로 가도 되는지 확인해 주세요</h3>
+    <ol>
+      <li><span>첫 화면은 제호 "협업 지도", 한 문장, 숫자 넷(8단계 · 사람이 정하는 4곳 · 기계가 막는 2/8층 · 고위험 16경로)으로 끝낸다.</span><span class="cap">지금은 원칙 문장 제목과 목차 16줄이 첫 화면을 차지한다.</span></li>
+      <li><span>같은 흐름을 네 번 보여 주던 것(흐름도 10칸, 8단계 목록, DEV-434 표, 머지 4단계)을 표 하나로 합친다. 행은 AGENTS.md 8단계, 열은 사람 · AI · 자동 · 실제 기록.</span><span class="cap">"칸 6 · 단계 6·7" 같은 번호 두 벌이 사라진다.</span></li>
+      <li><span>절마다 첫 줄은 22px 결론 문장이고, 왜와 원문 링크는 오른쪽 여백으로 뺀다.</span><span class="cap">"문제 → 결정 → 근거" 세 줄이 10번 반복되던 리듬을 끊는다.</span></li>
+      <li><span>12열 격자, 가는 선, 잉크 한 색으로 짠다. 주황은 "사람이 승인하는 곳" 하나의 뜻으로만 쓴다.</span><span class="cap">카드 면·둥근 모서리·선 모양 범례를 없앤다.</span></li>
+      <li><span>16절을 7절 + 찾아보기로 줄인다. 보이는 글자 10,672 → 6,717. 규칙 값과 링크는 지금 검사(<code>check-collaboration</code>)를 그대로 통과한다.</span><span class="cap">시안 파일에 검사를 돌려 값 34개 · 링크 50개 통과를 확인했다.</span></li>
+    </ol>
+  </div>
+  <div class="map">
+    <div><b>이 보드(1/2)</b>읽는 사람 · 진단 5 · 새 구성 · 디자인 무브 6과 검산 · 결정 3</div>
+    <div><b>보드 2/2 <code>redesign-v2-compare.html</code></b>시안 1280 다섯 구간, 390 세 장, 같은 구간 전후</div>
+    <div><b>움직이는 시안 <code>redesign-v2-page.html</code></b>실제 내용 전체. 승인되면 <code>docs/collaboration/index.html</code>을 이것으로 바꾼다</div>
+  </div>
+</section>
+
+<!-- 1 읽는 사람 -->
+<section class="sheet">
+  <div class="head"><h2>누가, 몇 초 안에, 무엇을 알아야 하나</h2><span class="k">01 · 과업 정의</span></div>
+  <table class="readers">
+    <thead><tr><th style="width:16%"></th><th>5초 · 첫 화면</th><th>30초 · 한 번 내려 보기</th><th>3분 · 찾아 읽기</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">팀원<br><span class="cap">새 PR을 시작할 때</span></th><td>이 문서가 작업 규약이고, 8단계라는 것</td><td>01 흐름 표에서 지금 내 단계와 다음에 할 일. 04에서 브랜치·커밋·PR 제목 복사</td><td>05 체크·머지·배포, 찾아보기의 막힐 때</td></tr>
+      <tr><th scope="row">평가자(TA)<br><span class="cap">역할 분담을 볼 때</span></th><td>사람이 정하는 곳이 4곳이라는 것</td><td>01 표의 사람 열과 승인 표시, 02의 네 곳</td><td>여백의 근거(SWPP-126, ADR 0014 등)와 고위험 16경로</td></tr>
+      <tr><th scope="row">외부 전문가<br><span class="cap">AI 전문가·시니어 개발자</span></th><td>기계가 막는 층이 8개 중 2개라는 것(과장 없음)</td><td>03 통제의 층: 막음 · 보고 · 약속의 구분</td><td>07 알려진 한계, 이 페이지를 원문과 대조하는 CI</td></tr>
+    </tbody>
+  </table>
+  <p class="cap" style="margin-top:16px">세 독자 모두 첫 화면에서 같은 숫자 넷을 본다. 30초 구간은 01 표 하나가 팀원과 평가자 둘 다를 받는다.</p>
+</section>
+
+<!-- 2 진단 -->
+<section class="sheet">
+  <div class="head"><h2>지금 협업 지도의 문제 다섯</h2><span class="k">02 · 진단 · 현재본 1280 캡처, 줄이지 않음</span></div>
+  <ol class="diag">
+    <li><span class="no">1</span><span class="t">첫 화면에 결론과 할 일이 없다</span><span>제목은 원칙 문장이고, 첫 화면 아래 절반이 목차 16줄이다. 5초 안에 "몇 단계인지, 내가 무엇을 정하는지"가 보이지 않는다.</span><span class="cap">캡처 A · 제목, 목차</span></li>
+    <li><span class="no">2</span><span class="t">같은 흐름을 네 번, 번호는 두 벌</span><span>흐름도 10칸, 작업 순서 8단계, DEV-434 표 10줄, 머지 4단계가 같은 길을 다시 그린다. 칸 번호(1~10)와 단계 번호(1~8)가 섞여 "6 사람 · 단계 6·7"처럼 읽힌다.</span><span class="cap">캡처 B · 흐름도, DEV-434 표</span></li>
+    <li><span class="no">3</span><span class="t">누가 하는지를 선 모양으로 외워야 한다</span><span>사람은 실선, AI는 점선, 자동은 이중선. 범례를 기억해야 칸을 읽을 수 있고, 회색 면 카드 10장이 같은 무게로 놓인다.</span><span class="cap">캡처 B · 범례, 칸 위 선</span></li>
+    <li><span class="no">4</span><span class="t">표의 결론이 맨 끝 열에 숨어 있다</span><span>통제의 층에서 "강제 / 보고만 / 규칙"이 오른쪽 끝 13px 점 표지다. 표의 요점(기계가 막는 것은 둘)이 표 모양에서 보이지 않는다.</span><span class="cap">캡처 C · 오른쪽 끝 열</span></li>
+    <li><span class="no">5</span><span class="t">위계가 평평하고 글자의 절반이 13px 회색</span><span>글자 단계 13 · 14 · 15 · 17 · 22 · 34. 글자가 있는 요소 717개 중 383개(53%)가 13px다. 글꼴은 셋(IBM Plex Sans KR · Noto Sans KR · JetBrains Mono)이고 앱의 Pretendard와 다르다. 한글이 없는 고정폭 글꼴로 한글 라벨을 찍어 자간이 벌어진다.</span><span class="cap">캡처 A · 머리 줄, 원칙 설명</span></li>
+  </ol>
+
+  <figure style="margin-top:48px">
+    <figcaption><span><b>A</b> 현재 첫 화면 1280 × 800</span><span>docs/collaboration/index.html (PR #771 브랜치 aede0e8)</span></figcaption>
+    <div class="shot"><img src="v2/before-1280-top.jpg" width="1280" height="800" alt="현재 협업 지도 첫 화면: 원칙 문장 제목, 원칙 4개, 목차 16줄">
+      <span class="m" style="left:110px;top:96px">1</span><span class="box" style="left:150px;top:574px;width:980px;height:226px"></span><span class="m" style="left:110px;top:574px">1</span>
+      <span class="m" style="left:110px;top:44px">5</span><span class="box" style="left:190px;top:290px;width:550px;height:44px"></span><span class="m" style="left:750px;top:298px">5</span></div>
+  </figure>
+  <figure>
+    <figcaption><span><b>B</b> 현재 1절 흐름 1280 × 1000</span><span>#flow</span></figcaption>
+    <div class="shot"><img src="v2/before-1280-flow.jpg" width="1280" height="1000" alt="현재 흐름도: 선 모양 범례, 10칸 카드, 갈림길, DEV-434 표">
+      <span class="m" style="left:110px;top:136px">3</span><span class="box" style="left:150px;top:180px;width:980px;height:262px"></span><span class="m" style="left:110px;top:330px">2</span><span class="box" style="left:150px;top:596px;width:980px;height:290px"></span><span class="m" style="left:110px;top:600px">2</span></div>
+  </figure>
+  <figure>
+    <figcaption><span><b>C</b> 현재 5절 통제의 층 1280 × 900</span><span>#controls</span></figcaption>
+    <div class="shot"><img src="v2/before-1280-controls.jpg" width="1280" height="900" alt="현재 통제의 층 표: 강제 여부가 맨 오른쪽 열의 작은 점 표지">
+      <span class="box" style="left:1040px;top:180px;width:90px;height:490px"></span><span class="m" style="left:1140px;top:180px">4</span></div>
+  </figure>
+</section>
+
+<!-- 3 새 구성 -->
+<section class="sheet">
+  <div class="head"><h2>새 구성: 16절 → 7절 + 찾아보기</h2><span class="k">03 · 내용</span></div>
+  <table>
+    <thead><tr><th style="width:4%"></th><th style="width:22%">제안 절 · 첫 줄(결론)</th><th style="width:24%">지금 어디서 오나</th><th style="width:10%">처리</th><th>이유</th></tr></thead>
+    <tbody>
+      <tr><td class="n">머리</td><td class="b">협업 지도<br><span class="cap">숫자 넷 + 차례 8줄</span></td><td>머리(원칙 4개, 목차 16줄)</td><td><span class="tag merge">바꿈</span></td><td>원칙 4개는 각 절의 결론 문장으로 옮겼다. 첫 화면은 숫자로 요약한다.</td></tr>
+      <tr><td class="n">01</td><td class="b">이슈 하나가 운영에 닿기까지<br><span class="cap">"8단계를 사람, AI 에이전트, 자동이 나눠 맡아요."</span></td><td>1 흐름도 · 1 DEV-434 표 · 2 작업 순서</td><td><span class="tag merge">합침</span></td><td>같은 흐름 셋을 표 하나로. 행 = 단계, 열 = 하는 쪽 + 실제 기록. <code>data-agents-list="steps"</code> 8행 그대로.</td></tr>
+      <tr><td class="n">02</td><td class="b">사람이 정하는 곳<br><span class="cap">"아래 네 곳은 사람이 정해요."</span></td><td>5 사람과 AI · 6 위험 등급 · 9 사람만 하는 일 · 5의 AI 사용 기록</td><td><span class="tag new">새로 · 합침</span></td><td>승인 지점 4곳(범위, 사람 리뷰, 머지 지시, 배포 확인)을 이름 붙여 한 목록으로. 평가자가 가장 먼저 찾는 것.</td></tr>
+      <tr><td class="n">03</td><td class="b">통제의 층<br><span class="cap">"기계가 막는 것은 둘이에요."</span></td><td>5의 통제의 층 표</td><td><span class="tag merge">절로 올림</span></td><td>강제 수준으로 묶어(막음 2 · 보고 1 · 사람 4 · 각자 1) 표 모양이 곧 결론이 되게.</td></tr>
+      <tr><td class="n">04</td><td class="b">이름 규칙</td><td>3 이름 규칙</td><td><span class="tag keep">유지</span></td><td>복사 버튼 그대로. 주의 문구를 한 칸으로.</td></tr>
+      <tr><td class="n">05</td><td class="b">PR 체크·머지·배포</td><td>7 PR 체크 · 8 머지 큐와 배포</td><td><span class="tag merge">합침</span></td><td>체크 셋과 spec-check 처리 결정을 한 표로. 배포 확인은 01과 같은 승인 표시.</td></tr>
+      <tr><td class="n">06</td><td class="b">화면을 바꿀 때</td><td>4 화면을 바꿀 때</td><td><span class="tag keep">유지</span></td><td>흐름 절에서 빼 뒤로. 화면 작업에만 해당한다.</td></tr>
+      <tr><td class="n">07</td><td class="b">알려진 한계</td><td>10 알려진 한계</td><td><span class="tag keep">유지 · 줄임</span></td><td>12행 → 10행. 에이전트 권한 두 행을 하나로, 묶음 넷을 셋으로.</td></tr>
+      <tr><td class="n">08</td><td class="b">찾아보기 A–F</td><td>11 어디에 · 12 문서 지도 · 13 AGENTS.md · 14 자동화 · 15 회의록 · 16 막히는 것</td><td><span class="tag merge">합침</span></td><td>처음 한 번 읽는 것들. 2열 색인으로 접는다. 절 id는 그대로 둔다.</td></tr>
+      <tr><td class="n">끝</td><td class="b">맞추는 법</td><td>이 페이지를 맞추는 법</td><td><span class="tag merge">꼬리말로</span></td><td>CI 대조 방식 한 문단. id <code>upkeep</code> 유지.</td></tr>
+    </tbody>
+  </table>
+  <div class="g12" style="margin-top:40px">
+    <div style="grid-column:1/7">
+      <h3>뺀 것</h3>
+      <ul class="weak" style="margin-top:8px">
+        <li><span class="tag cut">원칙 4개 설명</span> → 각 절 결론 문장으로</li>
+        <li><span class="tag cut">운영 주소 5개 목록</span> → README Domains 링크로(확인용 주소 둘은 남김)</li>
+        <li><span class="tag cut">자동화 표의 Pages · Dependabot 행</span>, 회의록 3단계 상세</li>
+        <li><span class="tag cut">막히는 것 3줄</span>(INCOMPLETE, Insights 이메일, Linear 연결은 04로)</li>
+        <li><span class="tag cut">Codex 설정 복사 줄, 에이전트가 읽는 순서</span> → 원문 링크</li>
+      </ul>
+    </div>
+    <div style="grid-column:8/13">
+      <h3>바뀌지 않는 것</h3>
+      <ul class="weak" style="margin-top:8px">
+        <li>절 id 17개 모두 유지(바깥에서 건 링크가 깨지지 않게). <code>#steps</code>는 01 표, <code>#risk</code>·<code>#human-only</code>는 02의 소절</li>
+        <li><code>data-agents</code> 11개 키, 요소 34개</li>
+        <li>사실·수치·근거 이슈. 문장만 줄였다</li>
+        <li>빌드 없는 HTML 한 파일, JS는 복사 버튼만</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 4 디자인 무브 -->
+<section class="sheet">
+  <div class="head"><h2>디자인 무브 여섯과 검산</h2><span class="k">04 · 조판</span></div>
+  <div class="moves">
+    <div class="move"><span class="no">1</span><h3>12열 격자, 세 구역</h3>
+      <div class="what"><p>내용 폭 1200, 12열(열 78 · 사이 24), 좌우 여백 40. 절 번호·제목은 1–3열에 고정(sticky)하고, 결론과 본문은 4–9열, 왜·원문은 10–12열 여백에 둔다. 표와 흐름은 4–12열이나 1–12열로 넓힌다.</p><p class="mut">본문 줄을 사람이 읽기 좋은 길이에 묶고, 근거가 본문 흐름을 끊지 않게 한다.</p></div>
+      <div class="num"><span><b>588px</b> 본문 폭 = 16px 한글 약 36자</span><span><b>4px</b> 기준선. 행간 88·56·40·32·28·24·20 모두 4의 배수</span><span><b>390</b>에서는 한 열, 좌우 16</span></div></div>
+    <div class="move"><span class="no">2</span><h3>글자 단계를 벌린다</h3>
+      <div class="what"><p>88 제호 · 56 숫자 · 32 절 제목 · 28 덱 · 22 결론 · 16 본문 · 15 표 · 13 라벨. 글꼴은 Pretendard 하나에 코드·번호만 IBM Plex Mono. 큰 글자일수록 자간을 좁힌다(88에서 −4.5%).</p><p class="mut">지금은 13 · 14 · 15 · 17 · 22 · 34로 이웃 단계의 비가 1.07~1.3이라 위계가 평평하다. 제안은 본문 위로 1.375 · 1.45 · 1.14 · 1.75 · 2.75.</p></div>
+      <div class="num"><span><b>53% → 34%</b> 13px 글자 요소 비율</span><span><b>3 → 2</b> 글꼴 패밀리, 앱과 같은 Pretendard</span><span><b>0</b> 13px 미만 글자(계산값 기준)</span></div></div>
+    <div class="move"><span class="no">3</span><h3>누가 하는지는 열이 말한다</h3>
+      <div class="what"><p>선 모양 범례(실선 · 점선 · 이중선)를 없애고, 01 표의 열 제목을 사람 · AI 에이전트 · 자동으로 둔다. 칸이 비어 있으면 그 쪽은 그 단계에서 할 일이 없다는 뜻이다. 390 폭에서는 행 안에 "사람 · AI · 자동 · 기록" 라벨이 붙는다.</p><p class="mut">해독이 필요한 기호를 위치로 바꾼다. 같은 표가 단계 목록, 역할 분담, 실제 기록을 한 번에 보여 준다.</p></div>
+      <div class="num"><span><b>4 → 1</b> 같은 흐름을 그린 곳</span><span><b>2 → 1</b> 번호 체계(칸 1~10 없앰)</span><span><b>8행 × 4열</b> 단계 × (사람·AI·자동·기록)</span></div></div>
+    <div class="move"><span class="no">4</span><h3>주황은 한 가지 뜻</h3>
+      <div class="what"><p>잉크 #111111과 보조 #55534E, 선 #DEDCD6만으로 짜고, 브랜드 주황 #C94F0C는 "사람이 승인해야 다음으로 가는 곳" 표지(네모 + 승인)에만 쓴다. 기계가 막는 곳은 잉크 네모 + 막음. 링크는 잉크에 밑줄이다.</p><p class="mut">지금은 주황이 링크·주의·다음 이슈에 두루 쓰여 뜻이 없다. 한 뜻만 남기면 첫 화면에서 승인 지점이 먼저 보인다.</p></div>
+      <div class="num"><span><b>18.9 : 1</b> 잉크 / 흰 바탕</span><span><b>7.7 : 1</b> 보조 / 흰 바탕</span><span><b>6.1 · 5.5 : 1</b> 주황 글자 #A8420A / 흰 바탕 · 옅은 면</span><span><b>4.56 : 1</b> #C94F0C는 네모 표지에만(글자는 #A8420A)</span></div></div>
+    <div class="move"><span class="no">5</span><h3>결론이 첫 줄, 표는 결론으로 묶는다</h3>
+      <div class="what"><p>절마다 첫 줄은 22px 결론 문장이다. "문제 → 결정 → 근거" 세 줄 틀은 없애고, 왜는 여백 주석으로, 원문 링크는 그 아래로 뺀다. 통제의 층은 막음 2 · 보고만 1 · 사람이 지킴 4 · 각자 설정 1로 묶어, 표의 순서가 곧 결론이 되게 한다.</p><p class="mut">결론 열이 표 끝 점 표지에 숨어 있던 문제(진단 4)를 표 구조로 푼다.</p></div>
+      <div class="num"><span><b>22/32</b> 결론, 588px에 한글 약 27자</span><span><b>10 → 0</b> 반복되던 "문제·결정·근거" 틀</span></div></div>
+    <div class="move"><span class="no">6</span><h3>선과 면, 인쇄</h3>
+      <div class="what"><p>절은 전폭 1px 잉크 선으로 연다. 행 사이는 1px #DEDCD6. 면(#F4F3EF)은 승인 행과 코드에만 쓰고, 그림자·카드·둥근 모서리는 없다(코드만 2px). 인쇄(A4)에서는 한 열로 흐르고 차례·숫자 줄·복사 버튼을 숨기며, 표의 행이 쪽을 넘어 갈라지지 않게 한다.</p><p class="mut">평가 자료로 PDF를 뽑는 경우가 있어 인쇄 모양까지 정해 둔다.</p></div>
+      <div class="num"><span><b>1px</b> 모든 선, 굵기 한 가지</span><span><b>120px</b> 절 사이(390에서 80)</span><span><b>44px</b> 차례 줄·복사 버튼 높이</span></div></div>
+  </div>
+
+  <figure style="margin-top:56px">
+    <figcaption><span><b>격자 겹쳐 보기</b> 적용본 첫 화면 1280 × 800, 12열을 옅은 주황 띠로</span><span>v2/after-1280-top.jpg</span></figcaption>
+    <div class="shot grid-on"><img src="v2/after-1280-top.jpg" width="1280" height="800" alt="시안 첫 화면 위에 12열 격자를 겹친 그림"></div>
+  </figure>
+  <figure>
+    <figcaption><span><b>격자 겹쳐 보기</b> 적용본 작업 순서, 제목 1–3열 · 본문 4–12열 · 표 1–12열</span><span>v2/after-1280-flow.jpg</span></figcaption>
+    <div class="shot grid-on"><img src="v2/after-1280-flow.jpg" width="1280" height="1000" alt="시안 흐름 절 위에 12열 격자를 겹친 그림"></div>
+  </figure>
+
+  <h3 style="margin-top:56px">글자 단계 견본(실제 글꼴)</h3>
+  <div class="spec" style="margin-top:12px">
+    <div class="row"><span class="k">88 / 88 · 600</span><span class="s88">협업 지도</span><span class="cap">제호. 페이지에 하나</span></div>
+    <div class="row"><span class="k">56 / 56 · 600</span><span class="s56">8<span style="font-size:24px;font-weight:500;color:var(--ink-2)">단계</span></span><span class="cap">요약 숫자 넷</span></div>
+    <div class="row"><span class="k">32 / 40 · 600</span><span class="s32">사람이 정하는 곳</span><span class="cap">절 제목</span></div>
+    <div class="row"><span class="k">28 / 40 · 400</span><span class="s28">에이전트가 쓴 변경은 사람 리뷰와 머지 큐를 지나야 운영에 닿아요.</span><span class="cap">덱. 첫 화면에 하나</span></div>
+    <div class="row"><span class="k">22 / 32 · 500</span><span class="s22">8개 층 중 기계가 막는 것은 둘이에요.</span><span class="cap">절 결론</span></div>
+    <div class="row"><span class="k">16 / 28 · 400</span><span class="s16">이슈 파일의 수정 허용 경로를 첫 커밋 전에 확인해요. 범위 밖 변경은 기계가 막지 않고 리뷰가 봐요.</span><span class="cap">본문</span></div>
+    <div class="row"><span class="k">15 / 24 · 400</span><span class="s15">최신 main 위에서 바뀐 경로로 고른 테스트, 이 페이지 대조 · <code>ci-ok</code></span><span class="cap">표·목록</span></div>
+    <div class="row"><span class="k">13 / 20 · 600</span><span class="s13">원문 · 하는 쪽 · 실제 기록</span><span class="cap">라벨·열 제목. 가장 작은 글자</span></div>
+  </div>
+  <div class="chips">
+    <div class="chip"><i style="background:#111111"></i><b>#111111 잉크</b>글자 · 굵은 선 · 막음 표지. 흰 바탕 18.9 : 1</div>
+    <div class="chip"><i style="background:#55534E"></i><b>#55534E 보조</b>라벨 · 여백 주석. 흰 바탕 7.7 : 1, 옅은 면 6.9 : 1</div>
+    <div class="chip"><i style="background:#DEDCD6"></i><b>#DEDCD6 선</b>행 사이 선. 글자에는 쓰지 않음</div>
+    <div class="chip"><i style="background:#F4F3EF"></i><b>#F4F3EF 면</b>승인 행 · 코드 바탕. 잉크 17.0 : 1</div>
+    <div class="chip"><i style="background:#C94F0C"></i><b>#C94F0C 주황</b>승인 네모만. 같은 뜻의 작은 글자는 #A8420A(6.1 : 1)</div>
+  </div>
+
+  <h3 style="margin-top:56px">검산</h3>
+  <table style="margin-top:12px">
+    <thead><tr><th style="width:26%">항목</th><th style="width:22%">지금</th><th style="width:22%">시안</th><th>기준 · 결과</th></tr></thead>
+    <tbody>
+      <tr><td>본문 글자 / 행간</td><td>15 / 26.25(1.75)</td><td>16 / 28</td><td>본문 15~16 권장 · 통과</td></tr>
+      <tr><td>본문 줄 길이</td><td>544px, 15px 한글 약 36자</td><td>588px, 16px 한글 약 36자</td><td>한글 30~45자 · 통과</td></tr>
+      <tr><td>가장 작은 글자</td><td>13px(요소의 53%)</td><td>13px(요소의 34%, 라벨·캡션만)</td><td>13px 이상 · 통과</td></tr>
+      <tr><td>글자 대비(가장 낮은 것)</td><td>#5C5A55 6.9 : 1, 주황 링크 #A8430B 6.1 : 1</td><td>#A8420A 옅은 면 위 5.5 : 1</td><td>WCAG AA 4.5 : 1 · 통과</td></tr>
+      <tr><td>누르는 영역</td><td>목차 44, 복사 44</td><td>차례 44, 복사 44</td><td>44 이상 · 통과</td></tr>
+      <tr><td>보이는 글자 수</td><td>10,672</td><td>6,717(−37%)</td><td>사실은 빼지 않음 · 위 "뺀 것" 참고</td></tr>
+      <tr><td>페이지 높이 1280 / 390</td><td>13,026 / 18,701px</td><td>약 9,960 / 약 19,070px</td><td>1280은 −23%. 390은 비슷(약점 참고)</td></tr>
+      <tr><td>외부 요청</td><td>Google Fonts 1</td><td>jsDelivr 1(Pretendard) + Google Fonts 1</td><td>spec.md 한 줄 수정 필요 · 결정 1</td></tr>
+      <tr><td><code>check-collaboration</code></td><td>값 34 · 링크 56 통과</td><td>값 34 · 링크 50 통과(시안 파일에 실행)</td><td>통과. 링크 수는 뺀 중복만큼 줄었다</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 5 결정 -->
+<section class="sheet">
+  <div class="head"><h2>정해 주실 것 셋</h2><span class="k">05 · 결정</span></div>
+  <ol class="decide">
+    <li><span class="k" style="font-size:20px;line-height:30px">1</span><p class="q">글꼴을 Pretendard로 바꿀까요</p>
+      <div class="opts"><p>Pretendard(jsDelivr) + IBM Plex Mono(Google Fonts). 앱·디자인 폴더와 같은 글꼴이다. <code>docs/collaboration/spec.md</code>의 "외부 요청은 Google Fonts만"을 한 줄 고쳐야 한다. <code>check-collaboration</code>는 저장소 밖 https 링크를 건너뛰어 걸리지 않고, GitHub Pages에는 CSP가 없다.</p><p>글꼴 파일을 저장소에 두기. 오프라인에서도 같지만, 한글 서브셋 두 굵기만 해도 수백 KB가 저장소에 들어간다.</p><p>Google Fonts만(Noto Sans KR). 지금과 같은 제약이지만 앱과 글꼴이 다르다.</p></div>
+      <p class="rec"><b>추천 · jsDelivr</b>오프라인이면 Apple SD Gothic Neo로 보이고 내용은 그대로다. 바꿀 곳은 spec.md 한 줄.</p></li>
+    <li><span class="k" style="font-size:20px;line-height:30px">2</span><p class="q">분량을 37% 줄여도 될까요</p>
+      <div class="opts"><p>시안대로: 16절 → 7절 + 찾아보기, 글자 10,672 → 6,717. 뺀 것은 위 "뺀 것" 다섯 줄이고 모두 원문 링크가 남는다.</p><p>원칙 4개를 머리에 되살리기. 외부 전문가에게 설계 의도가 먼저 보이지만, 첫 화면이 다시 길어진다.</p></div>
+      <p class="rec"><b>추천 · 시안대로</b>원칙 넷은 이미 01·02·03의 첫 줄과 머리 문장에 들어 있다.</p></li>
+    <li><span class="k" style="font-size:20px;line-height:30px">3</span><p class="q">제목을 문장에서 이름으로 바꿀까요</p>
+      <div class="opts"><p>"협업 지도"(이름) + 덱 한 문장 + 숫자 넷. 표지처럼 읽힌다.</p><p>지금 문장 "규칙은 한 곳에 두고, 에이전트가 만든 것은 에이전트 밖에서 확인해요"를 제목으로 유지. 주장이 바로 보이지만 88px에서는 세 줄이 된다.</p></div>
+      <p class="rec"><b>추천 · 이름</b>주장은 덱과 02·03의 첫 줄이 맡는다. 제목은 무엇인지만 말한다.</p></li>
+  </ol>
+
+  <h3 style="margin-top:56px">스스로 본 약점</h3>
+  <ul class="weak" style="margin-top:8px">
+    <li>390 폭에서는 01 표가 단계마다 세로로 쌓여 페이지 길이가 지금과 비슷하다(약 19,070px). 줄이려면 빈 칸이 많은 단계(1·2·4)를 한 줄로 접는 처리가 더 필요하다.</li>
+    <li>01 표는 1280에서 칸이 좁아(사람·AI·자동 각 약 200px) 긴 문장이 세 줄까지 간다. 문장을 더 줄이거나 기록 열을 줄여야 한다.</li>
+    <li>절 제목 고정(sticky)은 짧은 절(04)에서 아래가 비어 보인다. 실제 페이지에서 스크롤로 확인이 필요하다.</li>
+    <li>어두운 테마와 인쇄는 CSS만 넣었고, 실제 PDF 출력은 확인하지 않았다.</li>
+  </ul>
+</section>
+
+</body>
+</html>
