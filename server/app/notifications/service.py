@@ -90,9 +90,16 @@ def _order_variables(db: Session, order) -> dict[str, str]:
     }
 
 
-def _enqueue(db: Session, *, event: str, order, farm, dedupe_key: str, build) -> None:
+def _enqueue(db: Session, *, event: str, order, farm_of, dedupe_key: str, build) -> None:
+    """DB를 읽는 일(농가 찾기·검사·변수)도 모두 savepoint 안에서 한다.
+
+    savepoint 밖에서 DB 오류가 나면 바깥 트랜잭션이 깨져 주문 커밋까지 실패하기 때문이다.
+    """
     try:
         with db.begin_nested():
+            farm = farm_of()
+            if farm is None:
+                return
             reason = skip_reason(db, farm)
             if reason is None and get_settings().notify_provider == "none":
                 reason = "provider_disabled"
@@ -139,7 +146,7 @@ def order_awaiting_deposit(db: Session, order, farm) -> None:
         db,
         event=ORDER_AWAITING_DEPOSIT,
         order=order,
-        farm=farm,
+        farm_of=lambda: farm,
         dedupe_key=awaiting_key(order.id),
         build=build,
     )
@@ -150,24 +157,15 @@ def deposit_reported(db: Session, order) -> None:
     from app.catalog.models import Product
     from app.farms.models import Farm
 
-    try:
+    def farm_of():
         product = db.get(Product, order.product_id)
-        farm = db.get(Farm, product.farm_id) if product else None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "notification enqueue failed event=%s order=%s error=%s",
-            DEPOSIT_REPORTED,
-            order.id,
-            type(exc).__name__,
-        )
-        return
-    if farm is None:
-        return
+        return db.get(Farm, product.farm_id) if product else None
+
     _enqueue(
         db,
         event=DEPOSIT_REPORTED,
         order=order,
-        farm=farm,
+        farm_of=farm_of,
         dedupe_key=reported_key(order.id, order.deposit_reported_at),
         build=lambda: _order_variables(db, order),
     )

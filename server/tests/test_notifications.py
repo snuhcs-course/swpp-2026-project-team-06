@@ -188,6 +188,23 @@ def test_AC_18_3_enqueue_failure_does_not_fail_the_order(client, login, live, mo
     assert "DataError" in caplog.text or "ProgrammingError" in caplog.text
 
 
+def test_AC_18_3_db_error_in_farm_checks_does_not_fail_the_order(client, login, live, monkeypatch):
+    """농가 검사(테스트 계정·설정 읽기)에서 난 DB 오류도 savepoint 안에서 끝난다."""
+    consumer = login("u-seojun")
+    order_id = new_order(client, consumer)
+
+    def broken(db, farm):
+        db.execute(text("select 1/0"))
+
+    monkeypatch.setattr(notify_service, "skip_reason", broken)
+    assert ok(deposit(client, consumer, order_id))["status"] == "AWAITING_DEPOSIT"
+    reported = client.post(f"/api/orders/{order_id}/deposit-reported", headers=consumer)
+    assert ok(reported)["depositReportedAt"]
+    with get_sessionmaker()() as db:
+        assert db.get(Order, order_id).deposit_reported_at is not None
+    assert rows(order_id) == []
+
+
 def test_AC_18_3_provider_off_skips_and_order_response_is_the_same(
     client, login, live, monkeypatch
 ):
