@@ -4,7 +4,7 @@
 > 동작·규칙 원본은 `AGENTS.md`·`README.md`·`.github/CI.md`다. 여기와 페이지에 다시 쓰지 않는다.
 
 ## 역할
-팀원용 협업 지도. 작업 순서와 사람·에이전트·자동의 몫을 적고, 규칙이 있는 절을 링크로 보여 준다. 두 판이고 영어판이 기본이다(11/27 오너 결정). main에 머지되면 GitHub Pages(설정의 legacy 빌드, main의 `/docs`)가 영어판을 `https://snuhcs-course.github.io/swpp-2026-project-team-06/collaboration/`, 한국어판을 `…/collaboration/ko/`로 올린다.
+팀원용 협업 지도. 작업 순서와 사람·에이전트·자동의 몫을 적고, 규칙이 있는 절을 링크로 보여 준다. 두 판이고 영어판이 기본이다(11/27 오너 결정). main에 머지되면 GitHub Pages(설정의 legacy 빌드, main의 `/docs`)가 사용자 도메인 `docs.farmclub.kr`(`docs/CNAME`)로 올린다: 영어판 `https://docs.farmclub.kr/collaboration/`, 한국어판 `…/collaboration/ko/`. 옛 github.io 주소는 GitHub가 새 도메인으로 넘긴다.
 
 ## 구조
 - `index.html` — 영어판, 기본 판(공개 주소 `/collaboration/`). 독자는 TA·평가자와 영어 `docs/wiki`를 읽는 사람까지. 규칙 문장의 원본은 이 페이지가 가리키는 한국어 문서(`AGENTS.md`, `.github/CI.md`)이므로, 영어판은 규칙을 영어로 풀어 쓰고 원문 절로 연결한다. 예외로 CI가 AGENTS.md와 글자 그대로 대조하는 `data-agents` 값(그리고 PR 본문에 그대로 쓰는 표지 `사람이 한 일:` 등)은 한국어 원문을 두고 바로 뒤 괄호에 영어 풀이를 붙인다. 줄 길이(본문 약 70~75자)와 줄바꿈 규칙만 영어에 맞춘다.
@@ -25,6 +25,7 @@
 - 두 판 모두 같은 값 검사와 링크 검사를 받는다. 대조(보고 키 `parity`, 대칭이라 어느 판도 예외가 아니다): 두 판의 id 집합(절·단계), 페이지 안 링크(`#…`, 바·단계 줄 포함) 집합, 저장소 링크 집합(`docs/collaboration/` 자기 링크 제외), `data-agents` 값(키·방식·글)과 목록 `<li>` 수가 같아야 한다. 한 판을 고치는 PR은 다른 판도 같이 고친다.
 - 링크 검사(보고 키 `sections`): 바뀌지 않는 기록(`/pull/<n>`, `/issues/<n>`, `/actions/runs/<n>`, `/commit/<sha>`)은 형태만 보고, 그 밖의 저장소 링크는 `https://github.com/snuhcs-course/swpp-2026-project-team-06/(blob|tree|commits)/main/<경로>(#앵커)` 형태만 허용하고 파일과 제목 앵커가 있어야 한다. 페이지 안 `#앵커`는 id가 있어야 한다. 링크한 파일의 제목을 바꾸면 실패한다.
 - 규칙을 바꾸는 PR은 같은 PR에서 페이지의 해당 요소를 고친다. 키를 늘리려면 `check-collaboration.mjs`의 `KEYS`에 한 줄 더하고 `test-check-collaboration.mjs`에 시나리오를 더한다.
+- `docs/CNAME`(한 줄 `docs.farmclub.kr`)이 문서 사이트 전체의 사용자 도메인을 정한다. 두 판의 canonical·hreflang은 이 도메인의 절대 주소이고 `check-collaboration.mjs`가 `docs/` 아래 파일로 풀리는지, canonical이 그 판 자신인지 본다. 도메인을 바꾸면 `docs/CNAME`, 두 판 머리의 `<link>` 넷씩, 검사의 `SITE_URL`, `docs/wiki/_Sidebar.md` 링크를 같이 고친다.
 - `docs/` 아래에 Jekyll 설정(`_config.yml`, `.nojekyll`)을 두지 않는다. 다른 페이지(랜딩 페이지)의 빌드가 바뀐다. 이 HTML은 front matter가 없어 Jekyll이 손대지 않고 그대로 내보낸다.
 
 ## 구현 결정
@@ -43,3 +44,4 @@
 | 2026-11-27 | 떠 있는 조작부를 먹색 면 두 부분(이전·다음과 지금 절 라벨 | 언어)과 단계가 보이는 목록, 진행선으로 다시 디자인했다 | 오너 피드백 "가운데 위치는 좋은데 UI를 개선". 흰 면 세 칸은 기본 표처럼 보였고 밑줄이 둘, 목록이 바보다 넓고 행마다 선이 있었다 | DEV-437, 보드 `nav-and-switch.html` "조작부 디자인" |
 | 2026-11-27 | 다시 디자인한 조작부 승인. 목록의 작업 순서 여덟 단계는 어느 절에서든 펼쳐 둔다 | 오너가 캡처와 라이브 페이지로 보고 승인("좋은데? 마무리하고 PR 머지하자"). 어느 단계든 어디서나 두 번 누르면 간다 | DEV-437 |
 | 2026-11-27 | 폴더·공개 경로를 `docs/guide/` → `docs/collaboration/`(`/collaboration/`, `/collaboration/ko/`)로, 검사 스크립트를 `check-collaboration.mjs`로, CI job을 `collaboration`으로 바꿨다 | 오너 요청: 주소가 페이지가 무엇인지 말해야 한다. `ci-ok`는 job 결과를 이름 없이 모으고 ruleset 필수 체크가 아니라 바꿔도 안전하다. 사용자 도메인은 따로 정하며, 페이지는 상대 링크만 써서 도메인이 바뀌어도 고칠 곳이 없다 | DEV-437 |
+| 2026-11-27 | 문서 사이트를 GitHub Pages 사용자 도메인 `docs.farmclub.kr`로(`docs/CNAME`). canonical·hreflang을 이 주소로 | 오너 결정. DNS 레코드(Cloudflare `CNAME docs → snuhcs-course.github.io`, 프록시 끔)와 Pages의 Enforce HTTPS는 사람이 한다. DNS가 풀린 뒤에 머지한다. 옛 `farmclub-guide.vercel.app`은 이 주소로 넘긴다 | DEV-437 |
