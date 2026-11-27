@@ -24,6 +24,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
     has_policy_text,
     has_product_lineup,
+    is_target_comparison,
 )
 
 VERSION = "source-preserving-v6-owner-questions"
@@ -92,7 +93,10 @@ def _safety(value, target_name):
         (bool(_EXCESSIVE_PROMOTION.search(re.sub(r"\s+", "", value))), "EXAGGERATION"),
         (has_policy_text(value), "POLICY_TEXT"),
         (has_platform_text(value), "PLATFORM_TEXT"),
-        (has_product_lineup(value, target_name), "OTHER_PRODUCT"),
+        (
+            has_product_lineup(value, target_name) and not is_target_comparison(value, target_name),
+            "OTHER_PRODUCT",
+        ),
     ]
     return [code for matched, code in checks if matched]
 
@@ -381,21 +385,123 @@ def _mark_assembly(parts, assembly):
         )
 
 
-def build_plan(target, candidates, *, source_versions, target_count=1, decisions=()):
+# A price at the very end of an option-style line ("가정용 3kg (9~12과) 32,000원").
+_PRICE = re.compile(
+    r"\s*[:：]?\s*(?:₩\s*)?(?:\d{1,3}(?:,\d{3})+|\d{4,}|\d+(?:\.\d+)?\s*만)\s*원?\s*\.?\s*$"
+)
+_WEIGHT = re.compile(r"\d+(?:\.\d+)?\s*(?:kg|㎏|키로|킬로|g)(?![a-z])", re.IGNORECASE)
+
+
+def weight_conflict(value, input_weights):
+    """The text names box weights, none of which are among the producer's sale options."""
+    if not input_weights:
+        return False
+    found = []
+    for m in _WEIGHT.finditer(value):
+        number = float(re.match(r"\d+(?:\.\d+)?", m.group(0)).group(0))
+        found.append(number / 1000 if re.search(r"(?<!k)g$", m.group(0).lower()) else number)
+    return bool(found) and not any(abs(w - o) < 1e-6 for w in found for o in input_weights)
+
+
+_VARIANT = re.compile(
+    r"가정용|선물용|실속형?|프리미엄|명품|로얄|특대과?|특과|대과|중대과|중과|소과|못난이|흠과|파치"
+)
+
+
+def option_conflict(value, input_weights, input_labels=()):
+    """Weight not among the options, or a variant (가정용, 중대과 …) no option label names."""
+    if weight_conflict(value, input_weights):
+        return True
+    if not input_weights:
+        return False
+    labels = " ".join(input_labels)
+    return any(v not in labels for v in _VARIANT.findall(value))
+
+
+def months_in(value):
+    """Months named in a text ("1월 중순부터 2월 말까지" → {1, 2}; "4~5월" → {4, 5})."""
+    months = set()
+    for a, b in re.findall(r"(\d{1,2})\s*월?\s*[~\-–]\s*(\d{1,2})\s*월", value):
+        start, end = int(a), int(b)
+        if 1 <= start <= 12 and 1 <= end <= 12:
+            m = start
+            while True:
+                months.add(m)
+                if m == end:
+                    break
+                m = m % 12 + 1
+    months.update(int(m) for m in re.findall(r"(\d{1,2})\s*월", value) if 1 <= int(m) <= 12)
+    return months
+
+
+def season_conflict(value, input_months):
+    """The text names months and none of them fall in the producer's delivery months."""
+    named = months_in(value)
+    return bool(named) and not (named & set(input_months))
+
+
+def without_price(value):
+    """The text with money amounts removed, or "" if nothing meaningful is left (DEV-452)."""
+    if "\n" in value.strip() or not _PRICE.search(value):
+        return ""
+    rest = _PRICE.sub("", value)
+    rest = re.sub(r"^[\s\-·•*]+|[\s,·:/-]+$", "", rest)
+    rest = re.sub(r"[ \t]{2,}", " ", rest)
+    if (
+        has_money(rest)
+        or re.search(r"가격|배송비|택배비|수수료|요금|할인", rest)
+        or len(re.sub(r"[^가-힣A-Za-z0-9]", "", rest)) < 3
+    ):
+        return ""
+    return rest
+
+
+def build_plan(
+    target,
+    candidates,
+    *,
+    source_versions,
+    target_count=1,
+    decisions=(),
+    input_prices=False,
+    input_weights=(),
+    input_labels=(),
+    input_months=(),
+):
     """Return private source wording plus separately version-bound public-review items.
 
     Candidate IDs are traceability, not part of a stable per-source decision key.
     planHash covers full current input; reviewVersion is separately fenced by API.
     """
     try:
-        return _build(target, candidates, source_versions, target_count, decisions)
+        return _build(
+            target,
+            candidates,
+            source_versions,
+            target_count,
+            decisions,
+            input_prices,
+            input_weights,
+            input_labels,
+            input_months,
+        )
     except SourcePlanError:
         raise
     except (TypeError, KeyError, ValueError, AttributeError, IndexError):
         raise SourcePlanError() from None
 
 
-def _build(target, candidates, versions, target_count, decisions):
+def _build(
+    target,
+    candidates,
+    versions,
+    target_count,
+    decisions,
+    input_prices=False,
+    input_weights=(),
+    input_labels=(),
+    input_months=(),
+):
     if (
         not isinstance(target, dict)
         or not isinstance(target.get("id"), str)
@@ -404,7 +510,10 @@ def _build(target, candidates, versions, target_count, decisions):
         or len({c["id"] for c in candidates}) != len(candidates)
     ):
         raise SourcePlanError()
-    scope = {"id": target["id"], "name": target.get("name", "")}
+    scope = {
+        "id": target["id"],
+        "name": (target.get("basicInfo") or {}).get("variety") or target.get("name", ""),
+    }
     fingerprint = _hash(
         {
             "version": VERSION,
@@ -619,6 +728,52 @@ def _build(target, candidates, versions, target_count, decisions):
                 raise SourcePlanError("FIELD_LIMIT")
             passage["sourceExact"] = passage["value"] == passage["originalValue"]
             passage["status"] = "READY"
+        elif input_prices and (
+            "MONEY_AMOUNT" in reasons["SAFETY"] or "PRICE_OR_FEE" in reasons["OWNER_CONFIRMATION"]
+        ):
+            # DEV-452: the producer's own sale settings win over prices in the material. The
+            # material's wording stays visible (inputPreferred) and can be put back explicitly.
+            passage["inputPreferred"] = "PRICE"
+            remainder = without_price(passage["value"])
+            if remainder and not _RESTRICTED.intersection(reasons["SAFETY"]):
+                # An option line such as "가정용 3kg (9~12과) 32,000원" keeps its size and count;
+                # only the price is dropped (deletion, no rewording).
+                passage["value"] = remainder
+                passage["priceRemoved"] = True
+                if _WEIGHT.search(remainder):
+                    passage["module"] = "composition"  # an option line: size and count
+                elif "AMBIGUOUS_MODULE_ROUTING" in reasons["PLACEMENT"]:
+                    passage["module"] = None
+                if passage["module"] is not None and not option_conflict(
+                    remainder, input_weights, input_labels
+                ):
+                    passage["sourceExact"] = False
+                    passage["status"] = "READY"
+                    passage["queueKinds"] = []
+                    continue
+            passage["status"] = "EXCLUDED"
+            passage["queueKinds"] = []
+            continue
+        elif passage["module"] == "composition" and option_conflict(
+            passage["value"], input_weights, input_labels
+        ):
+            # DEV-452: the sale options entered by the producer win over the material's box sizes
+            # and variants (PM 11/27 rule b: only the producer's options appear on the page).
+            passage["inputPreferred"] = "WEIGHT"
+            passage["status"] = "EXCLUDED"
+            passage["queueKinds"] = []
+            continue
+        elif (
+            input_months
+            and "SEASON_OR_AVAILABILITY" in reasons["OWNER_CONFIRMATION"]
+            and season_conflict(passage["value"], input_months)
+        ):
+            # DEV-452 (PM 11/27 rule a): a harvest/season sentence outside the producer's delivery
+            # months stays off the page and is shown next to the sale settings for reference.
+            passage["inputPreferred"] = "SEASON"
+            passage["status"] = "EXCLUDED"
+            passage["queueKinds"] = []
+            continue
         else:
             passage["status"] = (
                 "BLOCKED"

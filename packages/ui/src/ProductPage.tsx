@@ -72,7 +72,7 @@ export type ProductPageData = {
   shippingFeeType: "FREE" | "SEPARATE";
   shippingFee: number;
   remoteAreaFee: number;
-  moduleDetail?: ComponentProps<typeof ModuleStory>["content"];
+  moduleDetail?: ComponentProps<typeof ModuleStory>["content"] & { design?: unknown };
   detailContent?: ComponentProps<typeof DetailStory>["content"];
   description: string;
   measuredBrix: number | null;
@@ -220,7 +220,7 @@ export function ProductPageBody({
 
       {slots?.story ??
         (p.moduleDetail ? (
-          <ModuleStory content={p.moduleDetail} mediaUrl={mediaUrl} />
+          <ModuleStory content={p.moduleDetail} design={p.moduleDetail.design} mediaUrl={mediaUrl} />
         ) : (
           <DetailStory
             content={p.detailContent}

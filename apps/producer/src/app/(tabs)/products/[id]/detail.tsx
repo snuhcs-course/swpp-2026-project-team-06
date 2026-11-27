@@ -47,6 +47,10 @@ export default function ProductDetailEditor() {
           if (e instanceof ApiError && e.details?.fields?.composer) return null;
           throw e;
         });
+      if (alive && workspace?.composerBlocked === "SOURCE_LAYOUT") {
+        router.replace({ pathname: "/source-page", params: { id } });
+        return "blocked" as const;
+      }
       if (alive && workspace?.composerBlocked === "LEGACY_REVISION") {
         setBlocked(workspace);
         return "blocked" as const;
@@ -54,6 +58,7 @@ export default function ProductDetailEditor() {
       return workspace?.composer
         ? {
             batchId: workspace.batchId,
+            combinedSetup: !!workspace.snapshot.setupInputs,
             notice:
               workspace.composerNotice === "PAGE_AND_AI_REPLACED"
                 ? "replaced-ai"
@@ -76,7 +81,7 @@ export default function ProductDetailEditor() {
               composer: "1",
               ...(opened.notice ? { notice: opened.notice } : {}),
               ...(terms === "1" ? { terms: "1" } : {}),
-              ...(from === "sales" ? { from } : {}),
+              ...(opened.combinedSetup ? {from:"setup"} : from === "sales" ? { from } : {}),
             },
           });
         }

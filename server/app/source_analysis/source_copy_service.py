@@ -28,6 +28,67 @@ def choice(row):
     }
 
 
+def input_prices(db, target):
+    """The producer entered prices on the combined setup page (DEV-452)."""
+    from app.source_analysis.models import ProductWorkspace
+
+    if not target.get("productId"):
+        return False
+    workspace = db.get(ProductWorkspace, target["productId"])
+    setup = ((workspace.snapshot or {}).get("setupInputs") or {}) if workspace else {}
+    terms = setup.get("terms")
+    return any(
+        (cell or {}).get("price") is not None
+        for row in (terms or {}).get("rows") or []
+        for cell in (row.get("options") or {}).values()
+    )
+
+
+def input_weights(db, target):
+    """Box weights (kg) of the sale options entered on the combined setup page (DEV-452)."""
+    from app.source_analysis.models import ProductWorkspace
+
+    if not target.get("productId"):
+        return ()
+    workspace = db.get(ProductWorkspace, target["productId"])
+    setup = ((workspace.snapshot or {}).get("setupInputs") or {}) if workspace else {}
+    options = (setup.get("terms") or {}).get("options") or []
+    return tuple(float(o["weightKg"]) for o in options if o.get("weightKg"))
+
+
+def _setup_terms(db, target):
+    from app.source_analysis.models import ProductWorkspace
+
+    if not target.get("productId"):
+        return {}
+    workspace = db.get(ProductWorkspace, target["productId"])
+    setup = ((workspace.snapshot or {}).get("setupInputs") or {}) if workspace else {}
+    return setup.get("terms") or {}
+
+
+def input_labels(db, target):
+    """Option labels entered on the combined setup page (DEV-452)."""
+    return tuple(o.get("label") or "" for o in _setup_terms(db, target).get("options") or [])
+
+
+def input_months(db, target):
+    """Months of the delivery window entered on the combined setup page (DEV-452)."""
+    from datetime import date
+
+    window = _setup_terms(db, target).get("deliveryWindow") or {}
+    try:
+        start, end = date.fromisoformat(window["start"]), date.fromisoformat(window["end"])
+    except (KeyError, TypeError, ValueError):
+        return ()
+    months, m = [], start.month
+    for _ in range(12):
+        months.append(m)
+        if m == end.month:
+            break
+        m = m % 12 + 1
+    return tuple(months)
+
+
 def baseline_plan(db, batch, target_id, *, choices=None):
     from app.source_analysis.source_preserving import build_plan
 
@@ -45,8 +106,17 @@ def baseline_plan(db, batch, target_id, *, choices=None):
     versions = {
         a.id: {"revision": a.revision, "sanitizationVersion": a.sanitization_version}
         for a in sources
+        # DEV-452: photos found in documents are not text sources; keep the plan hash stable.
+        if not (a.placement or {}).get("extracted")
     }
-    arguments = {"source_versions": versions, "target_count": len(batch.targets)}
+    arguments = {
+        "source_versions": versions,
+        "target_count": len(batch.targets),
+        "input_prices": input_prices(db, target),
+        "input_weights": input_weights(db, target),
+        "input_labels": input_labels(db, target),
+        "input_months": input_months(db, target),
+    }
     candidates = payload(list(inventory.values()))
     base = build_plan(target, candidates, **arguments)
     if choices is None:

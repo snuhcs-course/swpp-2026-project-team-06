@@ -152,3 +152,10 @@ FEAT-03/04/07 및 AC-SRC-2/3/5/9/10/11: reviewPrompts는 사유별 질문·설�
 - 앱에서 응답을 못 받으면 `ApiError(0, "인터넷 연결을 확인하고 다시 시도해 주세요.")`(`request()`와 같은 문구)로 던지고, 원인은 `cause`와 경고 로그에 남긴다. JSON이 아닌 오류 응답(프록시 413·502)은 두 플랫폼 모두 본문 `{}`의 ApiError다.
 - 고른 사진의 형식·이름은 `pickedImage`로 다시 압축한 파일(uri 확장자) 기준으로 정한다. quality < 1이면 PNG 밖은 JPEG 바이트인데 picker의 mimeType·fileName은 원본(HEIC·WebP)이라 서버가 400을 줬다.
 - `scripts/test-native-upload.mjs`가 fetch로 FormData 보내기, `{uri}` 파트 직접 붙이기, 허용 목록 밖 직접 fetch, picker 원본 형식 직접 쓰기를 막는다. 상세는 tasks/DEV-493.md.
+
+### DEV-464 saved source layout integration (local r006 recovery)
+Preserve the validated source-guided renderer as an optional page design. Store its bounded sections, source media and caption/text links with the existing private page snapshot JSON (no migration). Workspace validation rejects dangling text/photo references and media outside the product's allowed photos. Publication retains design metadata and resolves only publicly referenced photos; authenticated private previews resolve the same owned media. Legacy pages without design keep the existing rendering. A saved-layout page uses a versioned workspace reference at final initial-sale submission; rebase sales-term version changes only when the underlying page still exactly matches its published baseline. Source-copy workspaces retain their existing source-completeness and owner-review gates.
+
+Local recovery editor uses the actual private workspace endpoints and inline editing in the same source-guided layout, with photo replace/remove and explicit private save; it is not an arbitrary-upload generation implementation. User-confirmed r006 fixture and source bytes remain local/ignored. No static fixture is presented as a fresh generation result.
+
+DEV-452 local candidate adds versioned productWorkspace.saveSetup/generate (workspace plus batch version) and reviewPassage (passage binding, full pending snapshot and explicit action). Read-only private review/context/setup metadata cannot be replaced by page PUT. Generation run targets freeze current producer settings separately from document evidence.

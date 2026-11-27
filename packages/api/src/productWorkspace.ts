@@ -11,7 +11,28 @@ import type {
   StageInput,
 } from "./types";
 import type { ModuleDetail } from "./sourceAnalysis";
+export type PageReviewAction = "KEEP" | "EDIT" | "OMIT" | "REOPEN";
+export type PageReviewItem = {
+  bindingHash: string; pending: boolean; canKeep: boolean; originalValue: string;
+  pages: number[]; messages: string[]; requiresNote: boolean; suggestedValue?: string | null;
+  decision: { action: PageReviewAction; note?: string; at: string } | null;
+};
+export type ProductSetupInputs = {
+ productName: string; productHint: string; origin: string; requestedKg: number | null;
+ terms: { options: import("./types").ProductOption[]; deliveryWindow: {start:string;end:string}|null; maxDelayUntil:string|null;
+ shippingFeeType: "FREE"|"SEPARATE"; shippingFee:number|null; remoteAreaFee:number|null;
+ rows: {key:string;stageId?:string;startsAt:string|null;endsAt:string|null;options:Record<string,{price:number|null;quantity:number|null}>}[] };
+};
+export type ProductSetupResult = { workspace: ProductWorkspace; product: MyProduct; run?: import("./sourceAnalysis").SourceRun };
 export type PageSnapshot = {
+  setupInputs?: ProductSetupInputs;
+  reviewContext?: Record<string, unknown>;
+  reviewDecisions?: Record<string, unknown>;
+  reviewItems?: Record<string, PageReviewItem>;
+  sourceReviewRequired?: boolean;
+  sourceProcessingIncomplete?: boolean;
+  reviewNotes?: Record<string, string[]>;
+  design?: unknown;
   /** Server-owned source review fence for private legacy pages. */
   sourceReviewVersion?: number | null;
   representativeUri: string | null;
@@ -32,7 +53,7 @@ export type ProductWorkspace = {
   /** DEV-346: composer로 열어 달라고 했을 때만. true면 batch 초안이 지금 상품 페이지를 담고 있다. */
   composer?: boolean;
   /** DEV-346: composer로 못 연 이유. LEGACY_REVISION = 기존 편집기 수정본이 composer 작업과 겹침 */
-  composerBlocked?: "LEGACY_REVISION";
+  composerBlocked?: "LEGACY_REVISION" | "SOURCE_LAYOUT";
   /** DEV-346: 다른 화면에서 반영한 판매페이지로 composer 값을 새로 불러왔고 그 전 임시 저장이 있었다 */
   composerNotice?: "PAGE_REPLACED" | "PAGE_AND_AI_REPLACED";
   /** DEV-361: 구매자에게 보이는 상품에 반영 안 한 상품 초안이 있다(내용은 productDraft()) */
@@ -96,7 +117,26 @@ export type ApplyAllResult = {
   product: MyProduct;
 };
 const base = "/api/source-analysis/product-workspaces";
+export type SalePreview = { workspace?: ProductWorkspace; batch: import("./sourceAnalysis").SourceBatch; targetId: string; draft: import("./sourceAnalysis").SourceDraft | null; current: boolean; processingIssues: NonNullable<import("./sourceAnalysis").SourceReview["processingIssues"]>; reviewPending: number };
+/** DEV-452: page generation state of a product made through the combined setup page (product list). */
+export type PageStatus = {
+  productId: string;
+  batchId: string;
+  nameHint: string;
+  state: "NONE" | "MAKING" | "READY" | "FAILED";
+  toCheck?: number;
+  run?: Pick<import("./sourceAnalysis").SourceRun, "id" | "status" | "items">;
+  sources?: { id: string; originalPhoto: boolean }[];
+};
 export const productWorkspace = {
+  /** Optional for the list: an older server or the mock returns nothing rather than failing the list. */
+  pageStatus: () =>
+    request<{ items: PageStatus[] }>("GET", `${base}/page-status`).catch(() => ({ items: [] as PageStatus[] })),
+  saveSetup: (productId:string, version:number, inputs:ProductSetupInputs, key:string) => request<ProductSetupResult>("POST", `${base}/${productId}/setup`, {body:{version,inputs},idempotencyKey:key}),
+  generate: (productId:string, version:number, batchVersion:number, inputs:ProductSetupInputs, key:string) => request<ProductSetupResult>("POST", `${base}/${productId}/generate`, {body:{version,batchVersion,inputs},idempotencyKey:key}),
+  reviewPassage: (productId: string, input: { version: number; snapshot: PageSnapshot; reference: string; bindingHash: string; action: PageReviewAction; note?: string }, key: string) =>
+    request<ProductWorkspace>("POST", `${base}/${productId}/review-decisions`, { body: input, idempotencyKey: key }),
+  salePreview: (productId: string) => request<SalePreview | null>("GET", `${base}/${productId}/sale-preview`),
   uploadPhoto: async (
     productId: string,
     file: UploadFile,

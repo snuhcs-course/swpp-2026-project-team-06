@@ -138,7 +138,7 @@ class SourceEdit(Input):
 
 
 class Region(Input):
-    page: int = Field(ge=1, le=20)
+    page: int = Field(ge=1, le=60)
     box: list[float] = Field(min_length=4, max_length=4)
 
     @model_validator(mode="after")

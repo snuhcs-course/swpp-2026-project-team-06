@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { apiUrl, producerUrl, loginProducer, apiLogin } from "./helpers";
+import { apiUrl, producerUrl, loginProducer, apiLogin, openFreshComposer } from "./helpers";
 
 // DEV-361 PR C (C-18): the 2-tab source workspace is gone and `/products/source-analysis` is always the composer,
 // which opens only a batch tied to exactly one product. The first four tests used to open ad-hoc batches (no product,
@@ -493,7 +493,7 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
   await page.setViewportSize({ width: 390, height: 844 });
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products/new`);
+  await openFreshComposer(page);
   const materials = page.getByTestId("source-material-box");
   const photos = page.getByTestId("product-photo-box");
   // 새 상품은 한 화면 편집 + 하단 AI 시트(DEV-184)

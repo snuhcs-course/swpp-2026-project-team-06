@@ -226,7 +226,12 @@ def upload(db, row, data, filename, ids, common, expected, original):
         raise invalid({"file": str(exc)}) from exc
     if original and not mime.startswith("image/"):
         raise invalid({"originalPhoto": "원본 사진은 이미지 파일만 지정할 수 있어요."})
-    rows = list(db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False))))
+    rows = [
+        a
+        for a in db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False)))
+        # DEV-452: photos found inside documents do not use the producer's upload allowance.
+        if not (a.placement or {}).get("extracted")
+    ]
     checksum = hashlib.sha256(data).hexdigest()
     duplicate = next(
         (a for a in rows if a.checksum == checksum and a.original_photo == original), None
@@ -306,8 +311,26 @@ def patch_asset(db, row, source, body):
     return asset_view(source)
 
 
+def confirm_extracted(db, row, source, revision):
+    """The producer keeps a photo found in a document (DEV-452). Removing uses remove_asset."""
+    version(source.revision, revision)
+    extracted = (source.placement or {}).get("extracted")
+    if not extracted:
+        raise invalid({"photo": "자료에서 가져온 사진만 확인할 수 있어요."})
+    source.placement = {**source.placement, "extracted": {**extracted, "confirmed": True}}
+    # Confirming does not change page content, so drafts and previews stay current.
+    return asset_view(source)
+
+
 def remove_asset(db, row, source):
     source.deleted = True
+    if (source.placement or {}).get("extracted"):
+        # DEV-452: dropping a photo found in a document keeps the analysis and the other photos.
+        row.review_version += 1
+        from app.source_analysis.representative import reconcile
+
+        reconcile(db, row)
+        return {"deleted": True}
     invalidate(db, row, source)
     from app.source_analysis.representative import reconcile
 
@@ -410,13 +433,17 @@ def privacy(db, row, source, body):
 
 def start_run(db, row, expected, retry_items=None, visual_pages=None):
     version(row.version, expected)
-    if any(not (t.get("basicInfo") or {}).get("variety", "").strip() for t in row.targets):
+    if not row.source_copy_enabled and any(
+        not (t.get("basicInfo") or {}).get("variety", "").strip() for t in row.targets
+    ):
         raise invalid({"variety": "과일 품종명을 입력해 주세요."})
     if db.scalar(select(Run.id).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
         raise conflict("RUN_ACTIVE", "이미 분석하고 있어요.")
     sources = list(
         db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False)))
     )
+    # DEV-452: photos found inside documents are results of an earlier run, not inputs.
+    sources = [a for a in sources if not (a.placement or {}).get("extracted")]
     inputs = sources
     # Photos referenced from the existing product page (DEV-346) have no bytes to analyse.
     sources = [a for a in sources if not a.product_photo]
@@ -454,15 +481,22 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
             invalidate(db, row, source)
             reparsed.add(source.id)
     visual_pages = {sid: nums for sid, nums in visual_pages.items() if sid not in reparsed}
+    run_targets = deepcopy(row.targets)
+    from app.source_analysis.models import ProductWorkspace
+
+    for target in run_targets:
+        workspace = (
+            db.get(ProductWorkspace, target.get("productId")) if target.get("productId") else None
+        )
+        if workspace and workspace.snapshot.get("setupInputs"):
+            target["producerInputs"] = deepcopy(workspace.snapshot["setupInputs"])
     run = Run(
-        inputs=[
-            {"id": p.id, "revision": p.revision, "description": p.description} for p in inputs
-        ],
+        inputs=[{"id": p.id, "revision": p.revision, "description": p.description} for p in inputs],
         visual_pages=visual_pages,
         batch_id=row.id,
         mode=settings.source_analysis_provider,
         model=settings.source_analysis_model,
-        targets=deepcopy(row.targets),
+        targets=run_targets,
     )
     db.add(run)
     db.flush()
@@ -555,6 +589,8 @@ def run_view(db, run):
             else i.diagnostics.get("emptyReason"),
             "candidatesSkipped": i.diagnostics.get("candidatesSkipped", 0),
             "acceptedCount": i.diagnostics.get("acceptedCount", 0),
+            # DEV-452: live work counts for the waiting bar ({stage, done, total} or null).
+            "progress": i.diagnostics.get("progress"),
             "rejectedCount": i.diagnostics.get("rejectedCount", 0),
         }
         for i in items
@@ -602,6 +638,10 @@ def prefill_expected_brix(db, row):
     """
     from app.ai.grounding import single_brix
 
+    if row.source_copy_enabled:
+        # DEV-452: in the combined setup flow brix is the producer's input. A number in the
+        # material (often "작년 평균 13~14브릭스") is shown for reference, never filled in.
+        return
     blank = [t for t in row.targets if (t.get("basicInfo") or {}).get("expectedBrix") is None]
     if not blank:
         return
@@ -832,7 +872,8 @@ def patch_review(db, row, body, *, inactive=frozenset()):
                     and not farm_common_allowed({"fieldKey": c.field_key}, entry.field_key)
                 )
             )
-            or entry.provenance != "REFINED" and c.target_id not in (None, entry.target_id)
+            or entry.provenance != "REFINED"
+            and c.target_id not in (None, entry.target_id)
             for c in candidates
         ):
             raise conflict("INVALID_EVIDENCE", "최신 자료의 같은 상품·항목 근거를 선택해 주세요.")

@@ -1,3 +1,5 @@
+import { SourceGuidedStory } from "./SourceGuidedStory";
+import { getSourceStoryDesign } from "./sourceStoryDesign";
 import type { ReactNode } from "react";
 import {
   Image,
@@ -258,11 +260,23 @@ export function ModuleStory({
   content,
   mediaUrl = (uri: string) => uri,
   editing,
+  design,
+  reviewNotes,
+  sectionAccessory,
 }: {
+  /**
+   * DEV-452: small control at a section heading in the read-only page (e.g. "확인 2 · 고치기").
+   * Gets the section id ("intro" for the cover) and its module ids. Not used while editing.
+   */
+  sectionAccessory?: (sectionId: string, moduleIds: string[], title: string) => ReactNode;
+  design?: unknown;
+  reviewNotes?: Readonly<Record<string, readonly string[]>>;
   editing?: StoryEditing;
   content: { modules: StoryModule[]; hiddenSectionIds?: string[] };
   mediaUrl?: (uri: string) => string;
 }) {
+  const sourceDesign = !editing && design !== undefined ? getSourceStoryDesign(content.modules, design) : null;
+  if (sourceDesign) return <SourceGuidedStory content={content} design={sourceDesign} mediaUrl={mediaUrl} reviewNotes={reviewNotes} />;
   const hidden = editing?.hiddenSectionIds ?? content.hiddenSectionIds ?? [];
   const introHidden = hidden.includes("intro");
   const introDim =
@@ -304,6 +318,7 @@ export function ModuleStory({
           style={{ paddingTop: 12, paddingBottom: 18 }}
         >
           {editing ? <View style={{ position: "absolute", right: tokens.space.gutter, top: 0, zIndex: 1 }}>{editing.sectionControl("intro", "상품 소개")}</View> : null}
+          {!editing && sectionAccessory ? <View style={{ paddingHorizontal: tokens.space.gutter, alignItems: "flex-end" }}>{sectionAccessory("intro", ["hero", "summary"], "상품 소개")}</View> : null}
           {showHero || showSummary ? (
             <>
               {hero && showHero ? (editing ? editing.wrap(hero, heroBody) : heroBody) : null}
@@ -382,6 +397,7 @@ export function ModuleStory({
                 }}
               />
               {editing?.sectionControl(group.id, group.title)}
+              {!editing && sectionAccessory ? sectionAccessory(group.id, group.modules, group.title) : null}
             </View>
             {modules
               .filter((module) => !isHidden || module.id === editing?.revealedModuleId)

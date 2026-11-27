@@ -207,6 +207,10 @@ def public_photo(
             for p in m["photos"]
         )
         or any(
+            m.get("uri") == f"/api/source-media/{photo_id}"
+            for m in (detail.module_detail or {}).get("design", {}).get("media", {}).values()
+        )
+        or any(
             b.get("uri") == f"/api/source-media/{photo_id}"
             for b in (detail.detail_content.model_dump() if detail.detail_content else {}).get(
                 "blocks", []

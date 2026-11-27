@@ -368,3 +368,11 @@ DEV-484: source-proven candidate paragraphs and full continuation chains preserv
 
 ## DEV-485 사유별 생산자 확인
 FEAT-03/04/07 및 AC-SRC-2/3/5/9/10/11: reviewPrompts는 사유별 질문·설명·심각도·확인 기록 문구를 제공한다. 기존 reviewExplanations 호환을 유지한다. 확인 버튼은 기존 검토 저장 경로를 사용하고 성공 뒤 완료 표시하며, 연결 문단의 모든 KEEP 결정이 같은 배치를 승인하면 연결을 유지한다. 사용 제한은 단순 확인으로 통과시키지 않는다. UI는 일반 황색/중요 산호색과 기호·문구를 함께 사용한다.
+
+### DEV-464 saved source layout integration (local r006 recovery)
+Preserve the validated source-guided renderer as an optional page design. Store its bounded sections, source media and caption/text links with the existing private page snapshot JSON (no migration). Workspace validation rejects dangling text/photo references and media outside the product's allowed photos. Publication retains design metadata and resolves only publicly referenced photos; authenticated private previews resolve the same owned media. Legacy pages without design keep the existing rendering. A saved-layout page uses a versioned workspace reference at final initial-sale submission; rebase sales-term version changes only when the underlying page still exactly matches its published baseline. Source-copy workspaces retain their existing source-completeness and owner-review gates.
+
+Local recovery editor uses the actual private workspace endpoints and inline editing in the same source-guided layout, with photo replace/remove and explicit private save; it is not an arbitrary-upload generation implementation. User-confirmed r006 fixture and source bytes remain local/ignored. No static fixture is presented as a fresh generation result.
+
+### DEV-452 combined setup and source-bound decisions
+Setup/generate lock batch→product through workspace ownership, fence workspace and source versions, preserve partial private inputs in server-owned setupInputs, and freeze canonical producerInputs with run.targets. Existing product validators apply complete sale settings; partial inputs cannot borrow older sale values to pass final submission. Review decisions are server-owned passage/context hashes, saved atomically with pending edits. Changed passages reopen review; caption omission retains owned media. sourceProcessingIncomplete is independent of sourceReviewRequired and cannot be cleared by ordinary PUT or confirmation. Saved r006 recovery remains a partial example, not arbitrary-upload generation acceptance.

@@ -2215,3 +2215,42 @@ def test_AC_SRC_5_ocr_cap_failure_is_retried_once_with_double_room(
         assert failed.value.code == (second or first)
     assert len(seen) == calls and seen == [False, True][:calls]
     assert tokens == [worker.OCR_MAX_TOKENS, worker.OCR_RETRY_MAX_TOKENS][:calls]
+
+
+@pytest.mark.parametrize(
+    "reason,child_fails,expected_calls",
+    [("length", False, 4), ("length", True, 3), ("content_filter", False, 2)],
+)
+def test_AC_SRC_5_dense_crop_recovery_is_bounded_and_failure_is_not_complete(
+    monkeypatch, reason, child_fails, expected_calls
+):
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
+    image = io.BytesIO()
+    Image.new("RGB", (100, 200), "white").save(image, "PNG")
+    chunk = {"pages": [{"number": 1, "spans": []}]}
+    calls = []
+
+    def ocr(encoded, retry=False):
+        calls.append(retry)
+        if len(calls) <= 2:
+            raise ExtractionError("INCOMPLETE_OCR", details={"finishReason": reason})
+        if child_fails:
+            raise ExtractionError("INVALID_OCR")
+        return Transcription([f"원문 {len(calls)}"], {}, "fixture")
+
+    def call(*args):
+        return args[5]()
+
+    def recovery(fn, *args):
+        return fn(*args)
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    if reason == "length" and not child_fails:
+        result = worker.transcribe_pages(chunk, {1: image.getvalue()}, call, recovery)
+        assert not result["pagesFailed"]
+        assert [s["text"] for s in chunk["pages"][0]["spans"]] == ["원문 3", "원문 4"]
+    else:
+        with pytest.raises(ExtractionError):
+            worker.transcribe_pages(chunk, {1: image.getvalue()}, call, recovery)
+        assert chunk["pages"][0]["spans"] == []
+    assert len(calls) == expected_calls

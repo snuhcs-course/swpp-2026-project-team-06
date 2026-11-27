@@ -20,7 +20,8 @@ from app.core.config import get_settings
 
 Image.MAX_IMAGE_PIXELS = 40_000_000
 PREPROCESS_VERSION = "source-parser-v4"
-PDF_PAGE_CAP = 20
+# DEV-452: whole documents are read (the batch total stays capped at 60 PDF pages in the worker).
+PDF_PAGE_CAP = 60
 TEXT_CHUNK_CHARS = 4000
 
 
@@ -416,7 +417,8 @@ def qr_regions(image):
     ]
 
 
-def parse(data, mime):
+def parse(data, mime, emit=None):
+    """Pages as a list, or (with emit) streamed one by one and only metadata returned."""
     if mime == "text/plain":
         text = data.decode("utf-8-sig")
         if len(text) > 30_000:
@@ -430,43 +432,13 @@ def parse(data, mime):
         ]
         spans = [{"id": f"s{i}", "text": line, "box": [0, 0, 1, 1]} for i, line in enumerate(lines)]
         return [{"spans": spans, "image": None}]
-    images = []
-    if mime == "application/pdf":
-        import pypdfium2 as pdfium
+    from app.source_analysis.photo_extract import find_photos
 
-        try:
-            with pdfium.PdfDocument(data) as pdf:
-                if len(pdf) < 1:
-                    raise PreparationError("PDF_PAGE_LIMIT")
-                pages_skipped = max(0, len(pdf) - PDF_PAGE_CAP)
-                for index in range(min(len(pdf), PDF_PAGE_CAP)):
-                    page = pdf[index]
-                    width, height = page.get_size()
-                    scale = min(200 / 72, (8_000_000 / (width * height)) ** 0.5)
-                    image = page.render(scale=scale).to_pil().convert("RGB")
-                    spans = _pdf_spans(page)
-                    images.append((image, spans or None))
-        except PreparationError:
-            raise
-        except Exception as exc:
-            raise PreparationError("INVALID_OR_ENCRYPTED_PDF") from exc
-    else:
-        from pillow_heif import register_heif_opener
-
-        register_heif_opener()
-        try:
-            with Image.open(io.BytesIO(data)) as raw:
-                if raw.width * raw.height > 40_000_000 or getattr(raw, "n_frames", 1) != 1:
-                    raise PreparationError("IMAGE_LIMIT")
-                raw.load()
-                image = ImageOps.exif_transpose(raw).convert("RGB")
-                images.append((image, None))
-        except PreparationError:
-            raise
-        except Exception as exc:
-            raise PreparationError("INVALID_IMAGE") from exc
     output = []
-    for image, spans in images:
+    count = 0
+
+    def finish(image, spans, pdf_page=None):
+        # Pages are finished one at a time so long PDFs never hold every rendered page in memory.
         angle = 0
         if spans is None:
             image, angle = _upright(image)
@@ -484,19 +456,67 @@ def parse(data, mime):
         uncertain = [s["box"] for s in spans if s.get("confidence", 1) < 0.6]
         if spans and len(uncertain) == len(spans):
             raise PreparationError("OCR_UNCERTAIN")
+        # DEV-452: product photos inside the document. Rotated pages use the upright image, so
+        # PDF object bounds only apply when no rotation was needed.
+        photos = find_photos(image, spans, pdf_page if angle == 0 else None)
+        nonlocal count
+        count += 1
         # Uncertain OCR is never forwarded as a fact, including in the image.
         # The original remains available for the producer's local privacy review.
-        output.append(
+        (emit or output.append)(
             {
                 "spans": spans,
                 "image": base64.b64encode(_png(image)).decode(),
                 "regions": qr_regions(image) + uncertain,
                 "rotation": angle,
+                "photos": photos,
                 "preprocessVersion": PREPROCESS_VERSION,
             }
         )
+
     if mime == "application/pdf":
-        output[0].update(pagesAnalysed=len(output), pagesSkipped=pages_skipped)
+        import pypdfium2 as pdfium
+
+        try:
+            pdf = pdfium.PdfDocument(data)
+        except Exception as exc:
+            raise PreparationError("INVALID_OR_ENCRYPTED_PDF") from exc
+        with pdf:
+            if len(pdf) < 1:
+                raise PreparationError("PDF_PAGE_LIMIT")
+            pages_skipped = max(0, len(pdf) - PDF_PAGE_CAP)
+            for index in range(min(len(pdf), PDF_PAGE_CAP)):
+                try:
+                    page = pdf[index]
+                    width, height = page.get_size()
+                    scale = min(200 / 72, (8_000_000 / (width * height)) ** 0.5)
+                    image = page.render(scale=scale).to_pil().convert("RGB")
+                    spans = _pdf_spans(page)
+                except Exception as exc:
+                    raise PreparationError("INVALID_OR_ENCRYPTED_PDF") from exc
+                finish(image, spans or None, page)
+                page.close()
+    else:
+        from pillow_heif import register_heif_opener
+
+        register_heif_opener()
+        try:
+            with Image.open(io.BytesIO(data)) as raw:
+                if raw.width * raw.height > 40_000_000 or getattr(raw, "n_frames", 1) != 1:
+                    raise PreparationError("IMAGE_LIMIT")
+                raw.load()
+                image = ImageOps.exif_transpose(raw).convert("RGB")
+        except PreparationError:
+            raise
+        except Exception as exc:
+            raise PreparationError("INVALID_IMAGE") from exc
+        finish(image, None)
+    meta = (
+        {"pagesAnalysed": count, "pagesSkipped": pages_skipped} if mime == "application/pdf" else {}
+    )
+    if emit:
+        return meta
+    output[0].update(meta)
     return output
 
 
@@ -531,7 +551,14 @@ def prepare(data, mime):
             result = json.loads((root / "output").read_text(encoding="utf-8"))
             if "error" in result:
                 raise PreparationError(result["error"])
-            return result["pages"]
+            if "pages" in result:
+                return result["pages"]
+            # DEV-452: long documents are streamed page by page to keep the parser small.
+            with (root / "pages.jsonl").open(encoding="utf-8") as lines:
+                pages = [json.loads(line) for line in lines if line.strip()]
+            if pages:
+                pages[0].update(result.get("meta") or {})
+            return pages
         finally:
             if process.poll() is None:
                 try:
@@ -546,7 +573,14 @@ def prepare(data, mime):
 if __name__ == "__main__":
     root = Path(sys.argv[1])
     try:
-        result = {"pages": parse((root / "input").read_bytes(), sys.argv[2])}
+        with (root / "pages.jsonl").open("w", encoding="utf-8") as sink:
+
+            def emit(page):
+                sink.write(json.dumps(page, ensure_ascii=False) + "\n")
+                sink.flush()
+
+            parsed = parse((root / "input").read_bytes(), sys.argv[2], emit)
+        result = {"pages": parsed} if isinstance(parsed, list) else {"meta": parsed}
     except PreparationError as exc:
         result = {"error": str(exc)}
     except Exception:

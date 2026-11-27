@@ -106,10 +106,12 @@ with get_sessionmaker()() as db,db.begin():
   expect(unreviewed.plan.modules.flatMap((m:any)=>m.texts.map((t:any)=>t.value))).toContain(price);
   expect((await (await request.get(`${apiUrl}/api/products/${pid}`)).json()).moduleDetail).toEqual(before.moduleDetail);
   const card=page.getByTestId(`source-copy-passage-${date.id}-OWNER_CONFIRMATION`);
-  await expect(card).toBeVisible();await card.getByRole("button",{name:"직접 수정",exact:true}).click();
+  await expect(card).toBeVisible();await card.getByRole("button",{name:"✎ 수정할게요",exact:true}).click();
   await card.getByLabel("사용할 문구",{exact:true}).fill(confirmedDate);
   await card.getByLabel("수정한 이유와 확인한 내용",{exact:true}).fill("생산자가 이번 수확 시점을 2026년 12월로 확인했습니다.");
   const priceCard=page.getByTestId(`source-copy-passage-${priced.id}-OWNER_CONFIRMATION`);
+  // DEV-485 moved this choice behind '다른 선택 보기'.
+  await priceCard.getByRole("button",{name:"다른 선택 보기",exact:true}).click();
   await priceCard.getByRole("button",{name:"판매 설정에서 입력하기로 기록",exact:true}).click();
   await panel.getByRole("button",{name:"검토 선택 저장",exact:true}).click();
   await expect(panel.getByText("비공개 검토 내용을 저장했어요. 상품에 반영하려면 기존 반영 절차를 진행해 주세요.",{exact:true})).toBeVisible();

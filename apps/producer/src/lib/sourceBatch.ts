@@ -39,7 +39,8 @@ export function canEditBatch(
     (!!drafts.length ||
       (!!runs[0] &&
         (!runs[0].inputs?.length ||
-          (runs[0].inputs.length === batch.sources.length &&
+          // DEV-452: photos found inside documents are results of the run, not new inputs.
+          (runs[0].inputs.length === batch.sources.filter((s) => !s.placement?.extracted).length &&
             runs[0].inputs.every((i) =>
               batch.sources.some(
                 (s) =>

@@ -23,6 +23,16 @@ def _hash(value):
     ).hexdigest()
 
 
+def _safe_inputs(value):
+    if isinstance(value, str):
+        return scrub(value)
+    if isinstance(value, dict):
+        return {key: _safe_inputs(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_safe_inputs(item) for item in value]
+    return value
+
+
 def prepare(base, target):
     by_id = {p["id"]: p for p in base["passages"]}
     texts = []
@@ -49,7 +59,15 @@ def prepare(base, target):
             )
     return {
         "id": target["id"],
-        "target": {"id": target["id"], "name": target.get("name", "")},
+        "target": {
+            "id": target["id"],
+            "name": target.get("name", ""),
+            **(
+                {"producerInputs": _safe_inputs(target["producerInputs"])}
+                if target.get("producerInputs")
+                else {}
+            ),
+        },
         "texts": texts,
     }
 

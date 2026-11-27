@@ -23,6 +23,7 @@ from app.ai.source_ocr import (
     OCR_RETRY_MAX_TOKENS,
     Transcription,
     crops,
+    split_crop,
     transcribe,
 )
 from app.ai.source_refine import PHOTO_FIELDS
@@ -56,6 +57,16 @@ from app.source_analysis.schemas import Extraction
 from app.source_analysis.service import refresh_runs
 from app.source_analysis.storage import Storage
 from app.source_analysis.text_safety import numbers
+
+
+def scrub_inputs(value):
+    if isinstance(value, str):
+        return scrub(value)
+    if isinstance(value, dict):
+        return {key: scrub_inputs(v) for key, v in value.items()}
+    if isinstance(value, list):
+        return [scrub_inputs(v) for v in value]
+    return value
 
 
 def claim():
@@ -142,6 +153,91 @@ def heartbeat(item_id, token):
     finally:
         stop.set()
         thread.join(timeout=2)
+
+
+EXTRACTED_PER_FIELD = 2
+
+
+def add_extracted_photos(db, batch, source, prepared):
+    """Store photos found inside a document as unconfirmed product photos (DEV-452).
+
+    Provenance and confirmation live in Asset.placement["extracted"]. Near-duplicates (the
+    same photo repeated on several pages or in another document) are kept once. At most
+    EXTRACTED_PER_FIELD photos per page section are placed; the rest stay available in the
+    producer's photo strip. The producer must confirm or remove each placed photo before a
+    sale request (setup.py).
+    """
+    import hashlib
+
+    from app.source_analysis.photo_extract import PHOTO_VERSION, dhash, field_for, near_duplicate
+    from app.source_analysis.photos import ready_photo
+    from app.source_analysis.representative import reconcile
+
+    existing = list(
+        db.scalars(
+            select(Asset).where(
+                Asset.batch_id == batch.id,
+                Asset.deleted.is_(False),
+                Asset.original_photo.is_(True),
+            )
+        )
+    )
+    # A re-prepared source replaces its own earlier extraction.
+    for old in existing:
+        if (old.placement or {}).get("extracted", {}).get("sourceId") == source.id:
+            old.deleted = True
+    existing = [a for a in existing if not a.deleted]
+    hashes = [
+        a.placement["extracted"]["hash"] for a in existing if (a.placement or {}).get("extracted")
+    ]
+    placed = {}
+    for a in existing:
+        key = (a.placement or {}).get("fieldKey")
+        if key:
+            placed[key] = placed.get(key, 0) + 1
+    stem = source.filename.rsplit(".", 1)[0][:150]
+    count = 0
+    for number, raw in enumerate(prepared, 1):
+        for photo in raw.get("photos") or []:
+            digest = dhash(photo["image"])
+            if any(near_duplicate(digest, h) for h in hashes):
+                continue
+            hashes.append(digest)
+            data = base64.b64decode(photo["image"])
+            key = field_for(photo["box"], raw.get("spans") or [])
+            use = placed.get(key, 0) < EXTRACTED_PER_FIELD
+            if use:
+                placed[key] = placed.get(key, 0) + 1
+            count += 1
+            asset = Asset(
+                batch_id=batch.id,
+                checksum=hashlib.sha256(data).hexdigest(),
+                storage_key=Storage().put(data),
+                filename=f"{stem}-p{number}-{count}.png"[:200],
+                mime="image/png",
+                size=len(data),
+                target_ids=list(source.target_ids),
+                common=source.common,
+                original_photo=True,
+                placement={
+                    "revision": 1,
+                    "fieldKey": key if use else None,
+                    "extracted": {
+                        "sourceId": source.id,
+                        "page": number,
+                        "box": photo["box"],
+                        "method": photo["method"],
+                        "hash": digest,
+                        "version": PHOTO_VERSION,
+                        "confirmed": False,
+                    },
+                },
+            )
+            db.add(asset)
+            db.flush()
+            ready_photo(db, asset, data)
+    if count:
+        reconcile(db, batch)
 
 
 def lock_context(db, item_id, token):
@@ -618,7 +714,7 @@ def _ocr_results(pages, page_images, call, failed, concurrency, recovery=None):
                 yield number, exc
             yield number, None  # End of page, including empty and failed pages.
 
-    def invoke(number, index, encoded, retry=False):
+    def invoke(number, index, encoded, retry=False, allow_split=True):
         if stop.is_set() or failed[number].is_set():
             return skipped
 
@@ -651,6 +747,30 @@ def _ocr_results(pages, page_images, call, failed, concurrency, recovery=None):
             # Classified transient recovery is owned by the optional budgeted crop wrapper.
             if not retry and isinstance(exc, ExtractionError) and exc.code in OCR_RETRY_CODES:
                 return invoke(number, index, encoded, retry=True)
+            # Dense output hit even the larger cap: split this crop once. Each half is
+            # independently fenced/reserved/checkpointed. Refusals, uncertain sends and
+            # arbitrary invalid output never trigger this extra recovery.
+            if (
+                retry
+                and allow_split
+                and recovery is not None
+                and isinstance(exc, ExtractionError)
+                and exc.code == "INCOMPLETE_OCR"
+                and exc.details.get("finishReason") == "length"
+            ):
+                halves = split_crop(encoded)
+                if halves:
+                    lines = []
+                    for half, image in enumerate(halves):
+                        part = invoke(
+                            number, f"{index}-half{half}", image, retry=True, allow_split=False
+                        )
+                        if isinstance(part, (ExtractionError, PreparationError)):
+                            return part
+                        if part.skipped:
+                            return ExtractionError("SOURCE_CHANGED")
+                        lines.extend(part.lines)
+                    return Transcription(lines, {"cost": 0}, None)
             # Soft failures are consumed in source order, even if a later crop fails first.
             return exc
         except BaseException:
@@ -663,7 +783,12 @@ def _ocr_results(pages, page_images, call, failed, concurrency, recovery=None):
                 yield number, result
 
 
-def transcribe_pages(chunk, page_images, call, recovery=None):
+# Remote-reading failures of the page itself (too dense to finish, unreadable output). Budget,
+# auth, uncertain sends and privacy changes are never replaced with embedded text.
+NATIVE_TEXT_FALLBACK = {"INCOMPLETE_OCR", "INVALID_OCR", "OCR_TEXT_LIMIT"}
+
+
+def transcribe_pages(chunk, page_images, call, recovery=None, progress=None):
     """Merge budgeted crop results in source order; discard exhausted failed-page fragments."""
     diagnostics = {"pagesEmpty": [], "pagesFailed": []}
     first_failure = None
@@ -671,11 +796,24 @@ def transcribe_pages(chunk, page_images, call, recovery=None):
     spans = [[] for _ in pages]
     failed = [Event() for _ in pages]
     recorded_failures = set()
+    # DEV-452: text embedded in a PDF page (ids "pdf-s…", already treated as authoritative in
+    # preprocessing) may stand in for a page the remote reader cannot finish. Local OCR never does.
+    native = {
+        page["number"]: [s for s in page["spans"] if str(s.get("id", "")).startswith("pdf-s")]
+        for page in pages
+    }
     for page in pages:
         page["spans"] = []  # Never fall back to local OCR after remote OCR failed.
     results = _ocr_results(
         pages, page_images, call, failed, get_settings().source_ocr_concurrency, recovery
     )
+    finished = set()  # pages fully read or given up (progress counts pages, never crops)
+
+    def report(number):
+        if progress and number not in finished:
+            finished.add(number)
+            progress("READ", len(finished), len(pages))
+
     with closing(results):
         for number, result in results:
             page = pages[number]
@@ -685,6 +823,7 @@ def transcribe_pages(chunk, page_images, call, recovery=None):
                 if number in recorded_failures:
                     continue
                 if result is None:
+                    report(number)
                     page["spans"] = spans[number]
                     if not page["spans"]:
                         diagnostics["pagesEmpty"].append(page["number"])
@@ -703,10 +842,18 @@ def transcribe_pages(chunk, page_images, call, recovery=None):
                     raise
                 if number not in recorded_failures:
                     code = exc.code if isinstance(exc, ExtractionError) else "PAGE_IMAGE_MISSING"
-                    diagnostics["pagesFailed"].append({"number": page["number"], "code": code})
-                    first_failure = first_failure or exc
+                    embedded = native.get(page["number"]) or []
+                    if code in NATIVE_TEXT_FALLBACK and sum(len(s["text"]) for s in embedded) >= 20:
+                        page["spans"] = [{"id": s["id"], "text": s["text"]} for s in embedded]
+                        diagnostics.setdefault("pagesNativeText", []).append(
+                            {"number": page["number"], "code": code}
+                        )
+                    else:
+                        diagnostics["pagesFailed"].append({"number": page["number"], "code": code})
+                        first_failure = first_failure or exc
                     recorded_failures.add(number)
                     failed[number].set()
+                    report(number)
     if not any(page["spans"] for page in pages):
         exc = first_failure or ExtractionError("OCR_UNCERTAIN")
         if isinstance(exc, PreparationError):
@@ -790,7 +937,15 @@ def _extract_results(chunk, targets, model, call, extract_part):
 
 
 def extract_vision_chunks(
-    chunk, targets, model, call, extract_part, diagnostics, *, allow_historical_fields=False
+    chunk,
+    targets,
+    model,
+    call,
+    extract_part,
+    diagnostics,
+    *,
+    allow_historical_fields=False,
+    progress=None,
 ):
     """Keep independent paid chunk results; never replay failed requests."""
     candidates, photo_requests, rejected, seen = [], [], [], set()
@@ -798,8 +953,13 @@ def extract_vision_chunks(
     skipped, succeeded = 0, 0
     diagnostics["chunksFailed"] = []
     results = _extract_results(chunk, targets, model, call, extract_part)
+    total = sum(1 for _ in extraction_chunks(chunk, skip_empty=True)) if progress else 0
+    done = 0
     with closing(results):
         for index, part, response in results:
+            done += 1
+            if progress:
+                progress("ANALYSE", done, total)
             if isinstance(response, ExtractionError):
                 exc = response
                 exc.retry_after = None
@@ -869,8 +1029,31 @@ def save_vision_diagnostics(item_id, token, chunk, diagnostics):
             raise ExtractionError("PRIVACY_CHANGED")
         by_number = {p["number"]: p["spans"] for p in chunk["pages"]}
         item.pages = [{**p, "ocrSpans": by_number[p["number"]]} for p in item.pages]
-        item.diagnostics = {**diagnostics, "ocrRecovery": item.diagnostics.get("ocrRecovery", {})}
+        item.diagnostics = {
+            **diagnostics,
+            "ocrRecovery": item.diagnostics.get("ocrRecovery", {}),
+            **(
+                {"progress": item.diagnostics["progress"]} if "progress" in item.diagnostics else {}
+            ),
+        }
         db.commit()
+
+
+def report_progress(item_id, token, stage, done, total):
+    """Real work counts for the producer's progress bar (DEV-452). Best effort, never fatal."""
+    try:
+        with get_sessionmaker()() as db:
+            context = lock_context(db, item_id, token)
+            if not context:
+                return
+            item = context[3]
+            item.diagnostics = {
+                **item.diagnostics,
+                "progress": {"stage": stage, "done": done, "total": total},
+            }
+            db.commit()
+    except Exception:  # noqa: BLE001 - progress must not change the job outcome
+        pass
 
 
 def ocr_recovery(item_id, token):
@@ -908,12 +1091,17 @@ def vision_extraction(
     item_id, token, chunk, targets, mode, model, page_images, *, allow_historical_fields=False
 ):
     diagnostics = {}
+
+    def progress(stage, done, total):
+        report_progress(item_id, token, stage, done, total)
+
     try:
         diagnostics = transcribe_pages(
             chunk,
             page_images,
             lambda *args: paid_vision_call(item_id, token, *args),
             lambda *args: ocr_recovery(item_id, token)(*args),
+            progress,
         )
         result = extract_vision_chunks(
             chunk,
@@ -923,6 +1111,7 @@ def vision_extraction(
             lambda part: extract(mode, model, part, targets, []),
             diagnostics,
             allow_historical_fields=allow_historical_fields,
+            progress=progress,
         )
     except ExtractionError as exc:
         diagnostics = exc.details.get("ocrDiagnostics", diagnostics)
@@ -1037,7 +1226,16 @@ def process(item_id, token):
             # DEV-264: the producer-typed product name tells products apart in mixed sources.
             # Contact data is masked like every other model input (M-18); basicInfo stays out.
             selected_targets = [
-                {"id": t["id"], "name": scrub(t.get("name") or "")} for t in selected_targets
+                {
+                    "id": t["id"],
+                    "name": scrub(t.get("name") or ""),
+                    **(
+                        {"producerInputs": scrub_inputs(t["producerInputs"])}
+                        if t.get("producerInputs")
+                        else {}
+                    ),
+                }
+                for t in selected_targets
             ]
             # Trusted batch state only: neither source payload nor provider output opts in.
             allow_historical_fields = batch.source_copy_enabled
@@ -1096,6 +1294,10 @@ def process(item_id, token):
                 )
                 db.add(page)
                 pages.append(page)
+            # DEV-452: product photos found inside the document become product-photo assets.
+            # Only the combined setup flow (source-copy batches) has the confirmation step.
+            if batch.source_copy_enabled:
+                add_extracted_photos(db, batch, source, prepared)
             source.status, source.error = "PREPARED", None
             source.preprocess_version = PREPROCESS_VERSION
             source.page_count = len(prepared)

@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { apiUrl, loginProducer, monitor, producerUrl } from "./helpers";
+import { apiUrl, loginProducer, monitor, openFreshComposer, producerUrl } from "./helpers";
 
 // DEV-184 새 상품 한 화면 편집 + 하단 AI 시트
 const sourceEnabled = process.env.SOURCE_ANALYSIS_ENABLED === "true";
@@ -38,8 +38,7 @@ for (const width of [360, 390, 430]) {
     await page.setViewportSize({ width, height: 850 });
     const clean = monitor(page);
     await loginProducer(page, "강영수");
-    await page.goto(`${producerUrl}/products`);
-    await page.getByRole("button", { name: "새 상품", exact: true }).click();
+    await openFreshComposer(page);
     // The editor opens directly; AI is explicitly opened from its captioned control.
     await expect(page).toHaveURL(/composer=1/);
     await expect(page.getByTestId("product-basic-info")).toBeVisible();
@@ -226,7 +225,8 @@ for (const width of [360, 390, 430]) {
       "온주밀감",
       "제주 서귀포",
     ]);
-    expect(mine.moduleDetail?.modules?.length).toBeGreaterThan(0);
+    // DEV-452 (recorded acceptance): '다음' saves privately; the page is applied with the sale request.
+    expect(mine.moduleDetail?.modules?.length ?? 0).toBe(0);
     // 판매 승인 전이라 공개 상세는 없다(적용 ≠ 공개)
     const id = sellId;
     const pub = await page.request.get(`${apiUrl}/api/products/${id}`);

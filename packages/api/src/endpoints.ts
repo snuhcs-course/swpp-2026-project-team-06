@@ -221,11 +221,12 @@ export const catalog = {
     requestedTotalGrams: number,
     version: number,
     idempotencyKey: string = newIdempotencyKey(),
+    page?: { draftId: string; draftVersion: number },
   ) =>
     request<A.CapacityRequest>(
       "POST",
       `/api/products/${id}/capacity-requests`,
-      { body: { requestedTotalGrams, version }, idempotencyKey },
+      { body: { requestedTotalGrams, version, ...(page ? { page } : {}) }, idempotencyKey },
     ),
   withdrawCapacity: (
     id: string,

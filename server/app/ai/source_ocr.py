@@ -69,6 +69,24 @@ def crops(data):
             top = bottom
 
 
+def split_crop(encoded):
+    """Split one exhausted dense crop once, at a quiet row, without adding source pixels."""
+    with Image.open(io.BytesIO(base64.b64decode(encoded))) as raw:
+        image = raw.convert("RGB")
+        if image.height < 64:
+            return []
+        middle = min(
+            range(image.height * 2 // 5, image.height * 3 // 5 + 1),
+            key=lambda y: ImageStat.Stat(image.crop((0, y, image.width, y + 1))).var[0],
+        )
+        result = []
+        for top, bottom in [(0, middle), (middle, image.height)]:
+            out = io.BytesIO()
+            image.crop((0, top, image.width, bottom)).save(out, "JPEG", quality=85)
+            result.append(base64.b64encode(out.getvalue()).decode())
+        return result
+
+
 def transcribe(encoded, *, retry=False):
     cfg = get_settings()
     client = OpenAI(
@@ -127,7 +145,14 @@ def transcribe(encoded, *, retry=False):
         )
         usage = result.usage.model_dump() if result.usage else {}
         if not result.choices or result.choices[0].finish_reason != "stop":
-            raise ExtractionError("INCOMPLETE_OCR", usage=usage, request_id=result.id)
+            raise ExtractionError(
+                "INCOMPLETE_OCR",
+                usage=usage,
+                request_id=result.id,
+                details={
+                    "finishReason": result.choices[0].finish_reason if result.choices else "missing"
+                },
+            )
         try:
             obj = json.loads(result.choices[0].message.content or "")
             if not isinstance(obj, dict) or set(obj) != {"lines"}:

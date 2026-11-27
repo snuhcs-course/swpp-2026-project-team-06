@@ -39,6 +39,7 @@ from app.source_analysis.schemas import (
     Version,
     hidden_modules,
 )
+from app.source_analysis.story_design import StoryDesign
 
 
 class OpenWorkspace(Input):
@@ -80,6 +81,22 @@ class PageModule(Input):
 
 
 class PageSnapshot(Input):
+    source_processing_incomplete: bool | None = Field(default=None, exclude_if=lambda v: v is None)
+    setup_inputs: dict | None = Field(default=None, exclude_if=lambda v: v is None)
+    review_context: dict[str, dict] | None = Field(
+        default=None, max_length=200, exclude_if=lambda v: v is None
+    )
+    review_decisions: dict[str, dict] | None = Field(
+        default=None, max_length=200, exclude_if=lambda v: v is None
+    )
+    review_items: dict[str, dict] | None = Field(
+        default=None, max_length=200, exclude_if=lambda v: v is None
+    )
+    source_review_required: bool | None = Field(default=None, exclude_if=lambda v: v is None)
+    review_notes: dict[str, list[str]] | None = Field(
+        default=None, max_length=200, exclude_if=lambda v: v is None
+    )
+    design: StoryDesign | None = Field(default=None, exclude_if=lambda v: v is None)
     source_review_version: int | None = Field(
         default=None, ge=1, exclude_if=lambda value: value is None
     )
@@ -91,6 +108,8 @@ class PageSnapshot(Input):
 
     @model_validator(mode="after")
     def one_format(self):
+        if self.design:
+            self.design.validate_modules(self.modules)
         if len({m.id for m in self.modules}) != len(self.modules):
             raise ValueError("상세 항목이 중복됐어요")
         if (self.kind == "modules" and self.content.blocks) or (
@@ -104,11 +123,22 @@ class PageSave(Version):
     snapshot: PageSnapshot
 
 
+class PageReviewSave(PageSave):
+    reference: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9]*:[0-9]{1,2}$")
+    binding_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    action: Literal["KEEP", "EDIT", "OMIT", "REOPEN"]
+    note: str = Field(default="", max_length=1000)
+
+
 def published(product):
     if product.module_detail is not None:
         return PageSnapshot(
             kind="modules",
             modules=product.module_detail["modules"],
+            design=product.module_detail.get("design"),
+            source_review_required=product.module_detail.get("sourceReviewRequired"),
+            review_notes=product.module_detail.get("reviewNotes"),
+            hidden_section_ids=product.module_detail.get("hiddenSectionIds", []),
             representative_uri=product.photos[0] if product.photos else None,
         ).model_dump(by_alias=True)
     return PageSnapshot(
@@ -119,9 +149,12 @@ def published(product):
 
 
 def view(row):
+    from app.source_analysis.page_review import decorate
+
     return {
         # internal DEV-346 bookkeeping; the DEV-361 product draft has its own view
         **s.json_row(row, ("page_source", "page_draft_id", "product_draft")),
+        "snapshot": decorate(row.snapshot),
         "hasUnpublishedChanges": row.snapshot != row.published_snapshot,
         "hasProductDraft": bool(row.product_draft),
     }
@@ -155,6 +188,16 @@ def open_workspace(db, farm, body):
         product, row = product_lock(db, farm, body.product_id)
         if row:
             current = published(product)
+            from app.source_analysis.page_review import OWNED, visible
+
+            if visible(current) == visible(row.published_snapshot):
+                current.update(
+                    {
+                        k: deepcopy(row.published_snapshot[k])
+                        for k in OWNED
+                        if k in row.published_snapshot
+                    }
+                )
             if body.discard_changes:
                 s.version(row.version, body.version)
             if body.discard_changes or (
@@ -388,6 +431,11 @@ def story_kind(product):
 
 
 def composer_view(db, product, row):
+    # Keep the source picture layout and its private edits intact; legacy migration
+    # only understands flat module photos and would silently discard this design.
+    if row.snapshot.get("design"):
+        return {**view(row), "composer": False, "composerBlocked": "SOURCE_LAYOUT"}
+
     batch = db.scalar(select(Batch).where(Batch.id == row.batch_id).with_for_update())
     if batch.deleted:
         batch = fresh_batch(db, product, row)
@@ -705,7 +753,24 @@ def owned(db, farm, pid):
 def save(db, farm, pid, body):
     product, row = owned(db, farm, pid)
     s.version(row.version, body.version)
-    snapshot = body.snapshot.model_dump(by_alias=True, exclude={"source_review_version"})
+    snapshot = body.snapshot.model_dump(
+        by_alias=True,
+        exclude={
+            "source_review_version",
+            "source_review_required",
+            "review_notes",
+            "review_context",
+            "review_decisions",
+            "review_items",
+            "setup_inputs",
+            "source_processing_incomplete",
+        },
+    )
+    from app.source_analysis.page_review import OWNED, refresh
+
+    for key in OWNED:
+        if key in row.snapshot:
+            snapshot[key] = deepcopy(row.snapshot[key])
     # Only retain photos already belonging to this product; never accept another farm's private URI.
     allowed = set(product.photos)
     allowed.update(
@@ -714,9 +779,23 @@ def save(db, farm, pid, body):
     )
     base = row.published_snapshot
     allowed.update(p["uri"] for m in base["modules"] for p in m["photos"])
+    allowed.update(m["uri"] for m in base.get("design", {}).get("media", {}).values())
     allowed.update(b["uri"] for b in base["content"]["blocks"] if b["type"] == "image")
     requested = [p["uri"] for m in snapshot["modules"] for p in m["photos"]]
     requested += [b["uri"] for b in snapshot["content"]["blocks"] if b["type"] == "image"]
+    if snapshot.get("design"):
+        requested.extend(m["uri"] for m in snapshot["design"]["media"].values())
+        # Source-document links are server/import-owned, not arbitrary producer input.
+        baseline_refs = {
+            m.get("sourceRef", {}).get("uri")
+            for m in base.get("design", {}).get("media", {}).values()
+        }
+        if any(
+            m.get("sourceRef", {}).get("uri") not in baseline_refs
+            for m in snapshot["design"]["media"].values()
+            if m.get("sourceRef")
+        ):
+            raise invalid({"design": "자료 연결을 다시 확인해 주세요."})
     if snapshot.get("representativeUri"):
         requested.append(snapshot["representativeUri"])
     if any(uri not in allowed for uri in requested):
@@ -726,7 +805,7 @@ def save(db, farm, pid, body):
     batch = db.get(Batch, row.batch_id)
     if batch and batch.source_copy_enabled:
         snapshot["sourceReviewVersion"] = batch.review_version
-    row.snapshot = snapshot
+    row.snapshot = refresh(snapshot)
     row.version += 1
     db.flush()
     return view(row)
@@ -736,7 +815,27 @@ def apply(db, farm, pid, body):
     product, row = owned(db, farm, pid)
     s.version(row.version, body.version)
     s.version(product.version, row.base_product_version)
-    snap = row.snapshot
+    from app.source_analysis.page_review import refresh
+
+    snap = refresh(row.snapshot)
+    if snap.get("sourceProcessingIncomplete"):
+        from app.core.errors import conflict
+
+        raise conflict(
+            "SOURCE_PROCESSING_INCOMPLETE",
+            (
+                "아직 읽지 못한 자료가 있어요. 비공개로 편집하고 저장할 수 있지만 "
+                "판매 전 전체 자료 확인이 필요해요."
+            ),
+        )
+    if snap.get("sourceReviewRequired"):
+        from app.core.errors import conflict
+
+        raise conflict(
+            "SOURCE_REVIEW_REQUIRED",
+            "자료에서 가져온 문구의 확인을 먼저 마쳐 주세요. "
+            "비공개 편집과 저장은 계속할 수 있어요.",
+        )
     from app.source_analysis.source_copy_service import validate_publication
 
     batch = db.get(Batch, row.batch_id)
@@ -787,6 +886,12 @@ def apply(db, farm, pid, body):
     product.version += 1
     product.updated_at = now()
     row.base_product_version = product.version
+    if snap.get("design") and product.module_detail is not None:
+        product.module_detail = {
+            **product.module_detail,
+            "design": deepcopy(snap["design"]),
+            "hiddenSectionIds": list(snap["hiddenSectionIds"]),
+        }
     row.published_snapshot = deepcopy(snap)
     row.version += 1
     db.flush()

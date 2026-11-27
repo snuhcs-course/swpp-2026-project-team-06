@@ -3,6 +3,21 @@ import { Button, Input, SOURCE_MODULES, T, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 
+/** One shared request per batch/target/reviewVersion for every review panel on the screen. */
+const copyCache = new Map<string, Promise<SourceCopyReview>>();
+/** After a saved review answer: the next read must come from the server. */
+export const clearSourceCopyCache = () => copyCache.clear();
+export function sourceCopyOnce(batchId: string, targetId: string, reviewVersion: number) {
+  const key = `${batchId}:${targetId}:${reviewVersion}`;
+  let hit = copyCache.get(key);
+  if (!hit) {
+    hit = sourceAnalysis.sourceCopy(batchId, targetId);
+    hit.catch(() => copyCache.delete(key));
+    copyCache.set(key, hit);
+  }
+  return hit;
+}
+
 const groups = [
   ["COPY_EDIT", "문장 점검", "원문을 유지해요. 공백 제안과 끊긴 문장을 확인해 주세요. 맞춤법·문법 전체 검사는 하지 않아요."],
   ["OWNER_CONFIRMATION", "현재 정보 확인", "날짜·판매 조건이 지금도 맞는지 확인해 주세요. 원문은 비공개 초안에 남고, 확인을 마쳐야 공개할 수 있어요."],
@@ -10,8 +25,8 @@ const groups = [
   ["SAFETY", "사용 제한 확인", "비공개 초안의 문구를 공개하기 전에 확인해 주세요. 개인정보·질병 효능·다른 상품의 문구는 안전하게 수정하거나 제외해야 해요."],
 ] as const;
 
-const requiresNote = (p: SourceCopyPassage) => p.reasonCodes.OWNER_CONFIRMATION.length > 0 || p.reasonCodes.SAFETY.some((reason) => !["PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"].includes(reason));
-const reasonMessages: Record<string, string> = {
+export const requiresNote = (p: SourceCopyPassage) => p.reasonCodes.OWNER_CONFIRMATION.length > 0 || p.reasonCodes.SAFETY.some((reason) => !["PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"].includes(reason));
+export const reasonMessages: Record<string, string> = {
   OCR_SPLIT: "자료를 읽는 과정에서 단어가 줄 사이에 끊겼을 수 있어요. 원문과 최소 수정 제안을 비교해 주세요.",
   CONTINUATION_CONTEXT: "인접한 원문을 연결했어요. 서로 다른 항목에서 가져온 문구이므로 연결된 문맥이 자연스러운지 확인해 주세요.",
   POSSIBLE_FRAGMENT: "문장 끝이 끊겼을 수 있어요. 빠진 내용이 있는지 원문을 확인해 주세요.",
@@ -51,8 +66,13 @@ const actionLabels: Record<SourceCopyAction, string> = {
   TRANSFER_TO_SETTINGS: "판매 설정에서 입력", ACCEPT_REPAIR: "최소 수정 사용",
 };
 
-export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, locked, beforeMutation, onReload, onBusy, focusPassageId }: {
+export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, locked, beforeMutation, onReload, onBusy, focusPassageId, section }: {
   batchId: string; targetId: string; enabled: boolean; reviewVersion: number; locked: boolean;
+  /**
+   * DEV-452 combined edit view: show only this page section's notes, compactly, under that section.
+   * `null` = passages the page does not use yet ("자료에서 찾았지만 안 넣은 내용").
+   */
+  section?: string | null;
   beforeMutation: () => Promise<boolean>;
   onReload: () => Promise<void>;
   onBusy: (value: boolean) => void;
@@ -84,7 +104,7 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
   useEffect(() => {
     if (!enabled) return;
     let active = true;
-    sourceAnalysis.sourceCopy(batchId, targetId).then((next) => {
+    (section !== undefined ? sourceCopyOnce(batchId, targetId, reviewVersion) : sourceAnalysis.sourceCopy(batchId, targetId)).then((next) => {
       if (active && !operation.current) { setData(next); setError(""); }
     }).catch((e: unknown) => { if (active) setError(e instanceof Error ? e.message : "검토 내용을 불러오지 못했어요."); });
     return () => { active = false; };
@@ -194,7 +214,14 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
   const optionBlocks = new Set(data?.plan.passages.filter((p) => p.optionAssembly).map((p) => p.optionAssembly!.passageIds.join("/"))).size;
   const automaticJoins = new Set(data?.plan.passages.filter((p) => p.autoRepair?.type === "SOURCE_ADJACENT_CONTINUATION").map((p) => p.autoRepair!.passageIds.join("/"))).size;
   const seenUnits = new Set<string>();
-  const pending = (data?.plan.passages.filter((p) => p.queueKinds.length > 0 || choices[p.bindingHash]) ?? []).filter((p) => {
+  const scoped = section !== undefined;
+  const inSection = (p: SourceCopyPassage) => section === null
+    // Leftovers: not placed in any section, and not deliberately left out.
+    ? currentModuleFor(p) === null || (!p.includedInDraft && p.decision?.action !== "OMIT" && p.status !== "EXCLUDED")
+    : currentModuleFor(p) === section && p.includedInDraft;
+  const pending = (data?.plan.passages.filter((p) => scoped
+    ? inSection(p) && (section === null || p.queueKinds.length > 0 || choices[p.bindingHash])
+    : p.queueKinds.length > 0 || choices[p.bindingHash]) ?? []).filter((p) => {
     const key = keyFor(p); if (seenUnits.has(key)) return false; seenUnits.add(key); return true;
   });
   const kindFor = (p: SourceCopyPassage) => {
@@ -203,27 +230,28 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
   };
   const pendingCount = pending.filter((p) => unitFor(p).some((item) => item.reviewPending)).length;
   const presentationMessage = data?.plan.presentation && presentationMessages[data.plan.presentation.status];
-  return <View style={{ gap: 12, padding: tokens.space.gutter }} testID="source-copy-review">
-    <T weight="semibold">원문을 살려 상세 채우기</T>
+  if (scoped && (!enabled || !data || (!pending.length && !error))) return null;
+  return <View style={{ gap: 12, padding: tokens.space.gutter }} testID={scoped ? `source-copy-section-${section ?? "leftover"}` : "source-copy-review"}>
+    {scoped ? (section === null ? <View style={{ gap: 2 }}><T weight="semibold">⑤ 자료에서 찾았지만 안 넣은 내용 · {pending.length}건</T><T variant="caption" muted>필요한 문장은 ‘본문에 넣기’로 원하는 섹션에 넣어 주세요.</T></View> : null) : <T weight="semibold">원문을 살려 상세 채우기</T>}
     {!enabled ? <>
       <T variant="sub" muted>원문의 문장을 사용하고, 문장 점검과 현재 정보 확인을 따로 진행해요. 직접 수정한 내용은 보존해요.</T>
       <Button label="원문 유지 방식 사용" disabled={disabled} loading={busy} onPress={() => void mutate(true)} />
     </> : <>
-      <T variant="sub" muted>자료의 문구를 비공개 초안에 담았어요. 아래에서 공개 전에 확인할 이유를 보고 원문 유지·수정·제외를 선택해 주세요. ‘확인했어요’는 바로 저장돼요. 수정과 다른 선택은 ‘검토 선택 저장’으로 마무리해 주세요.</T>
-      {presentationMessage ? <View accessibilityLiveRegion="polite" testID="source-copy-presentation-status">
+      {scoped ? null : <T variant="sub" muted>자료의 문구를 비공개 초안에 담았어요. 아래에서 공개 전에 확인할 이유를 보고 원문 유지·수정·제외를 선택해 주세요. ‘확인했어요’는 바로 저장돼요. 수정과 다른 선택은 ‘검토 선택 저장’으로 마무리해 주세요.</T>}
+      {!scoped && presentationMessage ? <View accessibilityLiveRegion="polite" testID="source-copy-presentation-status">
         <T variant="sub" muted>{presentationMessage}</T>
       </View> : null}
-      {optionBlocks ? <T variant="sub" muted>옵션 {optionBlocks}개의 크기·수량·포장을 한곳에 묶었어요. 원문의 옵션별 관계는 그대로 유지해요.</T> : null}
-      {automaticJoins ? <T variant="sub" muted>인접한 원문 {automaticJoins}곳을 자동으로 연결했어요. 단어·수치·조건은 그대로 유지해요. 문맥 확인이 필요한 연결은 아래에 표시해요.</T> : null}
-      {data ? <View accessibilityRole="alert" style={{ gap: 4 }} testID="source-copy-publication-warning">
+      {!scoped && optionBlocks ? <T variant="sub" muted>옵션 {optionBlocks}개의 크기·수량·포장을 한곳에 묶었어요. 원문의 옵션별 관계는 그대로 유지해요.</T> : null}
+      {!scoped && automaticJoins ? <T variant="sub" muted>인접한 원문 {automaticJoins}곳을 자동으로 연결했어요. 단어·수치·조건은 그대로 유지해요. 문맥 확인이 필요한 연결은 아래에 표시해요.</T> : null}
+      {data && !scoped ? <View accessibilityRole="alert" style={{ gap: 4 }} testID="source-copy-publication-warning">
         <T weight="semibold">공개 전 확인 대기 · {pendingCount}건</T>
         <T variant="sub">{pendingCount ? "확인 대기 항목을 모두 처리해야 상품에 반영할 수 있어요. 비공개 저장과 미리보기는 계속할 수 있어요." : "자료 문구의 확인을 마쳤어요. 상품에 반영하기 전에 판매페이지 전체를 확인해 주세요."}</T>
       </View> : null}
       {data ? groups.map(([kind, title, hint]) => {
         const passages = pending.filter((p) => kindFor(p) === kind);
         return <View key={kind} style={{ gap: 8 }}>
-          <T weight="semibold">{title} · {passages.length}건</T>
-          <T variant="caption" muted>{hint}</T>
+          {scoped ? null : <><T weight="semibold">{title} · {passages.length}건</T>
+          <T variant="caption" muted>{hint}</T></>}
           {passages.map((p, index) => {
             const choice = choices[p.bindingHash];
             const currentModule = currentModuleFor(p);
@@ -250,11 +278,11 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
               <>
                 {opened[key] && !blocked && currentModule !== null && kind !== "PLACEMENT" ? <Button compact variant="outline" label={label("원문 그대로 사용", "KEEP")} disabled={disabled} onPress={() => choose(p, "KEEP")} /> : null}
                 {!blocked && currentModule !== null && p.repairValue && !p.reasonCodes.OWNER_CONFIRMATION.length && !p.reasonCodes.SAFETY.length ? <Button compact variant="outline" label={label("최소 수정 사용", "ACCEPT_REPAIR")} disabled={disabled} onPress={() => choose(p, "ACCEPT_REPAIR")} /> : null}
-                <Button compact variant="outline" label={label("✎ 수정할게요", "EDIT")} style={{ borderRadius: 999 }} disabled={disabled} onPress={() => choose(p, "EDIT")} />
+                <Button compact variant="outline" label={label(section === null ? "본문에 넣기" : "✎ 수정할게요", "EDIT")} style={{ borderRadius: 999 }} disabled={disabled} onPress={() => choose(p, "EDIT")} />
               </>
               {action === "EDIT" ? <>
                 <Input label="사용할 문구" multiline value={choice.value ?? ""} editable={!disabled} onChangeText={(value) => setChoices((old) => ({ ...old, [p.bindingHash]: { ...choice, value } }))} />
-                {(kind === "PLACEMENT" || currentModule === null) ? <View style={{ gap: 4 }}><T variant="sub">넣을 항목</T>{SOURCE_MODULES.filter(([id]) => !["sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"].includes(id)).map(([id, title]) => <Button key={id} compact variant="outline" disabled={disabled} label={`${choice.module === id ? "선택됨 · " : ""}${title}`} onPress={() => { explicitPlacements.current.add(p.bindingHash); setChoices((old) => ({ ...old, [p.bindingHash]: { ...choice, module: id } })); }} />)}</View> : null}
+                {(kind === "PLACEMENT" || currentModule === null || section === null) ? <View style={{ gap: 4 }}><T variant="sub">넣을 항목</T>{SOURCE_MODULES.filter(([id]) => !["sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"].includes(id)).map(([id, title]) => <Button key={id} compact variant="outline" disabled={disabled} label={`${choice.module === id ? "선택됨 · " : ""}${title}`} onPress={() => { explicitPlacements.current.add(p.bindingHash); setChoices((old) => ({ ...old, [p.bindingHash]: { ...choice, module: id } })); }} />)}</View> : null}
               </> : null}
               {choice && (action === "EDIT" || (action === "KEEP" && requiresNote(p))) ? <Input
                 label={action === "EDIT" ? "수정한 이유와 확인한 내용" : "현재도 맞는지 확인한 내용"}
@@ -276,7 +304,7 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
         <T variant="sub">자료가 바뀌어 연결되지 않은 선택이 있어요. 입력을 확인한 뒤 이전 선택을 지워 주세요.</T>
         {Object.entries(choices).filter(([key]) => !data?.plan.passages.some((p) => p.bindingHash === key)).map(([key, choice]) => <View key={key} style={{ gap: 4 }}><T>{choice.value || "이전 원문에 대한 선택"}</T><Button compact variant="outline" label="이전 선택 지우기" disabled={disabled} onPress={() => cancelChoice(key)} /></View>)}
       </> : null}
-      <Button label="검토 선택 저장" disabled={disabled || !Object.keys(choices).length} loading={busy} onPress={() => void mutate()} />
+      {!scoped || Object.keys(choices).length ? <Button label={scoped ? "선택 저장" : "검토 선택 저장"} disabled={disabled || !Object.keys(choices).length} loading={busy} onPress={() => void mutate()} /> : null}
     </>}
     {error ? <View accessibilityRole="alert" style={{ gap: 8 }}><T color={tokens.color.error}>{error}</T><T variant="caption" muted>입력한 선택과 문구는 그대로 남아 있어요.</T><Button compact variant="outline" label="검토 내용 다시 불러오기" disabled={disabled} onPress={() => void retry()} /></View> : null}
     {notice ? <T variant="sub">{notice}</T> : null}

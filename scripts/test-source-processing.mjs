@@ -44,3 +44,10 @@ test('DEV-452 AC-SRC-11: incomplete notice offers private view and explicit excl
   assert.equal(opened, 1);
   assert.equal(nodes(SourceProcessingNotice({ disabled: true, onView: ()=>{} })).find(n=>n.type==='Button').props.disabled, true);
 });
+
+test('DEV-452 AC-SRC-5: failed PDF pages and skipped page count identify the needed recovery', () => {
+  const { SourceProcessingNotice } = load('../apps/producer/src/lib/SourceProcessingNotice.tsx');
+  const tree=SourceProcessingNotice({disabled:false,onView:()=>{},sources:[{id:'pdf',filename:'farm.pdf'}],issues:[{itemId:'failed',sourceId:'pdf',pagesSkipped:21,failedPages:[{number:3,code:'INCOMPLETE_OCR'}]}]});
+  const text=JSON.stringify(tree);
+  assert.match(text,/farm.pdf/);assert.match(text,/21쪽/);assert.match(text,/3/);assert.match(text,/PDF를 나눠/);assert.match(text,/글자 읽기가 끝나지/);
+});

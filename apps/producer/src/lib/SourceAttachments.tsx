@@ -575,7 +575,10 @@ export function SourceAttachments({
           <T variant="caption" muted>
             {photo
               ? "선택 사항이에요. 사진 없이 분석 자료만으로 AI를 실행할 수 있어요. 대표사진은 공개 전에 넣어 주세요."
-              : "텍스트·이미지·PDF·TXT를 넣어 주세요. 자료 이미지는 판매페이지에 들어가지 않아요."}
+              : batch.sourceCopyEnabled
+                // DEV-452: product photos inside documents are found and shown for confirmation.
+                ? "텍스트·이미지·PDF·TXT를 넣어 주세요. 자료 속 상품 사진은 찾아서 페이지에 넣고, 쓰기 전에 확인을 받아요."
+                : "텍스트·이미지·PDF·TXT를 넣어 주세요. 자료 이미지는 판매페이지에 들어가지 않아요."}
           </T>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {!photo && editing && !editing.source ? (

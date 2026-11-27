@@ -11,10 +11,26 @@ import {
   StoryImage,
   tokens,
 } from "@farmclub/ui";
-import { Children, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { AccessibilityInfo, Image, Platform, Pressable, TextInput, View, type ScrollView, type TextStyle } from "react-native";
+import { Children, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { AccessibilityInfo, Image, Platform, Pressable, TextInput, View, type ScrollView, type TextStyle, type TextInputProps } from "react-native";
+import { pageTextHeight } from "./sourcePageHeight";
 import { SectionSwitch } from "./SectionSwitch";
 const PHOTO_MODULES = new Set(["sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"]);
+
+/** Web scrollHeight includes the current box: feeding it back into height can loop. */
+export function PageTextInput(props: TextInputProps) {
+  const node = useRef<TextInput | null>(null);
+  const [height, setHeight] = useState(40);
+  const measure = useCallback(() => {
+    if (Platform.OS !== "web") return;
+    const el = node.current as unknown as HTMLTextAreaElement | null;
+    if (el?.style && typeof el.scrollHeight === "number") setHeight(pageTextHeight(el));
+  }, []);
+  useLayoutEffect(measure, [props.value, measure]);
+  return <TextInput {...props} ref={node} style={[props.style, { height }]}
+    onLayout={Platform.OS === "web" ? measure : undefined}
+    onContentSizeChange={Platform.OS === "web" ? undefined : e => setHeight(Math.max(40, Math.ceil(e.nativeEvent.contentSize.height)))} />;
+}
 
 export type CanvasModule = {
   id: string;
@@ -25,6 +41,7 @@ export type CanvasModule = {
 };
 export function PageCanvas({
   modules,
+  design,
   representativeUri,
   onRepresentativeChange,
   hiddenSectionIds,
@@ -35,6 +52,10 @@ export function PageCanvas({
   onUpload,
   busy = false,
   details,
+  notes,
+  sectionAccessory,
+  onlyIds,
+  initialSelected,
   preview = false,
   emptyHint = false,
   showStoryTextHints = false,
@@ -46,6 +67,7 @@ export function PageCanvas({
   representativeUri?: string | null;
   onRepresentativeChange?: (uri: string) => void;
   modules: CanvasModule[];
+  design?: unknown;
   hiddenSectionIds: string[];
   onHiddenSectionsChange: (ids: string[]) => void;
   onChange: (modules: CanvasModule[]) => void;
@@ -54,6 +76,14 @@ export function PageCanvas({
   onUpload?: () => Promise<{ uri: string; alt: string }[]>;
   busy?: boolean;
   details?: (id: string) => ReactNode;
+  /** DEV-452: always-visible notes under a section (combined edit view). */
+  notes?: (id: string) => ReactNode;
+  /** DEV-452: read-only page: small control at each section heading (see ModuleStory). */
+  sectionAccessory?: (sectionId: string, moduleIds: string[], title: string) => ReactNode;
+  /** DEV-452 section sheet: only these modules can be added here. */
+  onlyIds?: string[];
+  /** DEV-452 "섹션 추가": open with this (empty) module ready to type into. */
+  initialSelected?: string;
   preview?: boolean;
   /** 새 상품 채우기 화면(DEV-184): 빈 글 칸을 점선 네모 + '여기를 채워 주세요'로 보인다. */
   emptyHint?: boolean;
@@ -66,13 +96,12 @@ export function PageCanvas({
   scrollRef?: RefObject<ScrollView | null>;
 }) {
   const validation = useContext(FieldFeedbackContext);
-  const [selected, setSelected] = useState<string | null>(null),
+  const [selected, setSelected] = useState<string | null>(initialSelected ?? null),
     [uploading, setUploading] = useState(false),
     [error, setError] = useState(""),
     [moving, setMoving] = useState<{ id: string; index: number } | null>(null);
   const [picker, setPicker] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [heights, setHeights] = useState<Record<string, number>>({});
   const [recentlyAdded, setRecentlyAdded] = useState<string | null>(null);
   const addedNode = useRef<View>(null);
   const photoTarget = recentlyAdded && PHOTO_MODULES.has(recentlyAdded) ? recentlyAdded : null;
@@ -215,16 +244,9 @@ export function PageCanvas({
         collapsable={textTarget !== m.id}
         style={{ gap: 5 }}
       >
-        <TextInput
+        <PageTextInput
           accessibilityLabel={`${m.texts[index].fieldKey === "name" ? "상품 이름" : title(m.id)} 내용`}
           multiline
-          onContentSizeChange={(e) => {
-            const key = `${m.id}:${index}`;
-            const height = Math.max(40, e.nativeEvent.contentSize.height);
-            setHeights((old) =>
-              old[key] === height ? old : { ...old, [key]: height },
-            );
-          }}
           value={m.texts[index].value}
           // 새 상품 채우기 화면에서는 상세 맨 위 제목을 위 상품명 칸 하나로만 고친다(저장 때 같은 값으로 맞춤).
           editable={
@@ -251,7 +273,6 @@ export function PageCanvas({
                 ? 44
                 : 4,
             minHeight: 40,
-            height: heights[`${m.id}:${index}`],
             borderWidth: 1,
             ...(emptyHint &&
             m.texts[index].fieldKey !== "name" &&
@@ -568,15 +589,18 @@ export function PageCanvas({
               {details?.(m.id)}
             </View>
           ) : null}
+          {notes?.(m.id)}
         </View></FieldFeedback>
       );
     },
   };
+  // Sections that can still be added here (only this section's parts in a section sheet, DEV-452).
+  const addable = displayModules.filter(m => (!onlyIds || onlyIds.includes(m.id)) && m.id !== "summary" && selected !== m.id && (m.id !== "hero" || !displayModules.some(x => x.id === "summary" && x.enabled && filled(x))) && !m.enabled);
   if (preview) return (
     <View testID="buyer-preview">
       {/* 대표 사진이 없으면 구매자 화면처럼 기본 사진(DEV-322) */}
       {!emptyHint ? <Photo uri={representativeUri ? media(representativeUri) : null} width="100%" height={244} alt="대표사진" /> : null}
-      <ModuleStory content={{ hiddenSectionIds, modules: displayModules.filter((m) => m.enabled && !blocked.includes(m.id)) }} mediaUrl={media} />
+      <ModuleStory content={{ hiddenSectionIds, modules: displayModules.filter((m) => m.enabled && !blocked.includes(m.id)) }} mediaUrl={media} sectionAccessory={sectionAccessory} />
     </View>
   );
   return (
@@ -598,15 +622,15 @@ export function PageCanvas({
           alt="대표사진"
         />
       ) : null}
-      <ModuleStory
+      <ModuleStory design={design}
         content={{ modules: emptyHint ? displayModules.filter(m => (m.enabled && !blocked.includes(m.id)) || selected === m.id || (m.id === "summary" && selected === "hero") || blocked.includes(m.id)) : displayModules }}
         mediaUrl={media}
         editing={editing}
       />
-      {emptyHint ? <View style={{ padding: 20, gap: 8 }}>
+      {emptyHint && addable.length ? <View style={{ padding: 20, gap: 8 }}>
         <T variant="caption" muted>내용 추가</T>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {displayModules.filter(m => m.id !== "summary" && selected !== m.id && (m.id !== "hero" || !displayModules.some(x => x.id === "summary" && x.enabled && filled(x))) && !m.enabled).map(m => {
+          {addable.map(m => {
             const artwork = sourceModuleIcon(m.id);
             return <Pressable
               key={m.id}

@@ -63,6 +63,10 @@ def issues(db, batch, target_id=None):
                     "status": item.status,
                     "error": item.error,
                     "pagesSkipped": diagnostics.get("pagesSkipped", 0),
+                    "failedPages": [
+                        {"number": p["number"], "code": p.get("code", "UNKNOWN")}
+                        for p in diagnostics.get("pagesFailed", [])
+                    ],
                     "targetIds": unresolved_targets,
                     "common": source.common,
                 }
