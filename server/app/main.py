@@ -33,6 +33,8 @@ from app.farms.router import router as farms_router
 from app.farms.share import router as farm_share_router
 from app.media.router import router as media_router
 from app.messaging.router import router as messaging_router
+from app.notifications import worker as notification_worker
+from app.notifications.router import router as admin_notifications_router
 from app.orders.router import admin_router as orders_admin_router
 from app.orders.router import router as orders_router
 from app.source_analysis.middleware import SourceRequestMiddleware
@@ -58,7 +60,13 @@ def install_cors(target: FastAPI, settings: Settings) -> None:
 async def lifespan(_: FastAPI):
     # 아이디 로그인 더미 해시를 미리 만든다(DEV-363). 첫 요청이 해시 비용을 더 내지 않게
     await run_in_threadpool(passwords.warm_up)
-    yield
+    # 농가 주문 알림 발송 루프(DEV-495). NOTIFY_PROVIDER=solapi일 때만 돈다
+    stop_notifications = notification_worker.start()
+    try:
+        yield
+    finally:
+        if stop_notifications is not None:
+            await run_in_threadpool(stop_notifications)
 
 
 app = FastAPI(title="Farmclub API", lifespan=lifespan)
@@ -113,5 +121,7 @@ for admin_router in (
     admin_home_router,
     # DEV-363: 운영자가 만드는 아이디 계정(공개 가입 없음)
     admin_id_accounts_router,
+    # DEV-495: 농가 주문 알림 조회·FAILED 재시도
+    admin_notifications_router,
 ):
     app.include_router(admin_router)
