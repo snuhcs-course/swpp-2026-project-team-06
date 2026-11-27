@@ -601,12 +601,13 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
     { cwd: path.resolve("server"), env: process.env, timeout: 120000 },
   );
   await expect(page.getByTestId("source-analysis-status")).toHaveCount(0, { timeout: 15000 });
-  // Analysis works without a photo; applying the resulting page still requires one.
+  // DEV-452: '다음' only saves privately and applies nothing, so a missing representative photo is not an
+  // error here; the photo requirement is checked with the sale request.
   await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
-  // The same error is also rendered (hidden) inside the collapsed sheet; the visible copy is the page alert.
-  await expect(page.getByRole("alert").getByText("대표사진을 한 장 올려 주세요.", { exact: true })).toBeVisible();
-  // A validation error offers no server refresh (the composer's refresh is '다시 확인'; the 2-tab one is gone, DEV-361)
-  await expect(page.getByRole("button", { name: "다시 확인", exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
+  await expect(page.getByText("대표사진을 한 장 올려 주세요.", { exact: true })).toHaveCount(0);
+  await page.goBack();
+  await expect(page).toHaveURL(/composer=1|source-analysis/);
   await openSheet();
   await expect(page).toHaveURL(/\/products\/source-analysis/);
   await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();

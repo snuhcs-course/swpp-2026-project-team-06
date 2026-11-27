@@ -104,7 +104,7 @@ for (const width of [360, 390, 430]) {
     await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
     await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
     expect(await photos()).toBe(before);
-    // 대표사진만 바꾸고 다시 '다음'을 누르면(새 초안) 바뀐 사진이 상품에 반영된다
+    // DEV-452: 대표사진을 바꿔도 '다음'은 상품을 바꾸지 않는다(사진은 판매 요청과 함께 반영된다)
     const cover = async () =>
       (
         await (
@@ -130,7 +130,7 @@ for (const width of [360, 390, 430]) {
     await page.getByRole("button", { name: "AI 시트 닫기" }).first().click();
     await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
     await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
-    expect(await cover()).not.toBe(oldCover);
+    expect(await cover()).toBe(oldCover);
 
     // ② 판매·가격: 한 화면에서 옵션·받는 시기·가격·배송·물량
     const sell = page; // 스택 위의 보이는 화면만 다룬다

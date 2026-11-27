@@ -126,7 +126,10 @@ with get_sessionmaker()() as db,db.begin():
   expect(saved.plan.passages.find((p:any)=>p.originalValue===originalDate).decision.action).toBe("EDIT");
   expect((await (await request.get(`${apiUrl}/api/products/${pid}`)).json()).moduleDetail).toEqual(before.moduleDetail);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
-  await page.getByTestId(`source-copy-passage-${date.id}-OWNER_CONFIRMATION`).scrollIntoViewIfNeeded();
+  // DEV-485: an answered card collapses to a one-line "✓ 수정했어요" row (the full card is behind '내용 보기').
+  const answered=page.getByTestId(`review-complete-${date.id}`);
+  await expect(answered.getByText("✓ 수정했어요",{exact:true})).toBeVisible();
+  await answered.scrollIntoViewIfNeeded();
   await page.screenshot({path:info.outputPath("source-copy-owner-mobile.png"),fullPage:false});
   await page.getByRole("button",{name:/^상품에 반영/}).click();
   const confirm=page.getByTestId("apply-confirm");
