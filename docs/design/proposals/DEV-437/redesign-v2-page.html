@@ -158,23 +158,28 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
 .bar-toc li a{display:flex;align-items:center;min-height:44px;border-bottom:1px solid var(--hair);font-size:16px}
 .lang-sw{flex:none;margin-left:auto;display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;color:var(--ink-2)}
 .lang-sw a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink-2);text-decoration:none}
-/* 넓은 화면(1200 이상): 전폭 바 대신 본문 오른쪽 위 작은 묶음(차례 · EN | 한국어)만. 선·페이지 이름 없음.
-   아래로 스크롤하는 동안은 숨겨 표 글자를 가리지 않고, 위로 올리면 다시 보인다(JS가 없으면 늘 보임). */
+/* 넓은 화면(1200 이상): 위에는 아무것도 붙이지 않고, 화면 아래 가운데에 떠 있는 작은 조작부 하나.
+   차례 · 지금 절(단계) · EN | 한국어. 앵커는 화면 위로 착지하므로 아래에 둬야 방금 간 제목을 가리지 않는다.
+   바탕색 면, 가는 선 테두리, 모서리 4(페이지의 각진 조판에 맞춤), 그림자·아이콘 없음. 페이지 아래 여백으로 꼬리말이 가려지지 않게 한다. */
+.bar-cur{display:none}
 @media (min-width:1200px){
-  .bar{height:0;border-bottom:0;background:none}
-  .bar-in{height:0;position:relative}
+  .bar{position:static;height:0;border-bottom:0;background:none}
+  .bar-in{height:0;padding:0}
   .bar-name{display:none}
-  .bar-ctl{display:flex;position:absolute;top:0;right:var(--pad);height:44px;align-items:center;gap:20px;padding:0 0 0 20px;background:var(--bg);border-bottom:1px solid var(--hair);transition:opacity .15s,visibility .15s}
-  .bar-ctl.away{opacity:0;visibility:hidden}
-  .bar-toc{flex:none}
-  .bar-toc summary{height:44px;font-size:14px}
-  .bar-toc ol{left:auto;right:0;top:44px;width:264px;border:1px solid var(--hair);padding:4px 16px 8px}
+  .bar-ctl{display:flex;position:fixed;z-index:20;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom, 0px));height:44px;max-width:560px;align-items:center;background:var(--bg);border:1px solid var(--hair);border-radius:4px}
+  .bar-ctl > .bar-toc{flex:none;padding:0 16px}
+  .bar-cur{display:block;padding:0 16px;border-left:1px solid var(--hair);font-size:14px;line-height:42px;color:var(--ink);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+  .bar-cur:empty{display:none}
+  .lang-sw{margin-left:0;padding:0 16px;border-left:1px solid var(--hair)}
+  .bar-toc summary{height:42px;font-size:14px}
+  .bar-toc ol{left:-1px;right:auto;top:auto;bottom:50px;width:264px;border:1px solid var(--hair);border-radius:4px;padding:4px 16px 8px}
   .bar-toc li a{font-size:15px}
   .bar-toc li:last-child a{border-bottom:0}
+  [id],section.sec,.part,.idx > div,footer.foot{scroll-margin-top:24px}
+  .sec > h2{top:24px}
   header.top{padding-top:96px}
-  .sec > h2{top:64px}
+  .page{padding-bottom:160px}
 }
-@media (prefers-reduced-motion:reduce){.bar-ctl{transition:none}}
 @media (max-width:560px){.bar-name{display:none}}
 
 /* 작업 순서 표 위 단계 줄과 단계 링크 */
@@ -242,6 +247,7 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
     <a class="bar-name" href="#top">협업 지도</a>
     <div class="bar-ctl">
       <details class="bar-toc"><summary>차례</summary><ol><li><a href="#flow">작업 순서</a></li><li><a href="#roles">사람이 하는 일</a></li><li><a href="#controls">통제의 층</a></li><li><a href="#names">이름 규칙</a></li><li><a href="#checks">PR 체크와 머지</a></li><li><a href="#screens">화면을 바꿀 때</a></li><li><a href="#limits">알려진 한계</a></li><li><a href="#ref">찾아보기</a></li></ol></details>
+      <span class="bar-cur"></span>
       <span class="lang-sw" role="group" aria-label="언어"><a href="../" hreflang="en" lang="en">EN</a><span aria-hidden="true">|</span><a href="./" hreflang="ko" lang="ko" aria-current="page">한국어</a></span>
     </div>
   </div>
@@ -589,11 +595,11 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
   var other=bar.querySelector('.lang-sw a:not([aria-current])');
   var base=other?other.getAttribute('href').split('#')[0]:'';
   var h1=document.querySelector('h1'), toc=bar.querySelector('.bar-toc'), queued=false;
-  var wide=matchMedia('(min-width:1200px)');
+  var wide=matchMedia('(min-width:1200px)'), cur=bar.querySelector('.bar-cur');
   function update(){
     queued=false;
-    // 기준선: 바(좁은 화면) 또는 오른쪽 위 묶음(넓은 화면, 높이 44) 아래 24px. 착지 위치(64px)보다 아래여야 방금 간 절이 표시된다.
-    var line=(wide.matches?44:bar.getBoundingClientRect().bottom)+24, sec=null, place=null;
+    // 기준선: 좁은 화면은 바 아래 24px, 넓은 화면은 위에서 48px. 착지 위치(64px, 넓은 화면 24px)보다 아래여야 방금 간 절이 표시된다.
+    var line=wide.matches?48:bar.getBoundingClientRect().bottom+24, sec=null, place=null;
     for(var i=0;i<places.length;i++){
       if(places[i].getBoundingClientRect().top<=line){place=places[i]; if(places[i].tagName==='SECTION') sec=places[i];}
     }
@@ -602,16 +608,16 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
       else links[j].removeAttribute('aria-current');
     }
     if(other) other.setAttribute('href', base+(place?'#'+place.id:''));
+    // 떠 있는 조작부 가운데: 지금 절 이름, 작업 순서 표 안이면 단계까지("Workflow · 5 Build")
+    if(cur){
+      var t='';
+      for(var k=0;k<links.length;k++) if(sec && links[k].getAttribute('href')==='#'+sec.id) t=links[k].textContent;
+      if(place && place.tagName==='LI'){ var st=place.querySelector('.st'), no=st.querySelector('.no').textContent; t+=' · '+no+' '+st.textContent.slice(no.length).trim(); }
+      if(cur.textContent!==t) cur.textContent=t;
+    }
     if(h1) bar.classList.toggle('past', h1.getBoundingClientRect().bottom<bar.getBoundingClientRect().bottom);
   }
-  // 넓은 화면의 오른쪽 위 묶음: 아래로 스크롤하는 동안 숨기고, 위로 올리거나 맨 위면 보인다. 차례가 열렸거나 포커스가 안에 있으면 숨기지 않는다.
-  var ctl=bar.querySelector('.bar-ctl'), lastY=scrollY;
-  function corner(){
-    var y=scrollY, hide=wide.matches && y>lastY && y>120 && !(toc&&toc.open) && !(ctl&&ctl.contains(document.activeElement));
-    if(ctl) ctl.classList.toggle('away', hide);
-    lastY=y;
-  }
-  function soon(){ corner(); if(!queued){queued=true; requestAnimationFrame(update);} }
+  function soon(){ if(!queued){queued=true; requestAnimationFrame(update);} }
   // 절이 화면보다 길어 IntersectionObserver의 비율 문턱은 바 아래 선을 넘는 순간을 놓친다. 그래서 스크롤마다(프레임당 한 번) 계산한다.
   addEventListener('scroll', soon, {passive:true});
   addEventListener('resize', soon);
