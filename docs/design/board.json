@@ -215,7 +215,7 @@
 
     "proposal-boards/dev-437-redesign-v2-page.html": {"x":10280,"y":16400,"w":1280,"h":10090,"title":"DEV-437 협업 지도: 한국어판 /guide/ko/ 1280"},
 
-    "proposal-boards/dev-437-nav-and-switch.html": {"x":11680,"y":16400,"w":1400,"h":11690,"title":"DEV-437 협업 지도: 위 바·단계 이동·EN | 한국어"}
+    "proposal-boards/dev-437-nav-and-switch.html": {"x":11680,"y":16400,"w":1400,"h":12910,"title":"DEV-437 협업 지도: 단계 이동·EN | 한국어(넓은 화면은 오른쪽 위 묶음)"}
   },
   "order": [
     "scr-01.html",

@@ -142,12 +142,11 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
 .bar-in{max-width:calc(1200px + 2 * var(--pad));margin:0 auto;padding:0 var(--pad);height:48px;display:flex;align-items:center;gap:24px}
 .bar-name{flex:none;font-size:15px;line-height:20px;font-weight:600;text-decoration:none;white-space:nowrap}
 .js .bar:not(.past) .bar-name{visibility:hidden}
-.bar-links{flex:1;min-width:0;display:flex;justify-content:center;gap:20px}
-.bar-links a,.bar-toc li a{color:var(--ink-2);text-decoration:none;white-space:nowrap}
-.bar-links a{display:flex;align-items:center;height:48px;font-size:14px;line-height:20px}
+.bar-toc li a{color:var(--ink-2);text-decoration:none;white-space:nowrap}
 .bar a[aria-current]{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-thickness:1px;text-decoration-color:var(--ink);text-underline-offset:6px}
-.bar-links a:hover,.bar-toc li a:hover,.lang-sw a:hover{color:var(--ink)}
-.bar-toc{display:none;flex:1}
+.bar-toc li a:hover,.lang-sw a:hover{color:var(--ink)}
+.bar-toc{flex:1}
+.bar-ctl{display:contents}
 .bar-toc summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;height:48px;font-size:15px;line-height:20px;font-weight:600}
 .bar-toc summary::-webkit-details-marker{display:none}
 .bar-toc[open] summary{text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:1px}
@@ -155,7 +154,23 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
 .bar-toc li a{display:flex;align-items:center;min-height:44px;border-bottom:1px solid var(--hair);font-size:16px}
 .lang-sw{flex:none;margin-left:auto;display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;color:var(--ink-2)}
 .lang-sw a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink-2);text-decoration:none}
-@media (max-width:1199px){.bar-links{display:none}.bar-toc{display:block}}
+/* 넓은 화면(1200 이상): 전폭 바 대신 본문 오른쪽 위 작은 묶음(차례 · EN | 한국어)만. 선·페이지 이름 없음.
+   아래로 스크롤하는 동안은 숨겨 표 글자를 가리지 않고, 위로 올리면 다시 보인다(JS가 없으면 늘 보임). */
+@media (min-width:1200px){
+  .bar{height:0;border-bottom:0;background:none}
+  .bar-in{height:0;position:relative}
+  .bar-name{display:none}
+  .bar-ctl{display:flex;position:absolute;top:0;right:var(--pad);height:44px;align-items:center;gap:20px;padding:0 0 0 20px;background:var(--bg);border-bottom:1px solid var(--hair);transition:opacity .15s,visibility .15s}
+  .bar-ctl.away{opacity:0;visibility:hidden}
+  .bar-toc{flex:none}
+  .bar-toc summary{height:44px;font-size:14px}
+  .bar-toc ol{left:auto;right:0;top:44px;width:264px;border:1px solid var(--hair);padding:4px 16px 8px}
+  .bar-toc li a{font-size:15px}
+  .bar-toc li:last-child a{border-bottom:0}
+  header.top{padding-top:96px}
+  .sec > h2{top:64px}
+}
+@media (prefers-reduced-motion:reduce){.bar-ctl{transition:none}}
 @media (max-width:560px){.bar-name{display:none}}
 
 /* 작업 순서 표 위 단계 줄과 단계 링크 */
@@ -228,9 +243,10 @@ footer.foot .c{max-width:38em}
 <nav class="bar" aria-label="Sections">
   <div class="bar-in">
     <a class="bar-name" href="#top">Collaboration map</a>
-    <ol class="bar-links"><li><a href="#flow">Workflow</a></li><li><a href="#roles">What people do</a></li><li><a href="#controls">Layers of control</a></li><li><a href="#names">Naming</a></li><li><a href="#checks">PR checks and merging</a></li><li><a href="#screens">Changing a screen</a></li><li><a href="#limits">Known limits</a></li><li><a href="#ref">Reference</a></li></ol>
-    <details class="bar-toc"><summary>Contents</summary><ol><li><a href="#flow">Workflow</a></li><li><a href="#roles">What people do</a></li><li><a href="#controls">Layers of control</a></li><li><a href="#names">Naming</a></li><li><a href="#checks">PR checks and merging</a></li><li><a href="#screens">Changing a screen</a></li><li><a href="#limits">Known limits</a></li><li><a href="#ref">Reference</a></li></ol></details>
-    <span class="lang-sw" role="group" aria-label="Language"><a href="./" hreflang="en" lang="en" aria-current="page">EN</a><span aria-hidden="true">|</span><a href="ko/" hreflang="ko" lang="ko">한국어</a></span>
+    <div class="bar-ctl">
+      <details class="bar-toc"><summary>Contents</summary><ol><li><a href="#flow">Workflow</a></li><li><a href="#roles">What people do</a></li><li><a href="#controls">Layers of control</a></li><li><a href="#names">Naming</a></li><li><a href="#checks">PR checks and merging</a></li><li><a href="#screens">Changing a screen</a></li><li><a href="#limits">Known limits</a></li><li><a href="#ref">Reference</a></li></ol></details>
+      <span class="lang-sw" role="group" aria-label="Language"><a href="./" hreflang="en" lang="en" aria-current="page">EN</a><span aria-hidden="true">|</span><a href="ko/" hreflang="ko" lang="ko">한국어</a></span>
+    </div>
   </div>
 </nav>
 <div class="page">
@@ -572,14 +588,16 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
 (function(){
   document.documentElement.classList.add('js');
   var bar=document.querySelector('.bar'); if(!bar) return;
-  var links=[].slice.call(bar.querySelectorAll('.bar-links a, .bar-toc li a'));
+  var links=[].slice.call(bar.querySelectorAll('.bar-toc li a'));
   var places=[].slice.call(document.querySelectorAll('main section.sec, .lane li[id]'));
   var other=bar.querySelector('.lang-sw a:not([aria-current])');
   var base=other?other.getAttribute('href').split('#')[0]:'';
   var h1=document.querySelector('h1'), toc=bar.querySelector('.bar-toc'), queued=false;
+  var wide=matchMedia('(min-width:1200px)');
   function update(){
     queued=false;
-    var line=bar.getBoundingClientRect().bottom+24, sec=null, place=null;
+    // 기준선: 바(좁은 화면) 또는 오른쪽 위 묶음(넓은 화면, 높이 44) 아래 24px. 착지 위치(64px)보다 아래여야 방금 간 절이 표시된다.
+    var line=(wide.matches?44:bar.getBoundingClientRect().bottom)+24, sec=null, place=null;
     for(var i=0;i<places.length;i++){
       if(places[i].getBoundingClientRect().top<=line){place=places[i]; if(places[i].tagName==='SECTION') sec=places[i];}
     }
@@ -590,13 +608,24 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
     if(other) other.setAttribute('href', base+(place?'#'+place.id:''));
     if(h1) bar.classList.toggle('past', h1.getBoundingClientRect().bottom<bar.getBoundingClientRect().bottom);
   }
-  function soon(){ if(!queued){queued=true; requestAnimationFrame(update);} }
+  // 넓은 화면의 오른쪽 위 묶음: 아래로 스크롤하는 동안 숨기고, 위로 올리거나 맨 위면 보인다. 차례가 열렸거나 포커스가 안에 있으면 숨기지 않는다.
+  var ctl=bar.querySelector('.bar-ctl'), lastY=scrollY;
+  function corner(){
+    var y=scrollY, hide=wide.matches && y>lastY && y>120 && !(toc&&toc.open) && !(ctl&&ctl.contains(document.activeElement));
+    if(ctl) ctl.classList.toggle('away', hide);
+    lastY=y;
+  }
+  function soon(){ corner(); if(!queued){queued=true; requestAnimationFrame(update);} }
   // 절이 화면보다 길어 IntersectionObserver의 비율 문턱은 바 아래 선을 넘는 순간을 놓친다. 그래서 스크롤마다(프레임당 한 번) 계산한다.
   addEventListener('scroll', soon, {passive:true});
   addEventListener('resize', soon);
   addEventListener('hashchange', soon);
   if(other) other.addEventListener('click', update);
-  if(toc) toc.addEventListener('click', function(e){ if(e.target.closest('li a')) toc.open=false; });
+  if(toc){
+    toc.addEventListener('click', function(e){ if(e.target.closest('li a')) toc.open=false; });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape' && toc.open){ toc.open=false; toc.querySelector('summary').focus(); } });
+    document.addEventListener('click', function(e){ if(toc.open && !toc.contains(e.target)) toc.open=false; });
+  }
   update();
 })();
 </script>
