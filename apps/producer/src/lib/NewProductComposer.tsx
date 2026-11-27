@@ -78,7 +78,7 @@ import {
 import { AccessibilityInfo, ActivityIndicator, Image, Platform, Pressable, TextInput, View, type ScrollView } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { CheckSheet, checkItems, currentModule } from "./CheckSheet";
-import { clearSourceCopyCache, SourceCopyReview } from "./SourceCopyReview";
+import { clearSourceCopyCache, isAutoRemoved, SourceCopyReview } from "./SourceCopyReview";
 import { BasicFacts, productPhotos, cleanProductName, PRICE_KEEP_NOTE, PRICE_TRANSFER_NOTE, WEIGHT_KEEP_NOTE, WEIGHT_TRANSFER_NOTE, SEASON_KEEP_NOTE, SEASON_TRANSFER_NOTE, PhotoStrip, isDocPrice, isDocWeight, isDocSeason, differs, docValue, needsPhotoConfirm, photosInUse, sourceCopyOnce, type FactRow } from "./CombinedPageEditor";
 import { toPageData } from "./BuyerPreview";
 import { useHideTabBar, useSession } from "./session";
@@ -1988,6 +1988,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     ? copyData.plan.passages.filter((p) => !p.inputPreferred && p.decision?.action !== "OMIT" && p.status !== "EXCLUDED"
         && (currentModule(p, copyData.plan) === null || !p.includedInDraft)).length
     : 0;
+  const autoRemoved = copyData ? copyData.plan.passages.filter(isAutoRemoved).length : 0;
   /** Section heading control on the review page: "• 확인 N" and "✎ 고치기". */
   const sectionAccessory = (_id: string, moduleIds: string[], sectionTitle: string) => {
     const n = checkItems(copyData, [], moduleIds).length;
@@ -2586,14 +2587,15 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                                   </View>
                                 </View>
                               ) : null}
-                              {reviewChrome && leftovers ? (
+                              {reviewChrome && (leftovers || autoRemoved) ? (
                                 <Pressable
                                   testID="leftover-row"
                                   accessibilityRole="button"
                                   onPress={() => setReviewSheet("leftover")}
                                   style={{ marginHorizontal: tokens.space.gutter, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: tokens.color.border, gap: 2 }}
                                 >
-                                  <T weight="semibold">{`자료에서 안 쓴 내용 ${leftovers}개 ›`}</T>
+                                  <T weight="semibold">{`자료에서 안 쓴 내용 ${leftovers + autoRemoved}개 ›`}</T>
+                                  {autoRemoved ? <T variant="caption" muted>{`자동으로 뺀 문장 ${autoRemoved}개 포함`}</T> : null}
                                   <T variant="caption" muted>필요한 문장을 골라 페이지에 넣을 수 있어요.</T>
                                 </Pressable>
                               ) : null}

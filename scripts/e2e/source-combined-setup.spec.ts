@@ -10,14 +10,15 @@ const taste = "껍질이 얇고 과즙이 많아 칼 없이도 쉽게 까집니�
 const option = "가정용 3kg (9~12과) 32,000원";
 const dated = "작년 평균 당도는 13~14브릭스였습니다.";
 const storage = "받으신 뒤에는 서늘한 곳에 두세요.";
-const material = [intro, taste, option, dated, storage].join("\n");
+const ended = "작년 판매는 일찍 종료되었습니다.";
+const material = [intro, taste, option, dated, storage, ended].join("\n");
 function work() {
   const cwd = path.resolve("server");
   execFileSync(path.join(cwd, ".venv/bin/python"), ["-c", `
 from app.source_analysis import worker
 from app.ai.source_analysis import ExtractionResponse
 from app.source_analysis.schemas import Extraction
-mapping = {${JSON.stringify(intro)}:'summary',${JSON.stringify(taste)}:'taste',${JSON.stringify(option)}:'historicalSales',${JSON.stringify(dated)}:'farmStory',${JSON.stringify(storage)}:'storage'}
+mapping = {${JSON.stringify(intro)}:'summary',${JSON.stringify(taste)}:'taste',${JSON.stringify(option)}:'historicalSales',${JSON.stringify(dated)}:'farmStory',${JSON.stringify(storage)}:'storage',${JSON.stringify(ended)}:'farmStory'}
 def reply(mode, model, chunk, targets, images, **kwargs):
  assert mode == 'mock'
  rows=[]
@@ -141,6 +142,23 @@ test("DEV-452 AC-SRC-1/5/10/11: required setup, generated page, check sheet and 
   await page.getByRole("button", { name: "저장하고 닫기", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 20_000 });
   await expect(page.getByTestId("buyer-preview").getByText("지름 7~8cm 정도예요.")).toBeVisible();
+
+  // 5c. A rule removal (past sale notice) is listed with its reason and goes back into the
+  // section the owner picks, not only where it came from (user 11/28).
+  const preview = page.getByTestId("buyer-preview");
+  await expect(preview.getByText(ended)).toHaveCount(0);
+  await expect(page.getByTestId("leftover-row")).toContainText("자동으로 뺀 문장 1개 포함");
+  await page.getByTestId("leftover-row").click();
+  const removed = page.getByTestId("auto-removed");
+  await expect(removed).toContainText(ended);
+  await expect(removed).toContainText("지난 판매의 종료·품절 안내로 보여서 뺐어요.");
+  await expect(removed.getByRole("button", { name: "농가 이야기에 넣기", exact: true })).toBeVisible();
+  await removed.getByRole("button", { name: "보관 방법에 넣기로 선택", exact: true }).click();
+  await removed.getByRole("button", { name: "보관 방법에 넣기", exact: true }).click();
+  await expect(removed).toHaveCount(0, { timeout: 20_000 });
+  await page.getByRole("button", { name: "닫기", exact: true }).last().click();
+  await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 20_000 });
+  await expect(page.getByTestId("source-section-storage").getByText(ended)).toBeVisible({ timeout: 20_000 });
 
   // 6. Buyer preview has no editing controls.
   await page.getByRole("button", { name: "미리보기", exact: true }).click();

@@ -188,3 +188,37 @@ def test_AC_SRC_3_a_growing_cycle_and_vague_soon_are_not_asked_as_dates():
     mixed = "올해 꽃이 피고 내년 이맘쯤 수확합니다."
     [prompt] = prompts_for(mixed, {"OWNER_CONFIRMATION": ["RELATIVE_TIME"]})
     assert prompt["question"].startswith("‘올해’는 ")
+
+
+def test_AC_SRC_3_an_auto_removed_sentence_can_be_put_back_in_a_chosen_section():
+    """DEV-452 (user 11/28): rule removals are recoverable, into the section the owner picks."""
+    import pytest
+
+    from app.source_analysis.source_preserving import SourcePlanError
+
+    line = "판매가 올해 종료되었습니다"
+    cands = [_cand("a", line, "farmStory"), _cand("b", "껍질이 얇아요.", "taste")]
+    versions = {"s": {"revision": 1, "sanitizationVersion": 1}}
+    target = {"id": "t", "name": "황금향"}
+    plan = build_plan(target, cands, source_versions=versions)
+    removed = next(p for p in plan["passages"] if p["originalValue"] == line)
+    assert removed["status"] == "EXCLUDED" and not removed["decision"]
+    keep = {"bindingHash": removed["bindingHash"], "action": "KEEP", "module": "summary"}
+    # The owner-check reasons stay, so putting it back records what was checked.
+    with pytest.raises(SourcePlanError) as missing:
+        build_plan(target, cands, source_versions=versions, decisions=[keep])
+    assert missing.value.reason == "NOTE_REQUIRED"
+    note = "자동으로 뺀 문장을 확인하고 다시 넣었어요."
+    restored = build_plan(
+        target, cands, source_versions=versions, decisions=[{**keep, "note": note}]
+    )
+    back = next(p for p in restored["passages"] if p["originalValue"] == line)
+    assert back["status"] == "READY" and back["includedInDraft"]
+    summary = next(m for m in restored["modules"] if m["module"] == "summary")
+    assert any(back["id"] in t["passageIds"] for t in summary["texts"])
+    assert not any(
+        back["id"] in t["passageIds"]
+        for m in restored["modules"]
+        if m["module"] == "farmStory"
+        for t in m["texts"]
+    )

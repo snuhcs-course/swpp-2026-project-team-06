@@ -25,6 +25,21 @@ const groups = [
   ["SAFETY", "사용 제한 확인", "비공개 초안의 문구를 공개하기 전에 확인해 주세요. 개인정보·질병 효능·다른 상품의 문구는 안전하게 수정하거나 제외해야 해요."],
 ] as const;
 
+/**
+ * DEV-452 (user 11/28): passages a wording rule left off the page by itself — not the owner's
+ * 빼기, not an exact repeat, not a line the sale settings replace (those show next to the
+ * settings). Shown in 자료에서 안 쓴 내용 so a wrong removal can be put back in any section.
+ */
+export const isAutoRemoved = (p: SourceCopyPassage) =>
+  p.status === "EXCLUDED" && !p.decision && !p.inputPreferred && !p.duplicateOf;
+const autoRemovedReasons: Record<string, string> = {
+  SALE_ENDED: "지난 판매의 종료·품절 안내로 보여서 뺐어요.",
+};
+export const autoRemovedReason = (p: SourceCopyPassage) =>
+  Object.values(p.reasonCodes).flat().map((code) => autoRemovedReasons[code]).find(Boolean) ?? "자동 규칙으로 뺐어요.";
+export const RESTORE_NOTE = "자동으로 뺀 문장을 확인하고 다시 넣었어요.";
+const TEXT_SECTIONS = SOURCE_MODULES.filter(([id]) => !["sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"].includes(id));
+
 export const requiresNote = (p: SourceCopyPassage) => p.reasonCodes.OWNER_CONFIRMATION.length > 0 || p.reasonCodes.SAFETY.some((reason) => !["PRIVATE_VALUE", "HEALTH_CLAIM", "OTHER_PRODUCT"].includes(reason));
 export const reasonMessages: Record<string, string> = {
   OCR_SPLIT: "자료를 읽는 과정에서 단어가 줄 사이에 끊겼을 수 있어요. 원문과 최소 수정 제안을 비교해 주세요.",
@@ -84,6 +99,8 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
   const [notice, setNotice] = useState("");
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [expandedDone, setExpandedDone] = useState<Record<string, boolean>>({});
+  /** 자동으로 뺀 내용: the section the owner picked for each sentence (default: where it came from). */
+  const [restoreTo, setRestoreTo] = useState<Record<string, string>>({});
   const operation = useRef(false), alive = useRef(true);
   const focusNode = useRef<View | null>(null);
   useEffect(() => {
@@ -229,8 +246,15 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
     return blockedFor(p) ? "SAFETY" : kinds.has("PLACEMENT") ? "PLACEMENT" : kinds.has("OWNER_CONFIRMATION") ? "OWNER_CONFIRMATION" : kinds.has("COPY_EDIT") ? "COPY_EDIT" : "SAFETY";
   };
   const pendingCount = pending.filter((p) => unitFor(p).some((item) => item.reviewPending)).length;
+  const removed = section === null ? (data?.plan.passages.filter(isAutoRemoved) ?? []) : [];
+  const restore = (p: SourceCopyPassage, module: string) => {
+    if (disabled || blockedFor(p)) return;
+    decisionBases.current.set(p.bindingHash, decisionSnapshot(p.decision));
+    explicitPlacements.current.add(p.bindingHash);
+    void mutate(false, { [p.bindingHash]: { bindingHash: p.bindingHash, action: "KEEP", module, note: RESTORE_NOTE } });
+  };
   const presentationMessage = data?.plan.presentation && presentationMessages[data.plan.presentation.status];
-  if (scoped && (!enabled || !data || (!pending.length && !error))) return null;
+  if (scoped && (!enabled || !data || (!pending.length && !removed.length && !error))) return null;
   return <View style={{ gap: 12, padding: tokens.space.gutter }} testID={scoped ? `source-copy-section-${section ?? "leftover"}` : "source-copy-review"}>
     {scoped ? (section === null ? <View style={{ gap: 2 }}><T weight="semibold">⑤ 자료에서 찾았지만 안 넣은 내용 · {pending.length}건</T><T variant="caption" muted>필요한 문장은 ‘본문에 넣기’로 원하는 섹션에 넣어 주세요.</T></View> : null) : <T weight="semibold">원문을 살려 상세 채우기</T>}
     {!enabled ? <>
@@ -300,6 +324,31 @@ export function SourceCopyReview({ batchId, targetId, enabled, reviewVersion, lo
           })}
         </View>;
       }) : <T variant="sub" muted>검토 내용을 불러오는 중이에요.</T>}
+      {removed.length ? <View style={{ gap: 8 }} testID="auto-removed">
+        <View style={{ gap: 2 }}>
+          <T weight="semibold">{`자동으로 뺀 내용 · ${removed.length}건`}</T>
+          <T variant="caption" muted>규칙에 따라 페이지에서 뺀 문장이에요. 필요하면 넣을 섹션을 골라 다시 넣을 수 있어요.</T>
+        </View>
+        {removed.map((p) => {
+          const target = restoreTo[p.id] ?? (p.module && TEXT_SECTIONS.some(([id]) => id === p.module) ? p.module : TEXT_SECTIONS[0][0]);
+          const targetTitle = TEXT_SECTIONS.find(([id]) => id === target)?.[1] ?? target;
+          const blocked = blockedFor(p);
+          return <View key={p.id} testID={`auto-removed-${p.id}`} style={{ gap: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: tokens.color.border }}>
+            <T>{p.originalValue}</T>
+            <T variant="caption" muted>{autoRemovedReason(p)}</T>
+            {blocked ? <T variant="caption" color={tokens.color.error}>다른 상품·개인정보·건강 효능이 섞였을 수 있어 그대로 넣을 수 없어요.</T> : <>
+              <T variant="sub">넣을 섹션</T>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {TEXT_SECTIONS.map(([id, title]) => <Button key={id} compact variant="outline" disabled={disabled}
+                  accessibilityLabel={`${title}에 넣기로 선택`}
+                  label={`${target === id ? "선택됨 · " : ""}${title}`}
+                  onPress={() => setRestoreTo((old) => ({ ...old, [p.id]: id }))} />)}
+              </View>
+              <Button compact label={`${targetTitle}에 넣기`} disabled={disabled} loading={busy} onPress={() => restore(p, target)} />
+            </>}
+          </View>;
+        })}
+      </View> : null}
       {Object.keys(choices).some((key) => data && !data.plan.passages.some((p) => p.bindingHash === key)) ? <>
         <T variant="sub">자료가 바뀌어 연결되지 않은 선택이 있어요. 입력을 확인한 뒤 이전 선택을 지워 주세요.</T>
         {Object.entries(choices).filter(([key]) => !data?.plan.passages.some((p) => p.bindingHash === key)).map(([key, choice]) => <View key={key} style={{ gap: 4 }}><T>{choice.value || "이전 원문에 대한 선택"}</T><Button compact variant="outline" label="이전 선택 지우기" disabled={disabled} onPress={() => cancelChoice(key)} /></View>)}

@@ -168,6 +168,8 @@ export type SourceCopyPassage = {
   decision: SourceCopyDecision | null;
   /** DEV-452: left out because the producer's own sale settings cover it (input wins). */
   inputPreferred?: "PRICE" | "WEIGHT" | "SEASON";
+  /** DEV-452: an exact repeat of this earlier passage, kept off the page. */
+  duplicateOf?: string;
 };
 export type SourceCopyPresentation = {
   status: "PENDING" | "APPLIED" | "FALLBACK" | "STALE" | "DISABLED";
