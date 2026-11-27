@@ -59,7 +59,7 @@ _EXCESSIVE_PROMOTION = re.compile(
     r"|(?:절대|무조건|반드시|100%|백퍼센트).{0,16}(?:보장|만족|성공|효과|실패.{0,4}없)"
     r"|(?:당도|맛|품질|만족|효과).{0,12}(?:100%|백퍼센트|무조건|절대).{0,8}보장"
 )
-_CONTINUATION_END = re.compile(r"(?:듯이|지만|지고|때문에)\s*$")
+_CONTINUATION_END = re.compile(r"(?:듯이|지만|지고|때문에)[,，]?\s*$")
 _BOUNDARY_START = re.compile(
     r"^(?:[-*•▶※#\[【(]|\d+[.)]|옵션|선택|상품|구성|소과|중과|대과|가정용|선물용|"
     r"보관|배송|가격|주의|참고|또한|그리고|하지만|한편|다음|\d{1,4}\s*(?:년|월|일)|"
@@ -144,6 +144,53 @@ def _span_order(passage):
     ):
         return None
     return next(iter(prefixes)), numbers[0], numbers[-1]
+
+
+_STRUCTURED_MODULES = {"composition", "pieceCount", "specification", "qualityEvidence"}
+
+
+def _move_fragments_to_continuation(passages, decision_map):
+    """Put an unfinished line next to its source-adjacent continuation.
+
+    Extraction sometimes files the first half in a structured module and the rest
+    in a narrative one; the join only looks at narrative modules. Only the module
+    changes (provenance is untouched), and only for one unique consecutive span
+    on the same source page.
+    """
+    starts = {}
+    for p in passages:
+        order = _span_order(p)
+        if order and p["module"] not in _STRUCTURED_MODULES:
+            key = (
+                p["sourceId"],
+                p["sourceRevision"],
+                p["sanitizationVersion"],
+                p["evidence"][0]["page"],
+                order[0],
+                order[1],
+            )
+            starts.setdefault(key, []).append(p)
+    for left in passages:
+        order = _span_order(left)
+        if (
+            not order
+            or left["module"] not in _STRUCTURED_MODULES
+            or "POSSIBLE_FRAGMENT" not in left["reasonCodes"]["COPY_EDIT"]
+            or left["reasonCodes"]["PLACEMENT"]
+            or left["bindingHash"] in decision_map
+        ):
+            continue
+        key = (
+            left["sourceId"],
+            left["sourceRevision"],
+            left["sanitizationVersion"],
+            left["evidence"][0]["page"],
+            order[0],
+            order[2] + 1,
+        )
+        rights = starts.get(key, ())
+        if len(rights) == 1 and not rights[0]["reasonCodes"]["PLACEMENT"]:
+            left["module"] = rights[0]["module"]
 
 
 def _assembly_allowed(passage):
@@ -661,11 +708,8 @@ def _build(
         seen_decisions.add(binding)
         decision_map[binding] = decision
     acknowledged = set()
-    narrative = [
-        p
-        for p in passages
-        if p["module"] not in {"composition", "pieceCount", "specification", "qualityEvidence"}
-    ]
+    _move_fragments_to_continuation(passages, decision_map)
+    narrative = [p for p in passages if p["module"] not in _STRUCTURED_MODULES]
     for parts in _assembly_groups(narrative, candidate_by_id):
         if len(parts) < 2:
             continue

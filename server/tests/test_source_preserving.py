@@ -943,3 +943,46 @@ def test_AC_SRC_10_DEV485_acknowledgment_cannot_keep_a_restricted_health_claim()
     ]
     with pytest.raises(SourcePlanError, match="Invalid source-preserving plan"):
         plan([item], decisions=choices)
+
+
+def _page_candidate(cid, quote, field, span, page=4, source_id="source-1"):
+    item = candidate(cid, quote, field=field, span_id=span)
+    item["evidence"][0]["page"] = page
+    item["evidence"][0]["sourceId"] = source_id
+    return item
+
+
+def test_AC_SRC_10_DEV452_fragment_in_specification_joins_continuation_in_taste():
+    left = _page_candidate("frag", "껍질이 쉽게 벗겨지고,", "specification", "vision-gemini-7")
+    right = _page_candidate("rest", "과육은 촉촉합니다.", "taste", "vision-gemini-8")
+    result = plan([left, right])
+    by_cid = {p["candidateIds"][0]: p for p in result["passages"]}
+    assert by_cid["frag"]["module"] == "taste"
+    texts = [t for m in result["modules"] for t in m["texts"]]
+    assert [t["value"] for t in texts] == ["껍질이 쉽게 벗겨지고, 과육은 촉촉합니다."]
+    assert texts[0]["candidateIds"] == ["frag", "rest"]
+    assert "POSSIBLE_FRAGMENT" not in by_cid["frag"]["reasonCodes"]["COPY_EDIT"]
+
+
+def test_AC_SRC_10_DEV452_fragment_is_not_joined_across_pages_or_sources():
+    left = _page_candidate("frag", "껍질이 쉽게 벗겨지고,", "specification", "vision-gemini-7")
+    other_page = _page_candidate("rest", "과육은 촉촉합니다.", "taste", "vision-gemini-8", page=5)
+    result = plan([left, other_page])
+    by_cid = {p["candidateIds"][0]: p for p in result["passages"]}
+    assert by_cid["frag"]["module"] == "specification"
+    assert "POSSIBLE_FRAGMENT" in by_cid["frag"]["reasonCodes"]["COPY_EDIT"]
+
+    versions = {**VERSIONS, "source-2": {"revision": 3, "sanitizationVersion": 2}}
+    other_source = _page_candidate(
+        "rest", "과육은 촉촉합니다.", "taste", "vision-gemini-8", source_id="source-2"
+    )
+    result = plan([left, other_source], versions=versions)
+    by_cid = {p["candidateIds"][0]: p for p in result["passages"]}
+    assert by_cid["frag"]["module"] == "specification"
+
+
+def test_AC_SRC_10_DEV452_fragment_is_not_joined_to_non_consecutive_span():
+    left = _page_candidate("frag", "껍질이 쉽게 벗겨지고,", "specification", "vision-gemini-7")
+    far = _page_candidate("rest", "과육은 촉촉합니다.", "taste", "vision-gemini-9")
+    by_cid = {p["candidateIds"][0]: p for p in plan([left, far])["passages"]}
+    assert by_cid["frag"]["module"] == "specification"

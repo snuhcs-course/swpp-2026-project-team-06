@@ -47,7 +47,8 @@ def test_AC_SRC_10_DEV485_fragment_question_points_to_actual_unfinished_words():
 
 
 @pytest.mark.parametrize(
-    "value", ["예전에는 한 상자 28,000원에 팔았어요.", "가상 농장의 옛 이야기예요.", "5kg 3만원 구성"]
+    "value",
+    ["예전에는 한 상자 28,000원에 팔았어요.", "가상 농장의 옛 이야기예요.", "5kg 3만원 구성"],
 )
 def test_AC_SRC_10_DEV452_no_time_phrase_never_shows_placeholder(value):
     prompts = prompts_for(value, reasons("DATED_OR_HISTORICAL"))
