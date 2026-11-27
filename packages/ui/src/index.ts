@@ -113,6 +113,7 @@ export { BrixReading } from "./BrixReading";
 export {
   PRODUCT_PHOTO_HEIGHT,
   ProductPageBody,
+  ProductGallery,
   type ProductPageData,
   type ProductPageSlots,
   type MyReservation,

@@ -153,7 +153,7 @@ export function ProductPageBody({
   return (
     <>
       <View>
-        {slots?.photo ?? <Gallery photos={photos} alt={p.name} />}
+        {slots?.photo ?? <ProductGallery photos={photos} alt={p.name} />}
         {onBack || onShare ? (
           <View
             pointerEvents="box-none"
@@ -303,7 +303,8 @@ export function ProductPageBody({
 const INFO_LABEL_WIDTH = 72;
 
 /** 상품 사진: 300 높이, 여러 장이면 옆으로 넘기고 오른쪽 아래에 1/N */
-function Gallery({ photos, alt }: { photos: (string | null)[]; alt: string }) {
+/** Swipeable product photos as the buyer sees them (also the producer's preview, DEV-452). */
+export function ProductGallery({ photos, alt }: { photos: (string | null)[]; alt: string }) {
   const { width: windowWidth } = useWindowDimensions();
   const width = Math.min(windowWidth, tokens.maxWidth);
   const [index, setIndex] = useState(0);

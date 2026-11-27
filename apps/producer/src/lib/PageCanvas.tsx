@@ -100,6 +100,7 @@ export function PageCanvas({
     [error, setError] = useState(""),
     [moving, setMoving] = useState<{ id: string; index: number } | null>(null);
   const [picker, setPicker] = useState<string | null>(null);
+  const [sizeOff, setSizeOff] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [recentlyAdded, setRecentlyAdded] = useState<string | null>(null);
   const addedNode = useRef<View>(null);
@@ -169,6 +170,10 @@ export function PageCanvas({
     m.texts.some((t) => t.value.trim()) ||
     m.photos.length > 0 ||
     !!m.illustrationId;
+  // DEV-452 (user review 11/28): 크기 참고 is on the new page by default, so the size picture is easy
+  // to find. Buyers see nothing until a size is chosen; the owner can take the card out.
+  const sizeModule = displayModules.find((m) => m.id === "sizePhoto");
+  const sizeCard = emptyHint && !preview && !sizeOff && !onlyIds && !!sizeModule && !sizeModule.enabled && !filled(sizeModule);
   const active = (id: string) => {
     const m = displayModules.find((m) => m.id === id)!;
     return m.enabled && filled(m);
@@ -544,7 +549,7 @@ export function PageCanvas({
           >
             {content}
           </View>
-          {blocked.includes(m.id) || selected === m.id ? (
+          {blocked.includes(m.id) || selected === m.id || (m.id === "sizePhoto" && sizeCard) ? (
             <View style={{ gap: 8 }}>
               {m.id === "sizePhoto" ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
@@ -553,7 +558,7 @@ export function PageCanvas({
                     ["small", "소과"],
                     ["medium", "중과"],
                     ["large", "대과"],
-                    ["", "그림 빼기"],
+                    ...(m.illustrationId ? [["", "그림 빼기"]] : []),
                   ].map(([id, label]) => (
                     <Button
                       compact
@@ -569,6 +574,9 @@ export function PageCanvas({
                       }
                     />
                   ))}
+                  {sizeCard && !m.illustrationId ? (
+                    <Button compact variant="text" label="이 섹션 빼기" disabled={busy || uploading} onPress={() => { setSizeOff(true); if (selected === m.id) setSelected(null); }} />
+                  ) : null}
                 </View>
               ) : null}
               {details?.(m.id)}
@@ -580,7 +588,7 @@ export function PageCanvas({
     },
   };
   // Sections that can still be added here (only this section's parts in a section sheet, DEV-452).
-  const addable = displayModules.filter(m => (!onlyIds || onlyIds.includes(m.id)) && m.id !== "summary" && selected !== m.id && (m.id !== "hero" || !displayModules.some(x => x.id === "summary" && x.enabled && filled(x))) && !m.enabled);
+  const addable = displayModules.filter(m => !(m.id === "sizePhoto" && sizeCard) && (!onlyIds || onlyIds.includes(m.id)) && m.id !== "summary" && selected !== m.id && (m.id !== "hero" || !displayModules.some(x => x.id === "summary" && x.enabled && filled(x))) && !m.enabled);
   if (preview) return (
     <View testID="buyer-preview">
       {/* 대표 사진이 없으면 구매자 화면처럼 기본 사진(DEV-322) */}
@@ -608,7 +616,7 @@ export function PageCanvas({
         />
       ) : null}
       <ModuleStory design={design}
-        content={{ modules: emptyHint ? displayModules.filter(m => (m.enabled && !blocked.includes(m.id)) || selected === m.id || (m.id === "summary" && selected === "hero") || blocked.includes(m.id)) : displayModules }}
+        content={{ modules: emptyHint ? displayModules.filter(m => (m.enabled && !blocked.includes(m.id)) || selected === m.id || (m.id === "summary" && selected === "hero") || blocked.includes(m.id) || (m.id === "sizePhoto" && sizeCard)) : displayModules }}
         mediaUrl={media}
         editing={editing}
       />

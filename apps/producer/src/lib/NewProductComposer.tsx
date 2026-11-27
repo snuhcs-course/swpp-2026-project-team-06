@@ -49,6 +49,7 @@ import {
   Notice,
   PeekSheet,
   Photo,
+  ProductGallery,
   ProductPageBody,
   Screen,
   Scroll,
@@ -518,6 +519,26 @@ function ExtraPhotos({
   );
 }
 /** 상품 사진 한 장(비공개 사진은 인증 blob으로) */
+/** 미리보기: 대표사진과 더 보여 줄 사진을 구매자 화면처럼 넘겨 보게 한다(user review 11/28, DEV-452). */
+function PreviewGallery({ productId, cover, extra, alt }: { productId: string; cover: string | null; extra: string[]; alt: string }) {
+  const [urls, setUrls] = useState<(string | null)[]>(() => extra.map(() => null));
+  const key = extra.join("|");
+  useEffect(() => {
+    let alive = true;
+    const made: string[] = [];
+    void Promise.all(extra.map((uri) => productPhotoUrl(productId, uri).catch(() => null))).then((list) => {
+      list.forEach((u) => { if (u?.startsWith("blob:")) made.push(u); });
+      if (alive) setUrls(list);
+      else made.forEach((u) => URL.revokeObjectURL(u));
+    });
+    return () => {
+      alive = false;
+      made.forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, key]);
+  return <ProductGallery photos={[cover, ...urls]} alt={alt || "상품"} />;
+}
 function PhotoThumb({ productId, uri, alt }: { productId: string; uri: string; alt: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -2260,7 +2281,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                               result: working ? undefined : review?.refinementResults?.[target.id],
                             }]}
                           /></View> : null}
-                          {pagePreview && !validationFields.representativePhoto ? <Photo uri={shownCover} width="100%" height={244} alt="대표사진" /> : shownCover || coverPresent ? (
+                          {pagePreview && !validationFields.representativePhoto ? (form.photos.length > 1 ? <PreviewGallery productId={product.productId} cover={shownCover} extra={form.photos.slice(1)} alt={form.name} /> : <Photo uri={shownCover} width="100%" height={244} alt="대표사진" />) : shownCover || coverPresent ? (
                             !shownCover ? (
                               <View
                                 testID="hero-photo"

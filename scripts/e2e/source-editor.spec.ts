@@ -246,12 +246,17 @@ test("AC-SRC-11 DEV-361: photos without descriptions remain available for manual
   ).toBeVisible();
   await expect(text).toHaveCSS("border-top-width", "1px");
 
-  await page.getByRole("button", { name: "크기 참고 추가", exact: true }).click();
+  // DEV-452 (user review 11/28): 크기 참고 is on a new page from the start with the size picture choice.
+  await expect(page.getByRole("button", { name: "크기 참고 추가", exact: true })).toHaveCount(0);
   const size = page.getByTestId("canvas-section-sizePhoto");
-  const sizePhoto = size.getByRole("button", { name: "크기 참고 사진 추가", exact: true });
-  await expect(sizePhoto).toBeInViewport();
-  await expect(sizePhoto).toHaveCSS("border-top-width", "2px");
-  await expect(size.getByRole("textbox", { name: "크기 참고 내용", exact: true })).toHaveCSS("border-top-width", "1px");
+  await expect(size.getByRole("button", { name: "중과", exact: true })).toBeVisible();
+  await expect(size.getByRole("button", { name: "이 섹션 빼기", exact: true })).toBeVisible();
+  const sizeText = size.getByRole("textbox", { name: "크기 참고 내용", exact: true });
+  await expect(sizeText).toHaveCSS("border-top-width", "1px");
+  await sizeText.click();
+  await expect(size.getByRole("button", { name: "크기 참고 사진 추가", exact: true })).toBeVisible();
+  await size.getByRole("button", { name: "이 섹션 빼기", exact: true }).click();
+  await expect(page.getByRole("button", { name: "크기 참고 추가", exact: true })).toBeVisible();
 });
 
 test("AC-SRC-11 DEV-361: inline photo description survives failure and flushes before analysis", async ({
