@@ -90,11 +90,13 @@ def preview(db, farm_id, product_id):
     }
 
 
-def unconfirmed_photos(db, batch, target, snapshots):
-    """Extracted document photos the page uses that the producer has not confirmed (DEV-452)."""
-    import json
+def unconfirmed_photos(db, batch, target):
+    """Extracted document photos the page uses that the producer has not confirmed (DEV-452).
 
-    used = json.dumps([x for x in snapshots if x])
+    In use means placed in a section or chosen as the representative, the same rule as the
+    editor. Matching the asset id anywhere in the draft also caught photos only listed in its
+    source versions, and asked for a photo the page did not show (user review 11/28).
+    """
     return [
         a
         for a in db.scalars(
@@ -107,12 +109,12 @@ def unconfirmed_photos(db, batch, target, snapshots):
         if (a.placement or {}).get("extracted")
         and not a.placement["extracted"].get("confirmed")
         and (a.common or target["id"] in a.target_ids)
-        and (a.id == target.get("representativeAssetId") or f'"{a.id}"' in used)
+        and (a.id == target.get("representativeAssetId") or (a.placement or {}).get("fieldKey"))
     ]
 
 
-def require_confirmed_photos(db, batch, target, snapshots):
-    pending = unconfirmed_photos(db, batch, target, snapshots)
+def require_confirmed_photos(db, batch, target):
+    pending = unconfirmed_photos(db, batch, target)
     if pending:
         raise invalid(
             {
@@ -138,9 +140,7 @@ def apply_for_sale(db, farm_id, product, page):
     batch = s.batch(db, farm_id, batch.id)
     require_complete(db, batch, target["id"])
     workspace = db.get(ProductWorkspace, product.id)
-    require_confirmed_photos(
-        db, batch, target, [workspace.snapshot, draft.snapshot if draft else None]
-    )
+    require_confirmed_photos(db, batch, target)
     if workspace.snapshot.get("design") and not batch.source_copy_enabled:
         if (
             page is None

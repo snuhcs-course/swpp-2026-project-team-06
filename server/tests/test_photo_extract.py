@@ -230,6 +230,8 @@ def test_AC_SRC_photo_extracted_assets_are_unconfirmed_deduped_and_off_quota(
 
 
 def test_AC_SRC_photo_sale_request_needs_confirmed_extracted_photos(client, login):
+    from app.source_analysis.source_sale import unconfirmed_photos
+
     preview = setup_page(client, login)
     h = login("u-kang")
     bid = preview["batch"]["id"]
@@ -241,11 +243,28 @@ def test_AC_SRC_photo_sale_request_needs_confirmed_extracted_photos(client, logi
         extracted = db.scalar(
             select(Asset).where(Asset.batch_id == bid, Asset.filename.like("%-p1-1.png"))
         )
-        eid, revision = extracted.id, extracted.revision
-        # The saved page uses the extracted photo (any reference inside the draft counts).
+        eid = extracted.id
+        # Listed only in the draft's source versions, the photo is not on the page: no block
+        # (user review 11/28 — the old any-reference match asked for a photo nobody saw).
+        extracted.placement = {**extracted.placement, "fieldKey": None}
         draft = db.get(Draft, preview["draft"]["id"])
-        draft.snapshot = {**draft.snapshot, "galleryPhotoIds": [eid]}
+        versions = {
+            **draft.snapshot.get("sourceVersions", {}),
+            eid: {"revision": 1, "sanitizationVersion": extracted.sanitization_version},
+        }
+        draft.snapshot = {**draft.snapshot, "sourceVersions": versions}
+        target = db.get(Batch, bid).targets[0]
+        assert target.get("representativeAssetId") != eid
         db.commit()
+    with get_sessionmaker()() as db:
+        batch, target = db.get(Batch, bid), db.get(Batch, bid).targets[0]
+        assert unconfirmed_photos(db, batch, target) == []
+        # Placed in a section, the page uses it and it must be confirmed.
+        extracted = db.get(Asset, eid)
+        extracted.placement = {**extracted.placement, "fieldKey": "farmPhotos"}
+        db.commit()
+        revision = db.get(Asset, eid).revision
+        assert [a.id for a in unconfirmed_photos(db, db.get(Batch, bid), target)] == [eid]
     blocked = submit(client, login, preview)
     assert blocked.status_code == 400, blocked.text
     assert "자료에서 가져온 사진 1장" in blocked.json()["details"]["fields"]["photos"]

@@ -275,6 +275,6 @@ def page_statuses(db, farm_id):
                 to_check = sum(1 for p in current["passages"] if p.get("reviewPending"))
             except Exception:  # noqa: BLE001 - the list must still load
                 to_check = 0
-            to_check += len(unconfirmed_photos(db, batch, target, [workspace.snapshot]))
+            to_check += len(unconfirmed_photos(db, batch, target))
         result.append({**entry, "state": "READY", "toCheck": to_check})
     return {"items": result}
