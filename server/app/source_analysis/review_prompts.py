@@ -43,17 +43,42 @@ def prompts_for(value, reasons):
                 )
             else:
                 match = _RELATIVE.search(value) or _YEAR.search(value)
-                phrase = match.group() if match else "이 시점 표현"
-                add(
-                    code,
-                    f"‘{phrase}’는 언제를 뜻하나요? 현재 설명으로 사용해도 괜찮나요?",
-                    (
-                        "원문을 작성한 시점과 지금은 다를 수 있어요. 과거 이야기인지 "
-                        "구분하거나 정확한 연도·날짜로 고쳐 주세요."
-                    ),
-                    confirmation="시점과 과거 이력을 확인했고 현재 설명으로 사용해도 맞아요.",
-                    key="REFERENCE_YEAR",
-                )
+                if match:
+                    phrase = match.group()
+                    add(
+                        code,
+                        f"‘{phrase}’는 언제를 뜻하나요? 현재 설명으로 사용해도 괜찮나요?",
+                        (
+                            "원문을 작성한 시점과 지금은 다를 수 있어요. 과거 이야기인지 "
+                            "구분하거나 정확한 연도·날짜로 고쳐 주세요."
+                        ),
+                        confirmation="시점과 과거 이력을 확인했고 현재 설명으로 사용해도 맞아요.",
+                        key="REFERENCE_YEAR",
+                    )
+                elif _MONEY.search(value):
+                    add(
+                        code,
+                        "자료의 예전 판매 정보예요(가격·구성). 지금 판매에도 그대로 쓸까요?",
+                        (
+                            "자료에 적힌 금액·구성은 예전 판매 기준일 수 있어요. "
+                            "지금 판매 설정과 맞는지 확인해 주세요. "
+                            "이 확인으로 판매 설정이 바뀌지는 않아요."
+                        ),
+                        severity="warning",
+                        confirmation="자료의 예전 판매 정보를 확인했고 현재 판매와 맞아요.",
+                        key="PRICE",
+                    )
+                else:
+                    add(
+                        code,
+                        "자료의 예전 이야기일 수 있어요. 지금 설명으로 써도 괜찮나요?",
+                        (
+                            "원문을 작성한 시점과 지금은 다를 수 있어요. 과거 이야기인지 "
+                            "구분하거나 지금 사실에 맞게 고쳐 주세요."
+                        ),
+                        confirmation="과거 이력을 확인했고 현재 설명으로 사용해도 맞아요.",
+                        key="REFERENCE_YEAR",
+                    )
         elif code in {"PRICE_OR_FEE", "MONEY_AMOUNT"}:
             amounts = list(dict.fromkeys(_MONEY.findall(value)))
             amount = " · ".join(f"‘{value}’" for value in amounts) if amounts else "이 금액"

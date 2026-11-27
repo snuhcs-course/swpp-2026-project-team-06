@@ -44,3 +44,27 @@ def test_AC_SRC_10_DEV485_fragment_question_points_to_actual_unfinished_words():
     assert "거칠지만" in p["question"]
     assert "빠졌나요" in p["question"]
     assert p["severity"] == "warning"
+
+
+@pytest.mark.parametrize(
+    "value", ["예전에는 한 상자 28,000원에 팔았어요.", "가상 농장의 옛 이야기예요.", "5kg 3만원 구성"]
+)
+def test_AC_SRC_10_DEV452_no_time_phrase_never_shows_placeholder(value):
+    prompts = prompts_for(value, reasons("DATED_OR_HISTORICAL"))
+    assert len(prompts) == 1
+    assert "이 시점 표현" not in str(prompts)
+    assert "언제를 뜻하나요" not in prompts[0]["question"]
+
+
+def test_AC_SRC_10_DEV452_historical_price_line_gets_one_price_history_question():
+    value = "예전에는 한 상자 28,000원에 팔았어요."
+    prompts = prompts_for(value, reasons("DATED_OR_HISTORICAL", "PRICE_OR_FEE", "MONEY_AMOUNT"))
+    assert len(prompts) == 1
+    assert "예전 판매 정보" in prompts[0]["question"]
+    assert "판매 설정" in prompts[0]["detail"]
+    assert prompts[0]["severity"] == "warning"
+
+
+def test_AC_SRC_10_DEV452_real_time_phrase_still_quoted():
+    p = prompts_for("작년 가을부터 키웠어요.", reasons("DATED_OR_HISTORICAL"))[0]
+    assert "‘작년’" in p["question"]
