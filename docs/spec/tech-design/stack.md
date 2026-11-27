@@ -120,7 +120,7 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 - 화면 이벤트는 앱에서, 결제·취소·구매 확정처럼 확정된 사실은 서버에서 보낸다.
 - 이벤트에 이름·연락처·주소·메시지 본문을 넣지 않는다(N-05). 사용자 구분은 내부 ID만 쓴다.
 - 이벤트 이름과 속성은 [트래킹 플랜](./README.md)을 따른다.
-- 앱은 `packages/analytics`(posthog-js)로 보낸다. 빌드 때 `EXPO_PUBLIC_POSTHOG_KEY`가 비면 꺼진다(로컬·Mock·CI). 배포 빌드는 레포 변수 `APP_POSTHOG_KEY`·`APP_POSTHOG_HOST`로 넣는다(DEV-71). 키가 있어도 접속 호스트가 운영 도메인(`farmclub.kr`·`farm.farmclub.kr`)이 아니면 켜지 않는다 — Vercel 기본 주소(`*.vercel.app`)·워킹 데모(`demo.farmclub.kr`)·localhost 접속은 지표에 넣지 않는다(DEV-125, 목록은 `EXPO_PUBLIC_POSTHOG_HOSTS`로 덮어씀). 그래서 운영 화면 테스트·캡처는 Vercel 기본 주소에서 한다. 기본 주소는 공식 도메인으로 넘기지 않고(검색엔진에는 `X-Robots-Tag: noindex`), 서버가 `CONSUMER_APP_ALT_URLS`·`PRODUCER_APP_ALT_URLS`로 그 주소의 CORS·카카오 복귀를 받는다(DEV-236, ADR 0012 갱신). iOS·Android 앱은 `posthog-react-native`로 보내고, 키는 EAS `production` 환경 변수 `EXPO_PUBLIC_POSTHOG_KEY`·`EXPO_PUBLIC_POSTHOG_HOST`로만 넣는다(스토어 배포 앱만, `internal`·`preview`는 꺼짐, 세션 녹화 없음, DEV-436).
+- 앱은 `packages/analytics`(posthog-js)로 보낸다. 빌드 때 `EXPO_PUBLIC_POSTHOG_KEY`가 비면 꺼진다(로컬·Mock·CI). 배포 빌드는 레포 변수 `APP_POSTHOG_KEY`·`APP_POSTHOG_HOST`로 넣는다(DEV-71). 키가 있어도 접속 호스트가 운영 도메인(`farmclub.kr`·`farm.farmclub.kr`)이 아니면 켜지 않는다 — Vercel 기본 주소(`*.vercel.app`)·워킹 데모(`demo.farmclub.kr`)·localhost 접속은 지표에 넣지 않는다(DEV-125, 목록은 `EXPO_PUBLIC_POSTHOG_HOSTS`로 덮어씀). 그래서 운영 화면 테스트·캡처는 Vercel 기본 주소에서 한다. 기본 주소는 공식 도메인으로 넘기지 않고(검색엔진에는 `X-Robots-Tag: noindex`), 서버가 `CONSUMER_APP_ALT_URLS`·`PRODUCER_APP_ALT_URLS`로 그 주소의 CORS·카카오 복귀를 받는다(DEV-236, ADR 0012 갱신). iOS·Android 앱은 `posthog-react-native`로 보내고, 키는 EAS 환경 변수 `EXPO_PUBLIC_POSTHOG_KEY`(`production`·`preview`)로 넣는다. 원스토어 앱이 preview 채널 `internal` APK라 `preview`에도 넣었고, 같은 채널의 팀 테스트 APK 기록은 `isTestAccount`로 분석에서 뺀다(세션 녹화 없음, DEV-436).
 
 ## 6. 이번에 정한 값
 

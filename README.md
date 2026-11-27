@@ -562,8 +562,9 @@ you came from and the pending action are kept), onboarding, home / farm / produc
 chat, photo attachment in chat, and in the producer app sign-up and photo upload. Check uploads and the
 new-product flow against a real server (a local one is enough), not in Mock mode: Mock sends no upload request,
 which is how a broken native upload reached ONE store review (DEV-493). Record each
-device in DEV-41 (model, OS version, install, login, problems). These builds send nothing to
-PostHog: the key is only set in the EAS `production` environment. Known limits: the ‘카카오톡으로
+device in DEV-41 (model, OS version, install, login, problems). These builds send PostHog events
+once an update reaches them: the OneStore apps are `internal` builds on the `preview` channel, so the key is
+set in both the `production` and `preview` environments (DEV-436); use a test account so the events are left out of analysis. Known limits: the ‘카카오톡으로
 로그인’ button inside the auth session may not switch to the KakaoTalk app (Kakao account
 login still works); producer source documents (PDF, text) attach on the web only.
 
