@@ -8,6 +8,18 @@ _YEAR = re.compile(r"\d{4}\s*년")
 _MONEY = re.compile(r"\d[\d,.]*\s*원")
 
 
+_DIGIT_HAS_FINAL = {"0", "1", "3", "6", "7", "8"}  # 영 일 삼 육 칠 팔
+
+
+def _topic(word):
+    """은 or 는 after a quoted word, by its last sound (DEV-452 QA 11/28: ‘조만간’은, ‘올해’는)."""
+    last = word.strip()[-1:]
+    if last.isdigit():
+        return "은" if last in _DIGIT_HAS_FINAL else "는"
+    code = ord(last) - 0xAC00 if last else -1
+    return "은" if 0 <= code <= 11171 and code % 28 else "는"
+
+
 def prompts_for(value, reasons):
     codes = list(dict.fromkeys(code for values in reasons.values() for code in values))
     prompts, seen = [], set()
@@ -33,7 +45,7 @@ def prompts_for(value, reasons):
                 phrase = experience.group()
                 add(
                     code,
-                    f"‘{phrase}’는 어느 해 기준인가요? 지금도 맞는 표현인가요?",
+                    f"‘{phrase}’{_topic(phrase)} 어느 해 기준인가요? 지금도 맞는 표현인가요?",
                     (
                         "자료를 작성한 때의 표현일 수 있어요. 실제 귀촌·시작 "
                         "연도로 바꾸면 시간이 지나도 명확해요."
@@ -47,7 +59,8 @@ def prompts_for(value, reasons):
                     phrase = match.group()
                     add(
                         code,
-                        f"‘{phrase}’는 언제를 뜻하나요? 현재 설명으로 사용해도 괜찮나요?",
+                        f"‘{phrase}’{_topic(phrase)} 언제를 뜻하나요? "
+                        "현재 설명으로 사용해도 괜찮나요?",
                         (
                             "원문을 작성한 시점과 지금은 다를 수 있어요. 과거 이야기인지 "
                             "구분하거나 정확한 연도·날짜로 고쳐 주세요."
@@ -103,6 +116,23 @@ def prompts_for(value, reasons):
                 ),
                 confirmation="판매·수확 시기와 현재 상품의 상태를 확인했어요.",
             )
+        elif code == "SALE_ENDED":
+            add(
+                code,
+                "지난 판매의 종료·품절 안내예요. 이번 판매 페이지에도 넣을까요?",
+                "이번 판매와 맞지 않아 처음에는 페이지에서 뺐어요. 꼭 필요할 때만 넣어 주세요.",
+                confirmation="지난 판매의 안내인지 확인했어요.",
+            )
+        elif code == "OTHER_SELLER":
+            add(
+                code,
+                "다른 판매처나 브랜드의 소개가 섞였나요?",
+                (
+                    "자료가 다른 판매처의 상세페이지였을 수 있어요. 우리 농가에 맞는 "
+                    "소개인지 확인하고, 아니면 고치거나 빼 주세요."
+                ),
+                confirmation="우리 농가에 맞는 소개인지 확인했어요.",
+            )
         elif code == "DISPATCH_OR_DELIVERY":
             add(
                 code,
@@ -150,7 +180,7 @@ def prompts_for(value, reasons):
                 code,
                 "단어나 띄어쓰기가 어색한 곳이 있나요?",
                 (
-                    "자료를 읽는 과정에서 단어가 나뉘었을 수 있어요. "
+                    "단어가 나뉘었거나 띄어쓰기가 어색한 곳이 보여요. "
                     "원문과 비교하고 필요하면 수정해 주세요."
                 ),
                 confirmation="원문과 단어·띄어쓰기를 비교해 확인했어요.",

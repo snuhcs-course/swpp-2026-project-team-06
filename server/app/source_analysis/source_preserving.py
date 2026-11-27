@@ -42,14 +42,33 @@ _RELATIVE = re.compile(
     + _TIME_END
     + r"|\d+\s*년\s*전|(?<![가-힣A-Za-z0-9])(?:내년|올해|작년)이맘(?:때|쯤)"
 )
+# DEV-452 QA 11/28: a past sale's closing notice ("판매가 올해 종료되었습니다", "품절되었습니다")
+# contradicts the sale being set up; it starts off the page and stays in "안 넣은 내용" for the
+# owner to put back.
+_SALE_ENDED = re.compile(
+    r"판매(?:가|를|는)?\s*(?:\S+\s*)?(?:종료되|종료했|종료됐|종료입니|마감되|마감했|마감됐|끝났|끝냈)"
+    r"|(?:품절|매진)(?:되었|됐|입니|이에요|했)"
+    r"|(?:내년|다음\s*(?:해|시즌))에(?:도)?\s*(?:\S+\s*){0,3}(?:찾아\s*뵙|만나)"
+)
+# Another seller's or brand's own introduction (a reseller's detail page used as material).
+_OTHER_SELLER = re.compile(
+    r"(?<![A-Za-z])MD(?![A-Za-z])|엠디|입점|셀러|브랜드\s*입니다|브랜드(?:예|이에)요"
+)
+_FEE_LINE = re.compile(r"무료\s*배송|배송비|택배비|배송\s*택배|주문\s*시\s*결제|착불")
 _HISTORY = re.compile(r"작년|지난해|당시|과거|\d{4}\s*년|\d+\s*년\s*차")
 _SEASON = re.compile(
     r"제철|시즌|한정|품절|재고|예약\s*마감|수량\s*소진|추석|명절|"
     r"(?<![가-힣A-Za-z0-9])설(?:날|\s|선물|을|에|용|[),.!?]|$)|"
     r"(?<!\d)\d{1,2}\s*(?:[~–-]\s*\d{1,2}\s*)?월"
 )
-_DISPATCH = re.compile(
-    r"발송|배송|출고|택배|수령|보내드|주문.{0,12}마감|(?:그날|당일|매일).{0,20}수확"
+_DISPATCH = re.compile(r"발송|배송|출고|택배|보내드|주문.{0,12}마감|(?:그날|당일|매일).{0,20}수확")
+# DEV-452 QA 11/28: an order-time shipping promise ("오전 6시 이전 입금 … 당일 발송") contradicts a
+# pre-order with the producer's own 받는 시기; like a season sentence it starts off the page.
+_SHIP_TIMING = re.compile(
+    r"(?:당일|익일|다음\s*날)\s*(?:발송|출고)"
+    r"|(?:주문|입금|결제)[^.\n]{0,16}(?:즉시|바로)\s*(?:발송|출고)"
+    r"|[월화수목금토일]요일에\s*(?:발송|출고)"
+    r"|오전\s*\d{1,2}\s*시\s*(?:이전|전|까지)[^.\n]{0,12}(?:입금|주문|결제)"
 )
 _CURATIVE = re.compile(r"(?:감기|당뇨|질병|질환).{0,16}(?:치료|예방|완화)")
 # Source-copy review deliberately permits ordinary subjective promotional wording.
@@ -66,7 +85,10 @@ _BOUNDARY_START = re.compile(
     r"\d+(?:[,.]\d+)?\s*(?:kg|㎏|g|키로|킬로|박스|상자|과)(?=\s|[:：/–~-]|$))"
 )
 _SPAN_ORDER = re.compile(r"^(.+?)(\d+)$")
-_TERMS = re.compile(r"결제|입금|환불|반품|교환|취소|추가\s*(?:금|비)")
+_TERMS = re.compile(
+    r"결제|입금|환불|반품|교환|취소|추가\s*(?:금|비)"
+    r"|책임(?:을)?\s*지지|책임지기\s*어렵|보상(?:이|은|해)?\s*(?:어렵|불가)"
+)
 
 
 class SourcePlanError(ValueError):
@@ -125,6 +147,10 @@ def _reasons(value, historical, target_name):
         owner.append("PAYMENT_OR_RETURN_TERMS")
     if has_period_text(value):
         owner.append("TIMING_OR_SALES_TERMS")
+    if _SALE_ENDED.search(value):
+        owner.append("SALE_ENDED")
+    if _OTHER_SELLER.search(value):
+        owner.append("OTHER_SELLER")
     reasons["SAFETY"] = _safety(value, target_name)
     return reasons, repair if repair != value else None
 
@@ -440,14 +466,18 @@ _WEIGHT = re.compile(r"\d+(?:\.\d+)?\s*(?:kg|㎏|키로|킬로|g)(?![a-z])", re.
 
 
 def weight_conflict(value, input_weights):
-    """The text names box weights, none of which are among the producer's sale options."""
+    """The text names a box weight that is not among the producer's sale options.
+
+    DEV-452 QA 11/28: "3kg, 5kg, 10kg" with options 3kg/5kg conflicts (10kg is not sold); only the
+    producer's options appear on the page (PM 11/27 rule b).
+    """
     if not input_weights:
         return False
     found = []
     for m in _WEIGHT.finditer(value):
         number = float(re.match(r"\d+(?:\.\d+)?", m.group(0)).group(0))
         found.append(number / 1000 if re.search(r"(?<!k)g$", m.group(0).lower()) else number)
-    return bool(found) and not any(abs(w - o) < 1e-6 for w in found for o in input_weights)
+    return any(not any(abs(w - o) < 1e-6 for o in input_weights) for w in found)
 
 
 _VARIANT = re.compile(
@@ -693,8 +723,21 @@ def _build(
                 "grammarAssessment": "NOT_RUN",
             }
         )
+    # DEV-452 QA 11/28: a passage that repeats an earlier one word for word (the same sentence read
+    # twice from one PDF) is dropped silently instead of being asked about twice.
+    first_of, exact_repeats = {}, set()
+    for p in passages:
+        key = re.sub(r"\s+", " ", p["value"]).strip()
+        if len(key) >= 12 and key in first_of:
+            exact_repeats.add(p["id"])
+        else:
+            first_of.setdefault(key, p["id"])
     sentence_counts = Counter(
-        s.strip() for p in passages for s in _SENTENCE.split(p["value"]) if len(s.strip()) >= 12
+        s.strip()
+        for p in passages
+        if p["id"] not in exact_repeats
+        for s in _SENTENCE.split(p["value"])
+        if len(s.strip()) >= 12
     )
     seen_decisions = set()
     decision_map = {}
@@ -731,6 +774,11 @@ def _build(
         decision = decision_map.get(passage["bindingHash"])
         passage["assemblyAcknowledged"] = passage["id"] in acknowledged
         passage["queueKinds"] = [kind for kind in _KINDS if reasons[kind]]
+        if passage["id"] in exact_repeats and not decision:
+            passage["status"] = "EXCLUDED"
+            passage["duplicateOf"] = first_of[re.sub(r"\s+", " ", passage["value"]).strip()]
+            passage["queueKinds"] = []
+            continue
         if decision:
             action = decision["action"]
             note = (decision.get("note") or "").strip()
@@ -798,12 +846,40 @@ def _build(
             passage["status"] = "EXCLUDED"
             passage["queueKinds"] = []
             continue
+        elif (
+            input_prices
+            and len(re.sub(r"\s+", "", passage["value"])) <= 30
+            and _FEE_LINE.search(passage["value"])
+        ):
+            # DEV-452 QA 11/28: a short shipping-fee line from the material ("무료배송",
+            # "배송 택배(주문 시 결제)") repeats or contradicts the 배송비 in the sale settings,
+            # which the page already shows; it stays next to the price for reference.
+            passage["inputPreferred"] = "PRICE"
+            passage["status"] = "EXCLUDED"
+            passage["queueKinds"] = []
+            continue
+        elif "SALE_ENDED" in reasons["OWNER_CONFIRMATION"]:
+            # DEV-452 QA 11/28: a past sale's closing notice starts off the page (see _SALE_ENDED).
+            passage["status"] = "EXCLUDED"
+            passage["queueKinds"] = []
+            continue
         elif passage["module"] == "composition" and option_conflict(
             passage["value"], input_weights, input_labels
         ):
             # DEV-452: the sale options entered by the producer win over the material's box sizes
             # and variants (PM 11/27 rule b: only the producer's options appear on the page).
             passage["inputPreferred"] = "WEIGHT"
+            passage["status"] = "EXCLUDED"
+            passage["queueKinds"] = []
+            continue
+        elif (
+            input_months
+            and "DISPATCH_OR_DELIVERY" in reasons["OWNER_CONFIRMATION"]
+            and _SHIP_TIMING.search(passage["value"])
+        ):
+            # DEV-452 QA 11/28: the producer's 받는 시기 wins over an order-time shipping promise;
+            # the wording is kept for reference next to 받는 시기 (same place as season text).
+            passage["inputPreferred"] = "SEASON"
             passage["status"] = "EXCLUDED"
             passage["queueKinds"] = []
             continue
