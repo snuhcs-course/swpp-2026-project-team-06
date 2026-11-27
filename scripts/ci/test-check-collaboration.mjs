@@ -272,6 +272,7 @@ test("absolute links on the docs site resolve under docs/ and canonical names th
   assert.deepEqual(linkKeys(`${SITE_URL}collaboration/ko/#top`, EN, readSite), []);
   assert.deepEqual(linkKeys(`${SITE_URL}collaboration/fr/`, EN, readSite), ["sections"]);
   assert.deepEqual(linkKeys(`${SITE_URL}collaboration/ko/#nowhere`, EN, readSite), ["sections"]);
+  assert.deepEqual(linkKeys(`${SITE_URL}collaboration/%E0%A4%A/`, EN, readSite), ["sections"]); // 잘못된 인코딩도 멈추지 않고 실패로
   const canon = (href, page) => keysOf(checkGuide({ agents: AGENTS, html: swap(HTML, "<html>", `<html><head><link rel="canonical" href="${href}"></head>`), readRepoFile: readSite, page }));
   assert.deepEqual(canon(`${SITE_URL}collaboration/`, EN), []);
   assert.deepEqual(canon(`${SITE_URL}collaboration/ko/`, KO), []);

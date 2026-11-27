@@ -280,7 +280,14 @@ export function checkLinks(html, readRepoFile, page = PAGE) {
     if (href.startsWith(SITE_URL)) {
       // 문서 사이트 절대 주소: docs/<경로>(폴더면 index.html)가 있어야 하고, #앵커는 그 파일의 id여야 한다.
       const [rel, frag] = [href.slice(SITE_URL.length).split("#")[0], href.split("#").slice(1).join("#")];
-      let file = path.posix.join("docs", decodeURIComponent(rel)).replace(/\/$/, "");
+      let decoded;
+      try {
+        decoded = decodeURIComponent(rel);
+      } catch {
+        bad("URL 인코딩이 올바라야 한다");
+        continue;
+      }
+      let file = path.posix.join("docs", decoded).replace(/\/$/, "");
       if (rel === "" || rel.endsWith("/") || readRepoFile(file) === null) file = `${file}/index.html`;
       const html2 = readRepoFile(file);
       if (typeof html2 !== "string") bad(`${SITE_URL}의 경로는 docs/ 아래 파일이어야 한다(${file} 없음)`);
