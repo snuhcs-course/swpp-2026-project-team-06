@@ -6,20 +6,21 @@
 <meta name="description" content="farmclub collaboration map: the workflow, what people do, the layers of control, and links to the source rules">
 <meta name="robots" content="noindex">
 <title>farmclub collaboration map</title>
-<link rel="alternate" hreflang="en" href="./">
-<link rel="alternate" hreflang="ko" href="ko/">
-<link rel="alternate" hreflang="x-default" href="./">
+<link rel="canonical" href="https://docs.farmclub.kr/collaboration/">
+<link rel="alternate" hreflang="en" href="https://docs.farmclub.kr/collaboration/">
+<link rel="alternate" hreflang="ko" href="https://docs.farmclub.kr/collaboration/ko/">
+<link rel="alternate" hreflang="x-default" href="https://docs.farmclub.kr/collaboration/">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!--
-  DEV-437 팀 협업 지도 영어판. 기본 판이라 공개 주소 /guide/에 나간다(11/27 오너 결정). 한국어판은 ko/index.html(/guide/ko/).
+  DEV-437 팀 협업 지도 영어판. 기본 판이라 공개 주소 /collaboration/에 나간다(11/27 오너 결정). 한국어판은 ko/index.html(/collaboration/ko/).
   main에 머지되면 GitHub Pages(main의 /docs)가 그대로 올린다. 상대 링크는 ko/ 와 ./ 뿐이다.
   규칙 문장의 원본은 이 페이지가 가리키는 한국어 문서(AGENTS.md, CI.md)다. 이 판은 규칙을 영어로 풀어 쓰고 원문 절로 연결한다.
   예외: CI가 AGENTS.md와 글자 그대로 대조하는 data-agents 값은 한국어 원문을 두고 바로 뒤 괄호에 영어 풀이를 붙인다.
-  check-guide가 두 판을 같은 규칙으로 보고, 절 id·단계 id·페이지 안 링크·저장소 링크·data-agents 값이 두 판에서 같은지 대조한다. 어느 판도 예외가 아니다.
-  조판은 한국어판과 같고 줄 길이(본문 약 70~75자)와 줄바꿈 규칙만 영어에 맞춘다. 절 id는 바꾸지 않는다. 폴더 설명은 docs/guide/spec.md.
+  check-collaboration가 두 판을 같은 규칙으로 보고, 절 id·단계 id·페이지 안 링크·저장소 링크·data-agents 값이 두 판에서 같은지 대조한다. 어느 판도 예외가 아니다.
+  조판은 한국어판과 같고 줄 길이(본문 약 70~75자)와 줄바꿈 규칙만 영어에 맞춘다. 절 id는 바꾸지 않는다. 폴더 설명은 docs/collaboration/spec.md.
 -->
 <style>
 :root{
@@ -449,7 +450,7 @@ footer.foot .c{max-width:38em}
     <div class="tbl"><table>
       <thead><tr><th style="width:24%">Check</th><th>What it looks at</th></tr></thead>
       <tbody>
-        <tr><td><code>ci-ok</code></td><td>The server, apps, admin-web and integration jobs picked for that lane, plus <code>guide</code> (this page). A docs-only PR skips server, apps and integration.</td></tr>
+        <tr><td><code>ci-ok</code></td><td>The server, apps, admin-web and integration jobs picked for that lane, plus <code>collaboration</code> (this page). A docs-only PR skips server, apps and integration.</td></tr>
         <tr><td><code>figma-line</code></td><td>Whether a PR that changes screen code has exactly one <code>Figma:</code> line in its body. Skipped in the merge queue.</td></tr>
         <tr><td><code>checker-tests</code></td><td>Contract tests for the spec-check tool itself (no model, no key).</td></tr>
         <tr><td><code>spec-code-review</code></td><td>Not required. The result is one of PASS, NO_FINDINGS, MISMATCH, INCOMPLETE, SKIPPED. NO_FINDINGS and SKIPPED are not PASS.</td></tr>
@@ -572,7 +573,7 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
           <li>spec-check says INCOMPLETE: check the table format with <code>check_table.py</code> first.</li>
           <li>A deploy was skipped: the first line of the deploy log. Either nothing changed since the moving tag or CI on main failed.</li>
           <li>Two migration heads: merge main, then run <code>alembic heads</code>. Whoever merges second renumbers.</li>
-          <li>The <code>guide</code> check is red: read the key, line, actual and expected values in the log and fix as described <a href="#upkeep">below</a>.</li>
+          <li>The <code>collaboration</code> check is red: read the key, line, actual and expected values in the log and fix as described <a href="#upkeep">below</a>.</li>
           <li>Commits do not count in Insights: check that <code>git config user.email</code> matches your GitHub email.</li>
           <li>Stuck for over an hour: tell the PM.</li>
         </ul>
@@ -585,10 +586,10 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
 <footer class="foot g12" id="upkeep">
   <h2>Editing this page</h2>
   <div class="c">
-    <p>The CI <code>guide</code> job (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/scripts/ci/check-guide.mjs">check-guide.mjs</a>) compares two things on every run. It checks the marked values for 11 keys (<code>branch</code> <code>commit</code> <code>pr-title</code> <code>checks</code> <code>high-risk</code> <code>steps</code> <code>skills</code> <code>ai-log</code> <code>spec-check</code> <code>test-urls</code> <code>stacking</code>) against the matching AGENTS.md sections, and checks repository links against the files and their headings. On PRs and in the merge queue a mismatch blocks; on a main push it only warns.</p>
+    <p>The CI <code>collaboration</code> job (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/scripts/ci/check-collaboration.mjs">check-collaboration.mjs</a>) compares two things on every run. It checks the marked values for 11 keys (<code>branch</code> <code>commit</code> <code>pr-title</code> <code>checks</code> <code>high-risk</code> <code>steps</code> <code>skills</code> <code>ai-log</code> <code>spec-check</code> <code>test-urls</code> <code>stacking</code>) against the matching AGENTS.md sections, and checks repository links against the files and their headings. On PRs and in the merge queue a mismatch blocks; on a main push it only warns.</p>
     <p>The Korean edition is checked the same way, and CI also fails if the two editions differ in section ids, step ids, in-page links, repository links or marked values. Change both editions in the same PR.</p>
     <p class="mut">The check does not read prose, elements hidden with CSS or the content behind external links. Whoever changes a rule, and their reviewer, update the related section.</p>
-    <p class="cap">Source <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/guide/index.html">docs/guide/index.html</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/commits/main/docs/guide/index.html">history</a></p>
+    <p class="cap">Source <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/collaboration/index.html">docs/collaboration/index.html</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/commits/main/docs/collaboration/index.html">history</a></p>
   </div>
 </footer>
 </div>
