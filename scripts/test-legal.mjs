@@ -405,8 +405,25 @@ test("DEV-436: privacy policy covers PostHog analytics in the store apps, effect
   assert.ok(html.includes(`앱에서는 세션 녹화를 하지 않습니다(${EFFECTIVE}부터 시행).`));
   // 제14조: 변경 기록과 시행일
   assert.match(html, new RegExp(`${EFFECTIVE} 변경: PostHog 이용 통계를 웹 화면뿐 아니라[^<]*다시 동의를 받지 않습니다`));
-  assert.ok(html.includes(`${EFFECTIVE} 변경분(앱 이용 통계)은 ${EFFECTIVE}부터 시행합니다.`));
+  assert.ok(html.includes(`${EFFECTIVE} 변경분(앱 이용 통계)은 ${EFFECTIVE}부터`));
   // 처리 근거·동의 항목은 그대로라 문서 시행일·동의 버전은 올리지 않는다(DEV-476과 같은 규칙)
+  assert.equal(content.privacyPolicy.effective, "2026년 11월 20일");
+  assert.equal(content.LEGAL_VERSION, "2026-11-20");
+});
+
+test("DEV-496: privacy policy covers PostHog error records (errors and app freezes), effective immediately, without a version bump", () => {
+  // legalContent.ts의 ERROR_TRACKING_EFFECTIVE와 같아야 한다. 배포가 밀리면 둘을 함께 고친다(DEV-436과 같은 PM 규칙)
+  const EFFECTIVE = "2026년 11월 29일";
+  const html = pages.pageHtml(content.privacyPolicy);
+  // 제6조: PostHog로 가는 항목에 오류 기록(개인정보를 지운 메시지, 멈춘 시간)
+  const row = html.match(/<tr><td>PostHog, Inc\. \(privacy@posthog\.com\)<\/td>(.*?)<\/tr>/s)?.[1];
+  assert.ok(row, "PostHog row in the transfer table");
+  assert.ok(row.includes("오류 기록(웹·앱에서 생긴 오류의 종류와 코드 위치, 이메일·4자리 이상 숫자·주소 뒤 값을 지우고 200자로 자른 오류 메시지, 앱이 5초 이상 멈춘 시간)"));
+  // 제10조: 앱·웹 오류 기록 전송과 시행일
+  assert.ok(html.includes(`앱이 5초 이상 멈추면 그 오류 기록(제6조)도 PostHog로 보냅니다(${EFFECTIVE}부터 시행).`));
+  // 제14조: 변경 기록과 시행일
+  assert.match(html, new RegExp(`${EFFECTIVE} 변경: 웹 화면과 앱에서 생긴 오류[^<]*다시 동의를 받지 않습니다`));
+  assert.ok(html.includes(`${EFFECTIVE} 변경분(오류 기록)은 ${EFFECTIVE}부터 시행합니다.`));
   assert.equal(content.privacyPolicy.effective, "2026년 11월 20일");
   assert.equal(content.LEGAL_VERSION, "2026-11-20");
 });
