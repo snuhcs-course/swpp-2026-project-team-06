@@ -207,9 +207,9 @@
 
     "proposal-boards/dev-311-brand-integrated.html": {"x":4340,"y":16400,"w":1380,"h":24600,"title":"DEV-311 브랜드 통합안 A + B 가격 계단 (제안)"},
 
-    "proposal-boards/dev-437-redesign-v2.html": {"x":5840,"y":16400,"w":1400,"h":12890,"title":"DEV-437 협업 지도 v2: 진단 · 방향 · 무브 · 결정 (제안)"},
+    "proposal-boards/dev-437-redesign-v2.html": {"x":5840,"y":16400,"w":1400,"h":12890,"title":"DEV-437 협업 지도 v2: 진단 · 방향 · 무브 · 결정 (11/27 승인)"},
 
-    "proposal-boards/dev-437-redesign-v2-compare.html": {"x":7360,"y":16400,"w":1400,"h":15100,"title":"DEV-437 협업 지도 v2: 시안 캡처 · 전후 (제안)"},
+    "proposal-boards/dev-437-redesign-v2-compare.html": {"x":7360,"y":16400,"w":1400,"h":15100,"title":"DEV-437 협업 지도 v2: 적용본 캡처 · 전후 (11/27 승인)"},
 
     "proposal-boards/dev-437-redesign-v2-page-en.html": {"x":8880,"y":16400,"w":1280,"h":12020,"title":"DEV-437 협업 지도: 영어판(기본) /guide/ 1280"},
 
@@ -349,6 +349,6 @@
 
     "t311": {"kind":"title","x":1400,"y":16290,"maxW":4320,"text":"DEV-311 브랜드 아이덴티티 제안 (승인 전)"},
 
-    "t437": {"kind":"title","x":5840,"y":16290,"maxW":4320,"text":"DEV-437 협업 지도 다시 짜기 v2 (승인 전)"}
+    "t437": {"kind":"title","x":5840,"y":16290,"maxW":4320,"text":"DEV-437 협업 지도 다시 짜기 v2 (11/27 승인·적용)"}
   }
 }
