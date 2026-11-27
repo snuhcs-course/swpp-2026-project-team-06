@@ -159,8 +159,8 @@ test("DEV-122: PostHog transfer lists every item of Article 28-8(2) and the basi
   assert.ok(row, "PostHog row in the transfer table");
   assert.ok(row.includes("<td>미국</td>"));
   for (const item of ["접속 IP 주소", "세션 녹화", "*로 가려", "서비스 내부 회원 ID", "이름·연락처·주소·메시지 본문은 보내지 않음"]) assert.ok(row.includes(item), item);
-  // DEV-436: 웹 화면과 정식 배포 앱에서만 보낸다(미리보기·테스트 빌드 제외)
-  assert.ok(row.includes("공식 주소(farmclub.kr, farm.farmclub.kr)의 웹 화면과 앱 마켓에 정식 배포한 iOS·Android 앱에서만 보냄"));
+  // DEV-436: 웹 화면과 앱 마켓에 배포한 앱에서만 보낸다. 원스토어 앱이 preview 채널 internal 빌드라 같은 빌드의 팀 테스트 기기도 보낸다
+  assert.ok(row.includes("공식 주소(farmclub.kr, farm.farmclub.kr)의 웹 화면과 앱 마켓(원스토어 등)에 배포한 iOS·Android 앱에서만 보냄"));
   // DEV-299: 보관 기간은 PostHog 실제 설정(이벤트 최대 7년, 녹화 30일). 무료 요금제 1년이 아니다
   assert.ok(row.includes("PostHog의 보관 기준에 따라 이용 기록은 수집한 날부터 최대 7년"));
   assert.match(row, /30일/);
@@ -397,8 +397,10 @@ test("DEV-436: privacy policy covers PostHog analytics in the store apps, effect
   // 제6조: 앱에서 보내는 항목과 거부 방법
   const row = html.match(/<tr><td>PostHog, Inc\. \(privacy@posthog\.com\)<\/td>(.*?)<\/tr>/s)?.[1];
   assert.ok(row, "PostHog row in the transfer table");
-  for (const item of ["앱 버전", "앱 설치·열기·백그라운드 전환", "세션 녹화(웹 화면만.", "미리보기·테스트 빌드에서는 보내지 않음"]) assert.ok(row.includes(item), item);
+  for (const item of ["앱 버전", "앱 설치·열기·백그라운드 전환", "세션 녹화(웹 화면만.", "테스트 계정의 기록은 분석에서 뺌"]) assert.ok(row.includes(item), item);
   assert.ok(html.includes("앱에는 전송을 막는 설정이 아직 없으니, 원하지 않으면 웹 화면을 이용하세요."));
+  // 원스토어 앱은 preview 채널 빌드라 "미리보기·테스트 빌드는 보내지 않음"이라고 쓰지 않는다
+  assert.ok(!row.includes("미리보기·테스트 빌드에서는 보내지 않음"));
   // 제10조: 앱의 자동 수집 장치, 앱은 세션 녹화 없음
   assert.ok(html.includes(`앱에서는 세션 녹화를 하지 않습니다(${EFFECTIVE}부터 시행).`));
   // 제14조: 변경 기록과 시행일
