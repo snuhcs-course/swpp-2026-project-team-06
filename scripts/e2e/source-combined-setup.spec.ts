@@ -125,8 +125,7 @@ test("DEV-452 AC-SRC-1/5/10/11: required setup, generated page, check sheet and 
   expect(await sections()).toEqual(was);
 
   // 5b. A section the page does not have yet can be added (opens ready to type).
-  await page.getByTestId("add-section-row").click();
-  await page.getByRole("dialog").getByRole("button", { name: "크기 참고 추가", exact: true }).click();
+  await page.getByTestId("add-section-row").getByRole("button", { name: "크기 참고 추가", exact: true }).click();
   await expect(page.getByText("크기 참고 추가", { exact: true })).toBeVisible();
   await page.getByRole("dialog").locator("textarea").first().fill("지름 7~8cm 정도예요.");
   await page.getByRole("button", { name: "저장하고 닫기", exact: true }).click();

@@ -278,13 +278,14 @@ export function CheckSheet({
         {/* Show the original only when the words differ, not just spacing or line breaks. */}
         {p.originalValue.replace(/\s+/g, "") !== shown.replace(/\s+/g, "") ? <T variant="caption" muted>{`원문: ${p.originalValue}`}</T> : null}
         {prompts.length
-          ? prompts.slice(0, 2).map((q) => (
+          ? // One question per passage reads naturally; a critical one comes first (user 11/28).
+            [...prompts].sort((a, b) => Number(b.severity === "critical") - Number(a.severity === "critical")).slice(0, 1).map((q) => (
               <View key={q.question} style={{ gap: 4 }}>
                 <T weight="semibold" color={q.severity === "critical" ? tokens.color.error : undefined}>{q.question}</T>
                 <T variant="sub" muted>{q.detail}</T>
               </View>
             ))
-          : [...new Set(reasons.map((r) => reasonMessages[r]).filter(Boolean))].slice(0, 2).map((m) => <T key={m} variant="sub">{m}</T>)}
+          : [...new Set(reasons.map((r) => reasonMessages[r]).filter(Boolean))].slice(0, 1).map((m) => <T key={m} variant="sub">{m}</T>)}
         {repair ? <T variant="sub">{`제안: ${repair}`}</T> : null}
         {editing === item.key ? (
           <View style={{ gap: 8 }}>

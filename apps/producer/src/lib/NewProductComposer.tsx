@@ -3,7 +3,7 @@ import { FieldFeedback, FieldFeedbackContext } from "./FieldFeedback";
 import { chooseSourceFiles } from "./sourceFiles";
 import { EditorActions } from "./EditorActions";
 import { sourceActionError, type SourceActionError } from "./sourceFeedback";
-import { SourceRunProgress } from "./SourceRunProgress";
+import { SourceRunProgress, SourceRunSteps } from "./SourceRunProgress";
 import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 // 새 상품 한 화면 편집(DEV-184): 기본 정보 + 상세페이지를 한 스크롤에 두고,
 // 사진·자료는 아래에 붙은 AI 시트에서 넣는다. 비공개 저장과 명시적 적용은 그대로 나눈다.
@@ -647,6 +647,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     { batchId, notice: openNotice, terms: termsParam, from } = useLocalSearchParams<{ batchId?: string; notice?: string; terms?: string; from?: string }>();
   const combinedSetup = from === "setup";
   // DEV-452 (PM 11/27 redesign): the generated page is shown as buyers see it; fixing happens in sheets.
+  const [nameNoticeOff, setNameNoticeOff] = useState("");
   const [reviewSheet, setReviewSheet] = useState<null | "photos" | "info" | "leftover" | "add" | { only?: string[] }>(null);
   const [pageSections, setPageSections] = useState<Record<string, string[]>>({});
   const [editSection, setEditSection] = useState<{ title: string; moduleIds: string[]; add?: boolean } | null>(null);
@@ -1884,7 +1885,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   const sheetItems = toCheck - (readingBlocked ? 1 : 0) - (photoMissing ? 1 : 0);
   const mainLabel = preSale && combinedSetup ? (toCheck ? `판매 시작 요청 · 확인 ${toCheck}` : "판매 시작 요청") : preSale ? "다음: 판매·가격" : unapplied ? `상품에 반영 (${unapplied})` : "상품에 반영";
   // 판매 종료 상품은 하단 버튼이 없다. 같은 안내는 위쪽 줄에만 둔다(PM 11/18)
-  const footerButtons = readOnly ? null : (
+  // While the combined page is being made there is nothing to save or request yet (user review 11/28).
+  const footerButtons = readOnly || (combinedSetup && working) ? null : (
     <View style={{ flexDirection: "row", gap: 8 }}>
       {/* 바로 반영 방식(C-2)은 비공개 저장이 없다 */}
       {live && draftMode === "direct" ? null : (
@@ -2074,7 +2076,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             ) : null}
           </View>
         ) : null}
-        {combinedSetup && working && batch && activeRun ? <View style={{padding:20,gap:16}}><T>올려주신 자료와 판매 설정으로 페이지를 만들고 있어요.</T><SourceRunProgress batch={batch} run={activeRun}/></View> : !batchId && !productOnly ? (
+        {combinedSetup && working && batch && activeRun ? <View style={{ padding: 20, gap: 20 }}><T variant="heading">상품 페이지를 만들고 있어요</T><SourceRunSteps batch={batch} run={activeRun} /></View> : !batchId && !productOnly ? (
           <View style={{ padding: tokens.space.gutter, gap: 12 }}>
             <T>열 상품을 찾지 못했어요. 상품 목록에서 다시 골라 주세요.</T>
             <Button
@@ -2350,9 +2352,25 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                         </FieldFeedback>
                       ),
                       name: reviewChrome && target ? (
+                        <View style={{ gap: 8 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                           <T variant="heading" style={{ flex: 1 }}>{form.name}</T>
                           <Button compact variant="text" label="✎ 정보 고치기" onPress={() => setReviewSheet("info")} />
+                        </View>
+                        {(() => {
+                          // DEV-452 (user review 11/28): a name that differs from the material, e.g. a typo, is pointed out.
+                          const docName = cleanProductName(docValue(review, target.id, "name") ?? "");
+                          if (!differs(form.name, docName) || nameNoticeOff === `${target.id}:${form.name}:${docName}`) return null;
+                          return (
+                            <View testID="name-mismatch" style={{ gap: 8, padding: 12, borderRadius: 10, backgroundColor: "#FFF4E5" }}>
+                              <T variant="sub">{`자료에는 상품명이 ‘${docName}’(으)로 적혀 있어요. 입력한 이름 ‘${form.name}’이 맞나요?`}</T>
+                              <View style={{ flexDirection: "row", gap: 8 }}>
+                                <Button compact variant="outline" label={`‘${docName}’로 바꾸기`} disabled={busy} onPress={() => setReviewSheet("info")} />
+                                <Button compact variant="text" label="지금 이름이 맞아요" disabled={busy} onPress={() => setNameNoticeOff(`${target.id}:${form.name}:${docName}`)} />
+                              </View>
+                            </View>
+                          );
+                        })()}
                           {reviewSheet === "info" ? (
                             <Sheet visible onClose={() => { if (!busy) setReviewSheet(null); }} title="상품 정보">
                               <View style={{ gap: 12 }}>
@@ -2502,15 +2520,30 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                                   await load();
                                 }}
                               />
-                              {reviewChrome ? (
-                                <Pressable
-                                  testID="add-section-row"
-                                  accessibilityRole="button"
-                                  onPress={() => setReviewSheet("add")}
-                                  style={{ marginHorizontal: tokens.space.gutter, marginBottom: 12, padding: 14, borderRadius: 12, borderWidth: 1, borderStyle: "dashed", borderColor: tokens.color.border, alignItems: "center" }}
-                                >
-                                  <T weight="semibold">＋ 섹션 추가</T>
-                                </Pressable>
+                              {reviewChrome && target ? (
+                                // Unfolded like the product editor's 내용 추가 (user review 11/28).
+                                <View testID="add-section-row" style={{ marginHorizontal: tokens.space.gutter, marginBottom: 12, gap: 8 }}>
+                                  <T variant="caption" muted>내용 추가</T>
+                                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                                    {SOURCE_MODULES.filter(([id]) => id !== "hero" && !(pageSections[target.id] ?? []).includes(id)).map(([id, label]) => {
+                                      const artwork = sourceModuleIcon(id);
+                                      return (
+                                        <Pressable
+                                          key={id}
+                                          accessibilityRole="button"
+                                          accessibilityLabel={`${label} 추가`}
+                                          disabled={busy || working}
+                                          onPress={() => setEditSection({ title: label, moduleIds: [id], add: true })}
+                                          style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48, paddingHorizontal: 12, borderWidth: 1, borderColor: tokens.color.border, borderRadius: tokens.radius.md, backgroundColor: tokens.color.surface }}
+                                        >
+                                          {artwork ? <Image source={artwork} accessible={false} resizeMode="contain" style={{ width: 24, height: 24 }} /> : null}
+                                          <T variant="caption">{label}</T>
+                                          <Icon name="plus" size={18} />
+                                        </Pressable>
+                                      );
+                                    })}
+                                  </View>
+                                </View>
                               ) : null}
                               {reviewChrome && leftovers ? (
                                 <Pressable
@@ -2673,31 +2706,6 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             onConfirm={(p) => void photoAction(() => api.confirmExtracted(batch.id, p))}
             onRemove={(p) => void photoAction(() => api.removeSource(batch.id, p))}
             onAdd={() => void pickPhoto(false)} />
-        </Sheet>
-      ) : null}
-      {reviewChrome && target && reviewSheet === "add" ? (
-        <Sheet visible onClose={() => setReviewSheet(null)} title="섹션 추가">
-          <View style={{ gap: 8 }}>
-            <T variant="caption" muted>페이지에 아직 없는 섹션이에요. 고르면 그 섹션을 채우는 화면이 열려요.</T>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {SOURCE_MODULES.filter(([id]) => id !== "hero" && !(pageSections[target.id] ?? []).includes(id)).map(([id, label]) => {
-                const artwork = sourceModuleIcon(id);
-                return (
-                  <Pressable
-                    key={id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${label} 추가`}
-                    onPress={() => { setReviewSheet(null); setEditSection({ title: label, moduleIds: [id], add: true }); }}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48, paddingHorizontal: 12, borderWidth: 1, borderColor: tokens.color.border, borderRadius: tokens.radius.md }}
-                  >
-                    {artwork ? <Image source={artwork} accessible={false} resizeMode="contain" style={{ width: 24, height: 24 }} /> : null}
-                    <T variant="caption">{label}</T>
-                    <Icon name="plus" size={18} />
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
         </Sheet>
       ) : null}
       {reviewChrome && batch && target && reviewSheet === "leftover" && review ? (

@@ -127,3 +127,61 @@ export function SourceRunProgress({ batch, run }: { batch: SourceBatch; run: Sou
     </View>
   );
 }
+
+const STEPS = ["자료 열기", "글과 사진 읽기", "내용 정리", "페이지 구성"] as const;
+
+/** Which of STEPS the run is on (0..3); 4 when everything has finished. From item states only. */
+export function runStep(run: SourceRun) {
+  const open = (phase: string) => run.items.some((i) => i.phase === phase && !finished(i.status));
+  if (run.items.length && run.items.every((i) => finished(i.status))) return 4;
+  if (open("PREPARE") || !run.items.some((i) => i.phase === "EXTRACT")) return 0;
+  const reading = run.items.find((i) => i.phase === "EXTRACT" && !finished(i.status));
+  if (reading) return reading.status === "RUNNING" && reading.progress?.stage === "ANALYSE" ? 2 : 1;
+  return 3;
+}
+
+/**
+ * DEV-452 waiting screen for the combined setup flow (user review 11/28): one headline, the bar,
+ * and four plain steps instead of per-item status words. Counts and steps come from the run only.
+ */
+export function SourceRunSteps({ batch, run }: { batch: SourceBatch; run: SourceRun }) {
+  const best = useRef<{ run: string; percent: number }>({ run: "", percent: 0 });
+  const raw = runPercent(batch, run);
+  if (best.current.run !== run.id) best.current = { run: run.id, percent: 0 };
+  best.current.percent = Math.max(best.current.percent, raw);
+  const percent = best.current.percent;
+  const step = runStep(run);
+  const ids = [...new Set(run.items.filter((i) => i.phase !== "REFINE").map((i) => i.assetId))];
+  const done = ids.filter((id) => run.items.filter((i) => i.assetId === id).every((i) => finished(i.status))).length;
+  return (
+    <View testID="source-run-progress" accessibilityLiveRegion="polite" style={{ gap: 16 }}>
+      <View style={{ gap: 6 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <T weight="semibold">{runStage(run)}</T>
+          <T weight="semibold">{percent}%</T>
+        </View>
+        <ProgressBar percent={percent} />
+        {ids.length > 1 ? <T variant="caption" muted>{`자료 ${ids.length}개 중 ${done}개를 끝냈어요`}</T> : null}
+      </View>
+      <View style={{ gap: 10 }}>
+        {STEPS.map((label, i) => {
+          const state = i < step ? "done" : i === step ? "now" : "wait";
+          return (
+            <View key={label} testID={`run-step-${i}`} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={{
+                width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center",
+                backgroundColor: state === "done" ? tokens.color.accent : "transparent",
+                borderWidth: state === "done" ? 0 : 2,
+                borderColor: state === "now" ? tokens.color.accent : tokens.color.border,
+              }}>
+                {state === "done" ? <T variant="caption" weight="semibold" color="#FFFFFF">✓</T> : null}
+              </View>
+              <T weight={state === "now" ? "semibold" : undefined} muted={state === "wait"}>{label}</T>
+            </View>
+          );
+        })}
+      </View>
+      <T variant="caption" muted>다른 화면에 다녀와도 괜찮아요. 다 만들어지면 상품 목록에서 이어서 확인할 수 있어요.</T>
+    </View>
+  );
+}

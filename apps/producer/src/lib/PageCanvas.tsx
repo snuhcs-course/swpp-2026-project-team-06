@@ -8,7 +8,6 @@ import {
   Button,
   Icon,
   T,
-  StoryImage,
   tokens,
 } from "@farmclub/ui";
 import { Children, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -373,6 +372,27 @@ export function PageCanvas({
                   n.photos.splice(i, 1);
                 }),
               )}
+            {/* Move controls sit on the photo they move (user review 11/28). */}
+            {selected === m.id ? (
+              <View style={{ position: "absolute", left: 8, bottom: 8, flexDirection: "row", gap: 6 }}>
+                {[
+                  { label: "위로", hint: `사진 ${i + 1} 앞으로`, off: i === 0, run: () => update(m.id, (n) => { [n.photos[i - 1], n.photos[i]] = [n.photos[i], n.photos[i - 1]]; }) },
+                  { label: "아래로", hint: `사진 ${i + 1} 뒤로`, off: i === m.photos.length - 1, run: () => update(m.id, (n) => { [n.photos[i + 1], n.photos[i]] = [n.photos[i], n.photos[i + 1]]; }) },
+                  { label: "다른 섹션으로", hint: `사진 ${i + 1} 위치 이동`, off: false, run: () => setMoving({ id: m.id, index: i }) },
+                ].filter((b) => !b.off).map((b) => (
+                  <Pressable
+                    key={b.label}
+                    accessibilityRole="button"
+                    accessibilityLabel={b.hint}
+                    disabled={busy || uploading}
+                    onPress={b.run}
+                    style={{ minHeight: 36, paddingHorizontal: 12, borderRadius: 18, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.92)" }}
+                  >
+                    <T variant="caption" weight="semibold">{b.label}</T>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
           </View>
         ))}
         {!emptyHint || selected === m.id ? (
@@ -410,52 +430,9 @@ export function PageCanvas({
         ) : null}
         {selected === m.id ? (
           <View style={{ gap: 8 }}>
-            {m.photos.map((p, i) => (
-              <View
-                key={`${p.uri}-${i}`}
-                style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}
-              >
-                <T variant="caption">사진 {i + 1}</T>
-                <Button
-                  compact
-                  label="앞으로"
-                  variant="text"
-                  disabled={busy || uploading || i === 0}
-                  onPress={() =>
-                    update(m.id, (n) => {
-                      [n.photos[i - 1], n.photos[i]] = [
-                        n.photos[i],
-                        n.photos[i - 1],
-                      ];
-                    })
-                  }
-                />
-                <Button
-                  compact
-                  label="뒤로"
-                  variant="text"
-                  disabled={busy || uploading || i === m.photos.length - 1}
-                  onPress={() =>
-                    update(m.id, (n) => {
-                      [n.photos[i + 1], n.photos[i]] = [
-                        n.photos[i],
-                        n.photos[i + 1],
-                      ];
-                    })
-                  }
-                />
-                <Button
-                  compact
-                  label="위치 이동"
-                  variant="text"
-                  disabled={busy || uploading}
-                  onPress={() => setMoving({ id: m.id, index: i })}
-                />
-              </View>
-            ))}
             {moving?.id === m.id ? (
               <View style={{ gap: 4 }}>
-                <T variant="caption">이동할 위치</T>
+                <T variant="caption">{`사진 ${moving.index + 1}을 옮길 섹션`}</T>
                 {displayModules
                   .filter((n) => n.id !== m.id)
                   .map((n) => (
@@ -484,17 +461,18 @@ export function PageCanvas({
         ) : null}
         {picker === m.id ? (
           <View style={{ gap: 8 }}>
-            {availablePhotos
-              .filter((p) => !m.photos.some((x) => x.uri === p.uri))
-              .map((p) => (
-                <View key={p.uri} style={{ gap: 4 }}>
-                  <View style={{ height: 80, overflow: "hidden" }}>
-                    <StoryImage uri={media(p.uri)} alt={p.alt} />
-                  </View>
-                  <Button
-                    compact
-                    label={`상품사진 ${availablePhotos.indexOf(p) + 1} 추가`}
-                    variant="outline"
+            {availablePhotos.some((p) => !m.photos.some((x) => x.uri === p.uri)) ? (
+              <T variant="caption" muted>이미 올린 사진에서 고르거나 새 사진을 올려 주세요.</T>
+            ) : null}
+            {/* Whole photos as tiles, so the owner can tell them apart (user review 11/28). */}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {availablePhotos
+                .filter((p) => !m.photos.some((x) => x.uri === p.uri))
+                .map((p) => (
+                  <Pressable
+                    key={p.uri}
+                    accessibilityRole="button"
+                    accessibilityLabel={`상품사진 ${availablePhotos.indexOf(p) + 1} 추가`}
                     disabled={busy || uploading}
                     onPress={() =>
                       update(m.id, (n) => {
@@ -503,9 +481,15 @@ export function PageCanvas({
                         setPicker(null);
                       })
                     }
-                  />
-                </View>
-              ))}
+                    style={{ width: 104, gap: 4, alignItems: "center" }}
+                  >
+                    <View style={{ width: 104, height: 104, borderRadius: 10, overflow: "hidden", backgroundColor: "#F2EEE6", borderWidth: 1, borderColor: tokens.color.border }}>
+                      <Image source={{ uri: media(p.uri) }} accessibilityLabel={p.alt || "상품 사진"} resizeMode="contain" style={{ width: "100%", height: "100%" }} />
+                    </View>
+                    <T variant="caption" weight="semibold">＋ 넣기</T>
+                  </Pressable>
+                ))}
+            </View>
             {onUpload ? (
               <Button
                 compact
@@ -563,18 +547,19 @@ export function PageCanvas({
           {blocked.includes(m.id) || selected === m.id ? (
             <View style={{ gap: 8 }}>
               {m.id === "sizePhoto" ? (
-                <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                  <T variant="caption" muted>크기 그림</T>
                   {[
-                    ["", "그림 없음"],
                     ["small", "소과"],
                     ["medium", "중과"],
                     ["large", "대과"],
+                    ["", "그림 빼기"],
                   ].map(([id, label]) => (
                     <Button
                       compact
                       key={id}
                       label={label}
-                      variant="text"
+                      variant={(m.illustrationId ?? "") === (id ? `hand-citrus-${id}` : "") ? "primary" : "outline"}
                       disabled={busy || uploading}
                       onPress={() =>
                         update(m.id, (n) => {
