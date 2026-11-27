@@ -253,7 +253,7 @@ screens.md 1.0과 다르게 정한 것이다. SWPP-81에서 스펙 1.1에 반영
 | 브랜드 통합안: A 팬클럽 + B 가격 계단, 승인된 DEV-268 UX 위 (DEV-311) | [proposals/dev-311-brand-integrated.html](proposals/dev-311-brand-integrated.html) | 1380×24600 |
 | 협업 지도 v2: 진단 · 방향 · 디자인 무브 · 결정 / 시안 캡처 · 전후 / 시안 페이지 (DEV-437) | [proposals/DEV-437/redesign-v2.html](proposals/DEV-437/redesign-v2.html) · [proposals/DEV-437/redesign-v2-compare.html](proposals/DEV-437/redesign-v2-compare.html) · [proposals/DEV-437/redesign-v2-page.html](proposals/DEV-437/redesign-v2-page.html)(한국어판 사본, 원본 `docs/guide/ko/index.html`) | 1400×12890 · 1400×15100 · 1280×10200 |
 | 협업 지도 영어판(기본) 사본 (DEV-437, 2026-11-27, 원본 `docs/guide/index.html`, 공개 `/guide/`) | [proposals/DEV-437/redesign-v2-page-en.html](proposals/DEV-437/redesign-v2-page-en.html) | 1280×12280 |
-| 협업 지도 단계 이동·EN \| 한국어, 넓은 화면은 아래 가운데 조작부 (DEV-437, 2026-11-27 오너 요청·피드백) | [proposals/DEV-437/nav-and-switch.html](proposals/DEV-437/nav-and-switch.html) | 1400×17100 |
+| 협업 지도 단계 이동·EN \| 한국어, 넓은 화면은 아래 가운데 조작부 (DEV-437, 2026-11-27 오너 요청·피드백) | [proposals/DEV-437/nav-and-switch.html](proposals/DEV-437/nav-and-switch.html) | 1400×19140 |
 
 ## 스펙 1.2~1.5 반영 (SWPP-83)
 
