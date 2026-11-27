@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// DEV-437: 팀 안내 페이지 두 판(영어판 docs/guide/index.html이 기본, 한국어판 docs/guide/ko/index.html)이 AGENTS.md·저장소와, 서로 어긋나지 않았는지 본다. 의존성 없음(node만).
+// DEV-437: 팀 안내 페이지 두 판(영어판 docs/collaboration/index.html이 기본, 한국어판 docs/collaboration/ko/index.html)이 AGENTS.md·저장소와, 서로 어긋나지 않았는지 본다. 의존성 없음(node만).
 //
-//   node scripts/ci/check-guide.mjs     # CI guide job(PR·머지 큐에서 실패하면 ci-ok가 막는다), 로컬은 make test-ci
+//   node scripts/ci/check-collaboration.mjs     # CI collaboration job(PR·머지 큐에서 실패하면 ci-ok가 막는다), 로컬은 make test-ci
 //
 // 두 가지를 본다.
 // 1) 값(KEYS 표): 페이지가 꼭 보여야 하는 AGENTS.md 값은 data-agents="키" 요소로 쓴다. 키마다 AGENTS.md의 절과
@@ -19,18 +19,20 @@
 //    상대 경로·http://·다른 브랜치처럼 Pages에서 깨지거나 main과 갈라지는 링크는 실패다.
 //    예외: 다른 언어판(PAGES)을 가리키는 상대 링크(en/, ../, ./)는 허용하고, #앵커가 있으면 그 판의 id를 본다.
 // 3) 두 판(checkParity, 보고 키 parity): 영어판과 한국어판의 id 집합(절·단계 step-1~8 포함), 페이지 안 링크(#…) 집합(바·단계 줄 포함),
-//    저장소 링크 집합(docs/guide/ 자기 링크 제외), data-agents 값(키·방식·글)과 목록 항목 수가 같아야 한다.
+//    저장소 링크 집합(docs/collaboration/ 자기 링크 제외), data-agents 값(키·방식·글)과 목록 항목 수가 같아야 한다.
 //    대칭이라 어느 판도 기준이 아니고, 한쪽만 고치면 실패한다.
-// 규칙을 바꾸면 같은 PR에서 페이지도 고친다. 값 키를 늘리려면 KEYS에 한 줄, test-check-guide.mjs에 fixture 시나리오를 더한다.
+// 규칙을 바꾸면 같은 PR에서 페이지도 고친다. 값 키를 늘리려면 KEYS에 한 줄, test-check-collaboration.mjs에 fixture 시나리오를 더한다.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-export const PAGE = "docs/guide/index.html";
-// 협업 지도 판들. 영어판이 기본(/guide/), 한국어판은 /guide/ko/ (11/27 DEV-437).
-export const PAGES = [PAGE, "docs/guide/ko/index.html"];
+export const PAGE = "docs/collaboration/index.html";
+// 협업 지도 판들. 영어판이 기본(/collaboration/), 한국어판은 /collaboration/ko/ (11/27 DEV-437).
+export const PAGES = [PAGE, "docs/collaboration/ko/index.html"];
 export const REPO_URL = "https://github.com/snuhcs-course/swpp-2026-project-team-06";
+// GitHub Pages 사용자 도메인(docs/CNAME, 11/27). 이 주소로 쓴 링크는 docs/ 아래 파일로 풀어 있는지 본다.
+export const SITE_URL = "https://docs.farmclub.kr/";
 
 const ticks = (s) => [...(s ?? "").matchAll(/`([^`]+)`/g)].map((m) => m[1]);
 const first = (re) => (s) => [re.exec(s)?.[1]].filter(Boolean);
@@ -275,6 +277,16 @@ export function checkLinks(html, readRepoFile, page = PAGE) {
       else if (frag && !idsIn(readRepoFile(target)).has(frag)) bad(`${target}에 이 id가 있어야 한다`);
       continue;
     }
+    if (href.startsWith(SITE_URL)) {
+      // 문서 사이트 절대 주소: docs/<경로>(폴더면 index.html)가 있어야 하고, #앵커는 그 파일의 id여야 한다.
+      const [rel, frag] = [href.slice(SITE_URL.length).split("#")[0], href.split("#").slice(1).join("#")];
+      let file = path.posix.join("docs", decodeURIComponent(rel)).replace(/\/$/, "");
+      if (rel === "" || rel.endsWith("/") || readRepoFile(file) === null) file = `${file}/index.html`;
+      const html2 = readRepoFile(file);
+      if (typeof html2 !== "string") bad(`${SITE_URL}의 경로는 docs/ 아래 파일이어야 한다(${file} 없음)`);
+      else if (frag && !idsIn(html2).has(frag)) bad(`${file}에 이 id가 있어야 한다`);
+      continue;
+    }
     if (/^(https:\/\/|mailto:)/i.test(href) && !href.toLowerCase().includes("snuhcs-course/swpp-2026-project-team-06")) continue;
     if (record.test(href)) continue;
     const r = ok.exec(href);
@@ -297,6 +309,12 @@ export function checkLinks(html, readRepoFile, page = PAGE) {
     else if (frag && md === null) bad("폴더 링크에는 #앵커를 쓰지 않는다");
     else if (frag && !anchors(md).includes(frag)) bad(`${file}의 제목 앵커 중 하나: ${anchors(md).map((a) => `#${a}`).join(" ").slice(0, 300)}`);
   }
+  // canonical은 이 판 자신의 문서 사이트 주소여야 한다(있을 때).
+  for (const m of src.matchAll(/<link\b[^>]*\srel\s*=\s*"canonical"[^>]*>/gi)) {
+    const href = attr(m[0], "href") ?? "";
+    const want = SITE_URL + page.replace(/^docs\//, "").replace(/index\.html$/, "");
+    if (href !== want) errors.push(err("sections", lineOf(src, m.index), href, `canonical은 ${want}`));
+  }
   if (links === 0) errors.push(err("sections", null, "(저장소 링크 없음)", "규칙 원문을 가리키는 저장소 링크가 있어야 한다"));
   return { errors, links };
 }
@@ -308,13 +326,13 @@ export function checkGuide({ agents, html, readRepoFile, page = PAGE }) {
   return [...checkValues(agents, html), ...checkLinks(html, readRepoFile, page).errors].map(inFile(page));
 }
 
-// 저장소 링크(docs/guide/ 안을 가리키는 자기 링크는 판마다 달라서 뺀다).
+// 저장소 링크(docs/collaboration/ 안을 가리키는 자기 링크는 판마다 달라서 뺀다).
 function repoLinksIn(html) {
   const out = new Set();
   for (const m of stripComments(html).matchAll(/\shref\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
     const href = decodeEntities(m[1] ?? m[2]);
     if (!href.toLowerCase().includes("snuhcs-course/swpp-2026-project-team-06")) continue;
-    if (/\/(blob|tree|commits)\/main\/docs\/guide\//.test(href)) continue;
+    if (/\/(blob|tree|commits)\/main\/docs\/collaboration\//.test(href)) continue;
     out.add(href);
   }
   return out;
@@ -358,9 +376,9 @@ export function repoReader(dir = root) {
 const where = (e) => (e.line ? `${e.file ?? PAGE}:${e.line}` : `${e.file ?? PAGE}(위치 없음)`);
 
 export function format(errors) {
-  const out = [`check-guide: 협업 지도(${[...new Set(errors.map((e) => e.file ?? PAGE))].join(", ")})가 AGENTS.md·저장소·다른 판과 ${errors.length}곳 어긋난다.`];
+  const out = [`check-collaboration: 협업 지도(${[...new Set(errors.map((e) => e.file ?? PAGE))].join(", ")})가 AGENTS.md·저장소·다른 판과 ${errors.length}곳 어긋난다.`];
   for (const e of errors) out.push(`  [${e.key}] ${where(e)}`, `    실제(페이지): ${e.actual}`, `    기대: ${e.expected}`);
-  out.push("규칙이 바뀌었으면 같은 PR에서 페이지의 data-agents 요소나 링크를 고친다(scripts/ci/check-guide.mjs 머리 설명).");
+  out.push("규칙이 바뀌었으면 같은 PR에서 페이지의 data-agents 요소나 링크를 고친다(scripts/ci/check-collaboration.mjs 머리 설명).");
   return out.join("\n");
 }
 
@@ -373,7 +391,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const agents = read("AGENTS.md");
   const pages = PAGES.map((p) => [p, read(p)]);
   if (typeof agents !== "string" || pages.some(([, h]) => typeof h !== "string")) {
-    console.error(`check-guide: AGENTS.md 또는 ${PAGES.join(", ")}를 읽지 못했다.`);
+    console.error(`check-collaboration: AGENTS.md 또는 ${PAGES.join(", ")}를 읽지 못했다.`);
     process.exit(1);
   }
   const errors = [];
@@ -388,5 +406,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     if (process.env.GITHUB_ACTIONS === "true") console.log(annotations(errors).join("\n"));
     process.exit(1);
   }
-  console.log(`check-guide: OK — 값 키 ${Object.keys(KEYS).length}개. ${summary.join(", ")}. 두 판의 id(절·단계)·페이지 안 링크·저장소 링크·값이 같다(parity).`);
+  console.log(`check-collaboration: OK — 값 키 ${Object.keys(KEYS).length}개. ${summary.join(", ")}. 두 판의 id(절·단계)·페이지 안 링크·저장소 링크·값이 같다(parity).`);
 }

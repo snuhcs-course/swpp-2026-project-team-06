@@ -1,10 +1,10 @@
-// DEV-437: 팀 안내 페이지 어긋남 검사(scripts/ci/check-guide.mjs) 시나리오.
-//   node --test scripts/ci/test-check-guide.mjs   (make test-ci, CI guide job)
+// DEV-437: 팀 안내 페이지 어긋남 검사(scripts/ci/check-collaboration.mjs) 시나리오.
+//   node --test scripts/ci/test-check-collaboration.mjs   (make test-ci, CI collaboration job)
 // 실제 AGENTS.md·페이지는 쓰지 않는다(규칙을 바꾸는 정상 PR이 이 테스트를 깨지 않게). 실제 대조는 CLI 실행이 한다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { KEYS, PAGES, REPO_URL, anchors, annotations, checkGuide, checkParity, format, pageValues, slug } from "./check-guide.mjs";
+import { KEYS, PAGES, REPO_URL, SITE_URL, anchors, annotations, checkGuide, checkParity, format, pageValues, slug } from "./check-collaboration.mjs";
 
 // AGENTS.md 모양을 흉내 낸 작은 조각. 값은 실제와 달라도 된다.
 const AGENTS = `# AGENTS.md
@@ -202,13 +202,13 @@ test("anchors follow GitHub: slug rules, code fences, duplicates", () => {
 test("GitHub Actions annotations carry file and line", () => {
   const errors = run({ html: swap(HTML, ">0.5시간 단위<", ">1시간 단위<") });
   const [a] = annotations(errors);
-  assert.match(a, /^::error file=docs\/guide\/index\.html,line=\d+::\[ai-log\]/);
+  assert.match(a, /^::error file=docs\/collaboration\/index\.html,line=\d+::\[ai-log\]/);
 });
 
 // 영어판(11/27): 다른 판을 가리키는 상대 링크, 판마다 같은 검사, 두 판 대조(parity).
-const [EN, KO] = PAGES; // 영어판이 기본(docs/guide/index.html), 한국어판은 docs/guide/ko/
+const [EN, KO] = PAGES; // 영어판이 기본(docs/collaboration/index.html), 한국어판은 docs/collaboration/ko/
 const withPages = (extra = {}) => {
-  const files = { ...FILES, [KO]: HTML, [EN]: HTML, "docs/guide": null, "docs/guide/ko": null, ...extra };
+  const files = { ...FILES, [KO]: HTML, [EN]: HTML, "docs/collaboration": null, "docs/collaboration/ko": null, ...extra };
   return (p) => (p in files ? files[p] : undefined);
 };
 const linkKeys = (href, page, readRepoFile = withPages()) =>
@@ -227,7 +227,7 @@ test("relative links may point only at the other edition (or itself)", () => {
   assert.deepEqual(linkKeys("../", EN), ["sections"]); // docs/index.html(랜딩)은 판이 아니다
   assert.deepEqual(linkKeys("../../AGENTS.md", KO), ["sections"]);
   assert.deepEqual(linkKeys("../spec.md", KO), ["sections"]);
-  assert.deepEqual(linkKeys("/guide/ko/", EN), ["sections"]);
+  assert.deepEqual(linkKeys("/collaboration/ko/", EN), ["sections"]);
   // 그 판 파일이 없으면 실패
   assert.deepEqual(linkKeys("ko/", EN, withPages({ [KO]: undefined })), ["sections"]);
 });
@@ -236,14 +236,14 @@ test("the Korean edition is checked like the English one and errors name its fil
   const errors = checkGuide({ agents: AGENTS, html: swap(HTML, ">0.5시간 단위<", ">half-hour units<"), readRepoFile: read, page: KO });
   assert.deepEqual(keysOf(errors), ["ai-log"]);
   assert.ok(errors.every((e) => e.file === KO));
-  assert.match(format(errors), /docs\/guide\/ko\/index\.html:\d+/);
-  assert.match(annotations(errors)[0], /^::error file=docs\/guide\/ko\/index\.html,line=\d+::\[ai-log\]/);
+  assert.match(format(errors), /docs\/collaboration\/ko\/index\.html:\d+/);
+  assert.match(annotations(errors)[0], /^::error file=docs\/collaboration\/ko\/index\.html,line=\d+::\[ai-log\]/);
 });
 
 test("parity: same ids, in-page links, repo links and marked values in both editions (symmetric)", () => {
   assert.deepEqual(checkParity(HTML, HTML), []);
-  // 글(설명)과 언어판 링크, docs/guide/ 자기 링크는 달라도 된다
-  const translated = swap(swap(HTML, ">원문<", ">source<"), "</main>", `<a href="../">EN</a><a href="${ok}/docs/guide/ko/index.html">src</a></main>`);
+  // 글(설명)과 언어판 링크, docs/collaboration/ 자기 링크는 달라도 된다
+  const translated = swap(swap(HTML, ">원문<", ">source<"), "</main>", `<a href="../">EN</a><a href="${ok}/docs/collaboration/ko/index.html">src</a></main>`);
   assert.deepEqual(checkParity(HTML, translated), []);
   const cases = {
     "missing id": swap(HTML, '<main id="top">', '<main id="top2">'),
@@ -263,4 +263,17 @@ test("parity: same ids, in-page links, repo links and marked values in both edit
     assert.equal(errors[0].file, KO);
     assert.ok(errors[0].actual.length > 0 && errors[0].expected.length > 0);
   }
+});
+
+// 사용자 도메인(docs.farmclub.kr): 문서 사이트 절대 주소는 docs/ 아래 파일로, canonical은 그 판 자신으로.
+test("absolute links on the docs site resolve under docs/ and canonical names the page", () => {
+  const readSite = withPages({ "docs/collaboration": null, "docs/collaboration/ko": null });
+  assert.deepEqual(linkKeys(`${SITE_URL}collaboration/`, KO, readSite), []);
+  assert.deepEqual(linkKeys(`${SITE_URL}collaboration/ko/#top`, EN, readSite), []);
+  assert.deepEqual(linkKeys(`${SITE_URL}collaboration/fr/`, EN, readSite), ["sections"]);
+  assert.deepEqual(linkKeys(`${SITE_URL}collaboration/ko/#nowhere`, EN, readSite), ["sections"]);
+  const canon = (href, page) => keysOf(checkGuide({ agents: AGENTS, html: swap(HTML, "<html>", `<html><head><link rel="canonical" href="${href}"></head>`), readRepoFile: readSite, page }));
+  assert.deepEqual(canon(`${SITE_URL}collaboration/`, EN), []);
+  assert.deepEqual(canon(`${SITE_URL}collaboration/ko/`, KO), []);
+  assert.deepEqual(canon(`${SITE_URL}collaboration/`, KO), ["sections"]);
 });
