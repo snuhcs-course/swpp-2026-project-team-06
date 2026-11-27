@@ -219,6 +219,55 @@ def layout_boxes(image, spans):
     return boxes
 
 
+def trim_text_bands(box, spans, image_size=None):
+    """Cut OCR text rows (a price line under a photo, a caption) out of a photo block.
+
+    Layout blocks and whole-page PDF image objects can include the text band next to
+    the photo. Rows covered by spans that mostly lie inside the box are removed and the
+    largest remaining text-free band is kept. Returns the new box, the same box when it
+    holds no text, or None when no band is large enough to be a photo.
+    """
+    height = box[3] - box[1]
+    if height <= 0:
+        return None
+    runs = []
+    for s in spans:
+        sb = _span_box(s)
+        if _area(sb) <= 0 or _overlap(box, sb) < 0.5 * _area(sb):
+            continue
+        runs.append((max(box[1], sb[1]), min(box[3], sb[3])))
+    if not runs:
+        return box
+    runs.sort()
+    gap = 0.004 * 2  # closes the space between lines of one block
+    merged = [list(runs[0])]
+    for a, b in runs[1:]:
+        if a <= merged[-1][1] + gap:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    bands, cursor = [], box[1]
+    for a, b in merged:
+        if a > cursor:
+            bands.append((cursor, a))
+        cursor = max(cursor, b)
+    if cursor < box[3]:
+        bands.append((cursor, box[3]))
+    if not bands:
+        return None
+    top, bottom = max(bands, key=lambda band: band[1] - band[0])
+    trimmed = (box[0], top, box[2], bottom)
+    if image_size:
+        w, h = image_size
+        side = min((trimmed[2] - trimmed[0]) * w, (trimmed[3] - trimmed[1]) * h)
+        if side < MIN_SIDE_PX or side < MIN_SIDE_RATIO * w:
+            return None
+    # A sliver of a big block is not the photo; the rest was mostly text.
+    if (bottom - top) < 0.3 * height and (bottom - top) != height:
+        return None
+    return trimmed
+
+
 def find_photos(image, spans, pdf_page=None):
     """Return [{"image": base64 PNG, "box": [x1, y1, x2, y2], "method": str}] for one page."""
     candidates = []
@@ -229,7 +278,8 @@ def find_photos(image, spans, pdf_page=None):
         candidates = [(b, "layout") for b in _merge(layout_boxes(image, spans))]
     found = []
     for box, method in sorted(candidates, key=lambda c: (c[0][1], c[0][0])):
-        if not _photo_like(image, box, spans):
+        box = trim_text_bands(box, spans, image.size)
+        if box is None or not _photo_like(image, box, spans):
             continue
         found.append(
             {"image": _encode(image, box), "box": [round(v, 4) for v in box], "method": method}

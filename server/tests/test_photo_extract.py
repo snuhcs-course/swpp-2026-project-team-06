@@ -18,6 +18,7 @@ from app.source_analysis.photo_extract import (
     find_photos,
     near_duplicate,
     pdf_image_boxes,
+    trim_text_bands,
 )
 from app.source_analysis.worker import add_extracted_photos
 from tests.test_source_analysis import PREFIX, create, source_settings, upload  # noqa: F401
@@ -94,6 +95,40 @@ def test_AC_SRC_photo_text_blocks_and_flat_graphics_are_not_photos():
     flat = Image.new("RGB", (1000, 1400), "white")
     ImageDraw.Draw(flat).rectangle((200, 500, 800, 900), fill=(40, 160, 60))
     assert find_photos(flat, []) == []
+
+
+def test_AC_SRC_photo_DEV452_text_band_below_a_photo_is_cut_out(monkeypatch):
+    # A photo (y 500-900) with a price line directly below it (y 900-960), merged into one block.
+    page = Image.new("RGB", (1000, 1400), "white")
+    page.paste(photo(600, 400), (200, 500))
+    ImageDraw.Draw(page).rectangle((200, 905, 800, 955), fill=(30, 30, 30))
+    merged = (0.2, 500 / 1400, 0.8, 960 / 1400)
+    monkeypatch.setattr(
+        "app.source_analysis.photo_extract.layout_boxes", lambda image, spans: [merged]
+    )
+    price = {"id": "p", "text": "한 상자 28,000원", "box": [0.2, 900 / 1400, 0.8, 960 / 1400]}
+    [found] = find_photos(page, [price])
+    x1, y1, x2, y2 = found["box"]
+    assert abs(y1 - 500 / 1400) < 0.005
+    assert y2 <= 900 / 1400 + 0.001  # the price band is not in the crop
+    with Image.open(io.BytesIO(base64.b64decode(found["image"]))) as crop:
+        assert crop.size[1] <= 405
+
+
+def test_AC_SRC_photo_DEV452_trim_keeps_largest_text_free_band_and_rejects_slivers():
+    box = (0.1, 0.2, 0.9, 0.6)
+    assert trim_text_bands(box, []) == box
+    spans = [{"box": [0.1, 0.5, 0.9, 0.6]}]
+    top, bottom = trim_text_bands(box, spans)[1::2]
+    assert (top, bottom) == (0.2, 0.5)
+    # Text in the middle: the larger band survives, the text rows never do.
+    mid = [{"box": [0.1, 0.28, 0.9, 0.34]}]
+    trimmed = trim_text_bands(box, mid)
+    assert trimmed[1] == 0.34 and trimmed[3] == 0.6
+    # Nearly all text: nothing photo-sized remains.
+    assert trim_text_bands(box, [{"box": [0.1, 0.22, 0.9, 0.6]}]) is None
+    # Text elsewhere on the page does not touch the block.
+    assert trim_text_bands(box, [{"box": [0.1, 0.8, 0.9, 0.9]}]) == box
 
 
 def test_AC_SRC_photo_near_duplicates_and_sections():
