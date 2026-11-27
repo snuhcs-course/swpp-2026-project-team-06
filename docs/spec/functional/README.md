@@ -20,6 +20,7 @@
 | FEAT-14 생산자 현황 | [FEAT-14-producer-dashboard.md](./FEAT-14-producer-dashboard.md) |
 | FEAT-15 농가 소식 목록·반응 | [FEAT-15-farm-news.md](./FEAT-15-farm-news.md) |
 | FEAT-17 출하 처리 | [FEAT-17-shipping.md](./FEAT-17-shipping.md) |
+| FEAT-18 알림(1차: 농가 주문 알림톡) | [FEAT-18-notifications.md](./FEAT-18-notifications.md) |
 | FEAT-19 농가 링크 공유 | [FEAT-19-farm-link.md](./FEAT-19-farm-link.md) |
 
 규칙 전문: [rules.md](./rules.md)
@@ -67,6 +68,7 @@ PRD 7.1의 P0 기능 17개를 FEAT ID별로 쓴다. 기능마다 같은 틀을 �
 | FEAT-14 | S-4 | SCR-22 | R-15 | AC-14-1\~3 |
 | FEAT-15 | S-3 | SCR-01, 03, 18 | M-02, 03, 14 | AC-15-1\~6 |
 | FEAT-17 | S-4 | SCR-29 | R-07, 15, 19, 28 | AC-17-1\~7 (AC-17-1은 I2) |
+| FEAT-18 | S-4 | (화면 없음, 알림톡) | R-15, 28, M-16 | AC-18-1\~8 (AC-18-8은 사람 운영 확인) |
 | FEAT-19 | S-1 | SCR-30 | — | AC-19-1\~3 |
 
 표에 없는 규칙은 시스템·운영자 단에서 동작한다. R-04·09·10(자동 환불, FEAT-24, P2), R-11·12(환불 정책), R-14 정산의 실행(FEAT-21, P2)이다.

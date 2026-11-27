@@ -11,6 +11,7 @@
 **Technical depth**
 - [[AI Customer Support|AI-Customer-Support]]
 - [[Source Analysis|Source-Analysis]]
+- [[Order Notifications|Order-Notifications]]
 
 **Process**
 - [[AI Collaboration Report – Iteration 1|AI-Collaboration-Report-–-Iteration-1]]
