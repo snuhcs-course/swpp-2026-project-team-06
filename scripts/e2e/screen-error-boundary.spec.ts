@@ -51,9 +51,9 @@ const tabBar = (page: Page) => page.getByRole("tablist");
  * (실서버 스택에서 두 탭이 함께 그려져 있음) */
 const HOUSE = "하우스 감귤 5kg / 10kg";
 const houseCard = (page: Page) => page.getByRole("button", { name: `${HOUSE} 상품 수정`, exact: true });
-/** 그 카드 안의 ‘물량·판매 설정’ 버튼(카드 머리 버튼의 부모가 카드) */
-const houseSettings = (page: Page) =>
-  houseCard(page).locator("xpath=..").getByRole("button", { name: "물량·판매 설정", exact: true });
+/** 작성 중 한라봉 카드의 ‘판매·가격’ 버튼(스택에 쌓이는 하위 화면). DEV-487에서 ‘물량·판매 설정’ 화면을 없애 바꿨다 */
+const draftSell = (page: Page) =>
+  page.getByRole("button", { name: "한라봉 5kg 상품 수정", exact: true }).locator("xpath=..").getByRole("button", { name: "판매·가격", exact: true });
 
 /** 탭 바의 탭을 누른다. 개발 서버(npm run dev)는 잡힌 오류도 화면 아래 LogBox 알림으로 띄워 탭 바 왼쪽을 덮으므로
  * (스토어·export 빌드에는 없음) 포인터 대신 키보드(초점 + Enter)로 누른다 */
@@ -83,28 +83,28 @@ test("DEV_473 producer tab screen dies → error inside the tab, tab bar stays, 
 
 test("DEV_473 producer pushed screen dies → retry redraws that same screen, not the tab's first screen", async ({ page }) => {
   await producerLogin(page);
-  await page.goto(`${producerUrl}/products`);
-  await expect(houseCard(page)).toBeVisible();
+  await page.goto(`${producerUrl}/products?filter=draft`);
+  await expect(draftSell(page)).toBeVisible();
   const restore = await breakNames(page, /\/api\/products\/mine\/[^/?]+(\?|$)/, (b) => [b]);
   // 목록에서 연(스택에 쌓인) 하위 화면
-  await houseSettings(page).click();
-  await expect(page).toHaveURL(/\/products\/[^/]+\/sales/);
+  await draftSell(page).click();
+  await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
   await expect(page.getByText(TITLE)).toBeVisible();
   await expect(tabBar(page)).toBeVisible();
 
   await restore();
   await page.getByRole("button", { name: "다시 시도" }).click();
   await expect(shown(page)).toHaveCount(0);
-  await expect(page).toHaveURL(/\/products\/[^/]+\/sales/);
-  await expect(page.getByText("현재 판매 한도 (kg)")).toBeVisible();
+  await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
+  await expect(page.getByRole("button", { name: "판매 시작 요청" })).toBeVisible();
 });
 
 test("DEV_473 home leaves the dead screen: browser back and the tab do not reopen it", async ({ page }) => {
   await producerLogin(page);
-  await page.goto(`${producerUrl}/products`);
-  await expect(houseCard(page)).toBeVisible();
+  await page.goto(`${producerUrl}/products?filter=draft`);
+  await expect(draftSell(page)).toBeVisible();
   await breakNames(page, /\/api\/products\/mine\/[^/?]+(\?|$)/, (b) => [b]);
-  await houseSettings(page).click();
+  await draftSell(page).click();
   await expect(page.getByText(TITLE)).toBeVisible();
 
   await page.getByRole("button", { name: "홈으로" }).click();
@@ -115,12 +115,13 @@ test("DEV_473 home leaves the dead screen: browser back and the tab do not reope
   // 페이지를 새로 부르지 않고 앱 안에서: 상품 탭을 다시 눌러도 죽은 화면이 아니라 탭 첫 화면(응답은 아직 깨진 채)
   await pressTab(page, /상품/);
   await expect(page).toHaveURL(/\/products(\?|$)/);
-  await expect(houseCard(page)).toBeVisible();
+  // 탭은 마지막 필터(작성 중)를 기억한다(DEV-487에서 하위 화면을 작성 중 카드의 판매·가격으로 바꿈)
+  await expect(page.getByRole("button", { name: "한라봉 5kg 상품 수정", exact: true })).toBeVisible();
   await expect(shown(page)).toHaveCount(0);
   // 브라우저 뒤로 두 번: 어느 기록도 죽은 하위 화면이 아니다(죽은 화면 기록은 꺼낼 때 탭 첫 화면 주소로 바뀐다)
   for (const _ of [1, 2]) {
     await page.goBack();
-    await expect(page).not.toHaveURL(/\/sales/);
+    await expect(page).not.toHaveURL(/\/sell/);
     await expect(shown(page)).toHaveCount(0);
   }
 });

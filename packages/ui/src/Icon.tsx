@@ -33,6 +33,8 @@ export type IconName =
   | "question"
   | "home"
   | "copy"
+  /** 지우기(예약 기간 삭제, DEV-486) */
+  | "trash"
   | "lock"
   | "offline"
   | "alert"
@@ -216,6 +218,14 @@ export function Icon({
         <>
           <Rect x={9} y={9} width={11} height={11} rx={2} {...p} />
           <Path d="M5 15V5a1 1 0 0 1 1-1h9" {...p} />
+        </>
+      )}
+      {name === "trash" && (
+        <>
+          <Path d="M4 7h16" {...p} />
+          <Path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" {...p} />
+          <Path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" {...p} />
+          <Path d="M10 11v6M14 11v6" {...p} />
         </>
       )}
       {name === "lock" && (

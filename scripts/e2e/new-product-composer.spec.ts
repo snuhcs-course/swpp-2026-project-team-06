@@ -247,7 +247,6 @@ for (const width of [360, 390, 430]) {
       await page.getByRole("dialog").getByRole("button", { name: /^10월 30일 .요일/ }).click();
       await page.getByRole("dialog").getByRole("button", { name: "이 날로", exact: true }).click();
       await page.getByLabel("5kg 가격", { exact: true }).fill("28000");
-      await page.getByLabel("5kg 박스 수", { exact: true }).fill("40");
       await page.getByLabel("판매할 총 물량", { exact: true }).fill("300");
       await expect(page.getByLabel("한 주문 최대", { exact: true })).toHaveCount(0);
       await page.getByRole("button", { name: "구매자 화면 보기", exact: true }).click();

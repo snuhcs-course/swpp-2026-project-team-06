@@ -10,3 +10,5 @@ PostHog Cloud(무료)를 I1부터 쓴다. 화면 이벤트는 앱에서, 결제�
 - 주문 전환율, 이른 단계 주문 비중, 팔로우 → 주문, 답장률, AI 자체 해결률, AI 초안 게시율, 출하 전 취소율을 대시보드로 본다.
 - 리전은 US Cloud(`https://us.i.posthog.com`)로 정했다(2026-10-18, TQ-01, DEV-71).
 - 앱은 `packages/analytics`가 키가 있을 때만 켠다. 세션 녹화는 입력칸과 개인정보가 보이는 화면·메시지 영역의 글자를 가린다(트래킹 플랜).
+- 2026-11-26 갱신(DEV-436): iOS·Android 앱도 보낸다. 키는 EAS `production` 환경에만 넣어 스토어 배포 앱만 켜지고 `internal`·`preview` 빌드는 꺼진다.
+- 2026-11-27 고침(DEV-436): 원스토어에 올린 앱이 `internal` 프로필 APK(preview 채널, 소비자 v12·농가 v9)여서 키를 `preview` 환경에도 넣고 `eas update --channel preview`로 켠다. 같은 채널의 팀 테스트 APK도 보내므로 분석에서는 `isTestAccount`로 뺀다. 스토어 앱을 production 프로필 빌드로 바꾸면 `preview` 키를 지운다. 앱은 세션 녹화를 하지 않는다. 처리방침은 2026-11-27 고지·바로 시행(PM 결정: 사업 운영 전 테스트 단계).

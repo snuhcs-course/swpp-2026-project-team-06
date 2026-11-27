@@ -23,7 +23,8 @@ export { CARRIERS, carrierLabel, trackingUrl, formatTrackingNumber, editTracking
 export { auth, farms, catalog, orders, messaging, admin } from "./endpoints";
 export type * from "./types";
 export type { NativeFile, UploadFile } from "./upload";
-export { appendFile, isNativeFile } from "./upload";
+export { appendFile, isNativeFile, pickedImage, PICK_QUALITY } from "./upload";
+export type { PickedImageAsset } from "./upload";
 export { SUPPORT_ID } from "./types";
 export * from "./orderConsents";
 export * from "./passwordRules";
@@ -35,6 +36,7 @@ export function health(): Promise<{ status: "ok" }> {
 }
 
 export { allPages } from "./pagination";
+export { accountGated, keepUser } from "./userState";
 export { serverNow } from "./serverClock";
 export { priceDDay, priceFrom, referencePrice, productPrices } from "./productPresentation";
 

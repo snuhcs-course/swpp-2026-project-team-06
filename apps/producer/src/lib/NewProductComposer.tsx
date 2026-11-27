@@ -50,6 +50,7 @@ import {
   Scroll,
   Sheet,
   Skeleton,
+  Toast,
   T,
   md,
   tokens,
@@ -68,7 +69,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, Platform, Pressable, TextInput, View, type ScrollView } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Platform, Pressable, TextInput, View, type ScrollView } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { toPageData } from "./BuyerPreview";
 import { useHideTabBar, useSession } from "./session";
@@ -254,7 +255,6 @@ function changedKeys(p: MyProduct, form: ProductForm, terms: Terms | null): stri
 type ChangeRow = { label: string; before: string | null; after: string | null };
 type ChangeRows = { now: ChangeRow[]; newOrders: ChangeRow[]; consent: ChangeRow[] };
 const won = (n: number | null | undefined) => (n == null ? null : `${n.toLocaleString("ko-KR")}원`);
-const boxes = (n: number | null | undefined) => (n == null ? null : `${n.toLocaleString("ko-KR")}박스`);
 const shortDay = (iso: string) => iso.slice(5).replace("-", ".");
 /** '11월 10일~20일'(같은 달), '11월 28일~12월 3일' */
 function rangeText(w: { start: string; end: string } | null): string | null {
@@ -267,7 +267,7 @@ const feeText = (t: Pick<Terms, "shippingFeeType" | "shippingFee">) =>
   t.shippingFeeType === "FREE" ? "무료" : (won(t.shippingFee ?? 0) ?? "무료");
 /**
  * 화면 값(상품 칸·판매 조건)과 지금 상품의 차이를 바뀐 칸 하나에 한 줄로(PM 11/18). 묶음은 서버 저장 방식과 같다:
- * 바로 보임(상품 칸·중량 옵션) / 새 예약부터(기간·가격·박스·배송비·환불 날짜, 예약자가 없을 때 받는 시기) /
+ * 바로 보임(상품 칸·중량 옵션) / 새 예약부터(기간·가격·배송비·환불 날짜, 예약자가 없을 때 받는 시기) /
  * 예약자 동의 필요(예약자가 있을 때 받는 시기, R-21)
  */
 function diffRows(p: MyProduct, form: ProductForm, terms: Terms | null, reserved: number): ChangeRows {
@@ -307,7 +307,6 @@ function diffRows(p: MyProduct, form: ProductForm, terms: Terms | null, reserved
       const a = cellOf(r, o.optionId),
         b = old ? cellOf(old, o.optionId) : { price: null, quantity: null };
       row(newOrders, `${name} · ${o.label} 가격`, won(b.price), won(a.price));
-      row(newOrders, `${name} · ${o.label} 박스`, boxes(b.quantity), boxes(a.quantity));
     }
     // 옵션을 뺀 기간의 칸은 따로 적지 않는다(중량 옵션 줄이 보인다)
   });
@@ -637,7 +636,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   >(null);
   const router = useRouter(),
     navigation = useNavigation(),
-    { batchId, notice: openNotice, terms: termsParam, from } = useLocalSearchParams<{ batchId?: string; notice?: string; terms?: string; from?: string }>();
+    { batchId, notice: openNotice, terms: termsParam } = useLocalSearchParams<{ batchId?: string; notice?: string; terms?: string }>();
   const productOnly = !!fixedProductId;
   const [batch, setBatch] = useState<SourceBatch | null>(null),
     [review, setReview] = useState<SourceReview | null>(null),
@@ -758,7 +757,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   const [leaving, setLeaving] = useState<Parameters<typeof navigation.dispatch>[0] | null>(null);
   // 나가기 감시는 렌더마다 갱신하는 값을 본다(리스너가 다시 붙기 전에도 최신 값)
   const leaveGuard = useRef({ live: false, unapplied: 0 });
-  // 반영했지만 판매 한도를 다 써서 여전히 전체 물량 품절이면 그 한도(g). 한도 늘리기로 안내한다(DEV-345, 예전 SCR-26)
+  // 반영했지만 총 물량(판매 한도)을 다 써서 여전히 전체 물량 품절이면 그 값(g). 판매 관리에서 늘릴 수 있다고 안내한다(DEV-345, DEV-487)
   const [soldOutAfter, setSoldOutAfter] = useState<number | null>(null);
   const [consentInvalid, setConsentInvalid] = useState(false);
   // 처음 연 때의 대표사진·판매페이지 초안(이 화면에서 바뀌었는지 보는 기준, C-9)
@@ -964,7 +963,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   };
   const pickCover = async () => {
     if (!batch || !target || busy || activeRun) return;
-    const files = await chooseSourceFiles(true, false).catch(() => {
+    const files = await chooseSourceFiles(true, false).catch((e) => {
+      console.warn("[cover] 사진 고르기 실패", e); // 화면에는 한국어만, 원인은 로그에(DEV-493)
       setNotice("사진을 선택하지 못했어요. 다시 시도해 주세요.");
       return [];
     });
@@ -1741,10 +1741,23 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       if (applied.current === key || readApplied(productId) === key) return goNext();
       await applyDraft({ draft: d, productId, version: p.version });
     });
+  // 판매 조건 시트 위 토스트(DEV-486). 앱 토스트는 시트(Modal) 뒤에 그려져 보이지 않는다
+  const [termsToast, setTermsToast] = useState<string | null>(null);
+  const hideTermsToast = useCallback(() => setTermsToast(null), []);
+  const sayInTerms = useCallback((message: string) => {
+    setTermsToast(message);
+    // Android·웹은 Toast의 alert·live region이 읽어 준다. iOS만 시트 밖 형제를 건너뛰므로 직접 읽는다
+    if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(message);
+  }, []);
+  const closeTerms = () => {
+    setTermsToast(null);
+    setTermsOpen(false);
+  };
   const openTerms = () => {
     if (!terms) return;
     setTermsEdit(terms);
     setTermsInvalid({});
+    setTermsToast(null);
     setTermsOpen(true);
   };
   /** 판매 조건 시트 '수정 담기': 화면 안 초안에만(서버 저장은 '임시 저장'·'상품에 반영' 때, C-6). 빈 칸은 누르면 강조(C-19) */
@@ -1753,10 +1766,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     const problem = checkTerms(termsEdit);
     if (problem) {
       setTermsInvalid({ [problem.field]: problem.message });
+      // 문구는 시트 위 토스트로 한 번만(DEV-486). 칸 강조는 termsInvalid가 한다
+      sayInTerms(problem.message);
       return;
     }
     setTerms(termsEdit);
-    setTermsOpen(false);
+    closeTerms();
   };
   const changed = (key: string) => live && keys.includes(key);
   // 판매페이지(대표사진 포함)는 한 개로 센다(C-5): 저장 안 한 상세 수정, 처음 연 뒤 새로 저장한 판매페이지 초안, 바꾼 대표사진
@@ -1786,7 +1801,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       return (
         <View testID="sales-next-step" style={{ padding: 14, borderRadius: 16, borderWidth: 1.5, borderStyle: "dashed", borderColor: "#E9B980", backgroundColor: "#FFF7EB", gap: 4 }}>
           <T weight="semibold">판매 조건은 다음 단계에서 정해요</T>
-          <T variant="caption" muted>받는 시기 · 가격 · 박스 수 · 배송비</T>
+          <T variant="caption" muted>받는 시기 · 가격 · 배송비</T>
         </View>
       );
     if (!terms) return undefined;
@@ -1900,20 +1915,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           <View style={{ paddingHorizontal: tokens.space.gutter, paddingVertical: 12 }}>
             <Notice
               title="상품에 반영했어요."
-              body={`판매 한도(${(soldOutAfter / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg)를 모두 써서 아직 예약을 받을 수 없어요.`}
-              action={
-                <Button
-                  label="판매 한도 늘리기"
-                  compact
-                  style={{ marginTop: 8 }}
-                  onPress={() => {
-                    allowLeave.current = true;
-                    // 물량·판매 설정의 품절 안내에서 왔으면 돌아가서 스택이 쌓이지 않게 한다
-                    if (from === "sales" && router.canGoBack()) router.back();
-                    else if (productId) router.push({ pathname: "/products/[id]/sales", params: { id: productId } });
-                  }}
-                />
-              }
+              // DEV-487 (2/2): 늘리기는 상품 목록 카드의 '판매 관리'(이 화면에 버튼 없음)
+              body={`총 물량(${(soldOutAfter / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg)을 모두 팔았어요. 상품 목록의 판매 관리에서 늘릴 수 있어요.`}
             />
           </View>
         ) : null}
@@ -2519,7 +2522,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       ) : null}
 
       {/* 판매 조건 시트(C-6). 판매 종료 상품은 읽기 전용(C-11) */}
-      <Sheet visible={termsOpen} onClose={() => setTermsOpen(false)} title="판매 조건">
+      <Sheet visible={termsOpen} onClose={closeTerms} title="판매 조건"
+        overlay={<Toast message={termsToast} tone="error" onHide={hideTermsToast} />}>
         <FieldFeedbackContext.Provider value={{ fields: termsInvalid, clear: () => {} }}>
           {product && termsEdit ? (
             live ? (
@@ -2537,18 +2541,14 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                   editable
                   busy={busy}
                   product={product}
+                  notify={sayInTerms}
                 />
-                {Object.values(termsInvalid)[0] ? (
-                  <View accessibilityRole="alert">
-                    <T variant="caption" color={tokens.color.error}>{Object.values(termsInvalid)[0]}</T>
-                  </View>
-                ) : null}
                 <Button label="수정 담기" size="producer" disabled={busy} onPress={takeTerms} />
               </View>
             ) : (
               <View style={{ gap: 16 }}>
                 <TermsSummary value={termsEdit} />
-                <Button label="닫기" variant="outline" onPress={() => setTermsOpen(false)} />
+                <Button label="닫기" variant="outline" onPress={closeTerms} />
               </View>
             )
           ) : null}

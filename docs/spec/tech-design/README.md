@@ -203,7 +203,7 @@ AI 초안 게시율은 `draft_published`(서버)가 없어 이번 파일럿에�
 | 자원 | 추가 계약 |
 | --- | --- |
 | Product | approvedSupplyGrams, salesLimitGrams, salesPaused, version. reservedGrams/shippedGrams/remainingGrams는 주문 스냅샷·반환량에서 계산. 한 주문 박스 상한은 별개 |
-| Stage/Allocation | stable stageId, 단일 판매값과 주문 가격·중량 스냅샷. 예약 기간 날짜/삭제 잠금, 옵션별 가격 엄격 증가 |
+| Stage/Allocation | stable stageId, 단일 판매값과 주문 가격·중량 스냅샷. 예약 기간 삭제 잠금(DEV-489부터 날짜 변경 허용), 옵션별 가격 엄격 증가 |
 | Thread | (farmId,consumerId) 유일, aiMode·version·양쪽 읽음 위치. 전달 질문 없는 대화도 조회 |
 | RoomReply | farmId·consumerId·body·createdAt, 방송과 구분. 소비자별 권한 필터 뒤 페이지 조회 |
 | FarmAiSettings | 농가별 버전·enabled·원칙·FAQ·추가 전달 주제, 변경 이력 |

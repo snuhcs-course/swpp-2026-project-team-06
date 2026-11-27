@@ -29,13 +29,13 @@ test("AC-04-1 DEV-361 C-12: product cards open 상품 수정 and the second butt
   await expect(page.getByText("하우스 감귤 5kg / 10kg").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "기간·가격", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "판매페이지 수정", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "물량·판매 설정", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "판매 관리", exact: true }).first()).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/dev361c-list-selling.png` });
   await page.getByRole("button", { name: "상품 수정", exact: true }).first().click();
   await expect(page).toHaveURL(/\/products\/(source-analysis|[\w-]+\/detail)/);
   await page.goto(`${producerUrl}/products?filter=draft`);
   await expect(page.getByText("한라봉 5kg").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "물량·판매 설정", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "판매 관리", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "판매·가격", exact: true }).first()).toBeVisible();
   // Tapping the card itself opens 상품 수정 too
   await page.getByRole("button", { name: "한라봉 5kg 상품 수정", exact: true }).click();
@@ -74,7 +74,7 @@ test("R-18 R-25 DEV-361 C-6 C-19: the sales-terms sheet checks on press, keeps c
   const editor = page.getByTestId("sales-terms-editor");
   await expect(editor).toBeVisible();
   await expect(page.getByText("여기서 고친 값도 '상품에 반영'을 눌러야 구매자에게 보여요.", { exact: true })).toBeVisible();
-  // No 한 주문 최대 here (PM decision 9: after approval it lives in 물량·판매 설정)
+  // No 한 주문 최대 here (PM decision 9)
   await expect(editor.getByLabel("한 주문 최대")).toHaveCount(0);
   const price = editor.getByLabel("5kg 가격").first();
   const original = await price.inputValue();
@@ -82,7 +82,9 @@ test("R-18 R-25 DEV-361 C-6 C-19: the sales-terms sheet checks on press, keeps c
   await price.fill("");
   await page.getByRole("button", { name: "수정 담기", exact: true }).click();
   await expect(page.getByTestId("invalid-field-prices")).toBeVisible();
-  await expect(page.getByText("5kg의 가격과 박스 수를 모두 적어 주세요.", { exact: true })).toBeVisible();
+  await expect(page.getByText("5kg 가격을 적어 주세요.", { exact: true })).toBeVisible();
+  // DEV-487: 기간별 박스 수 칸은 없다
+  await expect(editor.getByLabel(/박스 수$/)).toHaveCount(0);
   const next = String(Number(original.replace(/\D/g, "")) - 2000);
   await price.fill(next);
   if (shots) await page.screenshot({ path: `${shots}/dev361c-terms-sheet.png` });
@@ -294,10 +296,9 @@ test("AC-05 R-18 DEV-361 scan: a new period saved in the draft can be applied af
     await expect(page).toHaveURL(/composer=1/);
     await page.getByRole("button", { name: "판매 조건 고치기", exact: true }).click();
     const editor = page.getByTestId("sales-terms-editor");
-    await editor.getByRole("button", { name: "＋ 예약 기간 추가", exact: true }).click();
+    await editor.getByRole("button", { name: "예약 기간 추가", exact: true }).click();
     // the new period is the last one: later periods must cost more (R-18)
     await editor.getByLabel("3kg 가격").last().fill("99000");
-    await editor.getByLabel("3kg 박스 수").last().fill("10");
     await page.getByRole("button", { name: "수정 담기", exact: true }).click();
     await page.getByRole("button", { name: "임시 저장", exact: true }).click();
     await expect(page.getByText(/비공개로 저장했어요/)).toBeVisible();
@@ -586,13 +587,12 @@ test("DEV-361 PM 11/18 C-34: a custom weight option (2.5kg) gets its own price r
   if (shots) await page.screenshot({ path: `${shots}/dev361c-custom-weight-input.png` });
   await field.getByRole("button", { name: "추가", exact: true }).click();
   await expect(editor.getByRole("checkbox", { name: "2.5kg", exact: true })).toBeVisible();
-  // the price grid picks up the new option: one price and box field per period
+  // the price grid picks up the new option: one price field per period (no box counts, DEV-487)
   const prices = editor.getByLabel("2.5kg 가격", { exact: true });
   const rows = original.stages.length;
   await expect(prices).toHaveCount(rows);
   for (let i = 0; i < rows; i++) {
     await prices.nth(i).fill(String(12000 + i * 1000));
-    await editor.getByLabel("2.5kg 박스 수", { exact: true }).nth(i).fill("10");
   }
   await page.getByRole("button", { name: "수정 담기", exact: true }).click();
   await expect(editor).toHaveCount(0);

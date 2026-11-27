@@ -1,4 +1,5 @@
-// 판매 조건 편집부(DEV-361 PR C): 중량 옵션·받는 시기·전액 환불 날짜·예약 기간·가격·박스·배송비.
+// 판매 조건 편집부(DEV-361 PR C): 중량 옵션·받는 시기·전액 환불 날짜·예약 기간·가격·배송비.
+// DEV-487: 기간별 박스 수는 받지 않는다. 물량은 상품 총량(kg)으로 판단하고, 기간 칸에는 UNLIMITED_BOXES를 보낸다.
 // 판매 전 상품의 판매·가격(SCR-24b, `mode="new"`)과 구매자에게 보이는 상품의 composer 판매 조건 시트(`mode="live"`)가 같이 쓴다.
 // 판매할 총 물량은 판매·가격 화면에서 입력한다.
 import {
@@ -7,12 +8,13 @@ import {
   type ProductOption,
   type StageInput,
 } from "@farmclub/api";
-import { Button, Checkbox, Segmented, T, md, tokens } from "@farmclub/ui";
+import { Button, Checkbox, Icon, Segmented, T, md, tokens } from "@farmclub/ui";
 import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { FieldFeedback, FieldFeedbackContext } from "./FieldFeedback";
-import { DateInput, DateSheet, NumField, addDays } from "./fields";
+import { DateSheet, NumField, addDays } from "./fields";
+import { useSession } from "./session";
 import { seoulToday } from "./seoulToday";
 import { FieldButton } from "./views";
 
@@ -52,6 +54,11 @@ export function customWeightError(w: number | null, options: ProductOption[]): s
   if (options.some((o) => o.weightKg === w)) return "이미 있는 중량이에요.";
   return null;
 }
+/**
+ * 기간×옵션 박스 수 대신 보내는 값(DEV-487). 서버는 박스 수를 받아야 하지만(StageOptionInput.quantity) 화면은 묻지 않는다.
+ * int4 안에서 넉넉한 값이라 판매는 상품 총량(판매 한도 kg)에서만 막힌다. 이미 예약된 수보다 작아질 일은 없다
+ */
+export const UNLIMITED_BOXES = 99_999;
 const lastStageDay = (deliveryStart: string | undefined, from: string) =>
   deliveryStart ? addDays(deliveryStart, -1) : addDays(from, 7);
 
@@ -80,7 +87,7 @@ export function termsFrom(p: Pick<MyProduct, "options" | "deliveryWindow" | "max
             options: Object.fromEntries(
               Object.entries(s.options).map(([k, v]) => [
                 k,
-                { price: v.price, quantity: v.quantity },
+                { price: v.price, quantity: Math.max(UNLIMITED_BOXES, v.quantity) },
               ]),
             ),
           }))
@@ -110,9 +117,9 @@ export function termsKey(t: Terms): string {
       r.startsAt,
       r.endsAt,
       Object.entries(r.options)
-        .filter(([k, c]) => ids.has(k) && (c.price != null || c.quantity != null))
+        .filter(([k, c]) => ids.has(k) && c.price != null)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, c]) => [k, c.price, c.quantity]),
+        .map(([k, c]) => [k, c.price]),
     ]),
   ]);
 }
@@ -129,7 +136,7 @@ export function termsStages(t: Terms): StageInput[] {
     options: Object.fromEntries(
       t.options.map((o) => {
         const c = cellOf(r, o.optionId);
-        return [o.optionId, { price: c.price!, quantity: c.quantity! }];
+        return [o.optionId, { price: c.price!, quantity: Math.max(UNLIMITED_BOXES, c.quantity ?? 0) }];
       }),
     ),
   }));
@@ -141,7 +148,7 @@ export type TermsProblem = {
   message: string;
   rowKey?: string;
   optionId?: string;
-  input?: "startsAt" | "endsAt" | "period" | "price" | "quantity";
+  input?: "startsAt" | "endsAt" | "period" | "price";
 };
 export function checkTerms(t: Terms): TermsProblem | null {
   const bad = (field: TermsField, message: string, target: Partial<TermsProblem> = {}): TermsProblem => ({ field, message, ...target });
@@ -166,8 +173,8 @@ export function checkTerms(t: Terms): TermsProblem | null {
   for (const r of rows)
     for (const o of t.options) {
       const c = cellOf(r, o.optionId);
-      if (!c.price || c.quantity == null)
-        return bad("prices", `${o.label}의 가격과 박스 수를 모두 적어 주세요.`, { rowKey: r.key, optionId: o.optionId, input: !c.price ? "price" : "quantity" });
+      if (!c.price)
+        return bad("prices", `${o.label} 가격을 적어 주세요.`, { rowKey: r.key, optionId: o.optionId, input: "price" });
     }
   for (const o of t.options)
     for (let i = 1; i < rows.length; i++)
@@ -203,6 +210,7 @@ export function SalesTermsEditor({
   editable,
   busy = false,
   product,
+  notify,
   children,
 }: {
   value: Terms;
@@ -210,12 +218,16 @@ export function SalesTermsEditor({
   mode: "new" | "live";
   editable: boolean;
   busy?: boolean;
-  /** 예약 수(확보 박스·잠긴 기간·R-21 안내)를 읽는다 */
+  /** 예약 수(잠긴 기간·R-21 안내)를 읽는다 */
   product: Pick<MyProduct, "stages" | "deliveryWindow" | "reservedCount">;
+  /** 짧은 알림(DEV-486). 시트 안에서 쓰면 앱 토스트가 시트에 가려지므로 부르는 쪽이 시트 위 토스트를 넘긴다 */
+  notify?: (message: string) => void;
   /** 배송비 뒤에 붙는 칸(판매·가격의 물량) */
   children?: ReactNode;
 }) {
-  const [sheet, setSheet] = useState<null | "delivery" | "maxDelay">(null);
+  const [sheet, setSheet] = useState<null | "delivery" | "maxDelay" | { period: number }>(null);
+  const { toast } = useSession();
+  const say = notify ?? ((message: string) => toast(message, { tone: "error" }));
   const t = value;
   const feedback = useContext(FieldFeedbackContext);
   const problem = feedback.fields.prices ? checkTerms(t) : null;
@@ -263,7 +275,7 @@ export function SalesTermsEditor({
     ...WEIGHTS.map((w) => ({ key: `w-${w}`, weightKg: w, label: `${w}kg` })),
     ...[...others.values()].map((o) => ({ key: `o-${o.weightKg}`, weightKg: o.weightKg, label: o.label })),
   ].sort(byKg);
-  // 기간 가격·박스 줄도 가벼운 순서
+  // 기간 가격 줄도 가벼운 순서
   const byWeight = [...t.options].sort(byKg);
   const toggleWeight = (w: number) => {
     const on = t.options.filter((o) => o.weightKg === w);
@@ -278,8 +290,6 @@ export function SalesTermsEditor({
     setRow(i, {
       options: { ...t.rows[i].options, [optionId]: { ...cellOf(t.rows[i], optionId), ...patch } },
     });
-  const reserved = (r: TermsRow, optionId: string) =>
-    product.stages.find((s) => s.stageId === r.stageId)?.options[optionId]?.reservedCount ?? 0;
   const locked = (r: TermsRow) =>
     mode === "live" &&
     !!product.stages.find((s) => s.stageId === r.stageId && (s.hasOrders || Object.values(s.options).some((v) => v.reservedCount > 0)));
@@ -394,53 +404,71 @@ export function SalesTermsEditor({
       </FieldFeedback>
 
       <FieldFeedback field="prices">
-        <Sec title={mode === "new" ? "가격" : "예약 기간·가격·박스"}>
+        <Sec title={mode === "new" ? "가격" : "예약 기간·가격"}>
           <T variant="sub" muted>
             {mode === "new"
-              ? "옵션마다 가격과 이번 기간에 팔 박스 수를 적어 주세요. 얼리버드 기간을 더하면 앞 기간을 더 싸게 받을 수 있어요."
-              : "바꾼 가격·박스는 새 예약부터 적용돼요. 이미 결제한 주문의 가격은 그대로예요."}
+              ? "옵션마다 가격을 적어 주세요. 얼리버드 기간을 더하면 앞 기간을 더 싸게 받을 수 있어요."
+              : "바꾼 가격은 새 예약부터 적용돼요. 이미 결제한 주문의 가격은 그대로예요."}
           </T>
           {t.rows.map((r, i) => {
             const fixed = locked(r);
             const invalid = problem?.rowKey === r.key ? problem : null;
+            // 예약이 있는 기간도 날짜는 고친다. 받은 예약은 그 기간에 그대로 속하고, 지우기만 막는다(DEV-489)
+            const dateEditable = editable && !off;
+            const dates = `${md(r.startsAt)} ~ ${md(r.endsAt)}`;
+            const label = `${t.rows.length > 1 ? `${i + 1}기간 · ` : ""}${dates} 예약`;
+            // 날짜 순서로 마지막 기간이 아니면 다음 기간이 있다(얼리버드 안내)
+            const hasLater = orderedRows.at(-1)?.key !== r.key;
+            const periodError = !!invalid && (invalid.input === "startsAt" || invalid.input === "endsAt" || invalid.input === "period");
             return (
               <View
                 key={r.key}
                 testID="price-period"
                 style={{ padding: 16, gap: 14, borderWidth: 1, borderColor: tokens.color.border, borderRadius: 16 }}
               >
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <T weight="semibold" style={{ flex: 1 }}>
-                    {t.rows.length > 1 ? `${i + 1}기간 · ` : ""}
-                    {md(r.startsAt)} ~ {md(r.endsAt)} 예약
-                  </T>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  {/* 날짜는 제목의 날짜 칸에서 바로 고친다(DEV-486) */}
+                  {t.rows.length > 1 ? <T weight="semibold">{i + 1}기간</T> : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={dateEditable ? `${label} 날짜 고치기` : label}
+                    disabled={!dateEditable}
+                    onPress={() => setSheet({ period: i })}
+                    style={({ pressed }) => ({
+                      flex: 1, height: 40, paddingHorizontal: 12, borderRadius: tokens.radius.sm,
+                      borderWidth: periodError ? 1.5 : 1,
+                      borderColor: periodError ? tokens.color.error : dateEditable ? "#E9B980" : tokens.color.border,
+                      backgroundColor: dateEditable ? "#FFF7EB" : tokens.color.background,
+                      flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6,
+                      opacity: pressed ? 0.7 : 1,
+                    })}
+                  >
+                    <T weight="semibold" numberOfLines={1} style={{ flexShrink: 1, fontVariant: ["tabular-nums"] }}>
+                      {dates}
+                    </T>
+                    {dateEditable ? <Icon name="calendar" size={18} color={periodError ? tokens.color.error : tokens.color.textMuted} /> : null}
+                  </Pressable>
                   {t.rows.length > 1 && editable && !fixed ? (
-                    <Button
-                      label="기간 삭제"
-                      variant="text"
-                      compact
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="기간 삭제"
                       disabled={busy}
+                      hitSlop={4}
                       onPress={() => set("rows", t.rows.filter((_, j) => j !== i))}
-                    />
+                      style={({ pressed }) => ({
+                        width: 40, height: 40, alignItems: "center", justifyContent: "center",
+                        opacity: busy ? 0.35 : pressed ? 0.6 : 1,
+                      })}
+                    >
+                      <Icon name="trash" size={20} color={tokens.color.textMuted} />
+                    </Pressable>
                   ) : null}
                 </View>
-                {mode === "live" ? (
-                  fixed ? (
-                    <T variant="caption" muted>
-                      예약 이력이 있어 날짜는 유지해요. 가격은 새 주문부터 적용돼요.
-                    </T>
-                  ) : editable ? (
-                    <View style={{ gap: 10 }}>
-                      <DateInput error={invalid?.input === "startsAt" || invalid?.input === "period"} label="예약 시작일" value={r.startsAt} onChange={(startsAt) => setRow(i, { startsAt })} />
-                      <DateInput error={invalid?.input === "endsAt" || invalid?.input === "period"} label="예약 종료일" value={r.endsAt} onChange={(endsAt) => setRow(i, { endsAt })} />
-                    </View>
-                  ) : null
-                ) : null}
-                {invalid && !invalid.optionId ? <View accessibilityRole="alert"><T variant="caption" color={tokens.color.error}>이 기간: {invalid.message}</T></View> : null}
+                {/* 오류 문구는 부르는 쪽이 토스트·하단 줄로 한 번만 보인다(DEV-486). 여기서는 칸만 강조한다 */}
                 {byWeight.length ? (
-                  byWeight.map((o) => (
-                    <View key={o.optionId} style={{ gap: 6 }}>
-                      <View style={{ flexDirection: "row", gap: 12 }}>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 12 }}>
+                    {byWeight.map((o) => (
+                      <View key={o.optionId} style={{ flexBasis: "45%", flexGrow: 1 }}>
                         <NumField
                           highlight={editable}
                           disabled={off}
@@ -450,39 +478,37 @@ export function SalesTermsEditor({
                           unit="원"
                           onChange={(price) => !off && setCell(i, o.optionId, { price })}
                         />
-                        <NumField
-                          highlight={editable}
-                          disabled={off}
-                          error={invalid?.optionId === o.optionId && invalid?.input === "quantity"}
-                          label={`${o.label} 박스 수`}
-                          value={cellOf(r, o.optionId).quantity}
-                          unit="박스"
-                          onChange={(quantity) => !off && setCell(i, o.optionId, { quantity })}
-                        />
                       </View>
-                      {invalid?.optionId === o.optionId ? <View accessibilityRole="alert"><T variant="caption" color={tokens.color.error}>이 기간: {invalid.message}</T></View> : null}
-                      {reserved(r, o.optionId) ? (
-                        <T variant="caption" muted>
-                          {reserved(r, o.optionId)}박스 확보됨
-                        </T>
-                      ) : null}
-                    </View>
-                  ))
+                    ))}
+                  </View>
                 ) : (
                   <T variant="sub" muted>
                     위에서 중량 옵션을 먼저 골라 주세요.
                   </T>
                 )}
+                {/* 앞 기간은 일찍 사는 만큼 싸게(얼리버드, DEV-486) */}
+                {hasLater && editable && byWeight.length ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Icon name="sparkles" size={16} color={tokens.color.accent} />
+                    <T variant="caption" color={tokens.color.accent} style={{ flex: 1 }}>
+                      다음 기간보다 싸게 하면 일찍 사는 소비자가 좋아해요
+                    </T>
+                  </View>
+                ) : null}
               </View>
             );
           })}
           {editable ? (
             <Button
-              label={mode === "new" ? "＋ 얼리버드 기간 추가" : "＋ 예약 기간 추가"}
-              variant="outline"
-              disabled={busy || !canAdd}
+              label={mode === "new" ? "얼리버드 기간 추가" : "예약 기간 추가"}
+              variant="text"
+              icon="plus"
+              compact
+              style={{ alignSelf: "flex-start" }}
+              disabled={busy}
               onPress={() => {
-                if (!canAdd) return;
+                // 못 넣을 때는 버튼을 막지 않고 이유를 토스트로 알린다(DEV-486)
+                if (!canAdd) return say("더 넣을 날짜가 없어요. 받는 시기를 늦춰 주세요.");
                 if (mode === "live" || !t.rows.length) {
                   const start = nextStart;
                   set("rows", [
@@ -504,16 +530,10 @@ export function SalesTermsEditor({
               }}
             />
           ) : null}
-          {!canAdd && editable ? <T variant="caption" muted>추가할 수 있는 날짜가 없어요. 받는 시기를 늦추거나 기존 예약 기간을 조정해 주세요.</T> : null}
           {mode === "live" && editable && firstPeriod?.startsAt > seoulToday() ? (
-            <Button label="＋ 얼리버드 기간 추가" variant="outline" disabled={busy} onPress={() => set("rows", [
+            <Button label="얼리버드 기간 추가" variant="text" icon="plus" compact style={{ alignSelf: "flex-start" }} disabled={busy} onPress={() => set("rows", [
               { key: newIdempotencyKey(), startsAt: seoulToday(), endsAt: addDays(firstPeriod.startsAt, -1), options: {} }, ...t.rows,
             ])} />
-          ) : null}
-          {mode === "live" ? (
-            <T variant="caption" muted>
-              기간 사이를 비워 두면 그동안 예약을 받지 않아요. 모든 예약 기간은 받는 시기 전에 끝나야 해요.
-            </T>
           ) : null}
         </Sec>
       </FieldFeedback>
@@ -550,6 +570,34 @@ export function SalesTermsEditor({
       </FieldFeedback>
       {children}
 
+      {/* 예약 기간 날짜(DEV-486): 카드 제목을 누르면 연다. 다른 기간과 겹치는 날은 시트가 막는다 */}
+      {sheet && typeof sheet === "object" && t.rows[sheet.period] ? (
+        <DateSheet
+          key={t.rows[sheet.period].key}
+          visible
+          title={t.rows.length > 1 ? `${sheet.period + 1}기간 예약 날짜` : "예약 날짜"}
+          range
+          start={t.rows[sheet.period].startsAt}
+          end={t.rows[sheet.period].endsAt}
+          // 이미 시작한 기간은 시작일을 그대로 두고 끝날만 고를 수 있게 시작일부터 연다(scan)
+          min={[seoulToday(), t.rows[sheet.period].startsAt].sort()[0]}
+          blocks={t.rows
+            .map((r, j) => ({ r, j }))
+            .filter(({ j }) => j !== sheet.period)
+            .map(({ r, j }) => ({ label: `${j + 1}기간`, start: r.startsAt, end: r.endsAt }))}
+          onClose={() => setSheet(null)}
+          onSave={(startsAt, endsAt) => {
+            // 날짜를 옮기면 시작일 순서로 다시 놓아 카드 번호·얼리버드 추가(맨 앞 기간 기준)가 날짜 순서를 따르게 한다(scan)
+            set(
+              "rows",
+              t.rows
+                .map((r, j) => (j === sheet.period ? { ...r, startsAt, endsAt } : r))
+                .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+            );
+            setSheet(null);
+          }}
+        />
+      ) : null}
       <DateSheet
         visible={sheet === "delivery"}
         title="받는 시기"
@@ -604,9 +652,6 @@ export function TermsSummary({ value, children }: { value: Terms; children?: Rea
               <View key={o.optionId} style={{ gap: 4 }}>
                 <T>{o.label}</T>
                 <T variant="heading">{c.price == null ? "가격 미입력" : `${c.price.toLocaleString("ko-KR")}원`}</T>
-                <T variant="caption" muted>
-                  {c.quantity == null ? "박스 수 미입력" : `${c.quantity}박스`}
-                </T>
               </View>
             );
           })}

@@ -900,13 +900,10 @@ def apply_stages(db: Session, item: Loaded, stages_input: list[StageInput]) -> N
         used = db.scalar(select(Order.id).where(Order.stage_id == s.id).limit(1)) is not None
         match = incoming.get(s.id)
         replacement = match[1] if match is not None else None
-        dates_changed = replacement is None or (
-            replacement.starts_at != s.starts_at or replacement.ends_at != s.ends_at
-        )
-        if used and dates_changed:
-            raise conflict(
-                "PERIOD_LOCKED", "주문이 있는 예약 기간은 날짜를 바꾸거나 지울 수 없어요."
-            )
+        # DEV-489: 주문이 있는 기간도 날짜는 고칠 수 있다.
+        # 받은 주문은 그 기간에 그대로 속하고, 지우기만 막는다
+        if used and replacement is None:
+            raise conflict("PERIOD_LOCKED", "주문이 있는 예약 기간은 지울 수 없어요.")
         reserved = {
             oid: a.reserved_count for (sid, oid), a in item.allocations.items() if sid == s.id
         }
@@ -1180,8 +1177,10 @@ def decide_capacity_request(
             item = load_products(db, [product])[0]
             if missing_fields(item):
                 raise conflict("INVALID_TRANSITION", "필수 상품 정보를 확인해 주세요.")
-            product.sales_limit_grams = request.requested_total_grams
             product.status = "PUBLISHED"
+        # DEV-487: 총 물량은 승인 물량 하나다.
+        # 증액 승인도 판매 한도를 같이 올린다(한도 입력 화면이 없음)
+        product.sales_limit_grams = request.requested_total_grams
         product.approved_supply_grams = request.requested_total_grams
         product.reject_reason = None
         request.status = "APPROVED"

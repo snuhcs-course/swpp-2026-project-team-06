@@ -36,6 +36,7 @@ This document describes the implemented architecture and cites the [I4 product s
 | 4.0 | 2026-11-19 | Team 6 | I4 account, order and editor design with testing-driven decisions |
 | 4.1 | 2026-11-21 | Team 6 | DEV-377: installed app names match the store titles (`farmclub`, `farmclub 농가`); identifiers unchanged |
 | 4.2 | 2026-11-22 | Team 6 | DEV-435: no iPad support; unused Android permissions blocked before store review |
+| 4.3 | 2026-11-26 | Team 6 | DEV-436: PostHog events also from the store builds of the apps (no replay); privacy policy updated, effective 2026-11-27 |
 
 
 ## 1. System Architecture
@@ -57,7 +58,7 @@ Figure 1. Retained I2 component overview; the current tables and I3 lifecycle se
 | PostgreSQL 16 | Relational business data, job leases, private inquiry attachments, immutable snapshots, idempotency and spend records | SQLAlchemy + psycopg; Alembic migrations `0001`–`0026` |
 | Cloudflare R2 | Private source originals/prepared files; public-media objects delivered through application routes | Server-only S3-compatible credentials; source bucket is not public |
 | AI providers | Anthropic Claude Haiku 4.5 for existing text drafting/CS; OpenRouter Gemini 3 Flash Preview for source analysis | Separate adapters/configuration, structured outputs, validation and explicit failure states |
-| PostHog | Client page/funnel events, producer workflow events for the pilot metrics (DEV-312), masked replay and heatmaps when enabled at build time, on the production hosts only | US Cloud; internal user identifier, no network/console recording; event properties are IDs, enum codes, flags and durations, never names, message text, tracking numbers or rejection reasons |
+| PostHog | Client page/funnel events, producer workflow events for the pilot metrics (DEV-312), masked replay and heatmaps when enabled at build time, on the production hosts only; the store builds of the iOS/Android apps send the same events without replay (key in the EAS production and preview environments, because the OneStore apps are internal builds on the preview channel; team test installs are filtered out by the test-account flag, DEV-436) | US Cloud; internal user identifier, no network/console recording; event properties are IDs, enum codes, flags and durations, never names, message text, tracking numbers or rejection reasons |
 
 ### 1.1 External libraries and runtime
 
@@ -339,7 +340,7 @@ Where older source documents contain dated decisions, use their current-contract
 
 ### Reservation period identity (DEV-336, AC-05-4)
 
-Period updates match existing rows by stageId, reject unknown or duplicate IDs, and delete only omitted IDs. Rows without an ID create new periods. Date order determines sequential labels; reservations and order snapshots remain attached to the original period ID. Date/deletion locks and allocated-stock checks use that ID.
+Period updates match existing rows by stageId, reject unknown or duplicate IDs, and delete only omitted IDs. Rows without an ID create new periods. Date order determines sequential labels; reservations and order snapshots remain attached to the original period ID. Deletion locks (since DEV-489 dates of a period with orders may change) and allocated-stock checks use that ID.
 
 
 ### Consumer price freshness (DEV-337, AC-08-8)

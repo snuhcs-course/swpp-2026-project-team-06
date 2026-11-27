@@ -239,13 +239,13 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 
 ## DEV-300 옵션별 가격·박스 판매 현황 (2026-11-10)
 
-농가 피드백(11/10)으로 현황·상품 목록·물량·판매 설정의 판매량을 중량 옵션마다 박스로 보이고, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조다. 옵션 줄은 `lib/OptionBoxRow.tsx` 하나(‘5kg  32,000원   24박스 / 72박스’)를 세 화면이 같이 쓴다. 화면 서술은 screens.md SCR-22·23·물량·판매 설정, AC-14-3.
+농가 피드백(11/10)으로 현황·상품 목록·물량·판매 설정(DEV-487로 화면 없앰)의 판매량을 중량 옵션마다 박스로 보이고, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조다. 옵션 줄은 `lib/OptionBoxRow.tsx` 하나(‘5kg  32,000원   24박스 예약’, DEV-487 전에는 ‘24박스 / 72박스’)를 세 화면이 같이 쓴다. 화면 서술은 screens.md SCR-22·23·물량·판매 설정, AC-14-3.
 - 계산은 `lib/optionBoxes.ts` 순수 함수(`scripts/test-producer-option-boxes.mjs`). 옵션마다 모든 기간의 `reservedCount`(대시보드는 `reserved`)와 `quantity`를 더한다. 옵션끼리는 더하지 않는다(공유 물량 이중 계산, DEV-292). 박스 수는 예약+출하 한 숫자(출하해도 줄지 않는 값)라 예약 중/출하 완료로 나누지 않는다. 가격은 지금 판매 기간의 박스당 가격이고 없으면 null(줄에서 비움).
 - 출처별 함수: 상품 화면 `optionBoxesFromProduct(options, stages, p.currentStageId)`(서버가 고른 지금 판매 기간. 브라우저 Mock은 `X-Server-Time`이 없어 기기 날짜를 쓰면 Mock 기준일과 어긋나므로 앱에서 날짜로 고르지 않는다), 목록 카드 `optionBoxesFromCard(card.options)`(서버가 합·가격을 계산), 현황 `optionBoxesFromDashboard(stages)`(`current` 기간의 `price`, 서버 orders 변경 없음).
 - 순서: 상품 화면·카드는 상품 옵션 순서(값 없는 옵션은 0박스), 현황은 대시보드 기간을 앞에서부터 읽어 처음 나온 순서(서버가 값 없는 옵션은 빼고 준다).
 - 현황: 상품 줄 오른쪽 kg은 caption(12) 회색 ‘총 Nkg / Mkg’(두 숫자 모두 단위, 11/10 DEV-296), 옵션 줄(sub 14, 가격·박스 semibold)마다 4px 막대. 대시보드 `stages`가 비면 예전 kg 줄과 6px 막대.
 - 상품 목록: `GET /api/products/mine` 카드의 `options`를 바로 쓴다(카드마다 상세를 읽던 N+1 제거). 옵션이 없으면 예전 kg 줄. ‘승인 · 추가 예약 가능 kg’ 줄은 caption(12) 회색 보조.
-- 물량·판매 설정: 요약 상자 안 옵션 표(body 16, ‘옵션 · 박스당 가격’ / ‘예약+출하 / 판매’, 줄마다 role group 읽기 라벨) 아래 kg 항목을 sub(14) 보조로. kg 항목은 판매 한도 입력과 짝이라 유지.
+- (DEV-487로 화면 없앰) 물량·판매 설정: 요약 상자 안 옵션 표(body 16, ‘옵션 · 박스당 가격’ / ‘예약+출하 / 판매’, 줄마다 role group 읽기 라벨) 아래 kg 항목을 sub(14) 보조로. kg 항목은 판매 한도 입력과 짝이라 유지.
 
 ## DEV-312 PostHog 생산자 이벤트 (2026-11-12)
 이벤트 이름·속성·파일럿 지표 원본은 트래킹 플랜(`docs/spec/tech-design/README.md` "트래킹 플랜"·"파일럿 지표"), 허용 목록·enum은 `packages/analytics/src/privacy.ts`. 기록은 `tasks/DEV-312.md`.
@@ -272,7 +272,7 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 ## DEV-345 품절 안내·저장 결과 위치 (2026-11-17)
 
 화면 서술·문구는 screens.md 판매 설정·SCR-26, 기록은 `tasks/DEV-345.md`.
-- 품절 안내는 `lib/soldOutGuide.ts` 순수 함수(`scripts/test-sold-out-guide.mjs`). 판정은 서버 `availability`를 그대로 쓰고 `PUBLISHED`만 안내한다(승인 전은 한도 0이라 서버가 `TOTAL_SOLD_OUT`을 줌). 박스 소진은 `currentStageId` 기간의 모든 옵션이 `quantity ≤ reservedCount`, 그 기간에 박스를 정한 옵션이 하나도 없으면(옵션 교체) kg 대신 이번 기간 안내.
+- (DEV-487로 지움) 품절 안내는 `lib/soldOutGuide.ts` 순수 함수(`scripts/test-sold-out-guide.mjs`)였다. 판정은 서버 `availability`를 그대로 쓰고 `PUBLISHED`만 안내한다(승인 전은 한도 0이라 서버가 `TOTAL_SOLD_OUT`을 줌). 박스 소진은 `currentStageId` 기간의 모든 옵션이 `quantity ≤ reservedCount`, 그 기간에 박스를 정한 옵션이 하나도 없으면(옵션 교체) kg 대신 이번 기간 안내.
 - 물량·판매 설정의 오류·성공 안내는 상태 `at`(save·pause·request·page) 한 자리에만 보인다: 누른 버튼 바로 아래, 신청·철회는 ‘물량 추가 신청’ 영역 끝, 불러오기 실패만 맨 아래. 기간·가격도 저장 오류·저장 뒤 안내를 저장 버튼 아래에 뒀다(불러오기 실패는 위, DEV-361 PR C에서 화면과 함께 없어짐).
 - 화면 밖이면 웹에서만 `scrollIntoView({ block: "nearest" })`(View ref의 DOM 노드, 네이티브에는 함수가 없어 아무 일도 안 함 — `lib/FieldFeedback.tsx`와 같은 방식). ‘물량 추가 신청하기’는 신청 영역을 `block: "center"`로 옮기고 `Input.inputRef`로 초점.
 - 판매 설정 → ‘기간·가격에서 박스 늘리기’는 `/products/:id/stages?from=sales`로 열고, 기간·가격의 ‘판매 한도 늘리기’는 `from=sales`이고 `router.canGoBack()`이면 `router.back()`(판매 설정→기간→판매 설정으로 스택이 쌓여 뒤로가 맴도는 것을 막음), 아니면 push. DEV-361 PR C부터 버튼은 ‘판매 조건에서 박스 늘리기’ → `/products/:id/detail?terms=1`(push)이고 기간·가격의 ‘판매 한도 늘리기’는 없다.
@@ -292,3 +292,25 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 자료 칸(`lib/SourceAttachments.tsx`)은 썸네일 상태를 받는 중·받음·없음·실패로 나눈다. 받는 중은 면색 칸, 없음(쪽이 아직 없거나 404)은 아이콘 + 'PDF · n쪽'/'PDF'/'사진', 실패는 '미리보기를 불러오지 못했어요'. '준비 중' 문구는 쓰지 않는다. 앱에서 썸네일이 늘 실패하던 원인은 `packages/api/src/privatePhoto.ts`(React Native Blob, `packages/api/tasks/DEV-477.md`).
 - '소비자 앱에서 내 농가 보기'(SCR-30·SCR-33)는 `shareUrl`이 있을 때만 둔다. 승인 전·숨긴 농가(DEV-472)는 소비자 앱에서 404라서. 두 화면 모두 `lib/consumerFarmLink.ts`의 `consumerFarmTarget`으로 정하고, 농가 정보를 받기 전·조회 실패면 줄이 없다(눌러도 반응 없는 줄을 두지 않음).
 - 운영팀 대화방 `/support`도 다른 대화방처럼 `ChatThread`에 `copy={copyText}`(expo-clipboard)를 넘긴다. 앱에는 웹 클립보드가 없어 넘기지 않으면 '복사'가 아무 일도 하지 않는다.
+
+## DEV-486 예약 기간 블록 정리
+- `SalesTermsEditor` 기간 카드: 제목 = ‘N기간’(기간이 둘 이상일 때) + 날짜 칸(`Pressable`, 살구색 칸·달력 아이콘, 라벨 ‘… 예약 날짜 고치기’). 누르면 같은 파일의 `DateSheet`(range, `min` 오늘·그 기간 시작일 중 이른 날, 다른 기간은 `blocks`)를 행 key로 새로 그려 연다. 예전 `DateInput` 두 칸은 이 화면에서 쓰지 않는다(`fields.tsx`의 `DateInput`은 남김).
+- 예약이 있는 기간(`locked`)은 휴지통이 없다. 날짜 칸은 DEV-489부터 다른 기간처럼 고친다(서버는 지우기만 PERIOD_LOCKED로 막음). DEV-486에서 둔 ‘예약 이력이 있어 날짜는 유지해요…’ 줄은 뺐다.
+- 날짜 칸은 판매·가격(SCR-24b, `mode="new"`)에서도 고친다(예전엔 live만 날짜 칸이 있었음). 기간이 하나일 때 받는 시기를 바꾸면 끝날이 받는 시기 전날로 다시 맞춰지는 기존 규칙은 그대로다. 달력의 `min`은 오늘과 그 기간 시작일 중 이른 날이라 이미 시작한 기간도 시작일을 둔 채 끝날만 고를 수 있다.
+- 판매 조건 시트 토스트는 시트를 열고 닫을 때 지우고, iOS에서만 같은 문구를 `AccessibilityInfo.announceForAccessibility`로 읽어 준다(overlay는 시트 상자 밖이라 iOS 화면 읽기가 건너뛸 수 있고, Android·웹은 Toast의 alert·live region이 읽음). 기간 날짜를 저장하면 rows를 시작일 순으로 다시 놓는다.
+- 문구는 줄였다: ‘추가할 수 있는 날짜가 없어요…’·‘기간 사이를 비워 두면…’ 삭제, 기간 카드 안 ‘이 기간: …’ 오류 줄 삭제. 오류 문구는 부르는 쪽이 한 번 보인다(composer 시트는 시트 위 `Toast`, 판매·가격은 `BottomBar` 오류 줄). 편집부의 알림은 `notify` prop(없으면 앱 `toast` 오류 톤).
+- ‘＋ 예약 기간 추가’·‘＋ 얼리버드 기간 추가’는 줄 전체 테두리 버튼 대신 ‘직접 입력’과 같은 작은 글자 버튼. 더 넣을 날이 없어도 막지 않고 누르면 토스트로 이유를 알린다.
+- 기간 삭제는 휴지통 아이콘(라벨 ‘기간 삭제’ 유지). 뒤에 기간이 있는 카드에는 얼리버드 도움말 한 줄.
+
+## DEV-487 (1/2) 판매 조건에서 박스 수 칸 없애기
+- 물량은 상품 총량(판매 한도 kg)으로만 판단한다(진우 11/25). `SalesTermsEditor`는 기간×옵션 박스 수를 묻지 않고 `UNLIMITED_BOXES`(99,999)를 보낸다. 서버 계약(`StageOptionInput.quantity` 필수, 예약 박스 이상)은 그대로라 큰 값으로 채운다.
+- `termsFrom`은 불러온 박스 수를 `max(UNLIMITED_BOXES, 기존 값)`으로 맞추고 `termsKey`·`checkTerms`는 박스 수를 보지 않는다. 그래서 박스 수만 다른 것은 ‘수정됨’이 아니고, 다른 판매 조건을 반영할 때 함께 제한 없음으로 저장된다.
+- 반영 확인표(composer)·`TermsSummary`·판매·가격 안내에서 박스 줄과 문구를 뺐다. 가격 칸은 옵션마다 두 칸씩 나란히.
+- 이미 있는 상품의 작은 박스 수는 운영 DB를 한 번 정리해 푼다(사람이 실행, 이슈 파일 ‘운영 데이터 정리’ SQL). 물량·판매 설정 화면·판매 한도 편집 숨김은 DEV-487 (2/2).
+
+## DEV-487 (2/2) 판매 관리 시트 — 물량·판매 설정 화면 없앰
+- 상품 목록 카드 둘째 버튼: 판매 전 ‘판매·가격’, 판매 중(`PUBLISHED`)·첫 판매 요청 심사 중(`PENDING_APPROVAL` + `INITIAL`) ‘판매 관리’. 그 밖(종료 등)은 없음. `SalesManageSheet`(같은 파일) 한 시트가 단계(`menu`·`total`·`pause`·`withdraw`)를 바꿔 그린다(주문 관리 시트처럼 확인 단계도 같은 시트).
+- 모양은 주문 관리 시트(`ship.tsx`)를 따른다: 제목, `ProductIdentity`(OrderIdentity 꼴 면색 상자), 확인 단계 아래 [이전 | 확인] 1:2. 심사 중 칩(`PendingChip`)은 OrderCard 상태 칩 모양(높이 28, radius sm, accentSoft)이고 ‘철회’를 칩 안에 둔다. ‘판매 중지’는 상자 오른쪽 위 작은 빨간 글자, ‘바꾸기’는 총 물량 바로 옆 칩 버튼(진우 화면 검토 11/26).
+- 총 물량 = `salesLimitGrams`. 저장: `< 예약+출하` 거절(요청 없음), `≤ approvedSupplyGrams` `catalog.salesSettings`(한도만, `salesPaused` 그대로), 그보다 크면 `catalog.requestCapacity`(증액). 증액 승인은 서버가 한도도 같이 올린다(`catalog/service.py` `decide_capacity_request`, Mock `capacity.ts`). 카드 정보는 목록 응답(`MyProductCard`의 SalesState·`pendingCapacityRequest`)만 쓰고 상세를 읽지 않는다.
+- 시트 안 실패는 시트 안 빨간 줄(앱 토스트는 Modal 뒤), 성공은 시트를 닫고 앱 토스트 후 목록 다시 읽기. 멱등 키는 동작·값이 같으면 재사용.
+- `products/[id]/sales.tsx`는 `/products`로 Redirect(예전 링크). 현황 상품 줄은 상품 수정으로. 상품 수정의 반영 뒤 전체 품절 Notice는 버튼 없이 ‘총 물량(○kg)을 모두 팔았어요. 상품 목록의 판매 관리에서 늘릴 수 있어요.’. 증액이 반려되면(상품은 판매 중, `rejectReason`) 카드와 시트에 빨간 ‘늘리기 반려: {사유}’. 시트는 연 카드 id로 목록의 최신 카드를 쓰고, 실패하면 목록을 다시 읽는다(버전 충돌 회복). `lib/soldOutGuide.ts`·`scripts/test-sold-out-guide.mjs` 삭제.

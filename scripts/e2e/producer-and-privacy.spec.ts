@@ -20,19 +20,24 @@ test("AC-03/04/05: producer draft and sales controls are wired to the real serve
   }
   await expect(page.getByLabel("상품명")).toBeVisible();
 
-  await page.goto(`${producerUrl}/products/p-house/sales`);
-  await expect(page.getByText("판매 설정", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "물량 추가 신청" })).toBeVisible();
-  await page.getByRole("button", { name: "판매 중지" }).click();
-  await page.getByRole("button", { name: "확인", exact: true }).click();
-  await expect(page.getByRole("button", { name: "판매 재개" })).toBeVisible();
-  await page.getByRole("button", { name: "판매 재개" }).click();
-  await page.getByRole("button", { name: "확인", exact: true }).click();
-  await expect(page.getByRole("button", { name: "판매 중지" })).toBeVisible();
+  // DEV-487: 물량·판매 설정 화면 대신 카드의 '판매 관리' 시트에서 멈추고(확인 한 번 더) 다시 연다
+  await page.goto(`${producerUrl}/products?filter=selling`);
+  const manage = () =>
+    page.getByRole("button", { name: "하우스 감귤 5kg / 10kg 상품 수정", exact: true }).locator("xpath=..").getByRole("button", { name: "판매 관리", exact: true });
+  await manage().click();
+  const sheet = page.getByTestId("sales-manage-sheet");
+  await sheet.getByRole("button", { name: "판매 중지" }).click();
+  await expect(sheet.getByText(/판매 관리에서 언제든 다시 재개할 수 있어요/)).toBeVisible();
+  await sheet.getByRole("button", { name: "판매 중지", exact: true }).click();
+  await expect(page.getByText("판매를 중지했어요. 기존 예약은 유지돼요.", { exact: true })).toBeVisible();
+  await page.goto(`${producerUrl}/products?filter=paused`);
+  await manage().click();
+  await sheet.getByRole("button", { name: "판매 재개" }).click();
+  await expect(page.getByText("판매를 재개했어요.", { exact: true })).toBeVisible();
   assertClean();
 });
 
-// DEV-300: 판매 현황은 중량 옵션마다 '5kg  32,000원   예약+출하 N박스 / 판매 M박스'(가격은 지금 기간, 박스는 모든 기간 합).
+// DEV-300: 판매 현황은 중량 옵션마다 '5kg  32,000원   N박스 예약'(가격은 지금 기간, 박스는 모든 기간 합, DEV-487부터 판매 박스 없음).
 // 옵션끼리 더하지 않는다. 앞 spec이 주문을 만들 수 있어 기대값은 서버 값(기간·옵션별 reservedCount·quantity·price)으로 만든다.
 test("AC-14-1(part)/AC-14-3 DEV-300: dashboard, product card and sales settings show price and sold boxes per weight option", async ({ page, request }) => {
   const assertClean = monitor(page);
@@ -81,7 +86,7 @@ test("AC-14-1(part)/AC-14-3 DEV-300: dashboard, product card and sales settings 
   const n = (v: number) => v.toLocaleString("ko-KR");
   const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const label = (r: { label: string; price: number | null; sold: number; quantity: number }) =>
-    `${r.label}${r.price === null ? "" : ` ${n(r.price)}원,`} 예약·출하 ${n(r.sold)}박스, 판매 ${n(r.quantity)}박스`;
+    `${r.label}${r.price === null ? "" : ` ${n(r.price)}원,`} 예약·출하 ${n(r.sold)}박스`;
   await loginProducer(page, "강영수");
   const amount = page.getByRole("link", { name: new RegExp(`^${escape(dash.product.productName)} `) });
   // 옵션 숫자가 우연히 같을 수 있어 같은 글자는 옵션 수만큼 보이는지 센다
@@ -90,7 +95,7 @@ test("AC-14-1(part)/AC-14-3 DEV-300: dashboard, product card and sales settings 
     expect(r.price).not.toBeNull();
     await expect(amount).toHaveAccessibleName(new RegExp(escape(label(r))));
     await expect(amount.getByText(`${n(r.price!)}원`, { exact: true }).first()).toBeVisible();
-    const t = `${n(r.sold)}박스 / ${n(r.quantity)}박스`;
+    const t = `${n(r.sold)}박스 예약`;
     texts.set(t, (texts.get(t) ?? 0) + 1);
   }
   for (const [t, count] of texts) await expect(amount.getByText(t, { exact: true })).toHaveCount(count);
@@ -106,17 +111,13 @@ test("AC-14-1(part)/AC-14-3 DEV-300: dashboard, product card and sales settings 
   await listed;
   for (const r of rows) {
     await expect(page.getByText(`${n(r.price!)}원`, { exact: true }).first()).toBeVisible();
-    await expect(page.getByText(`${n(r.sold)}박스 / ${n(r.quantity)}박스`, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(`${n(r.sold)}박스 예약`, { exact: true }).first()).toBeVisible();
   }
-  await expect(page.getByText(/^승인 [\d.]+kg · 추가 예약 가능 [\d.]+kg$/).first()).toBeVisible();
+  await expect(page.getByText(/^총 물량 [\d,.]+kg · 예약·출하 [\d,.]+kg$/).first()).toBeVisible();
   // 목록 폴링(8초) 한 번을 더 기다려 늦게 나가는 상세 요청도 본다
   await page.waitForResponse((r) => new URL(r.url()).pathname === "/api/products/mine", { timeout: 15000 });
   expect(detailReads).toEqual([]);
 
-  await page.goto(`${producerUrl}/products/p-house/sales`);
-  for (const r of rows) await expect(page.getByLabel(label(r), { exact: true })).toBeVisible();
-  // 판매 한도는 계속 kg
-  await expect(page.getByText("현재 판매 한도 (kg)")).toBeVisible();
 
   // AC-14-1 중 대표 상품 물량 부분(DEV-300): 새 주문의 입금을 확인한 뒤 다시 열면 그 옵션의 박스만 하나 늘고
   // 다른 옵션은 그대로, 총 kg은 5kg 는다. 박스는 입금 안내 때 잡히므로 확인 뒤에도 +1이다(AC-14-1의 입금 대기 할 일·주문 지표 갱신은 이 테스트에서 보지 않는다)
@@ -147,10 +148,11 @@ test("AC-14-1(part)/AC-14-3 DEV-300: dashboard, product card and sales settings 
       })).ok(),
     ).toBeTruthy();
   expect((await request.post(`${apiUrl}/api/orders/${orderId}/confirm-deposit`, { headers: asProducer })).ok()).toBeTruthy();
+  // DEV-487: 물량·판매 설정 화면이 없어 상품 목록 카드 줄로 본다(옵션마다 'N박스 예약')
   const [five, ten] = rows;
-  await page.goto(`${producerUrl}/products/p-house/sales`);
-  await expect(page.getByLabel(label({ ...five, sold: five.sold + 1 }), { exact: true })).toBeVisible();
-  await expect(page.getByLabel(label(ten), { exact: true })).toBeVisible();
+  await page.goto(`${producerUrl}/products?filter=selling`);
+  await expect(page.getByText(`${n(five.sold + 1)}박스 예약`, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(`${n(ten.sold)}박스 예약`, { exact: true }).first()).toBeVisible();
   if (dash.product.productId === "p-house") {
     await page.goto(producerUrl);
     const home5 = home.get("opt-5")!;
