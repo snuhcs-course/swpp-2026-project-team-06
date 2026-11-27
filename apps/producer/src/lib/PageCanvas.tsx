@@ -416,6 +416,39 @@ export function PageCanvas({
             ) : null}
           </View>
         ))}
+        {/* The section list opens right under the photos, above 사진 추가, where it was tapped (user review 11/28). */}
+        {selected === m.id ? (
+          <View style={{ gap: 8 }}>
+            {moving?.id === m.id ? (
+              <View style={{ gap: 4 }}>
+                <T variant="caption">{`사진 ${moving.index + 1}을 옮길 섹션`}</T>
+                {displayModules
+                  .filter((n) => n.id !== m.id)
+                  .map((n) => (
+                    <Button
+                      compact
+                      key={n.id}
+                      label={title(n.id)}
+                      disabled={busy || uploading || blocked.includes(n.id)}
+                      variant="text"
+                      onPress={() => {
+                        const next = structuredClone(displayModules);
+                        const from = next.find((x) => x.id === m.id)!;
+                        const to = next.find((x) => x.id === n.id)!;
+                        const [photo] = from.photos.splice(moving.index, 1);
+                        if (!to.photos.some((p) => p.uri === photo.uri))
+                          to.photos.push(photo);
+                        to.enabled = true;
+                        onChange(next);
+                        setMoving(null);
+                      }}
+                    />
+                  ))}
+                <Button compact label="취소" variant="text" onPress={() => setMoving(null)} />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
         {!emptyHint || selected === m.id ? (
           <Pressable
             ref={photoTarget === m.id ? addedNode : undefined}
@@ -448,37 +481,6 @@ export function PageCanvas({
               사진 추가
             </T>
           </Pressable>
-        ) : null}
-        {selected === m.id ? (
-          <View style={{ gap: 8 }}>
-            {moving?.id === m.id ? (
-              <View style={{ gap: 4 }}>
-                <T variant="caption">{`사진 ${moving.index + 1}을 옮길 섹션`}</T>
-                {displayModules
-                  .filter((n) => n.id !== m.id)
-                  .map((n) => (
-                    <Button
-                      compact
-                      key={n.id}
-                      label={title(n.id)}
-                      disabled={busy || uploading || blocked.includes(n.id)}
-                      variant="text"
-                      onPress={() => {
-                        const next = structuredClone(displayModules);
-                        const from = next.find((x) => x.id === m.id)!;
-                        const to = next.find((x) => x.id === n.id)!;
-                        const [photo] = from.photos.splice(moving.index, 1);
-                        if (!to.photos.some((p) => p.uri === photo.uri))
-                          to.photos.push(photo);
-                        to.enabled = true;
-                        onChange(next);
-                        setMoving(null);
-                      }}
-                    />
-                  ))}
-              </View>
-            ) : null}
-          </View>
         ) : null}
         {picker === m.id ? (
           <View style={{ gap: 8 }}>

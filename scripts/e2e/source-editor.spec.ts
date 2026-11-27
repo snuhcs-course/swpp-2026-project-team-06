@@ -245,6 +245,14 @@ test("AC-SRC-11 DEV-361: photos without descriptions remain available for manual
     page.getByTestId("source-photo-frame").getByRole("img"),
   ).toBeVisible();
   await expect(text).toHaveCSS("border-top-width", "1px");
+  // DEV-452 (user review 11/28): the section list opens right under the photo, above 사진 추가.
+  await introduction.getByRole("button", { name: "사진 1 위치 이동", exact: true }).click();
+  const moveTitle = introduction.getByText("사진 1을 옮길 섹션", { exact: true });
+  await expect(moveTitle).toBeVisible();
+  const [listBox, addBox] = [await moveTitle.boundingBox(), await addPhoto.boundingBox()];
+  expect(listBox!.y).toBeLessThan(addBox!.y);
+  await introduction.getByRole("button", { name: "취소", exact: true }).click();
+  await expect(moveTitle).toHaveCount(0);
 
   // DEV-452 (user review 11/28): 크기 참고 is on a new page from the start with the size picture choice.
   await expect(page.getByRole("button", { name: "크기 참고 추가", exact: true })).toHaveCount(0);
