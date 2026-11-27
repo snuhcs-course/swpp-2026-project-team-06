@@ -131,6 +131,20 @@ def test_AC_SRC_photo_DEV452_trim_keeps_largest_text_free_band_and_rejects_slive
     assert trim_text_bands(box, [{"box": [0.1, 0.8, 0.9, 0.9]}]) == box
 
 
+def test_AC_SRC_photo_DEV452_small_labels_inside_a_photo_do_not_split_it():
+    # A gift box photo whose fruit carry small logo stickers that OCR reads as words.
+    box = (0.0, 0.77, 1.0, 1.0)
+    stickers = [
+        {"box": [x, y, x + 0.07, y + 0.012]}
+        for y in (0.83, 0.88, 0.93)
+        for x in (0.1, 0.35, 0.57, 0.8)
+    ]
+    assert trim_text_bands(box, stickers) == box
+    # A short price line at the bottom edge is still cut away.
+    price = {"box": [0.4, 0.975, 0.6, 0.995]}
+    assert trim_text_bands(box, [*stickers, price])[3] <= 0.975
+
+
 def test_AC_SRC_photo_near_duplicates_and_sections():
     a = base64.b64encode(_png(photo(seed=1))).decode()
     b = base64.b64encode(_png(photo(seed=1).resize((580, 386)))).decode()

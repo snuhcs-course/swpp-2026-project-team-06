@@ -25,6 +25,8 @@ MIN_SIDE_RATIO = 0.12  # of page width
 MIN_AREA_RATIO = 0.02
 MAX_TEXT_COVER = 0.25
 MIN_ENTROPY = 4.2  # bits, 64-colour adaptive palette
+TEXT_BAND_WIDTH = 0.25  # of block width: a text line this wide is a caption, not a label
+TEXT_EDGE_RATIO = 0.15  # of block height: text this close to the top/bottom edge is a caption
 GRID = 8  # px per cell for the layout heuristic (on a 400px-wide copy)
 
 
@@ -228,24 +230,36 @@ def trim_text_bands(box, spans, image_size=None):
     holds no text, or None when no band is large enough to be a photo.
     """
     height = box[3] - box[1]
-    if height <= 0:
+    width = box[2] - box[0]
+    if height <= 0 or width <= 0:
         return None
     runs = []
     for s in spans:
         sb = _span_box(s)
         if _area(sb) <= 0 or _overlap(box, sb) < 0.5 * _area(sb):
             continue
-        runs.append((max(box[1], sb[1]), min(box[3], sb[3])))
+        runs.append((max(box[1], sb[1]), min(box[3], sb[3]), sb[2] - sb[0]))
     if not runs:
         return box
     runs.sort()
     gap = 0.004 * 2  # closes the space between lines of one block
     merged = [list(runs[0])]
-    for a, b in runs[1:]:
+    for a, b, w in runs[1:]:
         if a <= merged[-1][1] + gap:
             merged[-1][1] = max(merged[-1][1], b)
+            merged[-1][2] = max(merged[-1][2], w)
         else:
-            merged.append([a, b])
+            merged.append([a, b, w])
+    # A caption or price line runs across the block or sits at its edge. Small words inside
+    # the picture (stickers, box logos) are part of the photo and do not split it.
+    edge = TEXT_EDGE_RATIO * height
+    merged = [
+        (a, b)
+        for a, b, w in merged
+        if w >= TEXT_BAND_WIDTH * width or a <= box[1] + edge or b >= box[3] - edge
+    ]
+    if not merged:
+        return box
     bands, cursor = [], box[1]
     for a, b in merged:
         if a > cursor:
