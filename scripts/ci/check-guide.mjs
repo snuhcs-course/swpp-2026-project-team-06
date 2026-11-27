@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// DEV-437: 팀 안내 페이지(docs/guide/index.html)가 AGENTS.md·저장소와 어긋나지 않았는지 본다. 의존성 없음(node만).
+// DEV-437: 팀 안내 페이지 두 판(영어판 docs/guide/index.html이 기본, 한국어판 docs/guide/ko/index.html)이 AGENTS.md·저장소와, 서로 어긋나지 않았는지 본다. 의존성 없음(node만).
 //
 //   node scripts/ci/check-guide.mjs     # CI guide job(PR·머지 큐에서 실패하면 ci-ok가 막는다), 로컬은 make test-ci
 //
@@ -18,8 +18,9 @@
 //    바뀌지 않는 기록 링크(/pull/<n>, /issues/<n>, /actions/runs/<n>, /commit/<sha>)는 형태만 본다.
 //    상대 경로·http://·다른 브랜치처럼 Pages에서 깨지거나 main과 갈라지는 링크는 실패다.
 //    예외: 다른 언어판(PAGES)을 가리키는 상대 링크(en/, ../, ./)는 허용하고, #앵커가 있으면 그 판의 id를 본다.
-// 3) 두 판(checkParity, 보고 키 parity): 한국어판(원본)과 영어판의 절 id 집합, 저장소 링크 집합(docs/guide/ 자기 링크 제외),
-//    data-agents 값(키·방식·글)과 목록 항목 수가 같아야 한다. 한쪽만 고치면 실패한다.
+// 3) 두 판(checkParity, 보고 키 parity): 영어판과 한국어판의 id 집합(절·단계 step-1~8 포함), 페이지 안 링크(#…) 집합(바·단계 줄 포함),
+//    저장소 링크 집합(docs/guide/ 자기 링크 제외), data-agents 값(키·방식·글)과 목록 항목 수가 같아야 한다.
+//    대칭이라 어느 판도 기준이 아니고, 한쪽만 고치면 실패한다.
 // 규칙을 바꾸면 같은 PR에서 페이지도 고친다. 값 키를 늘리려면 KEYS에 한 줄, test-check-guide.mjs에 fixture 시나리오를 더한다.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -27,8 +28,8 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 export const PAGE = "docs/guide/index.html";
-// 협업 지도 판들. 첫째가 원본(한국어), 둘째가 영어판(11/27 DEV-437).
-export const PAGES = [PAGE, "docs/guide/en/index.html"];
+// 협업 지도 판들. 영어판이 기본(/guide/), 한국어판은 /guide/ko/ (11/27 DEV-437).
+export const PAGES = [PAGE, "docs/guide/ko/index.html"];
 export const REPO_URL = "https://github.com/snuhcs-course/swpp-2026-project-team-06";
 
 const ticks = (s) => [...(s ?? "").matchAll(/`([^`]+)`/g)].map((m) => m[1]);
@@ -319,12 +320,14 @@ function repoLinksIn(html) {
   return out;
 }
 
+const inPageLinksIn = (html) => new Set([...stripComments(html).matchAll(/\shref\s*=\s*(?:"(#[^"]*)"|'(#[^']*)')/gi)].map((m) => m[1] ?? m[2]));
+
 const valuesIn = (html) => {
   const { values, lists } = pageValues(html);
   return [...values.map((v) => `${v.key} ${v.how}: ${v.text}`), ...lists.map((l) => `${l.key} 목록: <li> ${l.items}개`)].sort();
 };
 
-// 두 판 대조. base(원본)에 있고 other에 없는 것, other에만 있는 것을 알린다. 오류는 other 파일에 붙인다.
+// 두 판 대조(대칭). 한쪽에만 있는 것을 양쪽 다 알린다. 오류는 둘째 판 파일에 붙이고 메시지에 두 파일을 적는다.
 export function checkParity(baseHtml, otherHtml, [base, other] = PAGES) {
   const errors = [];
   const diff = (what, a, b) => {
@@ -336,7 +339,8 @@ export function checkParity(baseHtml, otherHtml, [base, other] = PAGES) {
     if (missing.length || extra.length)
       errors.push({ key: "parity", file: other, line: null, actual: [missing.length && `${base}에만: ${missing.join(" | ")}`, extra.length && `${other}에만: ${extra.join(" | ")}`].filter(Boolean).join(" / "), expected: `두 판의 ${what} 집합이 같아야 한다(한 PR에서 두 판을 같이 고친다)` });
   };
-  diff("절 id", idsIn(baseHtml), idsIn(otherHtml));
+  diff("id(절·단계)", idsIn(baseHtml), idsIn(otherHtml));
+  diff("페이지 안 링크", inPageLinksIn(baseHtml), inPageLinksIn(otherHtml));
   diff("저장소 링크", repoLinksIn(baseHtml), repoLinksIn(otherHtml));
   diff("data-agents 값", valuesIn(baseHtml), valuesIn(otherHtml));
   return errors;
@@ -384,5 +388,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     if (process.env.GITHUB_ACTIONS === "true") console.log(annotations(errors).join("\n"));
     process.exit(1);
   }
-  console.log(`check-guide: OK — 값 키 ${Object.keys(KEYS).length}개. ${summary.join(", ")}. 두 판의 절 id·저장소 링크·값이 같다(parity).`);
+  console.log(`check-guide: OK — 값 키 ${Object.keys(KEYS).length}개. ${summary.join(", ")}. 두 판의 id(절·단계)·페이지 안 링크·저장소 링크·값이 같다(parity).`);
 }
