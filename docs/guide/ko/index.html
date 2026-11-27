@@ -6,17 +6,19 @@
 <meta name="description" content="farmclub 팀원용 협업 지도: 작업 순서, 사람이 하는 일, 통제의 층, 규칙 원문 링크">
 <meta name="robots" content="noindex">
 <title>farmclub 협업 지도</title>
+<link rel="alternate" hreflang="en" href="../">
 <link rel="alternate" hreflang="ko" href="./">
-<link rel="alternate" hreflang="en" href="en/">
+<link rel="alternate" hreflang="x-default" href="../">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!--
-  DEV-437 팀 협업 지도. 원본은 이 파일 하나이고, main에 머지되면 GitHub Pages(main의 /docs)가 그대로 올린다.
+  DEV-437 팀 협업 지도 한국어판(/guide/ko/). 기본 판은 영어판 ../index.html(/guide/)이다(11/27 오너 결정).
+  main에 머지되면 GitHub Pages(main의 /docs)가 그대로 올린다. 상대 링크는 ../ 와 ./ 뿐이다.
   규칙의 원문은 AGENTS.md·README·.github/CI.md이고, 이 페이지는 순서와 이유를 적은 뒤 원문 절로 연결한다.
   data-agents="키" 값과 저장소 링크는 CI guide job(scripts/ci/check-guide.mjs)이 AGENTS.md·저장소와 대조한다.
-  영어판은 en/index.html이고 이 파일이 원본이다. 절 id·저장소 링크·data-agents 값은 두 판이 같아야 한다(check-guide가 대조).
+  절 id·단계 id·페이지 안 링크·저장소 링크·data-agents 값은 두 판이 같아야 한다(check-guide가 대조, 어느 판도 예외가 아니다).
   규칙이 바뀌면 같은 PR에서 이 파일도 고친다. 절 id는 바꾸지 않는다. 폴더 설명은 docs/guide/spec.md.
   조판(DEV-437 제안 v2, 2026-11-27 승인): 내용 폭 1200, 12열(열 사이 24), 절 제목 1–3열 · 본문 4–12열.
   글자 72 제목 · 28 절 제목 · 18 소제목 · 16 본문 · 15 표 · 13 라벨(이보다 작게 쓰지 않는다).
@@ -54,11 +56,7 @@ code.h{font-family:var(--sans);font-size:.94em}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* 머리 */
-header.top{padding-top:28px}
-/* 언어 바꾸기: 머리 맨 위 오른쪽 글자 링크 */
-.lang{grid-column:1/-1;justify-self:end;display:flex;align-items:center;gap:8px;min-height:44px;margin-bottom:24px;font-size:13px;line-height:20px;color:var(--ink-2)}
-.lang a{display:inline-flex;align-items:center;min-height:44px}
-.lang [aria-current]{color:var(--ink);font-weight:600}
+header.top{padding-top:48px}
 
 h1{grid-column:1/-1;font-size:72px;line-height:76px;font-weight:600;letter-spacing:-.04em}
 .intro{grid-column:1/9;margin-top:28px;display:grid;gap:12px;font-size:19px;line-height:32px;letter-spacing:-.01em}
@@ -70,12 +68,12 @@ h1{grid-column:1/-1;font-size:72px;line-height:76px;font-weight:600;letter-spaci
 .toc a:hover{color:var(--accent-ink)}
 
 /* 절: 제목은 왼쪽 세 열, 내용은 나머지 */
-section.sec{margin-top:112px;border-top:1px solid var(--rule);padding-top:20px;scroll-margin-top:16px}
-.sec > h2{grid-column:1/4;align-self:start;position:sticky;top:20px;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.025em}
+section.sec{margin-top:112px;border-top:1px solid var(--rule);padding-top:20px;scroll-margin-top:64px}
+.sec > h2{grid-column:1/4;align-self:start;position:sticky;top:68px;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.025em}
 .sec > .c{grid-column:4/13;display:grid;gap:20px;align-content:start;min-width:0}
 .sec > .c > p,.sec > .c > ul.plain,.part > p{max-width:40em}
 h3{font-size:18px;line-height:28px;font-weight:600;letter-spacing:-.01em}
-.part{margin-top:24px;display:grid;gap:12px;scroll-margin-top:16px}
+.part{margin-top:24px;display:grid;gap:12px;scroll-margin-top:64px}
 ul.plain{display:grid;gap:6px}
 ul.plain li{padding-left:18px;position:relative}
 ul.plain li::before{content:"";position:absolute;left:0;top:13px;width:8px;height:1px;background:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -130,21 +128,63 @@ pre{font-family:var(--mono);font-size:13px;line-height:22px;background:var(--tin
 
 /* 찾아보기 */
 .idx{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;row-gap:48px}
-.idx > div{border-top:1px solid var(--hair);padding-top:14px;display:grid;gap:10px;align-content:start;scroll-margin-top:16px;min-width:0}
+.idx > div{border-top:1px solid var(--hair);padding-top:14px;display:grid;gap:10px;align-content:start;scroll-margin-top:64px;min-width:0}
 .idx > div.span{grid-column:1/-1}
 .idx p,.idx li{font-size:15px;line-height:24px}
 
-footer.foot{margin-top:112px;border-top:1px solid var(--rule);padding-top:20px;scroll-margin-top:16px}
+footer.foot{margin-top:112px;border-top:1px solid var(--rule);padding-top:20px;scroll-margin-top:64px}
 footer.foot h2{grid-column:1/4;font-size:18px;line-height:28px;font-weight:600}
 footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:15px;line-height:24px}
+
+/* 위 바: 페이지 이름(제목이 지나간 뒤) · 절 링크(지금 절 표시) · 언어 바꾸기. 높이 48, 바탕색, 아래 가는 선 하나 */
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+[id]{scroll-margin-top:64px}
+.skip{position:absolute;left:16px;top:-64px;z-index:20;background:var(--bg);color:var(--ink);border:1px solid var(--ink);padding:10px 14px;font-size:15px;line-height:24px;text-decoration:none}
+.skip:focus{top:2px}
+.bar{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--hair)}
+.bar-in{max-width:calc(1200px + 2 * var(--pad));margin:0 auto;padding:0 var(--pad);height:48px;display:flex;align-items:center;gap:24px}
+.bar-name{flex:none;font-size:15px;line-height:20px;font-weight:600;text-decoration:none;white-space:nowrap}
+.js .bar:not(.past) .bar-name{visibility:hidden}
+.bar-links{flex:1;min-width:0;display:flex;justify-content:center;gap:20px}
+.bar-links a,.bar-toc li a{color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.bar-links a{display:flex;align-items:center;height:48px;font-size:14px;line-height:20px}
+.bar a[aria-current]{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-thickness:1px;text-decoration-color:var(--ink);text-underline-offset:6px}
+.bar-links a:hover,.bar-toc li a:hover,.lang-sw a:hover{color:var(--ink)}
+.bar-toc{display:none;flex:1}
+.bar-toc summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;height:48px;font-size:15px;line-height:20px;font-weight:600}
+.bar-toc summary::-webkit-details-marker{display:none}
+.bar-toc[open] summary{text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:1px}
+.bar-toc ol{position:absolute;left:0;right:0;top:48px;background:var(--bg);border-bottom:1px solid var(--rule);padding:0 var(--pad) 8px}
+.bar-toc li a{display:flex;align-items:center;min-height:44px;border-bottom:1px solid var(--hair);font-size:16px}
+.lang-sw{flex:none;margin-left:auto;display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;color:var(--ink-2)}
+.lang-sw a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink-2);text-decoration:none}
+@media (max-width:1199px){.bar-links{display:none}.bar-toc{display:block}}
+@media (max-width:560px){.bar-name{display:none}}
+
+/* 작업 순서 표 위 단계 줄과 단계 링크 */
+.strip{display:flex;flex-wrap:wrap;margin-bottom:16px;font-size:15px;line-height:24px}
+.strip li{display:flex;align-items:center}
+.strip li + li::before{content:"·";color:var(--ink-2);padding:0 10px}
+.strip a{display:inline-flex;align-items:center;min-height:44px;text-decoration:none;white-space:nowrap}
+.strip a:hover{text-decoration:underline}
+.strip a span{font-family:var(--mono);font-size:13px;color:var(--ink-2);margin-right:6px}
+/* 작업 순서는 표가 전폭이라 절 제목을 고정하면 표 위에 겹친다 */
+#flow > h2{position:static}
+.lane li{position:relative}
+.lane li:target::before{content:"";position:absolute;left:-12px;top:0;bottom:0;width:2px;background:var(--ink)}
+.lane .st a.no{font-family:var(--mono);font-size:13px;color:var(--ink-2);display:inline-block;width:22px;text-decoration:none}
+.lane .st a.no:hover{color:var(--ink);text-decoration:underline}
+@media (max-width:860px){
+  .strip{flex-wrap:nowrap;overflow-x:auto;margin:0 calc(-1 * var(--pad)) 12px;padding:0 var(--pad);scrollbar-width:thin}
+  .lane li:target::before{left:-10px}
+}
 
 /* 좁은 화면: 한 열. 작업 순서 표는 단계마다 한 덩어리 */
 @media (max-width:860px){
   :root{--pad:16px}
   .g12{grid-template-columns:minmax(0,1fr)}
   .g12 > *{grid-column:1/-1 !important}
-  header.top{padding-top:4px}
-  .lang{margin-bottom:0}
+  header.top{padding-top:32px}
   h1{font-size:48px;line-height:52px}
   .intro{margin-top:20px;font-size:17px;line-height:28px}
   .toc{margin-top:40px}.toc ol{columns:1}
@@ -169,7 +209,8 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
   @page{size:A4;margin:16mm 14mm}
   body{font-size:10pt;line-height:1.6}
   .page{padding:0}
-  .toc,button.copy,.lang{display:none}
+  .toc,button.copy,.bar,.skip{display:none}
+  .strip a span{color:inherit}
   h1{font-size:36pt;line-height:1}
   .sec > h2{position:static}
   section.sec{margin-top:24pt}
@@ -179,11 +220,19 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
 </style>
 </head>
 <body>
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+<nav class="bar" aria-label="절">
+  <div class="bar-in">
+    <a class="bar-name" href="#top">협업 지도</a>
+    <ol class="bar-links"><li><a href="#flow">작업 순서</a></li><li><a href="#roles">사람이 하는 일</a></li><li><a href="#controls">통제의 층</a></li><li><a href="#names">이름 규칙</a></li><li><a href="#checks">PR 체크와 머지</a></li><li><a href="#screens">화면을 바꿀 때</a></li><li><a href="#limits">알려진 한계</a></li><li><a href="#ref">찾아보기</a></li></ol>
+    <details class="bar-toc"><summary>차례</summary><ol><li><a href="#flow">작업 순서</a></li><li><a href="#roles">사람이 하는 일</a></li><li><a href="#controls">통제의 층</a></li><li><a href="#names">이름 규칙</a></li><li><a href="#checks">PR 체크와 머지</a></li><li><a href="#screens">화면을 바꿀 때</a></li><li><a href="#limits">알려진 한계</a></li><li><a href="#ref">찾아보기</a></li></ol></details>
+    <span class="lang-sw" role="group" aria-label="언어"><a href="../" hreflang="en" lang="en">EN</a><span aria-hidden="true">|</span><a href="./" hreflang="ko" lang="ko" aria-current="page">한국어</a></span>
+  </div>
+</nav>
 <div class="page">
 
-<header class="top">
+<header class="top" id="top">
   <div class="g12">
-    <nav class="lang" aria-label="언어"><span aria-current="page">한국어</span><span aria-hidden="true">/</span><a href="en/" hreflang="en" lang="en">English</a></nav>
     <h1>협업 지도</h1>
     <div class="intro">
       <p>farmclub 팀원 4명이 AI 코딩 에이전트와 함께 일하는 방식을 정리한 페이지다. 규칙의 원문은 <code>AGENTS.md</code>이고, 여기서는 순서와 이유를 적은 뒤 원문 절로 연결한다.</p>
@@ -205,43 +254,44 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
   </nav>
 </header>
 
-<main>
+<main id="main">
 
 <section class="sec g12" id="flow">
   <h2>작업 순서</h2>
   <div class="c">
-    <p>PR 하나는 <b data-agents="steps" data-check="count">8</b>단계를 거친다. 단계 번호는 AGENTS.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#작업-순서-spec-anchored">작업 순서</a>와 같다. <span class="gate">승인</span>이 붙은 칸은 사람이 확인해야 다음 단계로 간다.</p>
+    <p>PR 하나는 <b data-agents="steps" data-check="count">8</b>단계를 거친다. 단계 번호는 AGENTS.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#작업-순서-spec-anchored">작업 순서</a>와 같다. <span class="gate">승인</span>이 붙은 칸은 사람이 확인해야 다음 단계로 간다. 단계 번호는 그 행으로 가는 링크라 그대로 공유할 수 있다.</p>
     <p class="mut" id="trace">오른쪽 열은 DEV-434(탈퇴 시트 문구를 앱별로 나눈 작업, 위험 등급 일반)가 실제로 남긴 기록이다.</p>
   </div>
   <div class="wide" id="steps">
+    <ol class="strip" aria-label="단계"><li><a href="#step-1"><span>1</span>Linear 이슈</a></li><li><a href="#step-2"><span>2</span>브랜치</a></li><li><a href="#step-3"><span>3</span>spec</a></li><li><a href="#step-4"><span>4</span>draft PR</a></li><li><a href="#step-5"><span>5</span>구현</a></li><li><a href="#step-6"><span>6</span>리뷰 요청</a></li><li><a href="#step-7"><span>7</span>리뷰 반영</a></li><li><a href="#step-8"><span>8</span>머지</a></li></ol>
     <div class="lane-h" role="presentation"><span>단계</span><span>사람</span><span>AI 에이전트</span><span>자동</span><span>DEV-434 기록</span></div>
     <ol class="lane" role="list" data-agents-list="steps">
-      <li><span class="st"><i>1</i>Linear 이슈</span>
+      <li id="step-1"><span class="st"><a class="no" href="#step-1" aria-label="1단계 링크">1</a>Linear 이슈</span>
         <span class="c"><span class="lk">사람</span><span>왜·완료 조건을 채우고 In Progress로 바꾼다</span></span><span class="c"></span><span class="c"></span>
         <span class="c rec"><span class="lk">기록</span><span><a href="https://linear.app/sswp6/issue/DEV-434">Linear DEV-434</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/762">GitHub #762</a></span></span></li>
-      <li><span class="st"><i>2</i>브랜치</span>
+      <li id="step-2"><span class="st"><a class="no" href="#step-2" aria-label="2단계 링크">2</a>브랜치</span>
         <span class="c"><span class="lk">사람</span><span><code>origin/main</code>에서 <a href="#names">이름 규칙</a>대로 만든다</span></span><span class="c"></span><span class="c"></span>
         <span class="c rec"><span class="lk">기록</span><code>nemodleo/dev-434-split-withdraw-kept-line</code></span></li>
-      <li><span class="st"><i>3</i>spec</span>
+      <li id="step-3"><span class="st"><a class="no" href="#step-3" aria-label="3단계 링크">3</a>spec</span>
         <span class="c"><span class="lk">사람</span><span><span class="gate">승인</span>범위를 확인하고 첫 커밋</span></span>
         <span class="c"><span class="lk">AI</span><span>이슈 파일에 범위·결정을 쓴다(spec 스킬)</span></span><span class="c"></span>
         <span class="c rec"><span class="lk">기록</span><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/packages/ui/tasks/DEV-434.md">packages/ui/tasks/DEV-434.md</a></span></li>
-      <li><span class="st"><i>4</i>draft PR</span>
+      <li id="step-4"><span class="st"><a class="no" href="#step-4" aria-label="4단계 링크">4</a>draft PR</span>
         <span class="c"></span><span class="c"><span class="lk">AI</span><span>draft PR을 연다(pr-context 스킬)</span></span><span class="c"></span>
         <span class="c rec"><span class="lk">기록</span><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/768">PR #768</a></span></li>
-      <li><span class="st"><i>5</i>구현</span>
+      <li id="step-5"><span class="st"><a class="no" href="#step-5" aria-label="5단계 링크">5</a>구현</span>
         <span class="c"><span class="lk">사람</span><span>에이전트가 쓴 줄도 작성자가 책임진다</span></span>
         <span class="c"><span class="lk">AI</span><span>이슈 파일대로 구현. 새 결정은 이슈 파일에 먼저</span></span><span class="c"></span>
         <span class="c rec"><span class="lk">기록</span>커밋 4개(이슈 파일, 구현, 스펙, 캡처)</span></li>
-      <li><span class="st"><i>6</i>리뷰 요청</span>
+      <li id="step-6"><span class="st"><a class="no" href="#step-6" aria-label="6단계 링크">6</a>리뷰 요청</span>
         <span class="c"><span class="lk">사람</span><span>draft 해제, 리뷰어 1명 지정</span></span>
         <span class="c"><span class="lk">AI</span><span>AI 1차 리뷰, must 해결(pr-review 스킬)</span></span>
         <span class="c"><span class="lk">자동</span><span>spec-check. 막지 않고 보고만</span></span>
         <span class="c rec"><span class="lk">기록</span><span><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/768#issuecomment-7081111085">AI 리뷰 코멘트</a>, spec-check <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/45036911656">실행</a></span></span></li>
-      <li><span class="st"><i>7</i>리뷰 반영</span>
+      <li id="step-7"><span class="st"><a class="no" href="#step-7" aria-label="7단계 링크">7</a>리뷰 반영</span>
         <span class="c"><span class="lk">사람</span><span><span class="gate">승인</span>사람 리뷰. 코멘트마다 커밋이나 답글로 닫는다</span></span><span class="c"></span><span class="c"></span>
         <span class="c rec"><span class="lk">기록</span><span>Approve 없음. 본문 <code class="h">사람이 한 일: 문장 결정(11/22)</code></span></span></li>
-      <li><span class="st"><i>8</i>머지</span>
+      <li id="step-8"><span class="st"><a class="no" href="#step-8" aria-label="8단계 링크">8</a>머지</span>
         <span class="c"><span class="lk">사람</span><span><span class="gate">승인</span>머지 지시, 배포 확인, Linear 결과</span></span><span class="c"></span>
         <span class="c"><span class="lk">자동</span><span>머지 큐가 필수 체크를 돌리고, 바뀐 대상만 배포</span></span>
         <span class="c rec"><span class="lk">기록</span><span>큐 <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/45038045704">실행</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/4a76c3cc71827208e242cf013940a35a7372b909">4a76c3c</a>, 배포 <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/45039250148">실행</a></span></span></li>
@@ -249,7 +299,7 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
   </div>
   <ul class="forks plain" aria-label="예외">
     <li>spec-check가 fail이어도 머지를 막지 않는다. 대신 작성자가 처리 결정을 코멘트로 남기기 전에는 리뷰어가 Approve하지 않는다(<a href="#checks">PR 체크와 머지</a>).</li>
-    <li>고위험 경로를 바꾼 PR은 사람 리뷰 없이 8단계로 가지 않는다. GitHub 설정으로는 막혀 있지 않고 팀 규칙으로 지킨다.</li>
+    <li>고위험 경로를 바꾼 PR은 사람 리뷰 없이 <a href="#step-8">8단계</a>로 가지 않는다. GitHub 설정으로는 막혀 있지 않고 팀 규칙으로 지킨다.</li>
     <li>운영 장애 급한 수정만 <code>hotfix</code> 라벨로 integration 없이 머지하고, 머지 뒤 CI full이 전체를 검사한다.</li>
   </ul>
 </section>
@@ -259,10 +309,10 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
   <div class="c">
     <p>이슈 파일 범위, AI 1차 리뷰, spec-check는 모두 에이전트가 쓴 이슈 파일을 기준으로 삼는다. 이슈 파일이 틀리면 셋이 같이 놓친다. 그래서 아래는 사람이 직접 하고, 사람 리뷰는 diff와 함께 이슈 파일도 읽는다.</p>
     <ul class="plain">
-      <li><b>범위 확인</b>(3단계). 이슈 파일의 수정 허용 경로를 첫 커밋 전에 본다. 범위 밖 변경을 기계가 막지는 않는다.</li>
-      <li><b>사람 리뷰</b>(7단계). 다른 팀원의 GitHub Approve, 또는 작성자가 diff를 직접 읽고 PR 본문 <code class="h">사람이 한 일:</code>에 적은 것. 에이전트는 사람이 실제로 한 것만 그 줄에 적는다.</li>
-      <li><b>머지 지시</b>(8단계). 에이전트는 사람의 지시 없이 머지하지 않는다. 고위험 PR은 사람 리뷰가 없으면 지시가 있어도 머지하지 않는다.</li>
-      <li><b>배포 확인</b>(8단계). 배포 로그의 첫 줄 <code>Comparing</code>, 마지막 줄 <code>Deploying</code>/<code>Skipping</code>, 그리고 curl로 운영 응답을 본다. Actions 목록의 커밋 라벨은 믿지 않는다.</li>
+      <li><b>범위 확인</b>(<a href="#step-3">3단계</a>). 이슈 파일의 수정 허용 경로를 첫 커밋 전에 본다. 범위 밖 변경을 기계가 막지는 않는다.</li>
+      <li><b>사람 리뷰</b>(<a href="#step-7">7단계</a>). 다른 팀원의 GitHub Approve, 또는 작성자가 diff를 직접 읽고 PR 본문 <code class="h">사람이 한 일:</code>에 적은 것. 에이전트는 사람이 실제로 한 것만 그 줄에 적는다.</li>
+      <li><b>머지 지시</b>(<a href="#step-8">8단계</a>). 에이전트는 사람의 지시 없이 머지하지 않는다. 고위험 PR은 사람 리뷰가 없으면 지시가 있어도 머지하지 않는다.</li>
+      <li><b>배포 확인</b>(<a href="#step-8">8단계</a>). 배포 로그의 첫 줄 <code>Comparing</code>, 마지막 줄 <code>Deploying</code>/<code>Skipping</code>, 그리고 curl로 운영 응답을 본다. Actions 목록의 커밋 라벨은 믿지 않는다.</li>
     </ul>
     <p class="cap">원문: AGENTS.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#사람에이전트-역할-swpp-126">사람·에이전트 역할</a>, pr-review <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/skills/pr-review/SKILL.md#2-사람-리뷰-리뷰어-1명">2. 사람 리뷰</a></p>
 
@@ -476,8 +526,9 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
   <h2>이 페이지를 고칠 때</h2>
   <div class="c">
     <p>CI <code>guide</code> job(<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/scripts/ci/check-guide.mjs">check-guide.mjs</a>)이 매번 두 가지를 대조한다. 표시한 값 11개 키(<code>branch</code> <code>commit</code> <code>pr-title</code> <code>checks</code> <code>high-risk</code> <code>steps</code> <code>skills</code> <code>ai-log</code> <code>spec-check</code> <code>test-urls</code> <code>stacking</code>)를 AGENTS.md 해당 절에서 뽑은 값과, 저장소 링크를 그 파일·제목과 맞춰 본다. PR과 머지 큐에서는 어긋나면 막고, main push에서는 경고만 한다.</p>
+    <p>기본 판인 <a href="../" hreflang="en">영어판</a>도 같은 규칙으로 검사하고, 두 판의 절 id·단계 id·페이지 안 링크·저장소 링크·값이 다르면 CI가 막는다. 두 판을 같은 PR에서 같이 고친다.</p>
     <p class="mut">설명 문장, CSS로 숨긴 요소, 저장소 밖 링크의 내용은 보지 않는다. 규칙을 바꾸는 PR의 작성자와 리뷰어가 관련 절을 같이 고친다.</p>
-    <p class="cap">원본 <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/guide/index.html">docs/guide/index.html</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/commits/main/docs/guide/index.html">고친 기록</a></p>
+    <p class="cap">원본 <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/guide/ko/index.html">docs/guide/ko/index.html</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/commits/main/docs/guide/ko/index.html">고친 기록</a></p>
   </div>
 </footer>
 </div>
@@ -508,6 +559,40 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
       }catch(e){select(b);}
     });
   })(buttons[i]);}
+})();
+</script>
+<script>
+// 바: 지금 보는 절 표시(aria-current), 제목이 지나가면 페이지 이름, 다른 언어 링크에 지금 위치(#절·#단계) 싣기.
+// JS가 없어도 링크는 모두 그대로 이동한다. 외부 요청·저장 없음. 브라우저 언어로 옮기지 않는다.
+(function(){
+  document.documentElement.classList.add('js');
+  var bar=document.querySelector('.bar'); if(!bar) return;
+  var links=[].slice.call(bar.querySelectorAll('.bar-links a, .bar-toc li a'));
+  var places=[].slice.call(document.querySelectorAll('main section.sec, .lane li[id]'));
+  var other=bar.querySelector('.lang-sw a:not([aria-current])');
+  var base=other?other.getAttribute('href').split('#')[0]:'';
+  var h1=document.querySelector('h1'), toc=bar.querySelector('.bar-toc'), queued=false;
+  function update(){
+    queued=false;
+    var line=bar.getBoundingClientRect().bottom+24, sec=null, place=null;
+    for(var i=0;i<places.length;i++){
+      if(places[i].getBoundingClientRect().top<=line){place=places[i]; if(places[i].tagName==='SECTION') sec=places[i];}
+    }
+    for(var j=0;j<links.length;j++){
+      if(sec && links[j].getAttribute('href')==='#'+sec.id) links[j].setAttribute('aria-current','true');
+      else links[j].removeAttribute('aria-current');
+    }
+    if(other) other.setAttribute('href', base+(place?'#'+place.id:''));
+    if(h1) bar.classList.toggle('past', h1.getBoundingClientRect().bottom<bar.getBoundingClientRect().bottom);
+  }
+  function soon(){ if(!queued){queued=true; requestAnimationFrame(update);} }
+  // 절이 화면보다 길어 IntersectionObserver의 비율 문턱은 바 아래 선을 넘는 순간을 놓친다. 그래서 스크롤마다(프레임당 한 번) 계산한다.
+  addEventListener('scroll', soon, {passive:true});
+  addEventListener('resize', soon);
+  addEventListener('hashchange', soon);
+  if(other) other.addEventListener('click', update);
+  if(toc) toc.addEventListener('click', function(e){ if(e.target.closest('li a')) toc.open=false; });
+  update();
 })();
 </script>
 </body>
