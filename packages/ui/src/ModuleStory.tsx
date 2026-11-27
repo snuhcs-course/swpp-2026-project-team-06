@@ -263,7 +263,10 @@ export function ModuleStory({
   design,
   reviewNotes,
   sectionAccessory,
+  sectionFooter,
 }: {
+  /** DEV-452: owner-only control at the end of a section in the read-only page (e.g. the size picture choice). */
+  sectionFooter?: (sectionId: string) => ReactNode;
   /**
    * DEV-452: small control at a section heading in the read-only page (e.g. "확인 2 · 고치기").
    * Gets the section id ("intro" for the cover) and its module ids. Not used while editing.
@@ -349,7 +352,8 @@ export function ModuleStory({
         const isHidden = hidden.includes(group.id);
         const dim =
           isHidden || !!(editing && !group.modules.some(editing.active));
-        if (!modules.length || (!editing && isHidden)) return null;
+        const footer = !editing && !isHidden && sectionFooter ? sectionFooter(group.id) : null;
+        if ((!modules.length && !footer) || (!editing && isHidden)) return null;
         return (
           <View
             key={group.id}
@@ -409,6 +413,7 @@ export function ModuleStory({
                   editing={editing}
                 />
               ))}
+            {footer}
           </View>
         );
       })}

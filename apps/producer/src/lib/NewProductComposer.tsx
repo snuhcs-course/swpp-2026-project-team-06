@@ -2532,6 +2532,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                                 editSection={reviewChrome ? editSection : null}
                                 onCloseSection={() => { setEditSection(null); void afterCheck(); }}
                                 onEnabledChange={setPageSections}
+                                sizeSuggestion={reviewChrome}
+                                sizeOff={sizeCardOff}
+                                onSizeOff={() => setSizeCardOff(true)}
                                 // '금액은 다음 단계(판매·가격)에서' 같은 안내는 다음 단계가 있는 판매 전 상품에만
                                 showStoryTextHints={preSale && !combinedSetup}
                                 // 구매자에게 보이는 상품은 페이지 제목을 상품명으로 맞추지 않으므로 저장된 제목을 그대로 보인다(DEV-346).
@@ -2559,23 +2562,6 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                               {reviewChrome && target ? (
                                 // Unfolded like the product editor's 내용 추가 (user review 11/28).
                                 <View testID="add-section-row" style={{ marginHorizontal: tokens.space.gutter, marginBottom: 12, gap: 8 }}>
-                                  {/* 크기 참고 is offered on the page with the size picture choice (user review 11/28). */}
-                                  {!(pageSections[target.id] ?? []).includes("sizePhoto") && !sizeCardOff ? (
-                                    <View testID="size-card" style={{ padding: 14, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: tokens.color.border, marginBottom: 8 }}>
-                                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                                        {sourceModuleIcon("sizePhoto") ? <Image source={sourceModuleIcon("sizePhoto")!} accessible={false} resizeMode="contain" style={{ width: 24, height: 24 }} /> : null}
-                                        <T weight="semibold" style={{ flex: 1 }}>크기 참고</T>
-                                        <Button compact variant="text" label="이 섹션 빼기" disabled={busy || working} onPress={() => setSizeCardOff(true)} />
-                                      </View>
-                                      <T variant="caption" muted>귤 크기를 손 그림으로 보여 줄 수 있어요. 크기를 고르면 페이지에 넣기 전에 한 번 더 보여 드려요.</T>
-                                      <View style={{ flexDirection: "row", gap: 8 }}>
-                                        {([["small", "소과"], ["medium", "중과"], ["large", "대과"]] as const).map(([id, label]) => (
-                                          <Button key={id} compact variant="outline" label={label} disabled={busy || working} style={{ flex: 1 }}
-                                            onPress={() => setEditSection({ title: "크기 참고", moduleIds: ["sizePhoto"], add: true, illustration: `hand-citrus-${id}` })} />
-                                        ))}
-                                      </View>
-                                    </View>
-                                  ) : null}
                                   <T variant="caption" muted>내용 추가</T>
                                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                                     {SOURCE_MODULES.filter(([id]) => id !== "hero" && !(id === "sizePhoto" && !sizeCardOff) && !(pageSections[target.id] ?? []).includes(id)).map(([id, label]) => {

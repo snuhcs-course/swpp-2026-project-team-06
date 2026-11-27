@@ -124,11 +124,19 @@ test("DEV-452 AC-SRC-1/5/10/11: required setup, generated page, check sheet and 
   await expect(pageText()).toBeVisible({ timeout: 30_000 });
   expect(await sections()).toEqual(was);
 
+  // 5a. 크기 참고 is offered inside 맛과 크기 and set right there; removing it brings the offer back (user review 11/28).
+  const sizeCard = page.getByTestId("source-section-taste").getByTestId("size-card");
+  await sizeCard.getByRole("button", { name: "중과", exact: true }).click();
+  await expect(page.getByTestId("source-section-taste").getByTestId("source-size-panel")).toBeVisible();
+  await sizeCard.getByRole("button", { name: "그림 빼기", exact: true }).click();
+  await expect(page.getByTestId("source-section-taste").getByTestId("source-size-panel")).toHaveCount(0);
+  await expect(sizeCard.getByText("크기 참고 그림 넣기", { exact: true })).toBeVisible();
+
   // 5b. A section the page does not have yet can be added (opens ready to type).
-  // 크기 참고 is offered on the page with the size picture choice (user review 11/28).
-  await page.getByTestId("size-card").getByRole("button", { name: "중과", exact: true }).click();
-  await expect(page.getByText("크기 참고 추가", { exact: true })).toBeVisible();
-  await expect(page.getByRole("dialog").getByTestId("source-size-panel")).toBeVisible();
+  const chip = page.getByTestId("add-section-row").getByRole("button").first();
+  const chipName = (await chip.getAttribute("aria-label")) ?? "";
+  await chip.click();
+  await expect(page.getByText(chipName, { exact: true })).toBeVisible();
   await page.getByRole("dialog").locator("textarea").first().fill("지름 7~8cm 정도예요.");
   await page.getByRole("button", { name: "저장하고 닫기", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 20_000 });

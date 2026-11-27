@@ -53,6 +53,7 @@ export function PageCanvas({
   details,
   notes,
   sectionAccessory,
+  sectionFooter,
   onlyIds,
   initialSelected,
   initialIllustration,
@@ -80,6 +81,8 @@ export function PageCanvas({
   notes?: (id: string) => ReactNode;
   /** DEV-452: read-only page: small control at each section heading (see ModuleStory). */
   sectionAccessory?: (sectionId: string, moduleIds: string[], title: string) => ReactNode;
+  /** Owner-only control at the end of a section in the read-only page (DEV-452). */
+  sectionFooter?: (sectionId: string) => ReactNode;
   /** DEV-452 section sheet: only these modules can be added here. */
   onlyIds?: string[];
   /** DEV-452 "섹션 추가": open with this (empty) module ready to type into. */
@@ -608,7 +611,7 @@ export function PageCanvas({
     <View testID="buyer-preview">
       {/* 대표 사진이 없으면 구매자 화면처럼 기본 사진(DEV-322) */}
       {!emptyHint ? <Photo uri={representativeUri ? media(representativeUri) : null} width="100%" height={244} alt="대표사진" /> : null}
-      <ModuleStory content={{ hiddenSectionIds, modules: displayModules.filter((m) => m.enabled && !blocked.includes(m.id)) }} mediaUrl={media} sectionAccessory={sectionAccessory} />
+      <ModuleStory content={{ hiddenSectionIds, modules: displayModules.filter((m) => m.enabled && !blocked.includes(m.id)) }} mediaUrl={media} sectionAccessory={sectionAccessory} sectionFooter={sectionFooter} />
     </View>
   );
   return (

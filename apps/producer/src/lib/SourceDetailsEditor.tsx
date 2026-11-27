@@ -119,9 +119,17 @@ export function SourceDetailsEditor({
   editSection,
   onCloseSection,
   onEnabledChange,
+  sizeSuggestion = false,
+  sizeOff = false,
+  onSizeOff,
 }: {
   /** DEV-452 combined view: the sections currently on the page (for "섹션 추가"). */
   onEnabledChange?: (enabled: Record<string, string[]>) => void;
+  /** DEV-452 page review: offer the 크기 참고 size picture inside 맛과 크기 (user review 11/28). */
+  sizeSuggestion?: boolean;
+  /** The owner took the suggestion away for this visit. */
+  sizeOff?: boolean;
+  onSizeOff?: () => void;
   /** DEV-452 combined view: control at each section heading of the read-only page. */
   sectionAccessory?: (sectionId: string, moduleIds: string[], title: string) => ReactNode;
   /** DEV-452 combined view: the section being edited in a sheet (its title and module ids). */
@@ -431,6 +439,43 @@ export function SourceDetailsEditor({
     };
   });
   /** One product's page canvas; a section sheet passes only that section's modules (DEV-452). */
+  // DEV-452 (user review 11/28): the size picture is offered in 맛과 크기 and set right there.
+  // Choosing a size puts the hand picture on the page; "그림 빼기" takes it away and the offer returns.
+  const setSize = (targetId: string, illustrationId: string | null) => {
+    setEntries((old) => old.map((entry) => entry.field.targetId === targetId && entry.field.fieldKey === "sizePhoto"
+      ? { status: "ready" as const, field: { ...entry.field, illustrationId, state: "CONFIRMED" as const, provenance: "PRODUCER" as const, candidateIds: [] } }
+      : entry));
+    setEnabled((old) => {
+      const ids = (old[targetId] ?? []).filter((id) => id !== "sizePhoto");
+      const field = entries.find((e) => e.field.targetId === targetId && e.field.fieldKey === "sizePhoto")?.field;
+      const keep = illustrationId || field?.value.trim() || field?.photoAssetIds.length;
+      return { ...old, [targetId]: keep ? [...ids, "sizePhoto"] : ids };
+    });
+    setDirty(true);
+  };
+  const sizeControl = (targetId: string) => {
+    const field = entries.find((e) => e.field.targetId === targetId && e.field.fieldKey === "sizePhoto")?.field;
+    if (!field) return null;
+    const current = (enabled[targetId] ?? []).includes("sizePhoto") ? field.illustrationId : null;
+    if (!current && sizeOff) return null;
+    const sizes = [["hand-citrus-small", "소과"], ["hand-citrus-medium", "중과"], ["hand-citrus-large", "대과"]] as const;
+    return (
+      <View testID="size-card" style={{ padding: 14, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: tokens.color.border }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <T weight="semibold" style={{ flex: 1 }}>{current ? "크기 그림" : "크기 참고 그림 넣기"}</T>
+          <Button compact variant="text" label={current ? "그림 빼기" : "넣지 않기"} disabled={busy || locked}
+            onPress={() => (current ? setSize(targetId, null) : onSizeOff?.())} />
+        </View>
+        {current ? null : <T variant="caption" muted>귤 크기를 손 그림으로 보여 줄 수 있어요. 크기를 고르면 이 자리에 들어가요.</T>}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {sizes.map(([id, label]) => (
+            <Button key={id} compact variant={current === id ? "primary" : "outline"} label={label} style={{ flex: 1 }} disabled={busy || locked}
+              onPress={() => setSize(targetId, id)} />
+          ))}
+        </View>
+      </View>
+    );
+  };
   const canvas = (target: SourceBatch["targets"][number], opts: { preview: boolean; only?: string[]; add?: boolean; illustration?: string }) => {
     const all = SOURCE_MODULES.map(([id]) => ({
             id,
@@ -476,6 +521,7 @@ export function SourceDetailsEditor({
           key={`${opts.only ? "section-" : ""}${target.id}`}
           preview={opts.preview}
           sectionAccessory={opts.preview ? sectionAccessory : undefined}
+          sectionFooter={opts.preview && sizeSuggestion && !opts.only ? (id) => (id === "taste" ? sizeControl(target.id) : null) : undefined}
           onlyIds={opts.only}
           initialSelected={opts.add && opts.only?.length === 1 ? opts.only[0] : undefined}
           initialIllustration={opts.illustration}
