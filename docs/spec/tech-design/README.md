@@ -171,10 +171,13 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 | `order_shipped` | ‘…건 출하로 바꾸기’에서 주문 한 건이 출하로 바뀔 때마다(속성: orderId, hasCarrier) | 파일럿: 주문 처리 시간 |
 | `producer_reply_sent` | 생산자 채팅 답장 전송 성공, ‘답이 맞아요’ 성공(속성: kind. 본문·소비자 ID 없음, farmclub 문의방 제외) | 파일럿: 전달 질문 응대(참고) |
 | `form_error_shown` | 생산자 앱 화면 검사·서버 검증 오류 안내가 보일 때(속성: screen, code. 안내 글자 없음) | 파일럿: 오류 안내 횟수와 위치 |
+| `app_not_responding` | 두 앱(iOS·Android)에서 앱이 앞에 있는 동안 JS 스레드가 5초 이상 멈췄다가 풀릴 때 한 번(속성: blockedMs. 백그라운드 시간은 세지 않음, DEV-496) | ANR rate |
+| `$exception` | 잡히지 않은 JS 예외·Promise 거부(PostHog 오류 추적이 보냄, 웹·앱. 앱을 죽인 예외는 다음 실행 때 보냄. 메시지의 이메일·4자리 이상 숫자·URL 쿼리는 지우고 200자로 자름, DEV-496) | Crash report |
 
 앱이 보내는 것과 서버가 보내는 것(ADR 0005, DEV-71):
 - 앱(`packages/analytics`): 화면 전환마다 `$pageview`(네이티브는 `$screen`), `product_viewed`(productId, farmId), `checkout_started`(productId), `checkout_submitted`, `deposit_reported`. 세션 녹화·히트맵도 앱이 켠다.
 - 생산자 앱(DEV-312): `product_editor_opened`·`draft_requested`·`draft_created`·`sale_start_requested`·`deposit_decided`·`invoice_saved`·`order_shipped`·`producer_reply_sent`·`form_error_shown`. 행동 이벤트(`sale_start_requested`·`deposit_decided`·`invoice_saved`·`order_shipped`·`producer_reply_sent`, 자료 경로 `draft_requested`)는 서버 성공 응답 뒤에만 보낸다(출하 전 송장은 화면 저장 뒤). `deposit_decided`·`order_shipped`는 생산자 행동 시각으로만 쓰고, 입금 확인·취소 집계는 서버 `order_paid`·`order_canceled`만 쓴다(겹쳐 세지 않음, ADR 0005). `draft_created`는 앱이 보내고 서버는 보내지 않는다.
+- 오류·멈춤(DEV-496, TA 11/26 필수 telemetry): `$exception`은 PostHog SDK가 보내고(프로젝트 설정 Exception autocapture가 켜져 있어야 함), `app_not_responding`은 `packages/analytics/src/anr.ts`가 보낸다. ANR rate = `app_not_responding`이 한 번 이상 있는 세션 / 전체 세션(목표 1% 미만). 한계: 네이티브(Java/Kotlin·NDK) 크래시와 UI 스레드만 멈춘 경우는 잡지 않는다(네이티브 플러그인은 새 스토어 빌드가 필요). Response time은 서버 응답 시간(Railway HTTP 로그)과 AI 초안 `draft_created.durationMs`로 본다.
 - 서버(`server/app/analytics`, DEV-100): `order_paid`(무통장 입금에서는 생산자·운영자의 입금 확인 시점, DEV-68)·`order_canceled`·`farm_followed` 등 확정 사실.
 - 구매 퍼널(상품 → 주문서 → 입금 안내 → 입금했어요): `product_viewed` → `checkout_started` → `checkout_submitted` → `deposit_reported`. 서버 이벤트가 붙으면 입금 확인 단계 `order_paid`를 뒤에 더한다.
 - 사용자 구분은 내부 `userId`(identify)와 사람 속성 `app`·`role`·`isTestAccount`만. 이벤트 속성은 위 표의 ID·수량·결과·enum·불리언·ms만 보내고, URL의 쿼리는 보내기 전에 지운다.
