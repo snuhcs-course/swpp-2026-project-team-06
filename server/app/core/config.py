@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # (소비자 앱이 /s/를 서버로 프록시). 비우면 요청이 들어온 서버 주소를 쓴다.
     share_base_url: str = ""
 
+    # 서버 오류 보고(DEV-498). 공개 프로젝트 키(phc_...). 비면 보내지 않는다.
+    posthog_project_api_key: SecretStr = SecretStr("")
+    posthog_capture_host: str = "https://us.i.posthog.com"
+
     # AI (ADR 0004). 키가 없으면 AI 초안은 실패로 처리한다(AC-03-3).
     anthropic_api_key: str = ""
     # spec-check(CI)가 실행 비용을 보고할 때 쓰는 공유 토큰(DEV-144). 비우면 보고 API가 503.

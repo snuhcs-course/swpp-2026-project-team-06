@@ -1,13 +1,18 @@
 """공통 오류 형식 {code, message, details} (screens.md 7.1)."""
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.background import BackgroundTask
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.analytics.service import report_server_exception
 from app.core.masking import redact_secret_fields
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_CODES = {
     400: "VALIDATION_ERROR",
@@ -100,5 +105,17 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(error_body(code, message), exc.status_code)
 
     @app.exception_handler(Exception)
-    async def _internal_error(_: Request, __: Exception) -> JSONResponse:
-        return JSONResponse(error_body("INTERNAL_ERROR", "잠시 후 다시 시도해 주세요."), 500)
+    async def _internal_error(request: Request, exc: Exception) -> JSONResponse:
+        route = getattr(request.scope.get("route"), "path", None) or "unmatched"
+        logger.error(
+            "Unhandled error on %s %s",
+            request.method,
+            route,
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
+        # 응답을 보낸 뒤 백그라운드로 보낸다(DEV-498). 실패해도 500 응답은 같다
+        return JSONResponse(
+            error_body("INTERNAL_ERROR", "잠시 후 다시 시도해 주세요."),
+            500,
+            background=BackgroundTask(report_server_exception, exc, route, request.method),
+        )
