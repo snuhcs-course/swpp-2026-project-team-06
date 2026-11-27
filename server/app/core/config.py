@@ -142,6 +142,40 @@ class Settings(BaseSettings):
     # 데모·테스트용 고정 시각(ISO 8601). 비면 실제 시각을 쓴다.
     fixed_now: str = ""
 
+    # 농가 주문 알림(DEV-495, FEAT-18). none이면 보내지 않고 알림 행을 SKIPPED로 남긴다(기본).
+    # solapi일 때만 아래 키를 쓴다. 키·서명은 로그·응답에 남기지 않는다.
+    # 값은 사람이 Railway에만 넣는다
+    notify_provider: str = "none"
+    solapi_api_key: SecretStr = SecretStr("")
+    solapi_api_secret: SecretStr = SecretStr("")
+    # 카카오 비즈니스 채널 ID(솔라피 콘솔 연동 뒤 받음), 대체 문자 발신번호
+    solapi_pfid: str = ""
+    solapi_sender_number: str = ""
+    # 검수 승인된 알림톡 템플릿 ID. 문구를 바꾸면 새 템플릿을 검수받고 이 값을 바꾼다
+    solapi_template_order_awaiting_deposit: str = ""
+    solapi_template_deposit_reported: str = ""
+    # 남용·비용 막기: 농가당 1시간, 서버 전체 하루(KST 0시 기준) 보낸 건수 한도
+    notify_farm_hourly_limit: int = Field(default=30, ge=1)
+    notify_daily_limit: int = Field(default=1000, ge=1)
+
+    @model_validator(mode="after")
+    def _notify_settings(self) -> "Settings":
+        if self.notify_provider not in ("none", "solapi"):
+            raise ValueError("NOTIFY_PROVIDER는 none 또는 solapi예요.")
+        if self.notify_provider == "solapi" and self.app_env != "local" and not all(
+            (
+                self.solapi_api_key.get_secret_value(),
+                self.solapi_api_secret.get_secret_value(),
+                self.solapi_pfid,
+                self.solapi_sender_number,
+                self.solapi_template_order_awaiting_deposit,
+                self.solapi_template_deposit_reported,
+            )
+        ):
+            # 어느 값이 비었는지만 알 수 있게 이름만 적는다(값은 적지 않는다)
+            raise ValueError("NOTIFY_PROVIDER=solapi인데 SOLAPI_* 설정이 비어 있어요.")
+        return self
+
     @field_validator("consumer_app_alt_urls", "producer_app_alt_urls")
     @classmethod
     def _alt_urls_are_origins(cls, value: str) -> str:
