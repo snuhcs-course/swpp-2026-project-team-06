@@ -160,6 +160,8 @@ export type AppEvents = {
   order_shipped: { orderId: string; hasCarrier: boolean };
   producer_reply_sent: { kind: ReplyKind };
   form_error_shown: { screen: ProducerScreen; code: FormErrorCode };
+  // 앱 멈춤(ANR, DEV-496): JS 스레드가 멈춰 있던 시간(ms)만. 두 앱 공통
+  app_not_responding: { blockedMs: number };
 };
 export type AppEventName = keyof AppEvents;
 
@@ -177,6 +179,7 @@ const ALLOWED_PROPS: { [E in AppEventName]: readonly (keyof AppEvents[E])[] } = 
   order_shipped: ["orderId", "hasCarrier"],
   producer_reply_sent: ["kind"],
   form_error_shown: ["screen", "code"],
+  app_not_responding: ["blockedMs"],
 };
 
 /** 이벤트 이름 목록(테스트·문서 대조용) */
@@ -234,5 +237,54 @@ export function scrubUrls(props: Props): void {
         ...(Array.isArray(items) ? items : []),
       ];
     props.$heatmap_data = merged;
+  }
+}
+
+/** 오류 메시지를 이만큼만 남긴다(DEV-496) */
+export const EXCEPTION_MESSAGE_MAX = 200;
+
+/**
+ * 오류 메시지에 섞일 수 있는 개인정보를 가린다(DEV-496, N-05).
+ * URL은 쿼리를 지우고, 이메일과 4자리 이상 숫자(전화·계좌·송장 번호 등)는 가리고, 길이를 자른다.
+ */
+export function scrubErrorText(text: string): string {
+  return Array.from(
+    text
+      .replace(/https?:\/\/[^\s"'<>]+/g, (url) => stripQuery(url))
+      .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[email]")
+      .replace(/\d[\d -]{2,}\d/g, (run) =>
+        run.replace(/\D/g, "").length >= 4 ? "[number]" : run,
+      ),
+  )
+    .slice(0, EXCEPTION_MESSAGE_MAX)
+    .join("");
+}
+
+/**
+ * before_send: `$exception`(오류 추적) 이벤트의 메시지·파일 주소를 정리한다(DEV-496).
+ * 오류 종류와 코드 위치(파일·함수·줄)는 남기고, 메시지는 scrubErrorText, 파일 주소는 쿼리를 지운다.
+ */
+export function scrubException(event: string, props: Props): void {
+  if (event !== "$exception" || !props) return;
+  for (const key of ["$exception_message", "$exception_values"]) {
+    const v = props[key];
+    if (typeof v === "string") props[key] = scrubErrorText(v);
+    else if (Array.isArray(v))
+      props[key] = v.map((x) => (typeof x === "string" ? scrubErrorText(x) : x));
+  }
+  const list = props.$exception_list;
+  if (!Array.isArray(list)) return;
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const ex = item as Record<string, unknown>;
+    if (typeof ex.value === "string") ex.value = scrubErrorText(ex.value);
+    const frames = (ex.stacktrace as { frames?: unknown } | undefined)?.frames;
+    if (!Array.isArray(frames)) continue;
+    for (const frame of frames) {
+      if (!frame || typeof frame !== "object") continue;
+      const f = frame as Record<string, unknown>;
+      for (const k of ["filename", "abs_path"])
+        if (typeof f[k] === "string") f[k] = stripQuery(f[k] as string);
+    }
   }
 }

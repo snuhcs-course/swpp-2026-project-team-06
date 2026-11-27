@@ -2,6 +2,8 @@
 // - EXPO_PUBLIC_POSTHOG_KEY가 비면 아무것도 하지 않는다. 키는 EAS 환경 변수로 빌드 때 넣는다.
 // - 세션 녹화·히트맵은 켜지 않는다(네이티브 녹화는 별도 검토). 허용 호스트 검사(DEV-125)는 웹 전용이라 여기엔 없다.
 // - 사용자 구분은 내부 userId만(N-05). 이름·연락처·주소·메시지 본문은 보내지 않는다.
+// - 오류 추적(DEV-496): 잡히지 않은 JS 예외·Promise 거부를 `$exception`으로 보낸다. 메시지의 개인정보는 before_send가 지운다.
+// - 앱 멈춤(DEV-496): JS 스레드가 5초 이상 멈추면 `app_not_responding`(anr.ts).
 declare const process: {
   env: {
     EXPO_PUBLIC_POSTHOG_KEY?: string;
@@ -12,9 +14,13 @@ declare const process: {
 import { usePathname } from "expo-router";
 import { PostHog } from "posthog-react-native";
 import { useEffect } from "react";
+import { AppState } from "react-native";
 
+import { ANR_TICK_MS, createStallDetector } from "./anr";
 import {
   cleanProps,
+  scrubException,
+  scrubUrls,
   type AppEventName,
   type AppEvents,
   type AppName,
@@ -39,9 +45,45 @@ function start(app: AppName): PostHog | null {
     captureAppLifecycleEvents: true,
     enableSessionReplay: false,
     disableSurveys: true,
+    // 오류 추적(DEV-496). 콘솔 오류는 보내지 않는다. PostHog 프로젝트 설정에서 Exception autocapture가 켜져 있어야 실제로 보낸다
+    errorTracking: {
+      autocapture: {
+        uncaughtExceptions: true,
+        unhandledRejections: true,
+        console: false,
+      },
+    },
+    before_send: (event) => {
+      if (!event) return event;
+      scrubUrls(event.properties as Record<string, unknown> | undefined);
+      scrubException(event.event, event.properties as Record<string, unknown> | undefined);
+      return event;
+    },
   });
   void client.register({ app });
+  watchForStalls();
   return client;
+}
+
+let watchingStalls = false;
+
+/** 앱이 앞에 있는 동안 JS 스레드 멈춤을 잰다(DEV-496). 한 번만 건다 */
+function watchForStalls() {
+  if (watchingStalls) return;
+  watchingStalls = true;
+  const detector = createStallDetector(Date.now());
+  let active = AppState.currentState === "active";
+  AppState.addEventListener("change", (state) => {
+    const nowActive = state === "active";
+    // 백그라운드에서는 타이머가 멈추므로, 앞으로 돌아온 시점부터 다시 잰다
+    if (nowActive && !active) detector.reset(Date.now());
+    active = nowActive;
+  });
+  setInterval(() => {
+    const blockedMs = detector.tick(Date.now());
+    if (blockedMs !== null && active && AppState.currentState === "active")
+      track("app_not_responding", { blockedMs });
+  }, ANR_TICK_MS);
 }
 
 /** 새 익명 사용자로 다시 시작한다. reset은 공통 속성(app)도 지우므로 다시 넣는다 */
