@@ -119,7 +119,7 @@ figcaption b{color:var(--ink);font-weight:600}
 <section class="sheet">
   <div class="head" style="border:0;margin-bottom:0"><span class="k">DEV-437 · PR #771 · 협업 지도 · 단계 이동과 언어 전환</span><span class="k">2026-11-27 · 오너 요청 · 적용본 캡처</span></div>
   <h2 style="font-size:56px;line-height:60px;font-weight:600;letter-spacing:-.035em;margin-top:56px">원하는 단계로 가기, EN | 한국어</h2>
-  <p style="font-size:22px;line-height:34px;max-width:40em;margin-top:24px">오너 요청은 "원하는 단계로 쉽게 가고, KO/EN 전환 UI"였다. 같은 날 영어판이 기본(<code>/guide/</code>)이 되고 한국어판은 <code>/guide/ko/</code>로 옮겼다. 색은 잉크와 가는 선만 쓰고, 주황은 계속 승인 표지에만 둔다.</p>
+  <p style="font-size:22px;line-height:34px;max-width:40em;margin-top:24px">오너 요청은 "원하는 단계로 쉽게 가고, KO/EN 전환 UI"였다. 같은 날 영어판이 기본(<code>/collaboration/</code>)이 되고 한국어판은 <code>/collaboration/ko/</code>로 옮겼다. 색은 잉크와 가는 선만 쓰고, 주황은 계속 승인 표지에만 둔다.</p>
   <ul class="weak" style="margin-top:32px;border-top:1px solid var(--rule)">
     <li><b>11/27 넓은 화면 위 바: 뺌</b> 오너 피드백 "모바일은 좋은데 데스크톱 위 바는 별로". 절 링크 여덟이 늘어선 전폭 바가 사이트 내비게이션처럼 보였다.</li>
     <li><b>11/27 오른쪽 위 묶음: 뺌</b> 표 오른쪽 끝 글자 위에 앉아, 스크롤 방향에 따라 숨겨야 했다. 오너가 가운데 떠 있는 조작부를 제안했다(캡처는 아래 "뺀 안").</li>
@@ -157,7 +157,7 @@ figcaption b{color:var(--ink);font-weight:600}
     <div class="move"><span class="no">4</span><h3>바에 가리지 않는 착지</h3><div class="what"><p>모든 id에 <code>scroll-margin-top: 64px</code>(넓은 화면은 위에 붙는 것이 없어 24px), 고정되는 절 제목은 <code>top: 68px</code>(넓은 화면 24px). 처음엔 <code>scroll-padding-top</code>도 같이 둬 64px이 두 번 더해졌고(제목이 128px에 섬), 현재 절 표시가 한 칸 앞 절을 가리켰다. 하나만 남겼다.</p></div><div class="num"><span><b>64 / 24px</b> 착지 위치(좁은 · 넓은 화면)</span><span><b>19/19</b> 페이지 안 앵커가 바 아래, 화면 안</span></div></div>
     <div class="move"><span class="no">5</span><h3>경계와 좁은 화면</h3><div class="what"><p>1200px 미만은 48px 바에 페이지 이름(제목이 지나간 뒤), <code>&lt;details&gt;</code> 차례(Contents / 차례), 언어 바꾸기. 아이콘 없이 글자이고 열면 밑줄. 560px 이하는 페이지 이름을 숨긴다. 1200px 이상은 무브 1의 떠 있는 조작부. 1199와 1200에서 둘 중 하나만 보이는 것을 확인했다(1024도).</p><p class="mut">넓은 화면 위 바와 오른쪽 위 묶음은 뺐다. 바 링크 집합은 두 판 모두 차례 목록 하나다.</p></div><div class="num"><span><b>1200</b> 떠 있는 조작부 ↔ 위 바 경계</span><span><b>860</b> 한 열 배치</span><span><b>560</b> 페이지 이름 숨김</span></div></div>
     <div class="move"><span class="no">6</span><h3>인쇄·어두운 테마·움직임·키보드</h3><div class="what"><p>인쇄에서 바·조작부와 건너뛰기 링크를 숨기고 단계 줄은 링크 모양 없이. 어두운 테마는 기존 토큰만. <code>prefers-reduced-motion</code>이면 부드러운 스크롤을 끈다. 첫 탭은 "Skip to content / 본문으로 건너뛰기".</p></div><div class="num"><span><b>3</b> 조작부의 탭 정지(차례·언어 2)</span><span><b>1</b> 건너뛰기 링크</span></div></div>
-    <div class="move"><span class="no">7</span><h3>JS는 작게, 없어도 된다</h3><div class="what"><p>안에 넣은 스크립트 하나(외부 요청·저장 없음). JS가 꺼져도 차례·단계 링크는 모두 이동하고, 잃는 것은 현재 절 표시(가운데 칸), 제목 뒤 이름 숨김, 언어 링크의 위치 싣기뿐이다. <code>check-guide</code> 대조에 페이지 안 링크 집합을 더했고 id 대조가 단계 id를 포함한다.</p></div><div class="num"><span><b>~40줄</b> 스크립트</span><span><b>대칭</b> 두 판 대조</span></div></div>
+    <div class="move"><span class="no">7</span><h3>JS는 작게, 없어도 된다</h3><div class="what"><p>안에 넣은 스크립트 하나(외부 요청·저장 없음). JS가 꺼져도 차례·단계 링크는 모두 이동하고, 잃는 것은 현재 절 표시(가운데 칸), 제목 뒤 이름 숨김, 언어 링크의 위치 싣기뿐이다. <code>check-collaboration</code> 대조에 페이지 안 링크 집합을 더했고 id 대조가 단계 id를 포함한다.</p></div><div class="num"><span><b>~40줄</b> 스크립트</span><span><b>대칭</b> 두 판 대조</span></div></div>
   </div>
 
   <h3 style="margin-top:48px">직접 눌러 본 결과(headless Chromium, 움직임 줄임, 11/27 떠 있는 조작부로 바꾼 뒤)</h3>

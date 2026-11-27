@@ -132,7 +132,7 @@ figcaption b{color:var(--ink);font-weight:600}
       <li><span>방향과 결정 셋은 추천대로 승인됐다(Pretendard + IBM Plex Mono, 분량 축소, 제목 "협업 지도"). 피드백은 "AI 느낌을 빼 달라"였다.</span><span></span></li>
       <li><span>첫 화면의 숫자 넷과 절 번호(01~08), 고정폭 머리 줄, 절마다 같던 "결론 한 줄 + 오른쪽 주석" 틀을 뺐다. 숫자는 머리글 한 문장(기계가 막는 곳은 둘)으로 남겼다.</span><span></span></li>
       <li><span>어미를 해요체에서 AGENTS.md·spec.md·CI.md와 같은 문서체(-다)로 바꿨다. 이 보드의 무브 2·5와 견본 숫자(88 제호, 22 결론)는 승인 전 기준이고, 적용본은 72 제목 · 28 절 제목 · 16 본문이다.</span><span></span></li>
-      <li><span>아래 캡처는 적용본(<code>docs/guide/index.html</code>)으로 다시 찍었다.</span><span></span></li>
+      <li><span>아래 캡처는 적용본(<code>docs/collaboration/index.html</code>)으로 다시 찍었다.</span><span></span></li>
     </ul>
   </div>
   <div class="recap">
@@ -142,13 +142,13 @@ figcaption b{color:var(--ink);font-weight:600}
       <li><span>같은 흐름을 네 번 보여 주던 것(흐름도 10칸, 8단계 목록, DEV-434 표, 머지 4단계)을 표 하나로 합친다. 행은 AGENTS.md 8단계, 열은 사람 · AI · 자동 · 실제 기록.</span><span class="cap">"칸 6 · 단계 6·7" 같은 번호 두 벌이 사라진다.</span></li>
       <li><span>절마다 첫 줄은 22px 결론 문장이고, 왜와 원문 링크는 오른쪽 여백으로 뺀다.</span><span class="cap">"문제 → 결정 → 근거" 세 줄이 10번 반복되던 리듬을 끊는다.</span></li>
       <li><span>12열 격자, 가는 선, 잉크 한 색으로 짠다. 주황은 "사람이 승인하는 곳" 하나의 뜻으로만 쓴다.</span><span class="cap">카드 면·둥근 모서리·선 모양 범례를 없앤다.</span></li>
-      <li><span>16절을 7절 + 찾아보기로 줄인다. 보이는 글자 10,672 → 6,717. 규칙 값과 링크는 지금 검사(<code>check-guide</code>)를 그대로 통과한다.</span><span class="cap">시안 파일에 검사를 돌려 값 34개 · 링크 50개 통과를 확인했다.</span></li>
+      <li><span>16절을 7절 + 찾아보기로 줄인다. 보이는 글자 10,672 → 6,717. 규칙 값과 링크는 지금 검사(<code>check-collaboration</code>)를 그대로 통과한다.</span><span class="cap">시안 파일에 검사를 돌려 값 34개 · 링크 50개 통과를 확인했다.</span></li>
     </ol>
   </div>
   <div class="map">
     <div><b>이 보드(1/2)</b>읽는 사람 · 진단 5 · 새 구성 · 디자인 무브 6과 검산 · 결정 3</div>
     <div><b>보드 2/2 <code>redesign-v2-compare.html</code></b>시안 1280 다섯 구간, 390 세 장, 같은 구간 전후</div>
-    <div><b>움직이는 시안 <code>redesign-v2-page.html</code></b>실제 내용 전체. 승인되면 <code>docs/guide/index.html</code>을 이것으로 바꾼다</div>
+    <div><b>움직이는 시안 <code>redesign-v2-page.html</code></b>실제 내용 전체. 승인되면 <code>docs/collaboration/index.html</code>을 이것으로 바꾼다</div>
   </div>
 </section>
 
@@ -178,7 +178,7 @@ figcaption b{color:var(--ink);font-weight:600}
   </ol>
 
   <figure style="margin-top:48px">
-    <figcaption><span><b>A</b> 현재 첫 화면 1280 × 800</span><span>docs/guide/index.html (PR #771 브랜치 aede0e8)</span></figcaption>
+    <figcaption><span><b>A</b> 현재 첫 화면 1280 × 800</span><span>docs/collaboration/index.html (PR #771 브랜치 aede0e8)</span></figcaption>
     <div class="shot"><img src="v2/before-1280-top.jpg" width="1280" height="800" alt="현재 협업 지도 첫 화면: 원칙 문장 제목, 원칙 4개, 목차 16줄">
       <span class="m" style="left:110px;top:96px">1</span><span class="box" style="left:150px;top:574px;width:980px;height:226px"></span><span class="m" style="left:110px;top:574px">1</span>
       <span class="m" style="left:110px;top:44px">5</span><span class="box" style="left:190px;top:290px;width:550px;height:44px"></span><span class="m" style="left:750px;top:298px">5</span></div>
@@ -300,7 +300,7 @@ figcaption b{color:var(--ink);font-weight:600}
       <tr><td>보이는 글자 수</td><td>10,672</td><td>6,717(−37%)</td><td>사실은 빼지 않음 · 위 "뺀 것" 참고</td></tr>
       <tr><td>페이지 높이 1280 / 390</td><td>13,026 / 18,701px</td><td>약 9,960 / 약 19,070px</td><td>1280은 −23%. 390은 비슷(약점 참고)</td></tr>
       <tr><td>외부 요청</td><td>Google Fonts 1</td><td>jsDelivr 1(Pretendard) + Google Fonts 1</td><td>spec.md 한 줄 수정 필요 · 결정 1</td></tr>
-      <tr><td><code>check-guide</code></td><td>값 34 · 링크 56 통과</td><td>값 34 · 링크 50 통과(시안 파일에 실행)</td><td>통과. 링크 수는 뺀 중복만큼 줄었다</td></tr>
+      <tr><td><code>check-collaboration</code></td><td>값 34 · 링크 56 통과</td><td>값 34 · 링크 50 통과(시안 파일에 실행)</td><td>통과. 링크 수는 뺀 중복만큼 줄었다</td></tr>
     </tbody>
   </table>
 </section>
@@ -310,7 +310,7 @@ figcaption b{color:var(--ink);font-weight:600}
   <div class="head"><h2>정해 주실 것 셋</h2><span class="k">05 · 결정</span></div>
   <ol class="decide">
     <li><span class="k" style="font-size:20px;line-height:30px">1</span><p class="q">글꼴을 Pretendard로 바꿀까요</p>
-      <div class="opts"><p>Pretendard(jsDelivr) + IBM Plex Mono(Google Fonts). 앱·디자인 폴더와 같은 글꼴이다. <code>docs/guide/spec.md</code>의 "외부 요청은 Google Fonts만"을 한 줄 고쳐야 한다. <code>check-guide</code>는 저장소 밖 https 링크를 건너뛰어 걸리지 않고, GitHub Pages에는 CSP가 없다.</p><p>글꼴 파일을 저장소에 두기. 오프라인에서도 같지만, 한글 서브셋 두 굵기만 해도 수백 KB가 저장소에 들어간다.</p><p>Google Fonts만(Noto Sans KR). 지금과 같은 제약이지만 앱과 글꼴이 다르다.</p></div>
+      <div class="opts"><p>Pretendard(jsDelivr) + IBM Plex Mono(Google Fonts). 앱·디자인 폴더와 같은 글꼴이다. <code>docs/collaboration/spec.md</code>의 "외부 요청은 Google Fonts만"을 한 줄 고쳐야 한다. <code>check-collaboration</code>는 저장소 밖 https 링크를 건너뛰어 걸리지 않고, GitHub Pages에는 CSP가 없다.</p><p>글꼴 파일을 저장소에 두기. 오프라인에서도 같지만, 한글 서브셋 두 굵기만 해도 수백 KB가 저장소에 들어간다.</p><p>Google Fonts만(Noto Sans KR). 지금과 같은 제약이지만 앱과 글꼴이 다르다.</p></div>
       <p class="rec"><b>추천 · jsDelivr</b>오프라인이면 Apple SD Gothic Neo로 보이고 내용은 그대로다. 바꿀 곳은 spec.md 한 줄.</p></li>
     <li><span class="k" style="font-size:20px;line-height:30px">2</span><p class="q">분량을 37% 줄여도 될까요</p>
       <div class="opts"><p>시안대로: 16절 → 7절 + 찾아보기, 글자 10,672 → 6,717. 뺀 것은 위 "뺀 것" 다섯 줄이고 모두 원문 링크가 남는다.</p><p>원칙 4개를 머리에 되살리기. 외부 전문가에게 설계 의도가 먼저 보이지만, 첫 화면이 다시 길어진다.</p></div>

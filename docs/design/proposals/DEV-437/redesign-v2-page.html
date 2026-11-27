@@ -14,13 +14,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!--
-  제안 보드용 사본(2026-11-27). 원본은 docs/guide/ko/index.html이다. 이 위치에서는 언어 링크가 맞지 않는다.
-  DEV-437 팀 협업 지도 한국어판(/guide/ko/). 기본 판은 영어판 ../index.html(/guide/)이다(11/27 오너 결정).
+  제안 보드용 사본(2026-11-27). 원본은 docs/collaboration/ko/index.html이다. 이 위치에서는 언어 링크가 맞지 않는다.
+  DEV-437 팀 협업 지도 한국어판(/collaboration/ko/). 기본 판은 영어판 ../index.html(/collaboration/)이다(11/27 오너 결정).
   main에 머지되면 GitHub Pages(main의 /docs)가 그대로 올린다. 상대 링크는 ../ 와 ./ 뿐이다.
   규칙의 원문은 AGENTS.md·README·.github/CI.md이고, 이 페이지는 순서와 이유를 적은 뒤 원문 절로 연결한다.
-  data-agents="키" 값과 저장소 링크는 CI guide job(scripts/ci/check-guide.mjs)이 AGENTS.md·저장소와 대조한다.
-  절 id·단계 id·페이지 안 링크·저장소 링크·data-agents 값은 두 판이 같아야 한다(check-guide가 대조, 어느 판도 예외가 아니다).
-  규칙이 바뀌면 같은 PR에서 이 파일도 고친다. 절 id는 바꾸지 않는다. 폴더 설명은 docs/guide/spec.md.
+  data-agents="키" 값과 저장소 링크는 CI collaboration job(scripts/ci/check-collaboration.mjs)이 AGENTS.md·저장소와 대조한다.
+  절 id·단계 id·페이지 안 링크·저장소 링크·data-agents 값은 두 판이 같아야 한다(check-collaboration가 대조, 어느 판도 예외가 아니다).
+  규칙이 바뀌면 같은 PR에서 이 파일도 고친다. 절 id는 바꾸지 않는다. 폴더 설명은 docs/collaboration/spec.md.
   조판(DEV-437 제안 v2, 2026-11-27 승인): 내용 폭 1200, 12열(열 사이 24), 절 제목 1–3열 · 본문 4–12열.
   글자 72 제목 · 28 절 제목 · 18 소제목 · 16 본문 · 15 표 · 13 라벨(이보다 작게 쓰지 않는다).
   색은 잉크와 회색, 주황은 "승인" 표지에만(#C94F0C 네모, 글자는 대비 때문에 #A8420A).
@@ -445,7 +445,7 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
     <div class="tbl"><table>
       <thead><tr><th style="width:24%">체크</th><th>보는 것</th></tr></thead>
       <tbody>
-        <tr><td><code>ci-ok</code></td><td>그 길에서 고른 server·apps·admin-web·integration과 <code>guide</code>(이 페이지 대조). 문서만 바꾼 PR은 server·apps·integration을 건너뛴다.</td></tr>
+        <tr><td><code>ci-ok</code></td><td>그 길에서 고른 server·apps·admin-web·integration과 <code>collaboration</code>(이 페이지 대조). 문서만 바꾼 PR은 server·apps·integration을 건너뛴다.</td></tr>
         <tr><td><code>figma-line</code></td><td>화면 코드가 바뀐 PR 본문에 <code>Figma:</code> 줄이 하나 있는지. 머지 큐에서는 건너뛴다.</td></tr>
         <tr><td><code>checker-tests</code></td><td>spec-check 도구 자체의 계약 테스트(모델·키 없이).</td></tr>
         <tr><td><code>spec-code-review</code></td><td>필수 아님. 결과는 PASS, NO_FINDINGS, MISMATCH, INCOMPLETE, SKIPPED 중 하나이고, NO_FINDINGS와 SKIPPED는 PASS가 아니다.</td></tr>
@@ -568,7 +568,7 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
           <li>spec-check가 INCOMPLETE다: <code>check_table.py</code>로 표 형식부터.</li>
           <li>배포가 건너뛰어졌다: 배포 로그 첫 줄. 이동 태그 뒤 경로가 안 바뀌었거나 main CI가 실패했다.</li>
           <li>마이그레이션 head가 둘이다: main 병합 후 <code>alembic heads</code>. 뒤에 머지하는 쪽이 번호를 올린다.</li>
-          <li><code>guide</code> 체크가 빨갛다: 로그의 키·줄·실제값·기대값을 보고 <a href="#upkeep">아래</a>대로 고친다.</li>
+          <li><code>collaboration</code> 체크가 빨갛다: 로그의 키·줄·실제값·기대값을 보고 <a href="#upkeep">아래</a>대로 고친다.</li>
           <li>커밋이 Insights에 안 잡힌다: <code>git config user.email</code>이 GitHub 계정 이메일과 같은지.</li>
           <li>1시간 넘게 막혔다: PM에게 알린다.</li>
         </ul>
@@ -581,10 +581,10 @@ cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
 <footer class="foot g12" id="upkeep">
   <h2>이 페이지를 고칠 때</h2>
   <div class="c">
-    <p>CI <code>guide</code> job(<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/scripts/ci/check-guide.mjs">check-guide.mjs</a>)이 매번 두 가지를 대조한다. 표시한 값 11개 키(<code>branch</code> <code>commit</code> <code>pr-title</code> <code>checks</code> <code>high-risk</code> <code>steps</code> <code>skills</code> <code>ai-log</code> <code>spec-check</code> <code>test-urls</code> <code>stacking</code>)를 AGENTS.md 해당 절에서 뽑은 값과, 저장소 링크를 그 파일·제목과 맞춰 본다. PR과 머지 큐에서는 어긋나면 막고, main push에서는 경고만 한다.</p>
+    <p>CI <code>collaboration</code> job(<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/scripts/ci/check-collaboration.mjs">check-collaboration.mjs</a>)이 매번 두 가지를 대조한다. 표시한 값 11개 키(<code>branch</code> <code>commit</code> <code>pr-title</code> <code>checks</code> <code>high-risk</code> <code>steps</code> <code>skills</code> <code>ai-log</code> <code>spec-check</code> <code>test-urls</code> <code>stacking</code>)를 AGENTS.md 해당 절에서 뽑은 값과, 저장소 링크를 그 파일·제목과 맞춰 본다. PR과 머지 큐에서는 어긋나면 막고, main push에서는 경고만 한다.</p>
     <p>기본 판인 <a href="../" hreflang="en">영어판</a>도 같은 규칙으로 검사하고, 두 판의 절 id·단계 id·페이지 안 링크·저장소 링크·값이 다르면 CI가 막는다. 두 판을 같은 PR에서 같이 고친다.</p>
     <p class="mut">설명 문장, CSS로 숨긴 요소, 저장소 밖 링크의 내용은 보지 않는다. 규칙을 바꾸는 PR의 작성자와 리뷰어가 관련 절을 같이 고친다.</p>
-    <p class="cap">원본 <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/guide/ko/index.html">docs/guide/ko/index.html</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/commits/main/docs/guide/ko/index.html">고친 기록</a></p>
+    <p class="cap">원본 <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/collaboration/ko/index.html">docs/collaboration/ko/index.html</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/commits/main/docs/collaboration/ko/index.html">고친 기록</a></p>
   </div>
 </footer>
 </div>
