@@ -1,6 +1,7 @@
 // DEV-452 (PM 11/27): one-at-a-time check sheet for the generated page.
 // Lists what still needs the producer's eye — photos taken from the material and flagged
 // passages — and saves each answer right away. Same decisions and rules as SourceCopyReview.
+import { josa } from "./josa";
 import {
   sourceAnalysis,
   type SourceAsset,
@@ -23,6 +24,10 @@ const KEEP_NOTE = "원문과 현재 사용 내용을 확인했어요.";
 const sectionTitle = (id: string | null) => SOURCE_MODULES.find(([m]) => m === id)?.[1] ?? "넣을 곳 정하기";
 
 type TextItem = { kind: "text"; key: string; passage: SourceCopyPassage; unit: SourceCopyPassage[]; module: string | null };
+// One question per passage: a critical one, then one about meaning, before spelling or spacing.
+const COPY_EDIT_CODES = ["OCR_SPLIT", "POSSIBLE_SPACING", "POSSIBLE_FRAGMENT", "EXACT_REPETITION"];
+const rank = (q: { severity?: string; code: string }) =>
+  q.severity === "critical" ? 0 : COPY_EDIT_CODES.includes(q.code) ? 2 : 1;
 type Item = { kind: "photo"; key: string; source: SourceAsset } | TextItem;
 type Related = { action: "EDIT" | "KEEP"; phrase: string; replacement?: string; items: { item: TextItem; before: string; after: string }[] };
 
@@ -142,6 +147,7 @@ export function CheckSheet({
   const [place, setPlace] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState("");
   const [related, setRelated] = useState<Related | null>(null);
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const reload = () => sourceAnalysis.sourceCopy(batch.id, targetId).then(setData);
   useEffect(() => { reload().catch((e: unknown) => setError(e instanceof Error ? e.message : "불러오지 못했어요.")); }, [batch.id, targetId]);
   const items = useMemo(() => checkItems(data, photos, only), [data, photos, only]);
@@ -156,6 +162,21 @@ export function CheckSheet({
     return () => { alive = false; if (made) URL.revokeObjectURL(made); };
   }, [item?.key]);
 
+  // DEV-452 QA 11/28: a PDF can bring 7+ photos; show them together so they can be confirmed at once.
+  const pendingPhotos = items.flatMap((i) => (i.kind === "photo" ? [i.source] : []));
+  const photoKey = pendingPhotos.map((s) => s.id).join(",");
+  useEffect(() => {
+    if (pendingPhotos.length < 2) return;
+    let alive = true;
+    const made: string[] = [];
+    for (const s of pendingPhotos)
+      sourcePhotoUrl(batch, s, "thumb").then((url) => {
+        if (url.startsWith("blob:")) made.push(url);
+        if (alive) setThumbs((old) => ({ ...old, [s.id]: url }));
+      }).catch(() => undefined);
+    return () => { alive = false; made.forEach((u) => URL.revokeObjectURL(u)); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoKey]);
   const run = async (work: () => Promise<void>) => {
     if (busy) return;
     setBusy(true); setError("");
@@ -221,8 +242,8 @@ export function CheckSheet({
     <View style={{ gap: 12 }} testID="related-offer">
       <T weight="semibold">
         {related.action === "EDIT"
-          ? `‘${related.phrase}’이(가) ${related.items.length}곳 더 있어요. 같이 ‘${related.replacement}’(으)로 바꿀까요?`
-          : `‘${related.phrase}’이(가) 들어간 확인 항목이 ${related.items.length}곳 더 있어요. 모두 괜찮아요로 할까요?`}
+          ? `${josa(`‘${related.phrase}’`, "이가")} ${related.items.length}곳 더 있어요. 같이 ${josa(`‘${related.replacement}’`, "으로")} 바꿀까요?`
+          : `${josa(`‘${related.phrase}’`, "이가")} 들어간 확인 항목이 ${related.items.length}곳 더 있어요. 모두 괜찮아요로 할까요?`}
       </T>
       {related.items.map(({ item, before, after }) => (
         <View key={item.key} style={{ padding: 12, borderRadius: 12, backgroundColor: "#FBF7EE", gap: 4 }}>
@@ -259,6 +280,20 @@ export function CheckSheet({
           <Button label="이 사진 쓸게요" style={{ flex: 2 }} disabled={busy} loading={busy} onPress={() => void run(() => onConfirmPhoto(item.source))} />
           <Button label="빼기" variant="outline" style={{ flex: 1 }} disabled={busy} onPress={() => void run(() => onRemovePhoto(item.source))} />
         </View>
+        {pendingPhotos.length > 1 ? (
+          <View testID="check-photo-all" style={{ gap: 8, paddingTop: 4 }}>
+            <T variant="caption" muted>{`자료에서 가져온 사진 ${pendingPhotos.length}장이 남았어요. 모두 이 상품 사진이 맞고 개인정보가 보이지 않으면 한 번에 쓸 수 있어요.`}</T>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {pendingPhotos.map((s) => (
+                <View key={s.id} style={{ width: 56, height: 56, borderRadius: 8, overflow: "hidden", backgroundColor: "#F2EEE6", borderWidth: s.id === item.source.id ? 2 : 0, borderColor: tokens.color.accent }}>
+                  {thumbs[s.id] ? <Image source={{ uri: thumbs[s.id] }} resizeMode="cover" style={{ width: "100%", height: "100%" }} accessibilityLabel="자료에서 가져온 사진" /> : null}
+                </View>
+              ))}
+            </View>
+            <Button label={`사진 ${pendingPhotos.length}장 모두 쓸게요`} variant="outline" disabled={busy}
+              onPress={() => void run(async () => { for (const s of pendingPhotos) await onConfirmPhoto(s); })} />
+          </View>
+        ) : null}
       </View>
     );
   } else {
@@ -279,7 +314,7 @@ export function CheckSheet({
         {p.originalValue.replace(/\s+/g, "") !== shown.replace(/\s+/g, "") ? <T variant="caption" muted>{`원문: ${p.originalValue}`}</T> : null}
         {prompts.length
           ? // One question per passage reads naturally; a critical one comes first (user 11/28).
-            [...prompts].sort((a, b) => Number(b.severity === "critical") - Number(a.severity === "critical")).slice(0, 1).map((q) => (
+            [...prompts].sort((a, b) => rank(a) - rank(b)).slice(0, 1).map((q) => (
               <View key={q.question} style={{ gap: 4 }}>
                 <T weight="semibold" color={q.severity === "critical" ? tokens.color.error : undefined}>{q.question}</T>
                 <T variant="sub" muted>{q.detail}</T>

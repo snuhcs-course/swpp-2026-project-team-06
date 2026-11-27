@@ -1,3 +1,4 @@
+import { josa } from "./josa";
 import { useRetryGate } from "./useRetryGate";
 import { FieldFeedback, FieldFeedbackContext } from "./FieldFeedback";
 import { chooseSourceFiles } from "./sourceFiles";
@@ -1779,7 +1780,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       if (!draft) throw new Error("페이지를 먼저 저장해 주세요.");
       await catalog.requestCapacity(productId, Math.round(kg * 1000), p.version, newIdempotencyKey(), {draftId:draft.id,draftVersion:draft.version});
       setNotice("판매 시작을 요청했어요. 운영자가 확인하면 공개돼요.");
-      allowLeave.current = true; router.dismissTo("/products"); return;
+      // DEV-452 QA 11/28: land on 심사 중, where the requested product now is (not 판매 중).
+      allowLeave.current = true; router.dismissTo({ pathname: "/products", params: { filter: "review" } }); return;
     }
     // Manual entry still saves a private hero draft without calling AI or applying it.
     if (batch && target && form && !runs.some(r => r.status !== "CANCELLED")) {
@@ -2099,9 +2101,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             </View>
             {nameMismatch ? (
               <View testID="name-mismatch" style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#E9B980", gap: 8 }}>
-                <T variant="sub">{`자료에는 상품명이 ‘${docName}’(으)로 적혀 있어요. 입력한 이름 ‘${typedName}’이 맞나요?`}</T>
+                <T variant="sub">{`자료에는 상품명이 ${josa(`‘${docName}’`, "으로")} 적혀 있어요. 입력한 이름 ${josa(`‘${typedName}’`, "이가")} 맞나요?`}</T>
                 <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-                  <Button compact variant="outline" label={`‘${docName}’로 바꾸기`} disabled={busy} onPress={() => { setField("name", docName); setNotice(`상품명을 ‘${docName}’로 바꿨어요. 품종 등 다른 칸은 ‘정보 고치기’에서 확인해 주세요.`); }} />
+                  <Button compact variant="outline" label={`${josa(`‘${docName}’`, "으로")} 바꾸기`} disabled={busy} onPress={() => { setField("name", docName); setNotice(`상품명을 ${josa(`‘${docName}’`, "으로")} 바꿨어요. 품종 등 다른 칸은 ‘정보 고치기’에서 확인해 주세요.`); }} />
                   <Button compact variant="text" label="지금 이름이 맞아요" disabled={busy} onPress={() => { keepName(nameKey); setNameNoticeOff(nameKey); }} />
                 </View>
               </View>
@@ -2764,7 +2766,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           <BottomBar summary={errorPanel ?? undefined}>{footerButtons}</BottomBar>
         </View>
       ) : batch ? (
-        <View style={hideEditChrome ? { display: "none" } : { display: "contents" }}>
+        // The combined waiting screen has nothing to save or request; no empty bottom bar (QA 11/28).
+        <View style={hideEditChrome || (combinedSetup && working) ? { display: "none" } : { display: "contents" }}>
         <PeekSheet hideClosedPeek
           open={sheetOpen}
           onOpenChange={setSheetOpen}

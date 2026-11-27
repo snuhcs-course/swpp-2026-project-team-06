@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import { josa } from '../apps/producer/src/lib/josa.ts';
 const ts = createRequire(import.meta.url)('typescript');
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../apps/producer/src/lib/CheckSheet.tsx', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -15,6 +16,7 @@ vm.runInNewContext(code, { exports, require: (id) => {
   if (id === 'react-native') return { Image: 'Image', View: 'View' };
   if (id === './SourceCopyReview') return { reasonMessages: {}, requiresNote: () => false };
   if (id === './sourcePhoto') return { sourcePhotoUrl: async () => '' };
+  if (id === './josa') return { josa };
   throw new Error(id);
 }});
 const { changedPart, relatedItems, checkItems } = exports;

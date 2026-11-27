@@ -151,7 +151,9 @@ export function SourceRunSteps({ batch, run }: { batch: SourceBatch; run: Source
   best.current.percent = Math.max(best.current.percent, raw);
   const percent = best.current.percent;
   const step = runStep(run);
-  const ids = [...new Set(run.items.filter((i) => i.phase !== "REFINE").map((i) => i.assetId))];
+  // Material files only: product photos are prepared too but are not "자료" to the producer (QA 11/28).
+  const ids = [...new Set(run.items.filter((i) => i.phase !== "REFINE").map((i) => i.assetId))]
+    .filter((id) => !batch.sources.find((s) => s.id === id)?.originalPhoto);
   const done = ids.filter((id) => run.items.filter((i) => i.assetId === id).every((i) => finished(i.status))).length;
   return (
     <View testID="source-run-progress" accessibilityLiveRegion="polite" style={{ gap: 16 }}>
