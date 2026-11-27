@@ -401,13 +401,34 @@ def canonical_quote(quote, source):
     return source[tokens[start].start() : tokens[start + len(wanted) - 1].end()]
 
 
+_EN_UNITS = (
+    ("years?", "년"),
+    ("months?", "개월"),
+    ("weeks?", "주"),
+    ("days?", "일"),
+    ("hours?", "시간"),
+)
+
+
+def korean_units(value):
+    """'1 year' → '1년': undo an English unit the model wrote for a Korean source unit."""
+    for english, korean in _EN_UNITS:
+        value = re.sub(rf"(\d+(?:[.,]\d+)?)\s*{english}\b", rf"\g<1>{korean}", value, flags=re.I)
+    return value
+
+
 def validate(extraction, chunk, allowed_targets, *, allow_historical_fields=False):
     span_map = {(p["number"], s["id"]): s["text"] for p in chunk["pages"] for s in p["spans"]}
     for candidate_index, candidate in enumerate(extraction.candidates):
         quotes = "\n".join(e.quote for e in candidate.evidence)
 
         if numbers(candidate.value) - numbers(quotes):
-            raise ExtractionError("UNSUPPORTED_NUMBER")
+            # DEV-452: a value that only translated the unit ("1 year" for "1년") is put back
+            # into the source's Korean unit; any other unsupported number is still rejected.
+            repaired = korean_units(candidate.value)
+            if repaired == candidate.value or numbers(repaired) - numbers(quotes):
+                raise ExtractionError("UNSUPPORTED_NUMBER")
+            candidate.value = repaired
         if (
             candidate.field_key == "pieceCount"
             and numbers(candidate.value)

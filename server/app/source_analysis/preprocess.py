@@ -41,6 +41,12 @@ class PreparationError(Exception):
     pass
 
 
+# An address number is not a quantity: "사정으로 1~2일", "이 정도면 3일" are not addresses
+# (DEV-452, the 11/25 benchmark rejected a delivery passage this way). "으로" is a particle.
+_NOT_QUANTITY = (
+    r"(?!\d|[.,]\d|\s*(?:[~–]|-\s*\d+\s*(?:일|개|시간)|"
+    r"일|개|시간|분|년|월|주|박스|상자|kg|㎏|g\b|%|번째|회|과|알|cm|mm|km|브릭스|brix))"
+)
 PII = re.compile(
     r"(?:\b0(?:2|[3-6][1-5]|70|80|1[016789])[- .)]*\d{3,4}[- .]?\d{4}\b|"
     r"\b1[568]\d{2}[- .]\d{4}\b|"
@@ -50,8 +56,8 @@ PII = re.compile(
     r"(?:^|\n)[ \t]*(?:성명|성함|담당자|대표자|예금주|수취인|연락\s*처|주\s*소|계좌)"
     r"\s*[:：]?[^\n]+|"
     r"(?:^|\n)[ \t]*대표[ \t]*[:：][^\n]+|"
-    r"[가-힣]+(?:로|길)\s*\d+[^\n]*|"
-    r"[가-힣]+(?:읍|면|동|리)\s*\d+[^\n]*)"
+    rf"[가-힣]+(?<!으)(?:로|길)\s*\d+{_NOT_QUANTITY}[^\n]*|"
+    rf"[가-힣]+(?:읍|면|동|리)\s*\d+{_NOT_QUANTITY}[^\n]*)"
 )
 
 
