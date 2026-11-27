@@ -1111,28 +1111,6 @@ test("DEV-452 AC-SRC-9/11: composer next saves privately and moves on without ap
   clean();
 });
 
-test("DEV-179 DEV-361 AC-SRC-9/11: composer next apply conflict keeps server refresh beside the button", async ({ page }) => {
-  const clean = monitor(page, [/status of 409 \(Conflict\)/]); // apply is stubbed to 409
-  await loginProducer(page, "강영수");
-  const fixture = contractFixture();
-  const draft = await serveApplyReady(page, fixture);
-  let applied = 0;
-  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts/${draft.id}/apply`, (route) => {
-    applied++;
-    return route.fulfill({ status: 409, json: { code: "VERSION_MISMATCH",
-      message: "변경된 내용을 다시 확인해 주세요.", details: {} } });
-  });
-  await openContractReview(page, fixture);
-  await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
-  const alert = page.getByRole("alert").filter({ hasText: "변경된 내용을 다시 확인해 주세요." });
-  await expect(alert).toHaveCount(1);
-  await expect(alert).toBeVisible();
-  await expect(alert.getByRole("button", { name: "다시 확인", exact: true })).toBeVisible();
-  await expect(page).toHaveURL(/\/products\/source-analysis/);
-  expect(applied).toBe(1);
-  clean();
-});
-
 test("DEV-179 DEV-361 AC-SRC-5/11: composer retains server refresh after a network failure", async ({ page }) => {
   await loginProducer(page, "강영수");
   const fixture = contractFixture();
