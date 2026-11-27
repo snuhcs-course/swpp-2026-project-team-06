@@ -6,6 +6,8 @@
 <meta name="description" content="farmclub 팀원용 협업 지도: 작업 순서, 사람이 하는 일, 통제의 층, 규칙 원문 링크">
 <meta name="robots" content="noindex">
 <title>farmclub 협업 지도</title>
+<link rel="alternate" hreflang="ko" href="./">
+<link rel="alternate" hreflang="en" href="en/">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,6 +16,7 @@
   DEV-437 팀 협업 지도. 원본은 이 파일 하나이고, main에 머지되면 GitHub Pages(main의 /docs)가 그대로 올린다.
   규칙의 원문은 AGENTS.md·README·.github/CI.md이고, 이 페이지는 순서와 이유를 적은 뒤 원문 절로 연결한다.
   data-agents="키" 값과 저장소 링크는 CI guide job(scripts/ci/check-guide.mjs)이 AGENTS.md·저장소와 대조한다.
+  영어판은 en/index.html이고 이 파일이 원본이다. 절 id·저장소 링크·data-agents 값은 두 판이 같아야 한다(check-guide가 대조).
   규칙이 바뀌면 같은 PR에서 이 파일도 고친다. 절 id는 바꾸지 않는다. 폴더 설명은 docs/guide/spec.md.
   조판(DEV-437 제안 v2, 2026-11-27 승인): 내용 폭 1200, 12열(열 사이 24), 절 제목 1–3열 · 본문 4–12열.
   글자 72 제목 · 28 절 제목 · 18 소제목 · 16 본문 · 15 표 · 13 라벨(이보다 작게 쓰지 않는다).
@@ -51,7 +54,12 @@ code.h{font-family:var(--sans);font-size:.94em}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* 머리 */
-header.top{padding-top:96px}
+header.top{padding-top:28px}
+/* 언어 바꾸기: 머리 맨 위 오른쪽 글자 링크 */
+.lang{grid-column:1/-1;justify-self:end;display:flex;align-items:center;gap:8px;min-height:44px;margin-bottom:24px;font-size:13px;line-height:20px;color:var(--ink-2)}
+.lang a{display:inline-flex;align-items:center;min-height:44px}
+.lang [aria-current]{color:var(--ink);font-weight:600}
+
 h1{grid-column:1/-1;font-size:72px;line-height:76px;font-weight:600;letter-spacing:-.04em}
 .intro{grid-column:1/9;margin-top:28px;display:grid;gap:12px;font-size:19px;line-height:32px;letter-spacing:-.01em}
 .toc{margin-top:56px;border-top:1px solid var(--rule);padding-top:12px}
@@ -135,7 +143,8 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
   :root{--pad:16px}
   .g12{grid-template-columns:minmax(0,1fr)}
   .g12 > *{grid-column:1/-1 !important}
-  header.top{padding-top:48px}
+  header.top{padding-top:4px}
+  .lang{margin-bottom:0}
   h1{font-size:48px;line-height:52px}
   .intro{margin-top:20px;font-size:17px;line-height:28px}
   .toc{margin-top:40px}.toc ol{columns:1}
@@ -160,7 +169,7 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
   @page{size:A4;margin:16mm 14mm}
   body{font-size:10pt;line-height:1.6}
   .page{padding:0}
-  .toc,button.copy{display:none}
+  .toc,button.copy,.lang{display:none}
   h1{font-size:36pt;line-height:1}
   .sec > h2{position:static}
   section.sec{margin-top:24pt}
@@ -174,6 +183,7 @@ footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:1
 
 <header class="top">
   <div class="g12">
+    <nav class="lang" aria-label="언어"><span aria-current="page">한국어</span><span aria-hidden="true">/</span><a href="en/" hreflang="en" lang="en">English</a></nav>
     <h1>협업 지도</h1>
     <div class="intro">
       <p>farmclub 팀원 4명이 AI 코딩 에이전트와 함께 일하는 방식을 정리한 페이지다. 규칙의 원문은 <code>AGENTS.md</code>이고, 여기서는 순서와 이유를 적은 뒤 원문 절로 연결한다.</p>
