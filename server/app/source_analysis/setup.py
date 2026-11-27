@@ -90,10 +90,14 @@ def save(db, farm, pid, body, *, generate=False):
                 Asset.batch_id == batch.id,
                 Asset.deleted.is_(False),
                 Asset.product_photo.is_(None),
+                # Product photos alone do not make a page (QA 11/28): a text/image/PDF material.
+                Asset.original_photo.is_(False),
             )
         )
         if not has_material:
-            raise invalid({"sources": "자료를 하나 이상 넣어 주세요."})
+            raise invalid(
+                {"sources": "상품사진 말고 분석 자료(글·이미지·PDF·TXT)를 하나 이상 넣어 주세요."}
+            )
         require_sale_inputs({"setupInputs": body.inputs.model_dump(mode="json", by_alias=True)})
     terms = body.inputs.terms
     ids = [o.option_id for o in terms.options]

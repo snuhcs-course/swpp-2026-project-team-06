@@ -50,7 +50,8 @@ export default function ProductSetup() {
     function required(latest: SourceBatch): Record<string, string> {
         const result: Record<string, string> = {};
         if (!hint.trim()) result.hint = "어떤 상품인지 적어 주세요.";
-        if (!latest.sources.some((x) => !x.productPhoto)) result.materials = "자료를 하나 이상 넣어 주세요.";
+        // Product photos alone do not make a page: at least one text, image, PDF or TXT material (QA 11/28).
+        if (!latest.sources.some((x) => !x.productPhoto && !x.originalPhoto)) result.materials = "상품사진 말고 분석 자료(글·이미지·PDF·TXT)를 하나 이상 넣어 주세요.";
         const problem = terms ? checkTerms(terms) : null;
         if (problem) result[problem.field] = problem.message;
         if (!kg || kg <= 0) result.kg = "판매할 총 물량을 적어 주세요.";

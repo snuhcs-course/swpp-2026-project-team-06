@@ -36,9 +36,12 @@ _SPLIT = re.compile(r"(?P<head>[가-힣]*(?:습니|입니))[ \t]*\r?\n[ \t]*다(
 _FRAGMENT = re.compile(r"(?:듯이|지만|지고|때문에|그리고|또한|하지만)[,，]?\s*$|[,，]\s*$")
 _PARTICLE = re.compile(r"(?<=[가-힣])\s+(?:에서|을|를)(?=\s|[,.!?。]|$)")
 _SENTENCE = re.compile(r"(?<!\d\.)(?<=[.!?。])\s+")
-_TIME_END = r"(?=$|[\s,.!?。:;·()]|(?:에도|에는|부터|까지|은|는|의|에|도|쯤)(?=$|[\s,.!?。:;·()]))"
+_TIME_END = (
+    r"(?=$|[\s,.!?。:;·()]|(?:에도|에는|부터|까지만|까지|은|는|의|에|도|쯤)(?=$|[\s,.!?。:;·()]))"
+)
 _RELATIVE = re.compile(
-    r"(?<![가-힣A-Za-z0-9])(?:올해|내년|조만간|내일|어제|이번|현재|지금|최근|곧)"
+    # "지금까지/현재까지 이어지고" is a span up to now, not a dated claim (QA 11/28).
+    r"(?<![가-힣A-Za-z0-9])(?:올해|내년|조만간|내일|어제|이번|현재(?!\s*까지)|지금(?!\s*까지)|최근|곧)"
     + _TIME_END
     + r"|\d+\s*년\s*전|(?<![가-힣A-Za-z0-9])(?:내년|올해|작년)이맘(?:때|쯤)"
 )
@@ -485,6 +488,41 @@ _VARIANT = re.compile(
 )
 
 
+_HEADING_MARK = re.compile(r"^\s*(?:[①-⑳]|[■□●○◆◇▶▷★☆※#]|\[[^\]]{1,20}\]|\d{1,2}[.)])")
+_HEADING_LABEL = re.compile(
+    r"^\s*(?:(?:생산자|농가|농부|농장|브랜드)\s*(?:이야기|소개|스토리)|스토리텔링|"
+    r"상품\s*(?:정보|소개|설명)|배송\s*안내|보관\s*방법|주의\s*사항)(?:\s+|\s*[:：]\s*)(?=\S)"
+)
+_SENTENCE_END = re.compile(r"(?:다|요|죠|니다|[.!?~]|\))\s*$")
+
+
+def strip_heading(value):
+    """Material section headings read together with the sentence after them (DEV-452 QA 11/28).
+
+    Drops a short first line marked as a heading ("⑤ 우리 농장 이야기", "■ 배송 안내") or naming
+    a known section ("생산자 이야기") when a sentence follows, and such a label at the start of
+    the same line ("생산자 이야기 10년 전…"). Short content lines ("선물 3kg") stay.
+    Deletion only; the sentence itself is not reworded.
+    """
+    lines = value.split("\n")
+    while len(lines) > 1:
+        first = lines[0].strip()
+        rest = "\n".join(lines[1:]).strip()
+        heading = not first or (
+            len(first) <= 24
+            and not _SENTENCE_END.search(first)
+            and "," not in first
+            and not _WEIGHT.search(first)
+            and bool(_HEADING_MARK.match(first) or _HEADING_LABEL.match(first + " x"))
+        )
+        if not heading or not rest:
+            break
+        lines = lines[1:]
+    text = "\n".join(lines).strip()
+    stripped = _HEADING_LABEL.sub("", text, count=1)
+    return stripped if len(stripped) >= 8 else text
+
+
 def option_conflict(value, input_weights, input_labels=()):
     """Weight not among the options, or a variant (가정용, 중대과 …) no option label names."""
     if weight_conflict(value, input_weights):
@@ -679,7 +717,8 @@ def _build(
     passages = []
     for key, group in groups.items():
         identity = group["identity"]
-        value = identity["quote"]
+        raw = identity["quote"]
+        value = strip_heading(raw)
         reasons, repair = _reasons(value, group["historical"], scope["name"])
         if group["parentHealth"] and "HEALTH_CLAIM" not in reasons["SAFETY"]:
             reasons["SAFETY"].append("HEALTH_CLAIM")
@@ -708,8 +747,8 @@ def _build(
                 "bindingHash": binding,
                 "module": module,
                 "value": value,
-                "originalValue": value,
-                "sourceExact": True,
+                "originalValue": raw,
+                "sourceExact": value == raw,
                 "candidateIds": group["candidateIds"],
                 "evidence": group["evidence"],
                 "sourceId": identity["sourceId"],

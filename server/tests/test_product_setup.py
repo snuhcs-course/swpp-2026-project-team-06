@@ -224,3 +224,21 @@ def test_AC_SRC_1_generation_requires_every_required_input(client, login, change
         assert db.query(Run).filter(Run.batch_id == row["batchId"]).count() == 0
     # Saving partial input without generating stays allowed.
     assert post(client, login, row, info).status_code == 200
+
+
+def test_AC_SRC_1_product_photos_alone_do_not_generate_a_page(client, login):
+    """DEV-452 QA 11/28: a page needs a text, image, PDF or TXT material, not photos alone."""
+    from tests.test_source_analysis import add_cover
+
+    row = prepare(client, login)
+    h = login("u-kang")
+    add_cover(client, h, row["batchId"])
+    batch = client.get(f"{SOURCE}/{row['batchId']}", headers=h).json()
+    assert [s["originalPhoto"] for s in batch["sources"]] == [True]
+    response = post(
+        client, login, row, complete_inputs(), "generate", batchVersion=batch["version"]
+    )
+    assert response.status_code == 400, response.text
+    assert "sources" in response.json()["details"]["fields"]
+    with get_sessionmaker()() as db:
+        assert db.query(Run).filter(Run.batch_id == row["batchId"]).count() == 0

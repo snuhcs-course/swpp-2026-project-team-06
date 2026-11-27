@@ -3,7 +3,7 @@
 import re
 
 _EXPERIENCE = re.compile(r"\d+\s*년\s*(?:차|전)")
-_RELATIVE = re.compile(r"내년|올해|작년|조만간|이번\s*주|현재|최근|곧|지금")
+_RELATIVE = re.compile(r"내년|올해|작년|조만간|이번\s*주|현재(?!\s*까지)|최근|곧|지금(?!\s*까지)")
 _YEAR = re.compile(r"\d{4}\s*년")
 _MONEY = re.compile(r"\d[\d,.]*\s*원")
 

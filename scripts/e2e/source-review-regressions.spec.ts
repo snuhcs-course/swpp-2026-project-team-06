@@ -88,8 +88,9 @@ test("DEV-186 DEV-361 AC-SRC-5/11: composer refine messages have no file failure
     fixture.run.items[0].status = "FAILED";
     await page.reload();
     await openRunPanel();
-    await expect(page.getByText("일부 내용을 채우지 못했어요. 다시 시도해 주세요. · 테스트 결과", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeEnabled();
+    await expect(page.getByText("초안을 저장했어요. 원문을 확인하고 고쳐 주세요. · 테스트 결과", { exact: true })).toBeVisible();
+    // DEV-452 (5617bc7b): a failed wording pass is optional and does not offer a reading retry.
+    await expect(page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true })).toHaveCount(0);
     await expect(page.getByText(/\.(?:pdf|txt): /)).toHaveCount(0);
     // DEV-361 C-25: the AI sheet's run panel shows the per-file notes the 2-tab screen had. Refine messages never
     // blame the source file; extraction errors keep the file name.
@@ -104,7 +105,7 @@ test("DEV-186 DEV-361 AC-SRC-5/11: composer refine messages have no file failure
       PROVIDER_AUTH: "AI 연결 설정에 문제가 있어 문구 정리 대신 원문 그대로 보여 드려요. 운영팀에 알려 주세요.",
       FIXTURE_REFINE_FAILED: "문구 정리에 실패해서 원문 그대로 보여 드려요.",
     };
-    const status = page.getByText("일부 내용을 채우지 못했어요. 다시 시도해 주세요. · 테스트 결과", { exact: true });
+    const status = page.getByText("초안을 저장했어요. 원문을 확인하고 고쳐 주세요. · 테스트 결과", { exact: true });
     for (const [code, message] of Object.entries(messages)) {
       fixture.run.items[0].error = code;
       await page.reload();
@@ -120,7 +121,7 @@ test("DEV-186 DEV-361 AC-SRC-5/11: composer refine messages have no file failure
     await page.reload();
     await openRunPanel();
     await expect(page.getByText("원문자료.txt: 테스트 환경에서 지원하지 않는 자료예요.", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true })).toBeEnabled();
     fixture.run.items[0].error = "PROVIDER_AUTH";
     await page.reload();
     await openRunPanel();
@@ -363,7 +364,7 @@ test(`DEV-182 DEV-361 AC-SRC-5/8: composer rejected and oversized notices`, asyn
   };
   await open();
   await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 후보 1개는 제외했어요. 원문을 확인해 주세요.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true })).toBeEnabled();
   await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 후보 1개는 제외했어요. 원문을 확인해 주세요.", { exact: true })).toHaveCount(1);
   await expect(page.getByText(/근거를 확인하지 못한/)).toHaveCount(1);
   await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.", { exact: true })).toHaveCount(0);
@@ -399,7 +400,7 @@ test(`DEV-190 DEV-361 AC-SRC-5/8: composer shows each partial page and chunk not
     await page.goto(url);
     await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   };
-  const retry = page.getByRole("button", { name: "재시도", exact: true });
+  const retry = page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true });
   const consent = (uncertain = false) => page.getByRole("checkbox", {
     name: uncertain ? uncertainRetryCost : retryCost, exact: true,
   });
@@ -409,7 +410,7 @@ test(`DEV-190 DEV-361 AC-SRC-5/8: composer shows each partial page and chunk not
   await expect(note).toBeVisible();
   await expect(note).toHaveCount(1);
   await expect(page.getByText(/분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true })).toBeEnabled();
   // Known per-page errors show the same single note; skipped empty pages are quiet.
   fixture.run.items[0] = { ...extract, error: "OCR_PAGES_FAILED" };
   await open();
@@ -683,11 +684,11 @@ test("DEV-179 DEV-361 AC-SRC-5/8: composer shows actual failed pages and retries
   await serveContractReview(page, fixture);
   await openContractReview(page, fixture);
   await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
-  await expect(page.getByText("일부 내용을 채우지 못했어요. 다시 시도해 주세요. · 테스트 결과", { exact: true })).toBeVisible();
+  await expect(page.getByText("초안을 저장했어요. 원문을 확인하고 고쳐 주세요. · 테스트 결과", { exact: true })).toBeVisible();
   // DEV-361 C-25: the actual failed page numbers per file, as on the old 2-tab screen
   await expect(page.getByText("부분 실패.pdf: 2쪽을 읽지 못했어요. 확인할 쪽: 2, 5쪽. 다시 분석해 보세요.", { exact: true })).toBeVisible();
   await expect(page.getByText("부분 실패.pdf: 일부 내용을 읽지 못했어요. 확인할 쪽: 7쪽. 다시 분석해 보세요.", { exact: true })).toBeVisible();
-  const retry = page.getByRole("button", { name: "재시도", exact: true });
+  const retry = page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true });
   const consent = page.getByRole("checkbox", {
     name: retryCost, exact: true,
   });
@@ -1090,43 +1091,23 @@ async function serveApplyReady(page: Page, fixture: ContractFixture) {
 }
 
 // DEV-179 demo follow-up: public apply reasons must remain at the action.
-test("DEV-179 DEV-361 AC-SRC-9/11: composer next shows the photo reason beside the button without refresh", async ({ page }) => {
-  const clean = monitor(page, [/status of 400 \(Bad Request\)/]); // apply is stubbed to 400
+test("DEV-452 AC-SRC-9/11: composer next saves privately and moves on without applying the page", async ({ page }) => {
+  // Decision 2A (user, 11/27): '다음: 판매·가격' only saves; the page is applied with the sale request.
+  // Replaces the DEV-179 check that '다음' applied the page and showed the apply error beside it.
+  const clean = monitor(page);
   await loginProducer(page, "강영수");
   const fixture = contractFixture();
   const draft = await serveApplyReady(page, fixture);
   let applied = 0;
-  let hold: Promise<void> | null = null;
-  let releaseApply!: () => void;
-  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts/${draft.id}/apply`, async (route) => {
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts/${draft.id}/apply`, (route) => {
     applied++;
-    if (hold) await hold;
-    return route.fulfill({ status: 400, json: { code: "VALIDATION_ERROR",
-      message: "입력한 내용을 확인해 주세요.",
-      details: { fields: { representativePhoto: "대표 상품사진을 한 장 이상 올려 주세요." } } } });
+    return route.fulfill({ status: 400, json: { code: "VALIDATION_ERROR", message: "x", details: {} } });
   });
   await openContractReview(page, fixture);
-  const next = page.getByRole("button", { name: "다음: 판매·가격", exact: true });
-  await next.click();
-  const reason = page.getByRole("alert").filter({ hasText: "대표 상품사진을 한 장 이상 올려 주세요." });
-  // The reason is shown once, beside the action, without a server refresh button.
-  await expect(reason).toHaveCount(1);
-  await expect(reason).toBeInViewport();
-  await expect(next).toBeInViewport();
-  await expect(next).toBeEnabled();
-  const e = await reason.boundingBox(), b = await next.boundingBox();
-  expect(e!.y + e!.height).toBeLessThanOrEqual(b!.y);
-  expect(b!.y - e!.y - e!.height).toBeLessThan(120);
-  await expect(page.getByRole("button", { name: "다시 확인", exact: true })).toHaveCount(0);
-  await expect(page).toHaveURL(/\/products\/source-analysis/);
-  expect(applied).toBe(1);
-  // Pressing again clears the prior reason at once; the new attempt is not blamed before its own answer.
-  hold = new Promise<void>((resolve) => { releaseApply = resolve; });
-  await next.click();
-  await expect.poll(() => applied).toBe(2);
-  await expect(reason).toHaveCount(0);
-  releaseApply();
-  await expect(reason).toHaveCount(1);
+  await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
+  await expect(page).toHaveURL(/\/sell/);
+  expect(applied).toBe(0);
+  await expect(page.getByRole("alert").filter({ hasText: "대표 상품사진" })).toHaveCount(0);
   clean();
 });
 
@@ -1192,7 +1173,7 @@ test("DEV-179 DEV-361 AC-SRC-5/8: composer retries definite and uncertain failur
     const uncertain = error === "REQUEST_UNCERTAIN" || error === "mixed";
     const consent = page.getByRole("checkbox", { name: uncertain ? uncertainRetryCost : retryCost, exact: true });
     await expect(page.getByRole("checkbox", { name: uncertain ? retryCost : uncertainRetryCost, exact: true })).toHaveCount(0);
-    const retry = page.getByRole("button", { name: "재시도", exact: true });
+    const retry = page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true });
     await expect(consent).toHaveCount(0);
     await expect(retry).toBeEnabled();
       await expect(retry).toBeEnabled();

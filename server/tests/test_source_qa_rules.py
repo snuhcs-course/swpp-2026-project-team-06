@@ -149,3 +149,23 @@ def test_AC_SRC_10_a_short_shipping_fee_line_follows_the_sale_settings():
     assert by[rows[2][0]]["status"] != "EXCLUDED"
     # Without sale settings the line is kept and only checked.
     assert "inputPreferred" not in _plan(rows[:1])["무료배송"]
+
+
+def test_AC_SRC_3_a_material_heading_read_with_its_sentence_is_dropped():
+    from app.source_analysis.source_preserving import strip_heading
+
+    assert (
+        strip_heading("⑤ 우리 농장의 이야기\n3대째 귤농사를 짓고 있어요.")
+        == "3대째 귤농사를 짓고 있어요."
+    )
+    assert strip_heading("생산자 이야기 10년 전 제주로 왔어요.") == "10년 전 제주로 왔어요."
+    assert strip_heading("[보관법]\n서늘한 곳에 두세요.") == "서늘한 곳에 두세요."
+    # Short content lines are not headings.
+    assert strip_heading("선물 3kg\n\n(12과내)") == "선물 3kg\n\n(12과내)"
+    assert (
+        strip_heading("귀촌 10년차\n제주에서 귤을 키워요.") == "귀촌 10년차\n제주에서 귤을 키워요."
+    )
+    line = "⑤ 우리 농장의 이야기\n3대째 귤농사를 짓고 있어요."
+    [passage] = _plan([(line, "farmStory")]).values()
+    assert passage["value"] == "3대째 귤농사를 짓고 있어요."
+    assert passage["originalValue"] == line and not passage["sourceExact"]

@@ -19,7 +19,7 @@ vm.runInNewContext(code, { exports, require: (id) => {
   if (id === './josa') return { josa };
   throw new Error(id);
 }});
-const { changedPart, relatedItems, checkItems } = exports;
+const { changedPart, relatedItems, checkItems, highlightPart } = exports;
 const reasons = (over = {}) => ({ COPY_EDIT: [], OWNER_CONFIRMATION: [], PLACEMENT: [], SAFETY: [], ...over });
 const passage = (id, value, module, over = {}) => ({ id, bindingHash: `b-${id}`, value, originalValue: value, module, reviewPending: true, includedInDraft: true, reasonCodes: reasons(over), decision: null, candidateIds: [] });
 const plan = (passages) => ({ plan: { planHash: 'h', passages, modules: [] }, reviewVersion: 1 });
@@ -59,4 +59,10 @@ test('DEV-452: nothing is offered for whole-sentence rewrites or non-date approv
   const done = checkItems(data, [], null).find((i) => i.passage.id === 'a');
   assert.equal(relatedItems(data, done, 'KEEP', a.value, ''), null);
   assert.equal(relatedItems(data, done, 'EDIT', a.value, '완전히 다른 새 문장으로 바꿔서 설명해 드릴게요 이렇게 길게'), null);
+});
+
+test('DEV-452 11/28: the asked sentence is marked inside a joined paragraph', () => {
+  assert.equal(JSON.stringify(highlightPart('첫 문장입니다.\n둘째 문장입니다.', '둘째 문장입니다.')), JSON.stringify(['첫 문장입니다.\n', '둘째 문장입니다.', '']));
+  assert.equal(highlightPart('한 문장입니다.', '한 문장입니다.'), null);
+  assert.equal(highlightPart('다른 문장입니다.', '없는 문장'), null);
 });

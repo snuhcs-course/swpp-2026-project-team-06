@@ -24,6 +24,14 @@ const KEEP_NOTE = "원문과 현재 사용 내용을 확인했어요.";
 const sectionTitle = (id: string | null) => SOURCE_MODULES.find(([m]) => m === id)?.[1] ?? "넣을 곳 정하기";
 
 type TextItem = { kind: "text"; key: string; passage: SourceCopyPassage; unit: SourceCopyPassage[]; module: string | null };
+/** [before, asked part, after] when the asked sentence is only part of the shown paragraph. */
+export function highlightPart(shown: string, value: string): [string, string, string] | null {
+  const part = value.trim();
+  const at = part ? shown.indexOf(part) : -1;
+  if (at < 0 || part.length >= shown.trim().length) return null;
+  return [shown.slice(0, at), part, shown.slice(at + part.length)];
+}
+
 // One question per passage: a critical one, then one about meaning, before spelling or spacing.
 const COPY_EDIT_CODES = ["OCR_SPLIT", "POSSIBLE_SPACING", "POSSIBLE_FRAGMENT", "EXACT_REPETITION"];
 const rank = (q: { severity?: string; code: string }) =>
@@ -308,7 +316,17 @@ export function CheckSheet({
       <View style={{ gap: 12 }} testID={`check-passage-${p.id}`}>
         <T variant="caption" muted>{sectionTitle(item.module)}</T>
         <View style={{ padding: 14, borderRadius: 12, backgroundColor: critical ? "#FFF0ED" : "#FBF7EE" }}>
-          <T>{shown}</T>
+          {/* In a joined paragraph, mark the sentence this question is about (user 11/28). */}
+          {(() => {
+            const part = highlightPart(shown, p.value);
+            return part ? (
+              <T>
+                {part[0]}
+                <T style={{ backgroundColor: "#FFD9A0", fontWeight: "600" }}>{part[1]}</T>
+                {part[2]}
+              </T>
+            ) : <T>{shown}</T>;
+          })()}
         </View>
         {/* Show the original only when the words differ, not just spacing or line breaks. */}
         {p.originalValue.replace(/\s+/g, "") !== shown.replace(/\s+/g, "") ? <T variant="caption" muted>{`원문: ${p.originalValue}`}</T> : null}
