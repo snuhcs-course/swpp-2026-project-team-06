@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>협업 지도 바와 단계 이동</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!-- DEV-437 제안 보드: 위 바·단계 이동·언어 바꾸기(11/27 오너 요청). 캡처는 v2/ 뷰포트 JPEG, 줄이지 않음. -->
+<style>
+:root{
+  --bg:#EFEEEA; --sheet:#FFFFFF; --ink:#111111; --ink-2:#55534E; --hair:#DEDCD6; --rule:#111111; --tint:#F4F3EF;
+  --accent:#C94F0C; --accent-ink:#A8420A; --grid:rgba(201,79,12,.10); --grid-line:rgba(201,79,12,.45);
+  --sans:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  --mono:"IBM Plex Mono","Pretendard Variable",Pretendard,ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0C0C0B;--sheet:#161615;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1E1D1B;--accent:#EC7F45;--accent-ink:#EC7F45;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#0C0C0B;--sheet:#161615;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1E1D1B;--accent:#EC7F45;--accent-ink:#EC7F45;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:28px;font-variant-numeric:tabular-nums;word-break:keep-all;overflow-wrap:break-word;padding:40px 0 80px}
+h1,h2,h3,p,ol,ul,dl,dd,figure{margin:0}
+ol,ul{list-style:none;padding:0}
+a{color:inherit;text-underline-offset:4px;text-decoration-thickness:1px}
+code{font-family:var(--mono);font-size:max(13px,.875em);background:var(--tint);padding:1px 4px;border-radius:2px}
+.sheet{width:1400px;margin:0 auto 40px;background:var(--sheet);padding:56px 60px 64px}
+.g12{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px}
+.k{font-family:var(--mono);font-size:13px;line-height:20px;color:var(--ink-2);letter-spacing:.02em}
+.lab{font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2)}
+.cap{font-size:13px;line-height:20px;color:var(--ink-2)}
+.mut{color:var(--ink-2)}
+.head{border-bottom:1px solid var(--rule);padding-bottom:16px;margin-bottom:40px;display:flex;justify-content:space-between;align-items:baseline;gap:24px}
+.head h2{font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.03em}
+.head .k{white-space:nowrap;font-family:var(--sans);font-weight:600;letter-spacing:0}
+.cover .eyebrow{font-family:var(--sans);font-weight:600;letter-spacing:0}
+h3{font-size:18px;line-height:28px;font-weight:600;letter-spacing:-.01em}
+table{border-collapse:collapse;width:100%;font-size:15px;line-height:24px}
+th,td{text-align:left;vertical-align:top;padding:12px 24px 12px 0;border-bottom:1px solid var(--hair)}
+th:last-child,td:last-child{padding-right:0}
+thead th{font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding-top:10px;padding-bottom:10px}
+td.n{font-family:var(--mono);font-size:13px;color:var(--ink-2);white-space:nowrap}
+td.b{font-weight:600}
+.tag{font-size:13px;line-height:20px;font-weight:600;white-space:nowrap}
+.tag.keep{color:var(--ink-2)} .tag.merge{color:var(--ink)} .tag.cut{color:var(--ink-2);text-decoration:line-through} .tag.new{color:var(--accent-ink)}
+.sq{display:inline-block;width:8px;height:8px;background:var(--accent);margin-right:6px;vertical-align:1px}
+
+/* 표지 */
+.cover .eyebrow{grid-column:1/-1;border-bottom:1px solid var(--rule);padding-bottom:16px;display:flex;justify-content:space-between}
+.cover h1{grid-column:1/-1;margin-top:96px;font-size:88px;line-height:88px;font-weight:600;letter-spacing:-.045em}
+.cover .one{grid-column:1/9;margin-top:32px;font-size:28px;line-height:40px;letter-spacing:-.02em}
+.recap{grid-column:1/-1;margin-top:72px}
+.recap h3{margin-bottom:12px}
+.recap ol{border-top:1px solid var(--rule);counter-reset:r}
+.recap li{counter-increment:r;display:grid;grid-template-columns:48px minmax(0,1fr) 360px;column-gap:24px;padding:16px 0;border-bottom:1px solid var(--hair);font-size:20px;line-height:32px;letter-spacing:-.01em}
+.recap li::before{content:counter(r,decimal-leading-zero);font-family:var(--mono);font-size:13px;line-height:32px;color:var(--ink-2)}
+.recap li .cap{font-size:13px;line-height:20px;padding-top:6px}
+.map{grid-column:1/-1;margin-top:56px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:24px}
+.map div{border-top:1px solid var(--hair);padding-top:12px;font-size:15px;line-height:24px}
+.map b{display:block;font-weight:600}
+
+/* 진단 */
+.diag{border-top:1px solid var(--rule)}
+.diag li{display:grid;grid-template-columns:48px 330px minmax(0,1fr) 190px;column-gap:24px;padding:16px 0;border-bottom:1px solid var(--hair);font-size:15px;line-height:24px}
+.diag .no{display:inline-grid;place-items:center;width:28px;height:28px;background:var(--ink);color:var(--sheet);font-family:var(--mono);font-size:13px;font-weight:500}
+.diag .t{font-size:18px;line-height:28px;font-weight:600;letter-spacing:-.01em}
+.shot{position:relative;width:1280px;margin-top:16px;border:1px solid var(--hair)}
+.shot img{display:block;width:1280px;height:auto}
+.shot .m{position:absolute;display:inline-grid;place-items:center;width:28px;height:28px;background:var(--ink);color:#fff;font-family:var(--mono);font-size:13px;font-weight:500;outline:3px solid #fff}
+.shot .box{position:absolute;border:2px solid var(--ink)}
+figure + figure{margin-top:40px}
+figcaption{display:flex;justify-content:space-between;gap:24px;font-size:13px;line-height:20px;color:var(--ink-2)}
+figcaption b{color:var(--ink);font-weight:600}
+
+.readers th[scope=row]{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap}
+.readers td{width:28%}
+
+/* 무브 */
+.moves{border-top:1px solid var(--rule)}
+.move{display:grid;grid-template-columns:96px 300px minmax(0,1fr) 300px;column-gap:24px;padding:28px 0;border-bottom:1px solid var(--hair)}
+.move .no{font-size:56px;line-height:56px;font-weight:600;letter-spacing:-.04em}
+.move h3{font-size:22px;line-height:32px;letter-spacing:-.015em}
+.move .what{font-size:16px;line-height:28px;display:grid;gap:8px}
+.move .num{font-size:13px;line-height:20px;color:var(--ink-2);display:grid;gap:6px;align-content:start}
+.move .num b{color:var(--ink);font-weight:600;font-family:var(--mono);font-size:13px}
+.grid-on{position:relative}
+.grid-on::after{content:"";position:absolute;inset:0 40px;pointer-events:none;
+  background:repeating-linear-gradient(90deg,var(--grid) 0 calc((100% - 264px)/12),transparent calc((100% - 264px)/12) calc((100% - 264px)/12 + 24px))}
+.spec{border-top:1px solid var(--rule)}
+.spec .row{display:grid;grid-template-columns:160px minmax(0,1fr) 220px;column-gap:24px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--hair)}
+.spec .s88{font-size:88px;line-height:88px;font-weight:600;letter-spacing:-.045em}
+.spec .s56{font-size:56px;line-height:56px;font-weight:600;letter-spacing:-.04em}
+.spec .s32{font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.03em}
+.spec .s28{font-size:28px;line-height:40px;letter-spacing:-.02em}
+.spec .s22{font-size:22px;line-height:32px;font-weight:500;letter-spacing:-.015em}
+.spec .s16{font-size:16px;line-height:28px}
+.spec .s15{font-size:15px;line-height:24px}
+.spec .s13{font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2)}
+.chips{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:24px;margin-top:32px}
+.chip{border-top:1px solid var(--rule);padding-top:12px;font-size:13px;line-height:20px}
+.chip i{display:block;height:56px;margin-bottom:10px;border:1px solid var(--hair)}
+.chip b{display:block;font-size:15px;line-height:24px;font-weight:600}
+
+/* 결정 */
+.decide{border-top:1px solid var(--rule)}
+.decide li{display:grid;grid-template-columns:48px 340px minmax(0,1fr) 300px;column-gap:24px;padding:24px 0;border-bottom:1px solid var(--hair);font-size:15px;line-height:24px}
+.decide .q{font-size:20px;line-height:30px;font-weight:600;letter-spacing:-.01em}
+.decide .rec{border-left:2px solid var(--accent);padding-left:14px}
+.decide .rec b{display:block;color:var(--accent-ink);font-size:13px;line-height:20px}
+.decide ul li{display:list-item;border:0;padding:0;font-size:15px}
+.opts{display:grid;gap:8px}
+.opts p{padding-left:16px;position:relative}
+.opts p::before{content:"";position:absolute;left:0;top:12px;width:8px;height:1px;background:var(--ink)}
+.weak li{padding:10px 0;border-bottom:1px solid var(--hair);font-size:15px;line-height:24px}
+</style>
+</head>
+<body>
+<section class="sheet">
+  <div class="head" style="border:0;margin-bottom:0"><span class="k">DEV-437 · PR #771 · 협업 지도 · 위 바와 단계 이동</span><span class="k">2026-11-27 · 오너 요청 · 적용본 캡처</span></div>
+  <h2 style="font-size:56px;line-height:60px;font-weight:600;letter-spacing:-.035em;margin-top:56px">원하는 단계로 가기, EN | 한국어</h2>
+  <p style="font-size:22px;line-height:34px;max-width:40em;margin-top:24px">오너 요청은 "원하는 단계로 쉽게 가고, KO/EN 전환 UI"였다. 같은 날 영어판이 기본(<code>/guide/</code>)이 되고 한국어판은 <code>/guide/ko/</code>로 옮겼다. 색은 잉크와 가는 선만 쓰고, 주황은 계속 승인 표지에만 둔다.</p>
+</section>
+
+<section class="sheet">
+  <div class="head"><h2>무브 일곱</h2><span class="k">계획에서 바꾼 것은 밝힘</span></div>
+  <div class="moves">
+    <div class="move"><span class="no">1</span><h3>위 바 하나</h3><div class="what"><p>두 판 맨 위에 붙는 바. 바탕색 그대로, 아래 1px 선 하나, 그림자 없음. 왼쪽은 큰 제목이 바 뒤로 지나간 뒤에만 보이는 페이지 이름, 가운데는 차례와 같은 절 이름 여덟, 오른쪽은 언어 바꾸기.</p><p class="mut">지금 보는 절은 잉크·굵게·1px 밑줄, <code>aria-current="true"</code>. 계획은 IntersectionObserver였지만 절이 화면보다 길어 비율 문턱이 바 아래 선을 넘는 순간을 놓쳐서, 스크롤마다(프레임당 한 번) 바 아래 24px 선을 지난 마지막 절을 고른다.</p></div><div class="num"><span><b>48px</b> 바 높이(+선 1)</span><span><b>15 / 600</b> 페이지 이름</span><span><b>14 / 20</b> 절 링크, 사이 20</span></div></div>
+    <div class="move"><span class="no">2</span><h3>EN | 한국어</h3><div class="what"><p>두 칸짜리 글자 링크. 지금 판은 잉크·밑줄, 다른 판은 회색 링크. 둘 다 실제 <code>&lt;a&gt;</code>에 <code>hreflang</code>·<code>lang</code>이라 JS 없이 이동한다. JS가 있으면 다른 판 링크에 지금 절이나 단계 id를 실어 같은 자리로 간다.</p><p class="mut">브라우저 언어로 옮기거나 선택을 저장하지 않는다. 공유한 링크는 누구에게나 같은 판이 열린다. <code>hreflang</code> alternate에 <code>en</code>, <code>ko</code>, <code>x-default</code>(영어판).</p></div><div class="num"><span><b>14px</b> 글자, 누르는 높이 44</span><span><b>2</b> 판, 상대 링크 <code>ko/</code> · <code>../</code></span></div></div>
+    <div class="move"><span class="no">3</span><h3>단계 id와 단계 줄</h3><div class="what"><p>작업 순서 표의 행에 <code>step-1</code>~<code>step-8</code>(두 판 같음). 행 번호가 자기 링크라 그대로 복사해 공유한다. 표 위에 "1 Linear issue · 2 Branch · … · 8 Merge" 한 줄. 본문의 3·7·8단계 언급도 그 행으로 가는 링크다.</p><p class="mut">링크로 온 행은 왼쪽 2px 잉크 선(<code>:target</code>). 주황은 쓰지 않는다. 390에서는 단계 줄을 두 줄로 감싸면 44px씩 네 줄이 돼 가로로 밀어 보게 했다.</p></div><div class="num"><span><b>13</b> 단계 번호(고정폭)</span><span><b>15</b> 단계 이름, 누르는 높이 44</span><span><b>2px</b> 대상 행 왼쪽 선</span></div></div>
+    <div class="move"><span class="no">4</span><h3>바에 가리지 않는 착지</h3><div class="what"><p>모든 id에 <code>scroll-margin-top: 64px</code>, 고정되는 절 제목은 <code>top: 68px</code>. 처음엔 <code>scroll-padding-top</code>도 같이 둬 64px이 두 번 더해졌고(제목이 128px에 섬), 현재 절 표시가 한 칸 앞 절을 가리켰다. 하나만 남겼다.</p></div><div class="num"><span><b>64px</b> 착지 위치(바 49 + 15)</span><span><b>19/19</b> 페이지 안 앵커가 바 아래, 화면 안</span></div></div>
+    <div class="move"><span class="no">5</span><h3>좁은 화면은 차례 하나</h3><div class="what"><p>1200px 미만은 절 링크 여덟 대신 <code>&lt;details&gt;</code> 차례(Contents / 차례) 하나. 아이콘 없이 글자이고 열면 밑줄. 언어 바꾸기는 늘 보인다. 560px 이하는 페이지 이름을 숨겨 자리를 만든다.</p><p class="mut">계획은 390에서만 바꾸는 것이었지만, 영어 절 이름 여덟은 1160px에서 넘쳐 1200을 경계로 잡았다.</p></div><div class="num"><span><b>1200</b> 절 링크 ↔ 차례 경계</span><span><b>860</b> 한 열 배치</span><span><b>560</b> 페이지 이름 숨김</span></div></div>
+    <div class="move"><span class="no">6</span><h3>인쇄·어두운 테마·움직임·키보드</h3><div class="what"><p>인쇄에서 바와 건너뛰기 링크를 숨기고 단계 줄은 링크 모양 없이. 어두운 테마는 기존 토큰만. <code>prefers-reduced-motion</code>이면 부드러운 스크롤을 끈다. 바 링크가 열 개 넘게 탭에 걸려 첫 탭에 "Skip to content / 본문으로 건너뛰기"를 둔다.</p></div><div class="num"><span><b>11</b> 바의 탭 정지(이름·절 8·언어 2)</span><span><b>1</b> 건너뛰기 링크</span></div></div>
+    <div class="move"><span class="no">7</span><h3>JS는 작게, 없어도 된다</h3><div class="what"><p>안에 넣은 스크립트 하나(외부 요청·저장 없음). JS가 꺼져도 바 링크·차례·단계 링크는 모두 이동하고, 잃는 것은 현재 절 표시, 제목 뒤 이름 숨김, 언어 링크의 위치 싣기뿐이다. <code>check-guide</code> 대조에 페이지 안 링크 집합을 더했고 id 대조가 단계 id를 포함한다.</p></div><div class="num"><span><b>~40줄</b> 스크립트</span><span><b>대칭</b> 두 판 대조</span></div></div>
+  </div>
+
+  <h3 style="margin-top:48px">직접 눌러 본 결과(headless Chromium, 움직임 줄임)</h3>
+  <table style="margin-top:12px">
+    <thead><tr><th style="width:24%">항목</th><th>영어판 1280</th><th>영어판 390</th><th>한국어판 1280</th><th>한국어판 390</th></tr></thead>
+    <tbody>
+      <tr><td>바 링크(390은 차례) 눌러 착지·현재 절 표시</td><td>8/8</td><td>8/8</td><td>8/8</td><td>8/8</td></tr>
+      <tr><td>단계 링크(줄·번호·본문) 착지·<code>:target</code></td><td>21/21</td><td>21/21</td><td>21/21</td><td>21/21</td></tr>
+      <tr><td>페이지 안 앵커 전부</td><td>19/19</td><td>19/19</td><td>19/19</td><td>19/19</td></tr>
+      <tr><td>#controls에서 언어 바꾸기</td><td colspan="2">→ /guide/ko/#controls, 화면 안</td><td colspan="2">→ /guide/#controls, 화면 안</td></tr>
+      <tr><td>#step-5에서 언어 바꾸기</td><td colspan="2">→ /guide/ko/#step-5, 화면 안</td><td colspan="2">→ /guide/#step-5, 화면 안</td></tr>
+      <tr><td>가로 넘침 · 최소 글자</td><td>0 · 13</td><td>0 · 13</td><td>0 · 13</td><td>0 · 13</td></tr>
+      <tr><td>JS 꺼짐</td><td colspan="4">바 링크, 단계 줄, 390 차례 모두 이동. 페이지 이름은 늘 보임</td></tr>
+      <tr><td>인쇄</td><td colspan="4">바·건너뛰기 링크 숨김(두 판)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="sheet">
+  <div class="head"><h2>전후 · 1280</h2><span class="k">위가 전, 아래가 후 · 줄이지 않음</span></div>
+  <figure><figcaption><span><b>전</b> 영어판 첫 화면(바 없음, 머리의 글자 링크)</span><span>v2/nav-before-en-1280-top.jpg</span></figcaption><div class="shot"><img src="v2/nav-before-en-1280-top.jpg" width="1280" height="800" alt="바를 넣기 전 영어판 첫 화면"></div></figure>
+  <figure><figcaption><span><b>후</b> 영어판 첫 화면(바, EN | 한국어)</span><span>v2/en-1280-top.jpg</span></figcaption><div class="shot"><img src="v2/en-1280-top.jpg" width="1280" height="800" alt="바를 넣은 영어판 첫 화면"></div></figure>
+  <figure><figcaption><span><b>후</b> 영어판 페이지 가운데: 페이지 이름, 현재 절 Layers of control</span><span>v2/nav-en-1280-mid.jpg</span></figcaption><div class="shot"><img src="v2/nav-en-1280-mid.jpg" width="1280" height="900" alt="스크롤한 영어판, 바에 현재 절 표시"></div></figure>
+  <figure><figcaption><span><b>후</b> 한국어판 페이지 가운데: 현재 절 통제의 층</span><span>v2/nav-ko-1280-mid.jpg</span></figcaption><div class="shot"><img src="v2/nav-ko-1280-mid.jpg" width="1280" height="900" alt="스크롤한 한국어판, 바에 현재 절 표시"></div></figure>
+  <figure><figcaption><span><b>전</b> 영어판 작업 순서(단계 줄 없음)</span><span>v2/nav-before-en-1280-flow.jpg</span></figcaption><div class="shot"><img src="v2/nav-before-en-1280-flow.jpg" width="1280" height="1000" alt="단계 줄을 넣기 전 영어판 작업 순서"></div></figure>
+  <figure><figcaption><span><b>후</b> 영어판 단계 줄과 #step-5로 온 행</span><span>v2/nav-en-1280-step.jpg</span></figcaption><div class="shot"><img src="v2/nav-en-1280-step.jpg" width="1280" height="900" alt="단계 줄과 대상 행 표시"></div></figure>
+  <figure><figcaption><span><b>후</b> 한국어판 단계 줄과 #step-5로 온 행</span><span>v2/nav-ko-1280-step.jpg</span></figcaption><div class="shot"><img src="v2/nav-ko-1280-step.jpg" width="1280" height="900" alt="한국어판 단계 줄과 대상 행 표시"></div></figure>
+</section>
+
+<section class="sheet">
+  <div class="head"><h2>390</h2><span class="k">전 · 후(차례 열림) · 후(단계 줄과 대상 행)</span></div>
+  <div style="display:grid;grid-template-columns:repeat(3,392px);column-gap:40px;row-gap:40px">
+    <figure><figcaption><span><b>전</b> 영어판</span></figcaption><div class="shot" style="width:392px"><img src="v2/nav-before-en-390-top.jpg" width="390" height="844" style="width:390px" alt="전 영어판 390"></div></figure>
+    <figure style="margin:0"><figcaption><span><b>후</b> 영어판 Contents 열림</span></figcaption><div class="shot" style="width:392px"><img src="v2/nav-en-390-contents.jpg" width="390" height="844" style="width:390px" alt="영어판 390 차례 열림"></div></figure>
+    <figure style="margin:0"><figcaption><span><b>후</b> 영어판 #step-3</span></figcaption><div class="shot" style="width:392px"><img src="v2/nav-en-390-step.jpg" width="390" height="844" style="width:390px" alt="영어판 390 단계"></div></figure>
+    <figure style="margin:0"><figcaption><span><b>전</b> 한국어판</span></figcaption><div class="shot" style="width:392px"><img src="v2/nav-before-ko-390-top.jpg" width="390" height="844" style="width:390px" alt="전 한국어판 390"></div></figure>
+    <figure style="margin:0"><figcaption><span><b>후</b> 한국어판 차례 열림</span></figcaption><div class="shot" style="width:392px"><img src="v2/nav-ko-390-contents.jpg" width="390" height="844" style="width:390px" alt="한국어판 390 차례 열림"></div></figure>
+    <figure style="margin:0"><figcaption><span><b>후</b> 한국어판 #step-3</span></figcaption><div class="shot" style="width:392px"><img src="v2/nav-ko-390-step.jpg" width="390" height="844" style="width:390px" alt="한국어판 390 단계"></div></figure>
+  </div>
+</section>
+</body>
+</html>
