@@ -12,6 +12,7 @@ from collections import Counter
 
 from app.ai.source_refine import TEXT_MODULE_FIELDS, farm_common_allowed
 from app.source_analysis.preprocess import scrub
+from app.source_analysis.review_prompts import CYCLE as _CYCLE
 from app.source_analysis.review_prompts import prompts_for
 from app.source_analysis.source_options import assemble_options
 from app.source_analysis.source_reflow import reflow_prose
@@ -41,10 +42,21 @@ _TIME_END = (
 )
 _RELATIVE = re.compile(
     # "지금까지/현재까지 이어지고" is a span up to now, not a dated claim (QA 11/28).
-    r"(?<![가-힣A-Za-z0-9])(?:올해|내년|조만간|내일|어제|이번|현재(?!\s*까지)|지금(?!\s*까지)|최근|곧)"
+    # "조만간/곧" name no date that could be wrong later; they are not asked (QA 11/28).
+    r"(?<![가-힣A-Za-z0-9])(?:올해|내년|내일|어제|이번|현재(?!\s*까지)|지금(?!\s*까지)|최근)"
     + _TIME_END
     + r"|\d+\s*년\s*전|(?<![가-힣A-Za-z0-9])(?:내년|올해|작년)이맘(?:때|쯤)"
 )
+
+
+def relative_time(value: str) -> list[str]:
+    """Relative time words a reader could find out of date, in order."""
+    found = [m.group() for m in _RELATIVE.finditer(value)]
+    if _CYCLE.search(value):
+        found = [word for word in found if not word.startswith("내년")]
+    return found
+
+
 # DEV-452 QA 11/28: a past sale's closing notice ("판매가 올해 종료되었습니다", "품절되었습니다")
 # contradicts the sale being set up; it starts off the page and stays in "안 넣은 내용" for the
 # owner to put back.
@@ -138,7 +150,7 @@ def _reasons(value, historical, target_name):
     owner = reasons["OWNER_CONFIRMATION"]
     if has_money(value) or re.search(r"가격|배송비|수수료|추가요금", value):
         owner.append("PRICE_OR_FEE")
-    if _RELATIVE.search(value):
+    if relative_time(value):
         owner.append("RELATIVE_TIME")
     if historical or _HISTORY.search(value):
         owner.append("DATED_OR_HISTORICAL")

@@ -3,7 +3,10 @@
 import re
 
 _EXPERIENCE = re.compile(r"\d+\s*년\s*(?:차|전)")
-_RELATIVE = re.compile(r"내년|올해|작년|조만간|이번\s*주|현재(?!\s*까지)|최근|곧|지금(?!\s*까지)")
+_RELATIVE = re.compile(r"내년|올해|작년|이번\s*주|현재(?!\s*까지)|최근|지금(?!\s*까지)")
+# A growing-cycle description ("꽃이 피고 … 열매를 맺고 … 내년 이맘쯤 수확") is true every
+# year: its "내년" counts from any flowering, not from the day it was written (QA 11/28).
+CYCLE = re.compile(r"(?:꽃|개화)[\s\S]*(?:열매|수확)|(?:열매|수확)[\s\S]*(?:꽃|개화)")
 _YEAR = re.compile(r"\d{4}\s*년")
 _MONEY = re.compile(r"\d[\d,.]*\s*원")
 
@@ -54,7 +57,15 @@ def prompts_for(value, reasons):
                     key="REFERENCE_YEAR",
                 )
             else:
-                match = _RELATIVE.search(value) or _YEAR.search(value)
+                cycle = bool(CYCLE.search(value))
+                match = next(
+                    (
+                        m
+                        for m in _RELATIVE.finditer(value)
+                        if not (cycle and m.group().startswith("내년"))
+                    ),
+                    None,
+                ) or _YEAR.search(value)
                 if match:
                     phrase = match.group()
                     add(

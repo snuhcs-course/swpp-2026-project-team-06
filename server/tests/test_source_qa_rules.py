@@ -129,7 +129,7 @@ def test_AC_SRC_3_time_questions_use_the_right_particle():
     def question(value):
         return prompts_for(value, {"OWNER_CONFIRMATION": ["RELATIVE_TIME"]})[0]["question"]
 
-    assert question("조만간 꽃이 핍니다.").startswith("‘조만간’은 ")
+    assert question("최근 꽃이 피었습니다.").startswith("‘최근’은 ")
     assert question("올해도 맛있어요.").startswith("‘올해’는 ")
 
 
@@ -169,3 +169,22 @@ def test_AC_SRC_3_a_material_heading_read_with_its_sentence_is_dropped():
     [passage] = _plan([(line, "farmStory")]).values()
     assert passage["value"] == "3대째 귤농사를 짓고 있어요."
     assert passage["originalValue"] == line and not passage["sourceExact"]
+
+
+def test_AC_SRC_3_a_growing_cycle_and_vague_soon_are_not_asked_as_dates():
+    from app.source_analysis.source_preserving import relative_time
+
+    cycle = (
+        "조만간 하얀 꽃망울이 터지고 귤꽃이 만개한 후, 꽃이 떨어지면 초록색 열매를 맺습니다. "
+        "열매가 황금빛으로 변하면 내년 이맘쯤에 수확합니다."
+    )
+    assert relative_time(cycle) == []
+    assert relative_time("곧 수확을 시작합니다.") == []
+    # A cycle passage that also names this year is still a dated claim.
+    assert relative_time("올해는 꽃이 늦게 피어 수확이 늦어요.") == ["올해"]
+    assert relative_time("내년에는 새 품종도 보내 드릴게요.") == ["내년"]
+    owner = _plan([(cycle, "farmStory")])[cycle]["reasonCodes"]["OWNER_CONFIRMATION"]
+    assert "RELATIVE_TIME" not in owner
+    mixed = "올해 꽃이 피고 내년 이맘쯤 수확합니다."
+    [prompt] = prompts_for(mixed, {"OWNER_CONFIRMATION": ["RELATIVE_TIME"]})
+    assert prompt["question"].startswith("‘올해’는 ")
