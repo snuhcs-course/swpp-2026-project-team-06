@@ -17,6 +17,9 @@
 //    형태만 허용하고, 경로가 있는지·#앵커가 그 파일 제목의 GitHub 앵커와 같은지 본다. 페이지 안 #앵커는 id가 있어야 한다.
 //    바뀌지 않는 기록 링크(/pull/<n>, /issues/<n>, /actions/runs/<n>, /commit/<sha>)는 형태만 본다.
 //    상대 경로·http://·다른 브랜치처럼 Pages에서 깨지거나 main과 갈라지는 링크는 실패다.
+//    예외: 다른 언어판(PAGES)을 가리키는 상대 링크(en/, ../, ./)는 허용하고, #앵커가 있으면 그 판의 id를 본다.
+// 3) 두 판(checkParity, 보고 키 parity): 한국어판(원본)과 영어판의 절 id 집합, 저장소 링크 집합(docs/guide/ 자기 링크 제외),
+//    data-agents 값(키·방식·글)과 목록 항목 수가 같아야 한다. 한쪽만 고치면 실패한다.
 // 규칙을 바꾸면 같은 PR에서 페이지도 고친다. 값 키를 늘리려면 KEYS에 한 줄, test-check-guide.mjs에 fixture 시나리오를 더한다.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -24,6 +27,8 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 export const PAGE = "docs/guide/index.html";
+// 협업 지도 판들. 첫째가 원본(한국어), 둘째가 영어판(11/27 DEV-437).
+export const PAGES = [PAGE, "docs/guide/en/index.html"];
 export const REPO_URL = "https://github.com/snuhcs-course/swpp-2026-project-team-06";
 
 const ticks = (s) => [...(s ?? "").matchAll(/`([^`]+)`/g)].map((m) => m[1]);
@@ -234,7 +239,17 @@ export function checkValues(agents, html) {
 }
 
 // 링크 검사. links는 확인한 저장소 링크 수.
-export function checkLinks(html, readRepoFile) {
+const idsIn = (html) => new Set([...stripComments(html).matchAll(/\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)].map((m) => m[1] ?? m[2]));
+
+// 상대 링크가 가리키는 판. 판이 아니면 null.
+function editionOf(page, rel, readRepoFile) {
+  let target = path.posix.normalize(path.posix.join(path.posix.dirname(page), rel)).replace(/\/$/, "");
+  if (target === "." || target.startsWith("..")) return null;
+  if (rel.endsWith("/") || readRepoFile(target) === null) target = `${target}/index.html`;
+  return PAGES.includes(target) && typeof readRepoFile(target) === "string" ? target : null;
+}
+
+export function checkLinks(html, readRepoFile, page = PAGE) {
   const src = stripComments(html);
   const errors = [];
   const ids = new Set([...src.matchAll(/\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)].map((m) => m[1] ?? m[2]));
@@ -249,6 +264,14 @@ export function checkLinks(html, readRepoFile) {
     const bad = (expected) => errors.push(err("sections", line, href, expected));
     if (href.startsWith("#")) {
       if (!ids.has(href.slice(1))) bad("페이지에 이 id가 있어야 한다");
+      continue;
+    }
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(href) && !href.startsWith("/")) {
+      // 상대 링크는 다른 언어판(또는 자기 판)만. 그 밖의 상대 경로는 Pages에서 깨진다.
+      const [rel, frag] = [href.split("#")[0], href.split("#").slice(1).join("#")];
+      const target = editionOf(page, rel, readRepoFile);
+      if (!target) bad(`상대 링크는 협업 지도 판(${PAGES.join(", ")})만 가리킬 수 있다. 저장소 링크는 ${REPO_URL}/blob/main/<경로>(#앵커) 형태로 쓴다`);
+      else if (frag && !idsIn(readRepoFile(target)).has(frag)) bad(`${target}에 이 id가 있어야 한다`);
       continue;
     }
     if (/^(https:\/\/|mailto:)/i.test(href) && !href.toLowerCase().includes("snuhcs-course/swpp-2026-project-team-06")) continue;
@@ -277,8 +300,46 @@ export function checkLinks(html, readRepoFile) {
   return { errors, links };
 }
 
-export function checkGuide({ agents, html, readRepoFile }) {
-  return [...checkValues(agents, html), ...checkLinks(html, readRepoFile).errors];
+const inFile = (file) => (e) => ({ ...e, file });
+
+// 한 판의 값과 링크. 오류마다 file을 붙인다.
+export function checkGuide({ agents, html, readRepoFile, page = PAGE }) {
+  return [...checkValues(agents, html), ...checkLinks(html, readRepoFile, page).errors].map(inFile(page));
+}
+
+// 저장소 링크(docs/guide/ 안을 가리키는 자기 링크는 판마다 달라서 뺀다).
+function repoLinksIn(html) {
+  const out = new Set();
+  for (const m of stripComments(html).matchAll(/\shref\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
+    const href = decodeEntities(m[1] ?? m[2]);
+    if (!href.toLowerCase().includes("snuhcs-course/swpp-2026-project-team-06")) continue;
+    if (/\/(blob|tree|commits)\/main\/docs\/guide\//.test(href)) continue;
+    out.add(href);
+  }
+  return out;
+}
+
+const valuesIn = (html) => {
+  const { values, lists } = pageValues(html);
+  return [...values.map((v) => `${v.key} ${v.how}: ${v.text}`), ...lists.map((l) => `${l.key} 목록: <li> ${l.items}개`)].sort();
+};
+
+// 두 판 대조. base(원본)에 있고 other에 없는 것, other에만 있는 것을 알린다. 오류는 other 파일에 붙인다.
+export function checkParity(baseHtml, otherHtml, [base, other] = PAGES) {
+  const errors = [];
+  const diff = (what, a, b) => {
+    const count = (xs) => xs.reduce((m, x) => m.set(x, (m.get(x) ?? 0) + 1), new Map());
+    const [ca, cb] = [count([...a]), count([...b])];
+    const only = (x, y) => [...x].filter(([k, n]) => (y.get(k) ?? 0) < n).map(([k]) => k);
+    const missing = only(ca, cb);
+    const extra = only(cb, ca);
+    if (missing.length || extra.length)
+      errors.push({ key: "parity", file: other, line: null, actual: [missing.length && `${base}에만: ${missing.join(" | ")}`, extra.length && `${other}에만: ${extra.join(" | ")}`].filter(Boolean).join(" / "), expected: `두 판의 ${what} 집합이 같아야 한다(한 PR에서 두 판을 같이 고친다)` });
+  };
+  diff("절 id", idsIn(baseHtml), idsIn(otherHtml));
+  diff("저장소 링크", repoLinksIn(baseHtml), repoLinksIn(otherHtml));
+  diff("data-agents 값", valuesIn(baseHtml), valuesIn(otherHtml));
+  return errors;
 }
 
 // 저장소 파일 읽기: 파일이면 내용, 폴더면 null, 없으면 undefined.
@@ -290,10 +351,10 @@ export function repoReader(dir = root) {
   };
 }
 
-const where = (e) => (e.line ? `${PAGE}:${e.line}` : `${PAGE}(위치 없음)`);
+const where = (e) => (e.line ? `${e.file ?? PAGE}:${e.line}` : `${e.file ?? PAGE}(위치 없음)`);
 
 export function format(errors) {
-  const out = [`check-guide: ${PAGE}가 AGENTS.md·저장소와 ${errors.length}곳 어긋난다.`];
+  const out = [`check-guide: 협업 지도(${[...new Set(errors.map((e) => e.file ?? PAGE))].join(", ")})가 AGENTS.md·저장소·다른 판과 ${errors.length}곳 어긋난다.`];
   for (const e of errors) out.push(`  [${e.key}] ${where(e)}`, `    실제(페이지): ${e.actual}`, `    기대: ${e.expected}`);
   out.push("규칙이 바뀌었으면 같은 PR에서 페이지의 data-agents 요소나 링크를 고친다(scripts/ci/check-guide.mjs 머리 설명).");
   return out.join("\n");
@@ -301,22 +362,27 @@ export function format(errors) {
 
 // GitHub Actions 어노테이션(PR 파일 화면에 표시).
 export const annotations = (errors) =>
-  errors.map((e) => `::error file=${PAGE}${e.line ? `,line=${e.line}` : ""}::[${e.key}] 실제 ${e.actual} / 기대 ${e.expected}`.replace(/\r?\n/g, " "));
+  errors.map((e) => `::error file=${e.file ?? PAGE}${e.line ? `,line=${e.line}` : ""}::[${e.key}] 실제 ${e.actual} / 기대 ${e.expected}`.replace(/\r?\n/g, " "));
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const read = repoReader();
   const agents = read("AGENTS.md");
-  const html = read(PAGE);
-  if (typeof agents !== "string" || typeof html !== "string") {
-    console.error(`check-guide: AGENTS.md 또는 ${PAGE}를 읽지 못했다.`);
+  const pages = PAGES.map((p) => [p, read(p)]);
+  if (typeof agents !== "string" || pages.some(([, h]) => typeof h !== "string")) {
+    console.error(`check-guide: AGENTS.md 또는 ${PAGES.join(", ")}를 읽지 못했다.`);
     process.exit(1);
   }
-  const link = checkLinks(html, read);
-  const errors = [...checkValues(agents, html), ...link.errors];
+  const errors = [];
+  const summary = [];
+  for (const [page, html] of pages) {
+    errors.push(...checkGuide({ agents, html, readRepoFile: read, page }));
+    summary.push(`${page} 값 ${pageValues(html).values.length}개·저장소 링크 ${checkLinks(html, read, page).links}개`);
+  }
+  errors.push(...checkParity(pages[0][1], pages[1][1]));
   if (errors.length) {
     console.error(format(errors));
     if (process.env.GITHUB_ACTIONS === "true") console.log(annotations(errors).join("\n"));
     process.exit(1);
   }
-  console.log(`check-guide: OK — 값 키 ${Object.keys(KEYS).length}개의 요소 ${pageValues(html).values.length}개, 저장소 링크 ${link.links}개(sections)가 맞다.`);
+  console.log(`check-guide: OK — 값 키 ${Object.keys(KEYS).length}개. ${summary.join(", ")}. 두 판의 절 id·저장소 링크·값이 같다(parity).`);
 }

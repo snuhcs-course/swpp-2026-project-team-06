@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { KEYS, REPO_URL, anchors, annotations, checkGuide, format, pageValues, slug } from "./check-guide.mjs";
+import { KEYS, PAGES, REPO_URL, anchors, annotations, checkGuide, checkParity, format, pageValues, slug } from "./check-guide.mjs";
 
 // AGENTS.md 모양을 흉내 낸 작은 조각. 값은 실제와 달라도 된다.
 const AGENTS = `# AGENTS.md
@@ -203,4 +203,60 @@ test("GitHub Actions annotations carry file and line", () => {
   const errors = run({ html: swap(HTML, ">0.5시간 단위<", ">1시간 단위<") });
   const [a] = annotations(errors);
   assert.match(a, /^::error file=docs\/guide\/index\.html,line=\d+::\[ai-log\]/);
+});
+
+// 영어판(11/27): 다른 판을 가리키는 상대 링크, 판마다 같은 검사, 두 판 대조(parity).
+const [KO, EN] = PAGES;
+const withPages = (extra = {}) => {
+  const files = { ...FILES, [KO]: HTML, [EN]: HTML, "docs/guide": null, "docs/guide/en": null, ...extra };
+  return (p) => (p in files ? files[p] : undefined);
+};
+const linkKeys = (href, page, readRepoFile = withPages()) =>
+  keysOf(checkGuide({ agents: AGENTS, html: swap(HTML, "</main>", `<a href="${href}">x</a></main>`), readRepoFile, page }));
+
+test("relative links may point only at the other edition (or itself)", () => {
+  assert.deepEqual(linkKeys("en/", KO), []);
+  assert.deepEqual(linkKeys("en/#top", KO), []);
+  assert.deepEqual(linkKeys("en/index.html", KO), []);
+  assert.deepEqual(linkKeys("./", KO), []);
+  assert.deepEqual(linkKeys("../", EN), []);
+  assert.deepEqual(linkKeys("../#top", EN), []);
+  assert.deepEqual(linkKeys("en/#nowhere", KO), ["sections"]);
+  assert.deepEqual(linkKeys("fr/", KO), ["sections"]);
+  assert.deepEqual(linkKeys("../../AGENTS.md", EN), ["sections"]);
+  assert.deepEqual(linkKeys("../spec.md", EN), ["sections"]);
+  assert.deepEqual(linkKeys("/guide/en/", KO), ["sections"]);
+  // 그 판 파일이 없으면 실패
+  assert.deepEqual(linkKeys("en/", KO, withPages({ [EN]: undefined })), ["sections"]);
+});
+
+test("the English edition is checked like the Korean one and errors name its file", () => {
+  const errors = checkGuide({ agents: AGENTS, html: swap(HTML, ">0.5시간 단위<", ">half-hour units<"), readRepoFile: read, page: EN });
+  assert.deepEqual(keysOf(errors), ["ai-log"]);
+  assert.ok(errors.every((e) => e.file === EN));
+  assert.match(format(errors), /docs\/guide\/en\/index\.html:\d+/);
+  assert.match(annotations(errors)[0], /^::error file=docs\/guide\/en\/index\.html,line=\d+::\[ai-log\]/);
+});
+
+test("parity: same ids, repo links and marked values in both editions", () => {
+  assert.deepEqual(checkParity(HTML, HTML), []);
+  // 글(설명)과 언어판 링크, docs/guide/ 자기 링크는 달라도 된다
+  const translated = swap(swap(HTML, ">원문<", ">source<"), "</main>", `<a href="../">한국어</a><a href="${ok}/docs/guide/en/index.html">src</a></main>`);
+  assert.deepEqual(checkParity(HTML, translated), []);
+  const cases = {
+    "missing id": swap(HTML, '<main id="top">', "<main>"),
+    "extra id": swap(HTML, "</main>", '<p id="extra">x</p></main>'),
+    "repo link": swap(HTML, `${ok}/AGENTS.md#브랜치커밋pr`, `${ok}/AGENTS.md#금지`),
+    "dropped repo link": swap(HTML, `<a href="${REPO_URL}/tree/main/docs">폴더</a>`, ""),
+    "value": swap(HTML, ">0.5시간 단위<", ">half-hour units<"),
+    "duplicated value": swap(HTML, "</main>", '<code data-agents="test-urls">a.example.app</code></main>'),
+    "list length": swap(HTML, "<li>c</li></ol>", "<li>c</li><li>d</li></ol>"),
+  };
+  for (const [name, other] of Object.entries(cases)) {
+    const errors = checkParity(HTML, other);
+    assert.equal(errors.length, 1, `${name}: ${format(errors)}`);
+    assert.equal(errors[0].key, "parity");
+    assert.equal(errors[0].file, EN);
+    assert.ok(errors[0].actual.length > 0 && errors[0].expected.length > 0);
+  }
 });
