@@ -117,11 +117,12 @@ The in-class Alpha on Nov 30 is a rehearsal for the Beta. It confirms that the r
 | Before Alpha (by Nov 29) | Owner | Linear |
 | --- | --- | --- |
 | Alpha build tagged `i5-alpha` and installed on a team device | Jinwoo | DEV-404 |
-| Missing telemetry events added (§5.3) and seen in PostHog | Unassigned | DEV-492 |
+| Missing telemetry events added (§5.3) and seen in PostHog | Jinwoo | DEV-492 |
+| Crash and freeze reporting (M13, M14) sent to the store apps with an over-the-air update (`eas update`, preview channel), and PostHog error tracking switched on | Zahra | DEV-496 |
 | Labeled test farm and test accounts for the in-class Alpha session | Jinwoo | DEV-428 |
 | Tester instructions: install route, core scenario, how to report a problem | Minsun | DEV-405 |
 | OneStore: consumer app approved (Nov 26). Farmer app fixed and resubmitted, with the web app as the fallback in the instructions | Hyun | DEV-491 |
-| PostHog switched on in the native apps, or testers sent to the web apps (see §4) | Hyun | DEV-436 |
+| PostHog switched on in the native apps (done Nov 26; covered by the privacy policy) | Hyun | DEV-436 |
 
 **During Alpha.** Testers do the core flows on their own devices with no coaching:
 - **Consumer:** find a farm, follow it, react to a post, ask a question in chat, reserve and report the transfer.
@@ -158,7 +159,7 @@ The course recommends at least 3 out-of-class testers. We aim for at least 16 (1
 | Android | OneStore app (approved Nov 26) | Web app until the farmer app passes OneStore review |
 | iPhone, desktop | Web app at **farmclub.kr** | Web app at **farm.farmclub.kr** |
 
-Testers use the **official domains**. PostHog records events only there, and the Vercel preview addresses do not send telemetry. **Open risk:** the native apps send events only if a PostHog key was built in, and the privacy policy currently covers analytics on the web only (DEV-436). Until DEV-436 is done, a consumer using the OneStore app may not be counted. If DEV-436 is not done before Alpha, testers are asked to use the web app.
+Testers use the **official domains** or the **OneStore apps**. On the web, PostHog records events only on the official domains; the Vercel preview addresses do not send telemetry. The OneStore apps send events too: PostHog was switched on in the store apps on Nov 26 (DEV-436), and the privacy policy covers it. App updates reach the OneStore apps over the air (`eas update`, preview channel) without a new store review, as long as no native code changes.
 
 **Testing conditions:**
 - Testers give consent before taking part.
@@ -195,13 +196,13 @@ The TA's Nov 26 announcement makes four items mandatory: ANR, crash reports, fea
 
 | ID | Metric | What it tells us | How it is calculated | Source | Target | Status (Nov 26) |
 | --- | --- | --- | --- | --- | --- | --- |
-| M13 | **ANR rate** | Does the Android app freeze? | sessions with an "App Not Responding" event ÷ sessions, Android app only | Crash/ANR SDK in the Android store build (Sentry for React Native) | **< 1%** (course target) | **Blocked:** needs a new store build through the team's Expo organization (`snu-omm`); access requested from Hyun on Nov 26. If the build does not ship before Beta, M13 is reported as "not measured" with the reason |
-| M14 | **Crash rate** | How often does the app break? | 1 − crash-free sessions, by app and platform; each crash with screen, app version and device | Web and app: the error screen (#843) logs `app_error_shown` (DEV-492). Android app: crash SDK (same build as M13) | ≥ 99% crash-free sessions | Web: ready once DEV-492 ships. Android: blocked like M13 |
-| M15 | **Feature usage** | Which features do people actually use? | count of uses per feature per tester per day: follow, news reaction, 1:1 chat message, checkout, transfer report, AI draft, AI reply settings, news post, deposit decision, shipment | PostHog events (§5.2–5.3) and the server database (follows, posts, messages, orders) | Reported, no threshold. Every core feature is used by at least one tester | Web: ready (missing events in DEV-492). App: needs the PostHog key (DEV-436) |
+| M13 | **ANR rate** | Does the app freeze? | sessions with at least one `app_not_responding` ÷ sessions, store apps only. `app_not_responding` is sent when the app's JavaScript thread is blocked for **5 s or more** (the Android ANR threshold) while the app is in the foreground; it carries only the blocked time | PostHog (DEV-496) | **< 1%** (course target) | **Ready for Alpha:** built Nov 28 (PR #877); sent to the store apps over the air on Nov 29, before Alpha. Limit: a freeze of only the native UI thread is not detected (see §5.6) |
+| M14 | **Crash rate** | How often does the app break? | 1 − crash-free sessions, by app and platform. A session is not crash-free if it has a `$exception` (an uncaught error or unhandled promise rejection). Each error carries its type, code location (file, function, line), app version and device. Errors that close the app are saved on the device and sent at the next launch. The error screen (#843) also logs `app_error_shown` (DEV-492) | PostHog error tracking, web and store apps (DEV-496) | ≥ 99% crash-free sessions | **Ready for Alpha** (DEV-496) once Exception autocapture is switched on in the PostHog project. Native (Java/Kotlin) crashes and readable stack traces come with the next store build (DEV-497); server errors in DEV-498 |
+| M15 | **Feature usage** | Which features do people actually use? | count of uses per feature per tester per day: follow, news reaction, 1:1 chat message, checkout, transfer report, AI draft, AI reply settings, news post, deposit decision, shipment | PostHog events (§5.2–5.3) and the server database (follows, posts, messages, orders) | Reported, no threshold. Every core feature is used by at least one tester | Web and store apps: ready (DEV-436). Missing events in DEV-492 |
 | M16 | **Response time** | Does the app feel fast? | p50/p95 server response time per API route; p95 time to open the product page | Railway HTTP logs for the `farmclub-api` service ("Total Duration" per request, filterable by path and status); PostHog page timing on the web | p95 server response < 1 s; product page p95 < 3 s | Server logs: checked Nov 26, durations are recorded (e.g. `/api/home` 75 ms, product 35–39 ms, media 250–280 ms). Railway keeps about 7 days of logs (checked Nov 26), across deployments in the project log view. Exported at the Dec 9 cut-off and again on Dec 12, before Dec 7 logs expire. `/health` and 401 responses are left out. Page timing: web only |
 | M17 | **AI response time** (strength) | How fast does a consumer get an answer without waiting for the farmer? | time from the consumer's question to the AI reply or handoff notice (p50/p95); AI draft time from `draft_created.durationMs` | Server database (message timestamps); PostHog | Chat p95 ≤ 8 s (the AI time limit); handed-off questions answered by the farmer within 12 h (M8) | Available now |
 
-ANR and native crash reporting cannot be added with a code-only app update: they need native code in a new store build. If Expo access does not arrive in time, we keep Alpha and Beta testers on the web apps, where M14–M17 are measured, and report M13 as not measured.
+**Why PostHog, not Sentry (decided Nov 28, DEV-496).** Sentry needs native code, which means a new store build and another OneStore review before Alpha. It would also add a new data processor to the privacy policy. PostHog is already in both apps and already covered by the policy, so crash and freeze reporting ships as a code-only update. The trade-off is listed in §5.6. All of M13–M15 and M17, plus top errors, go on one PostHog dashboard (DEV-500).
 
 Every metric is reported with its **sample size**. With fewer than 5 testers in a group, we report the counts and individual cases instead of a percentage.
 
@@ -222,7 +223,12 @@ PostHog events defined in `packages/analytics/src/privacy.ts`:
 | `consumer_message_sent` | consumer | kind (text / photo / sticker), hasOrderContext | M7 (client side) |
 | `app_error_shown` | both | screen, errorKind | M11 |
 
-There is no crash-reporting tool yet. App crashes are counted through `app_error_shown` from the error screen (#843) and through the server logs.
+Crash and freeze events added on Nov 28 (DEV-496), in both apps and on the web:
+
+| Event | App | Properties | Needed for |
+| --- | --- | --- | --- |
+| `$exception` | both, web | error type, code location, cleaned message (see §5.5) | M14 |
+| `app_not_responding` | both (store apps) | blockedMs | M13 |
 
 ### 5.4 Verification
 
@@ -231,6 +237,7 @@ During Alpha, each core task is run once by a team member watching PostHog live.
 ### 5.5 Privacy and consent
 
 - Events carry internal IDs and fixed values only: no names, phone numbers, addresses, account numbers, message text or tracking numbers. A runtime filter drops properties that are not in the tracking plan (ADR 0005).
+- Error messages are cleaned before they leave the device: emails and any number of 4 or more digits (phone, account, tracking or order numbers) are replaced, values after `?` in URLs are removed, and the message is cut to 200 characters. Console messages are not sent. The privacy policy lists these error records from Nov 29 (Articles 6 and 10).
 - Session replay hides every input field and every screen that shows personal data (`PRIVATE_PATHS`).
 - Telemetry runs only on the official domains, so team testing on preview addresses does not affect the numbers (DEV-125, DEV-236).
 - Testers agree to the analytics notice before testing. Interview notes record no personal details.
@@ -238,7 +245,13 @@ During Alpha, each core task is run once by a team member watching PostHog live.
 
 ### 5.6 What telemetry cannot show
 
-Telemetry cannot show *why* someone stopped, or whether they trust the farm. It also cannot show visits that never reached the official domains. The interviews (§7) cover the why. Help given during a task is noted by the facilitator during Alpha. During Beta, testers report it themselves in the interview.
+Telemetry cannot show *why* someone stopped, or whether they trust the farm. It also cannot show visits that never reached the official domains.
+
+Known limits of the crash and freeze data (DEV-496):
+- **ANR:** we measure JavaScript-thread freezes. A freeze of only the native UI thread, and the Android "app isn't responding" dialog itself, are not detected. In a React Native app most freezes come from the JavaScript thread.
+- **Native crashes:** crashes in Java/Kotlin or native libraries are not reported until the next store build (DEV-497). A JavaScript error that closes the app is reported.
+- **Stack traces:** until source maps are uploaded (DEV-497), error locations point into the bundled code, so finding the source line takes extra work.
+- **Server errors:** a server 500 shows only in Railway logs until DEV-498. The interviews (§7) cover the why. Help given during a task is noted by the facilitator during Alpha. During Beta, testers report it themselves in the interview.
 
 ---
 
@@ -347,3 +360,4 @@ Every number on the poster shows its source, sample size and cut-off date. Synth
 | 2026-11-26 | Before submission: added the course-required telemetry (ANR, crashes, feature usage, response time) as M13–M16, plus AI response time (M17) | TA announcement on Nov 26 (#announcements) |
 | 2026-11-26 | Before submission: switched from test products to real farms and real purchases; 4 farms and 12+ consumers; OneStore status; native telemetry risk | Team decision in the Nov 26 chat. Four farms agreed to join, and the consumer app was approved |
 | 2026-11-26 | Before submission: added §9, results timeline for the poster (cut-off Dec 9), the found-in-testing → fixed table and the live demo | Poster announcement on Nov 26: due Dec 11 (the last day of Beta), live demo required |
+| 2026-11-28 | Before submission: M13 (ANR) and M14 (crashes) moved from "blocked" to PostHog error tracking and freeze detection in the store apps; native apps now send telemetry; added known limits (§5.6) and error-message cleaning (§5.5); DEV-492 owner set | DEV-496 shipped crash and freeze reporting without a new store build; DEV-436 done on Nov 26 (DEV-410) |
