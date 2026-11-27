@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>협업 지도 v2 시안과 전후</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!--
+  DEV-437 협업 지도 다시 짜기, 제안 보드 2/2 (승인 전). 시안 캡처(1280 다섯 구간, 390 세 장)와 같은 구간 전후.
+  캡처는 v2/ 아래 뷰포트 JPEG이고 줄이지 않았다. 시안 원본은 redesign-v2-page.html.
+-->
+<style>
+:root{
+  --bg:#EFEEEA; --sheet:#FFFFFF; --ink:#111111; --ink-2:#55534E; --hair:#DEDCD6; --rule:#111111; --accent:#C94F0C; --accent-ink:#A8420A;
+  --sans:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  --mono:"IBM Plex Mono","Pretendard Variable",Pretendard,ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0C0C0B;--sheet:#161615;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--accent:#EC7F45;--accent-ink:#EC7F45;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#0C0C0B;--sheet:#161615;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--accent:#EC7F45;--accent-ink:#EC7F45;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:28px;word-break:keep-all;padding:40px 0 80px}
+h2,h3,p,figure{margin:0}
+code{font-family:var(--mono);font-size:13px}
+.sheet{width:1400px;margin:0 auto 40px;background:var(--sheet);padding:56px 60px 64px}
+.head{border-bottom:1px solid var(--rule);padding-bottom:16px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:baseline;gap:24px}
+.head h2{font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.03em}
+.head span{font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2);white-space:nowrap}
+.intro{font-size:16px;line-height:28px;max-width:46em;margin-bottom:40px}
+figure + figure, .pair + .pair{margin-top:48px}
+figcaption{display:flex;justify-content:space-between;gap:24px;font-size:13px;line-height:20px;color:var(--ink-2);margin-bottom:8px}
+figcaption b{color:var(--ink);font-weight:600}
+.img{border:1px solid var(--hair);width:1282px}
+.img img{display:block;width:1280px;height:auto}
+.note{display:grid;grid-template-columns:120px minmax(0,1fr);column-gap:24px;margin-top:12px;font-size:15px;line-height:24px}
+.note b{font-size:13px;font-weight:600;color:var(--ink-2)}
+.tag{display:inline-block;font-size:13px;line-height:20px;font-weight:600;padding:0 8px;border:1px solid var(--ink);margin-right:8px}
+.tag.after{border-color:var(--accent);color:var(--accent-ink)}
+.mob{display:flex;gap:40px;align-items:flex-start}
+.mob figure{margin:0}
+.mob .img{width:392px}
+.mob .img img{width:390px}
+.mob figcaption{display:block}
+.pair{border-top:1px solid var(--rule);padding-top:16px}
+.pair > h3{font-size:22px;line-height:32px;font-weight:600;letter-spacing:-.015em;margin-bottom:4px}
+.pair > p{font-size:15px;line-height:24px;color:var(--ink-2);margin-bottom:20px;max-width:60em}
+.pair figure + figure{margin-top:24px}
+.mpair{display:grid;grid-template-columns:392px 392px minmax(0,1fr);column-gap:40px}
+.mpair .img{width:392px}
+.mpair .img img{width:390px}
+.mpair figcaption{display:block}
+.mpair figure{margin:0 !important}
+.mpair p{font-size:15px;line-height:24px;align-self:start;border-top:1px solid var(--hair);padding-top:12px}
+</style>
+</head>
+<body>
+
+<section class="sheet">
+  <div class="head"><h2>적용본 1280: 다섯 구간</h2><span>DEV-437 · 제안 v2 · 보드 2/2 · 줄이지 않은 뷰포트 캡처</span></div>
+  <p class="intro">승인 뒤 다듬어 <code>docs/guide/index.html</code>에 적용한 모습을 1280 폭에서 구간별로 찍었다(2026-11-27). <code>check-guide</code>는 값 34개, 저장소 링크 53개로 통과한다.</p>
+
+  <figure>
+    <figcaption><span><b>첫 화면</b> 제목, 머리글 두 문단, 차례</span><span>v2/after-1280-top.jpg · 1280 × 800</span></figcaption>
+    <div class="img"><img src="v2/after-1280-top.jpg" width="1280" height="800" alt="시안 첫 화면: 협업 지도 제호, 한 문장, 숫자 넷(8단계, 4곳, 2/8층, 16경로), 차례"></div>
+    <div class="note"><b>5초에 보이는 것</b><span>무슨 문서인지, 그리고 기계가 막는 곳이 둘뿐이라는 것. 승인 전 시안의 숫자 넷은 뺐다.</span></div>
+  </figure>
+  <figure>
+    <figcaption><span><b>작업 순서</b> 행은 AGENTS.md 8단계, 열은 사람, AI 에이전트, 자동, DEV-434 기록</span><span>v2/after-1280-flow.jpg · 1280 × 1000</span></figcaption>
+    <div class="img"><img src="v2/after-1280-flow.jpg" width="1280" height="1000" alt="시안 흐름 절: 8단계 표, 사람 열의 승인 표시, 자동 열의 막음 표시, DEV-434 기록 열"></div>
+    <div class="note"><b>합친 것</b><span>지금의 흐름도 10칸, 작업 순서 8단계, DEV-434 표가 이 표 하나다. 칸은 1280에서 두 줄을 넘지 않게 문장을 줄였다.</span></div>
+  </figure>
+  <figure>
+    <figcaption><span><b>사람이 하는 일</b> 범위 확인, 사람 리뷰, 머지 지시, 배포 확인과 고위험 경로</span><span>v2/after-1280-roles.jpg · 1280 × 1000</span></figcaption>
+    <div class="img"><img src="v2/after-1280-roles.jpg" width="1280" height="1000" alt="시안 사람이 정하는 곳 절: 범위, 사람 리뷰, 머지 지시, 배포 확인 네 줄과 고위험 경로 묶음"></div>
+    <div class="note"><b>왜</b><span>오른쪽 주석 대신 본문 첫 문단에 이유를 적고, 원문 링크는 문단 끝에 둔다.</span></div>
+  </figure>
+  <figure>
+    <figcaption><span><b>통제의 층</b> 기계가 막음, 보고만, 사람이 지킴, 각자 설정으로 묶음</span><span>v2/after-1280-controls.jpg · 1280 × 900</span></figcaption>
+    <div class="img"><img src="v2/after-1280-controls.jpg" width="1280" height="900" alt="시안 통제의 층 표: 강제 수준별 묶음 머리와 개수"></div>
+  </figure>
+  <figure>
+    <figcaption><span><b>구성 요소</b> 이름 규칙(복사 버튼), 코드, 체크 표</span><span>v2/after-1280-names.jpg · 1280 × 1000</span></figcaption>
+    <div class="img"><img src="v2/after-1280-names.jpg" width="1280" height="1000" alt="시안 이름 규칙과 PR 체크 절: 복사 버튼 줄, 주의 문구, 체크 표"></div>
+    <div class="note"><b>규칙</b><span>버튼은 잉크 테두리 1px, 모서리 0, 높이 44. 한글이 섞인 코드는 본문 글꼴로, 영문 코드만 고정폭으로 쓴다.</span></div>
+  </figure>
+</section>
+
+<section class="sheet">
+  <div class="head"><h2>시안 390</h2><span>390 × 844 · 줄이지 않음</span></div>
+  <div class="mob">
+    <figure><figcaption><b>첫 화면</b> 제목, 머리글, 차례</figcaption><div class="img"><img src="v2/after-390-top.jpg" width="390" height="844" alt="시안 390 첫 화면"></div></figure>
+    <figure><figcaption><b>작업 순서 머리</b></figcaption><div class="img"><img src="v2/after-390-flow.jpg" width="390" height="844" alt="시안 390 흐름 절 머리"></div></figure>
+    <figure><figcaption><b>작업 순서 표</b> 단계마다 한 덩어리, 하는 쪽 라벨</figcaption><div class="img"><img src="v2/after-390-steps.jpg" width="390" height="844" alt="시안 390 흐름 표: 단계마다 사람, AI, 기록 라벨"></div></figure>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="head"><h2>같은 구간 전후</h2><span>위가 지금, 아래가 시안 · 1280</span></div>
+
+  <div class="pair">
+    <h3>첫 화면</h3>
+    <p>지금은 원칙 문장 제목과 원칙 넷, 목차 16줄. 시안은 제목, 머리글 두 문단, 차례 8줄.</p>
+    <figure><figcaption><span><span class="tag">지금</span>docs/guide/index.html</span><span>1280 × 800</span></figcaption><div class="img"><img src="v2/before-1280-top.jpg" width="1280" height="800" alt="지금 첫 화면"></div></figure>
+    <figure><figcaption><span><span class="tag after">시안</span>redesign-v2-page.html</span><span>1280 × 800</span></figcaption><div class="img"><img src="v2/after-1280-top.jpg" width="1280" height="800" alt="시안 첫 화면"></div></figure>
+  </div>
+
+  <div class="pair">
+    <h3>흐름</h3>
+    <p>지금은 선 모양 범례와 카드 10칸, 그 아래 같은 길을 다시 적은 표. 시안은 표 하나에 하는 쪽과 실제 기록이 함께 있다.</p>
+    <figure><figcaption><span><span class="tag">지금</span>#flow</span><span>1280 × 1000</span></figcaption><div class="img"><img src="v2/before-1280-flow.jpg" width="1280" height="1000" alt="지금 흐름 절"></div></figure>
+    <figure><figcaption><span><span class="tag after">시안</span>#flow</span><span>1280 × 1000</span></figcaption><div class="img"><img src="v2/after-1280-flow.jpg" width="1280" height="1000" alt="시안 흐름 절"></div></figure>
+  </div>
+
+  <div class="pair">
+    <h3>통제의 층</h3>
+    <p>지금은 강제 여부가 맨 오른쪽 점 표지. 시안은 강제 수준으로 묶은 머리가 표의 결론이다.</p>
+    <figure><figcaption><span><span class="tag">지금</span>#controls</span><span>1280 × 900</span></figcaption><div class="img"><img src="v2/before-1280-controls.jpg" width="1280" height="900" alt="지금 통제의 층 표"></div></figure>
+    <figure><figcaption><span><span class="tag after">시안</span>#controls</span><span>1280 × 900</span></figcaption><div class="img"><img src="v2/after-1280-controls.jpg" width="1280" height="900" alt="시안 통제의 층 표"></div></figure>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="head"><h2>같은 구간 전후 · 390</h2><span>왼쪽이 지금, 가운데가 시안</span></div>
+  <div class="mpair">
+    <figure><figcaption><span class="tag">지금</span>첫 화면</figcaption><div class="img"><img src="v2/before-390-top.jpg" width="390" height="844" alt="지금 390 첫 화면"></div></figure>
+    <figure><figcaption><span class="tag after">시안</span>첫 화면</figcaption><div class="img"><img src="v2/after-390-top.jpg" width="390" height="844" alt="시안 390 첫 화면"></div></figure>
+    <p>지금은 첫 화면이 원칙 넷으로 차고 목차는 아래로 밀린다. 시안은 머리글과 차례 전체가 보인다.</p>
+  </div>
+  <div class="mpair" style="margin-top:48px">
+    <figure><figcaption><span class="tag">지금</span>흐름</figcaption><div class="img"><img src="v2/before-390-flow.jpg" width="390" height="844" alt="지금 390 흐름 절"></div></figure>
+    <figure><figcaption><span class="tag after">시안</span>흐름</figcaption><div class="img"><img src="v2/after-390-steps.jpg" width="390" height="844" alt="시안 390 흐름 표"></div></figure>
+    <p>지금은 카드 한 장에 한 칸이고 하는 쪽이 칸 위 선 모양이다. 시안은 단계마다 사람 · AI · 기록 라벨이 글로 붙는다. 페이지 전체 길이는 18,701 → 14,087px.</p>
+  </div>
+</section>
+
+</body>
+</html>
