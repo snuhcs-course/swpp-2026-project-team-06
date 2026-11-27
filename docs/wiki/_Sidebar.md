@@ -20,3 +20,4 @@
 - [[AI Collaboration Report – Iteration 4|AI-Collaboration-Report---Iteration-4]]
   - [[Member evidence and selected inputs|AI-Collaboration-Report---Iteration-4---Evidence]]
 - [[Meeting Logs|Meeting-Logs]]
+- [Collaboration map](https://snuhcs-course.github.io/swpp-2026-project-team-06/guide/en/) (team workflow and review rules)

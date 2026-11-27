@@ -7,7 +7,9 @@
 팀원용 협업 지도(`index.html`) 한 장. 작업 순서와 사람·에이전트·자동의 몫을 적고, 규칙이 있는 절을 링크로 보여 준다. main에 머지되면 GitHub Pages(설정의 legacy 빌드, main의 `/docs`)가 `https://snuhcs-course.github.io/swpp-2026-project-team-06/guide/`로 올린다.
 
 ## 구조
-- `index.html` — 빌드 없는 정적 HTML 한 파일. CSS는 안에, JS는 복사 버튼만. 외부 요청은 글꼴 둘(jsDelivr의 Pretendard, Google Fonts의 IBM Plex Mono)뿐이고, 못 받으면 기기 글꼴(Apple SD Gothic Neo·Noto Sans KR·기기 고정폭)로 읽힌다. 절과 소절마다 id 하나, id는 바꾸지 않는다.
+- `index.html` — 원본(한국어). 빌드 없는 정적 HTML 한 파일. CSS는 안에, JS는 복사 버튼만. 외부 요청은 글꼴 둘(jsDelivr의 Pretendard, Google Fonts의 IBM Plex Mono)뿐이고, 못 받으면 기기 글꼴(Apple SD Gothic Neo·Noto Sans KR·기기 고정폭)로 읽힌다. 절과 소절마다 id 하나, id는 바꾸지 않는다.
+- `en/index.html` — 영어판(11/27 DEV-437). 독자는 TA·평가자와 영어 `docs/wiki`를 읽는 사람. 구조·사실·링크·절 id·조판은 원본과 같고, 줄 길이(본문 약 70~75자)와 줄바꿈 규칙만 영어에 맞춘다. AGENTS.md와 대조하는 `data-agents` 값은 한국어 원문 그대로 두고 바로 뒤 괄호에 영어 풀이를 붙인다. 그 밖의 규칙은 영어로 풀어 쓰고 원문 절로 연결한다.
+- 두 판은 머리의 글자 링크(한국어 / English)와 `<link rel="alternate" hreflang>`로 서로 가리킨다. 이 상대 링크(`en/`, `../`)만 저장소 링크 형태의 예외다.
 - `tasks/` — 이 폴더 작업의 이슈 파일.
 
 ## 계약
@@ -18,6 +20,7 @@
   - `data-check="count"`: 숫자가 AGENTS.md에서 센 수와 같아야 한다. `<ol data-agents-list="키">`가 있으면 그 `<li>` 수도 같아야 한다.
   - HTML 주석 안은 보지 않고, hidden·`<template>` 안 요소, 빈 요소, 따옴표 없는 속성은 실패다. CSS로 숨긴 요소는 알아보지 못한다.
 - 값 키: `branch`, `commit`, `pr-title`, `checks`, `high-risk`, `steps`, `skills`, `ai-log`, `spec-check`, `test-urls`, `stacking`.
+- 두 판 모두 같은 값 검사와 링크 검사를 받는다. 대조(보고 키 `parity`): 두 판의 절 id 집합, 저장소 링크 집합(`docs/guide/` 자기 링크 제외), `data-agents` 값(키·방식·글)과 목록 `<li>` 수가 같아야 한다. 원본을 고치는 PR은 영어판도 같이 고친다.
 - 링크 검사(보고 키 `sections`): 바뀌지 않는 기록(`/pull/<n>`, `/issues/<n>`, `/actions/runs/<n>`, `/commit/<sha>`)은 형태만 보고, 그 밖의 저장소 링크는 `https://github.com/snuhcs-course/swpp-2026-project-team-06/(blob|tree|commits)/main/<경로>(#앵커)` 형태만 허용하고 파일과 제목 앵커가 있어야 한다. 페이지 안 `#앵커`는 id가 있어야 한다. 링크한 파일의 제목을 바꾸면 실패한다.
 - 규칙을 바꾸는 PR은 같은 PR에서 페이지의 해당 요소를 고친다. 키를 늘리려면 `check-guide.mjs`의 `KEYS`에 한 줄 더하고 `test-check-guide.mjs`에 시나리오를 더한다.
 - `docs/` 아래에 Jekyll 설정(`_config.yml`, `.nojekyll`)을 두지 않는다. 다른 페이지(랜딩 페이지)의 빌드가 바뀐다. 이 HTML은 front matter가 없어 Jekyll이 손대지 않고 그대로 내보낸다.
@@ -30,3 +33,4 @@
 | 2026-11-23 | 절마다 규칙의 이유와 막는 실패를 먼저 쓰고, 근거는 저장소의 이슈 파일·ADR만 인용한다. 한계는 "알려진 한계" 절(#limits)에 모은다 | 규칙 나열만으로는 왜 지켜야 하는지가 안 보이고, 지어낸 근거는 신뢰를 잃는다 | DEV-437 |
 | 2026-11-23 | 배포는 저장소 GitHub Pages(legacy, `/docs`). 워크플로를 새로 만들지 않는다 | 이미 켜져 있고, 고위험 경로를 늘리지 않는다 | DEV-437 |
 | 2026-11-27 | 제안 v2 조판으로 다시 짰다: 12열 격자, 글꼴 Pretendard + IBM Plex Mono(jsDelivr 추가), 흐름을 표 하나(행 = 작업 순서 8단계, 열 = 사람·AI·자동·DEV-434 기록)로, 어미는 문서체(-다), 주황은 "승인" 표지에만 | PM 피드백("일잘러 느낌으로 명확하게, 담백하게", "AI 느낌 빼기"). 같은 흐름이 네 번 나왔고 글자의 절반이 13px였다. 어미는 페이지가 가리키는 AGENTS.md·CI.md와 맞췄다. 글꼴은 앱(`packages/ui`)과 같게 | DEV-437, 보드 `docs/design/proposals/DEV-437/redesign-v2*.html` |
+| 2026-11-27 | 영어판 `en/index.html`을 두고, CI가 두 판을 같은 규칙으로 검사하고 절 id·저장소 링크·값을 대조한다 | 오너 요청(TA·영어 wiki 독자). 옮겨 적은 판은 낡기 쉬워(10/07 옛 페이지와 같은 원인) 한쪽만 고치면 CI가 막게 했다 | DEV-437 |
