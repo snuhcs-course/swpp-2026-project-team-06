@@ -552,6 +552,8 @@ export function PageCanvas({
             removeButton(`${title(m.id)} 제외`, () => {
               update(m.id, (n) => {
                 n.enabled = false;
+                // Taking 크기 참고 out also takes its size picture away (user review 11/28).
+                if (n.id === "sizePhoto") n.illustrationId = null;
               });
               setSelected(null);
               setPicker(null);

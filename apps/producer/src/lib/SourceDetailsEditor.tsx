@@ -161,7 +161,14 @@ export function SourceDetailsEditor({
   const [enabled, setEnabled] = useState<Record<string, string[]>>(() =>
     initialSelection(batch, review, drafts),
   );
-  useEffect(() => { onEnabledChange?.(enabled); }, [enabled, onEnabledChange]);
+  // Sections that are really on the page: switched on and with something in them (user review 11/28).
+  // An empty switched-on section must not hide its "추가" choice or the 크기 참고 card.
+  useEffect(() => {
+    onEnabledChange?.(Object.fromEntries(Object.entries(enabled).map(([tid, ids]) => [tid, ids.filter((id) =>
+      entries.some((e) => e.field.targetId === tid && keys(id).includes(e.field.fieldKey) && e.field.state !== "EXCLUDED"
+        && (e.field.value.trim() || e.field.photoAssetIds.length || e.field.illustrationId)))])));
+  }, [enabled, entries, onEnabledChange]);
+
   const [hidden, setHidden] = useState<Record<string, string[]>>(() =>
     initialHidden(drafts),
   );
