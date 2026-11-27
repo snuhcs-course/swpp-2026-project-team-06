@@ -9,6 +9,8 @@ import { NumField } from "../lib/fields";
 import { goBackOr } from "../lib/nav";
 import { useHideTabBar } from "../lib/session";
 import { FieldFeedback, FieldFeedbackContext } from "../lib/FieldFeedback";
+// 하단 고정 바(요약 줄 + 버튼 + 안전 영역)보다 크게 비워 마지막 입력칸이 가려지지 않게 한다(DEV-452)
+const BOTTOM_BAR_ROOM = 180;
 export default function ProductSetup() {
     useHideTabBar();
     const { id } = useLocalSearchParams<{
@@ -92,7 +94,7 @@ export default function ProductSetup() {
     if (!workspace || !batch || !product || !terms)
         return <Screen><HeaderBar title="자료·판매 설정" onBack={() => goBackOr(router, "/products")}/><T>{message || "불러오는 중이에요"}</T></Screen>;
     const field = (label: string, value: string, set: (v: string) => void, placeholder: string, key?: string) => <FieldFeedback field={key ?? label} outline={false}><View style={{ gap: 8 }}><T weight="semibold">{label}</T><TextInput accessibilityLabel={label} value={value} onChangeText={(v) => { set(v); if (key) clearField(key); }} editable={!off} placeholder={placeholder} style={{ padding: 14, borderWidth: 1, borderColor: key && fields[key] ? tokens.color.error : tokens.color.border, borderRadius: 10, fontSize: 16 }}/>{key && fields[key] ? <T variant="caption" color={tokens.color.error}>{fields[key]}</T> : null}</View></FieldFeedback>;
-    return <FieldFeedbackContext.Provider value={{ fields, clear: clearField, attempt }}><Screen><HeaderBar title="자료·판매 설정" onBack={() => goBackOr(router, "/products")}/><Scroll><View style={{ padding: 20, gap: 24 }}>
+    return <FieldFeedbackContext.Provider value={{ fields, clear: clearField, attempt }}><Screen><HeaderBar title="자료·판매 설정" onBack={() => goBackOr(router, "/products")}/><Scroll bottom={BOTTOM_BAR_ROOM}><View style={{ padding: 20, gap: 24 }}>
  <T>가지고 있는 자료와 현재 판매할 조건을 함께 넣어 주세요. 이 정보로 페이지를 만든 뒤, 마음에 들지 않거나 틀린 부분을 고칠 수 있어요. * 표시는 페이지를 만들 때 꼭 필요해요.</T>
  {field("어떤 상품인가요? *", hint, setHint, "예: 카라향 · 여러 상품 자료라면 하나를 지정해 주세요", "hint")}
  {field("상품명 (선택)", name, setName, "자료에서 상품명을 찾을 수도 있어요")}

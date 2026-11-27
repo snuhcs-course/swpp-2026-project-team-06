@@ -994,7 +994,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         if (alive.current) setBusy(false);
       });
   };
-  const pickCover = async () => {
+  // asCover=false(사진 추가, DEV-452): 일반 상품 사진으로만 올리고 대표사진은 아직 없을 때만 지정한다.
+  const pickPhoto = async (asCover: boolean) => {
     if (!batch || !target || busy || activeRun) return;
     const files = await chooseSourceFiles(true, false).catch((e) => {
       console.warn("[cover] 사진 고르기 실패", e); // 화면에는 한국어만, 원인은 로그에(DEV-493)
@@ -1017,7 +1018,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       // Pin the previous fallback before adding a new photo, so failed replacement keeps it.
       const previous = latest.sources.find(x => x.originalPhoto && (x.common || x.targetIds.includes(target.id)));
       let version = latest.version;
-      if (!latest.targets.find(t => t.id === target.id)?.representativeAssetId && previous?.status === "PREPARED") {
+      if (asCover && !latest.targets.find(t => t.id === target.id)?.representativeAssetId && previous?.status === "PREPARED") {
         // 응답의 batch 버전을 바로 쓴다(다시 읽지 않음, DEV-341)
         version = (await api.setRepresentative(batch.id, latest.version, [target.id], previous.id)).version;
       }
@@ -1027,8 +1028,10 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         const current = await api.get(batch.id);
         const photo = current.sources.find(x => x.id === uploaded.id);
         if (photo?.status === "PREPARED") {
-          await api.setRepresentative(batch.id, current.version, [target.id], uploaded.id);
-          clearValidation("representativePhoto");
+          if (asCover || !current.targets.find(t => t.id === target.id)?.representativeAssetId) {
+            await api.setRepresentative(batch.id, current.version, [target.id], uploaded.id);
+            clearValidation("representativePhoto");
+          }
           clearValidation("photos"); // 대표사진이 바뀌면 사진 상한 판단도 다시(3차 scan)
           await load();
           return;
@@ -1039,11 +1042,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       } catch (e) {
-        setNotice("사진을 변경하지 못했어요. 기존 사진은 유지돼요. 다시 선택해 주세요.");
+        setNotice(asCover ? "사진을 변경하지 못했어요. 기존 사진은 유지돼요. 다시 선택해 주세요." : "사진을 추가하지 못했어요. 다시 선택해 주세요.");
         throw e;
       }
     });
   };
+  const pickCover = () => pickPhoto(true);
   useEffect(() => {
     void load().catch((e) => {
       if (alive.current) setError(sourceActionError(e));
@@ -2240,7 +2244,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                             : <View style={{ height: 160, alignItems: "center", justifyContent: "center", backgroundColor: "#F5F1E8" }}><T muted>상품 사진이 없어요</T></View>}
                           <View style={{ position: "absolute", right: 12, bottom: 12 }}>
                             <Button compact variant="secondary" label={shownCover ? `사진 고치기 · ${productPhotos(batch, target.id).length}장` : "사진 추가"}
-                              onPress={() => (shownCover ? setReviewSheet("photos") : void pickCover())} />
+                              onPress={() => (shownCover ? setReviewSheet("photos") : void pickPhoto(false))} />
                           </View>
                         </View>
                       ) : combinedSetup && pagePreview && !shownCover ? <View/> : (
@@ -2668,7 +2672,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             onRepresentative={(p) => void photoAction(async () => { const latest = await api.get(batch.id); await api.setRepresentative(batch.id, latest.version, [target.id], p.id); })}
             onConfirm={(p) => void photoAction(() => api.confirmExtracted(batch.id, p))}
             onRemove={(p) => void photoAction(() => api.removeSource(batch.id, p))}
-            onAdd={() => void pickCover()} />
+            onAdd={() => void pickPhoto(false)} />
         </Sheet>
       ) : null}
       {reviewChrome && target && reviewSheet === "add" ? (
