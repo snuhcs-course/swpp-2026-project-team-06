@@ -25,6 +25,7 @@
     ".gitignore",
     ".gitattributes",
     "Makefile",
+    "make/**",
     "demo/**",
     "scripts/ci/ci_timings.py",
     "scripts/split-tasks.py"
@@ -53,7 +54,8 @@
       "playwright.config.ts",
       "server/app/source_analysis/text_safety_lists.json",
       "server/app/source_analysis/text_safety_cases.json",
-      ".github/workflows/deploy-vercel.yml"
+      ".github/workflows/deploy-vercel.yml",
+      ".easignore"
     ],
     "admin": [
       "scripts/admin-web/**",
@@ -133,6 +135,8 @@
       "scripts/legal-pages.mjs",
       "scripts/demo.mjs",
       "scripts/local.mjs",
+      "scripts/eas.mjs",
+      ".easignore",
       "scripts/admin-web/**",
       "scripts/ci/**",
       "scripts/i3-*/**",

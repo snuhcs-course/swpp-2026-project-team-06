@@ -148,6 +148,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 - 두 앱 루트는 `KeyboardRoot`(`src/keyboard.tsx`)로 Stack을 감싼다. Android만 `KeyboardAvoidingView behavior="padding"`, 웹·iOS는 children 그대로(감싸는 View 없음). app.json `softwareKeyboardLayoutMode`는 쓰지 않는다: Android 15+ edge-to-edge에서 adjustResize가 창을 줄이지 않고, 네이티브 설정은 새 빌드가 필요하다.
 - Android에서 키보드가 떠 있는 동안 `TabBar`·`BottomBar`는 그리지 않는다(`useKeyboardShown`). 루트가 올라가면 absolute 하단 바가 키보드 위에 떠 입력칸을 가린다.
 - `ChatThread` 입력창 아래 여백은 앱에서만 하단 안전 영역을 더한다(키보드가 떠 있으면 뺀다). 웹은 20 그대로.
+- `Sheet`(RN Modal)는 루트와 다른 창이라 루트 `KeyboardRoot`가 닿지 않는다. 그래서 `Sheet`가 Modal 안을 `KeyboardRoot`로 한 번 더 감싸고, 앱에서만 시트가 남은 높이에 맞춰 줄며(`flexShrink`, 위 여백 안전 영역+16) 안이 스크롤된다. 시트 ScrollView는 `keyboardShouldPersistTaps="handled"`라 키보드가 떠 있어도 저장 버튼이 첫 탭에 눌린다. 키보드가 떠 있는 동안 시트 아래 여백은 하단 안전 영역 없이 16이다(키보드가 그 자리를 덮음). 웹은 감싸지 않아 그대로(DEV-477). 앱에서 유리 면(`glass`: `BottomBar`, `sheetGlass`: `Sheet`·`PeekSheet`)은 흰 불투명(`tokens.color.background`)이다. `backdropFilter`가 웹에만 있어 앱에서 반투명이면 뒤 글자가 비쳤다. 웹은 반투명+blur 그대로. `Checkbox`의 `inline`은 가로로 늘어놓는 줄(flexWrap)용으로 글자 칸을 `flexShrink: 1`로 둔다(기본 `flex: 1`은 폭이 글자에 맞춰지는 줄에서 앱이 글자 칸을 0으로 계산함). Modal을 직접 쓰는 다른 부품(`MessageMenu`, `PhotoViewer`, 생산자 `SourceExclusions`, 소비자 `CheckoutChangeModal`·우편번호 찾기)은 입력칸이 없거나 화면 전체라 손대지 않았다.
 
 
 ### DEV-289
@@ -227,3 +228,9 @@ AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달�
 - `ChatThread`·`NewsRoom`은 필수 prop `notice: { onSupport: (() => void) | null }`를 받아 루트 맨 위(스크롤 밖)에 띠를 그린다. 시트 셋째 줄은 `producer`로 고르고, `onSupport`가 null(운영팀 방)이면 넷째 줄과 ‘운영팀에 알리기’를 뺀다.
 - 띠는 `surface` 면 + 아래 테두리, 14/20 두 줄(높이 57, `minHeight` 48). 운영팀 방(`onSupport` null)은 늘, 다른 방은 키보드가 뜬 높이 720 미만 창이나 높이 500 미만 창에서 12/16 한 줄로 그린다(앱 높이 33 + hitSlop 8로 터치 48, 웹은 hitSlop이 없어 `minHeight` 48). 화면 읽기 이름은 늘 전체 문구 + ‘채팅 이용 안내 보기’.
 - `RoomMedia`의 앱 영상 포스터는 열 수 없는 주소(`https?:` 아님 — `data:` 영상)에 글자 띠 없이 흐린 재생 원만 두고 ‘영상을 열 수 없어요’로 읽힌다.
+## DEV-478 카톡 방식 작성창 도구
+`ComposerTools.useComposerTools`는 `tool`(‘+’ = 사진 고르기 바로 열기, `onPhoto` 없으면 없음), `trailing`(입력칸 안 웃는 얼굴), `above`(고른 이모티콘 큰 미리보기, 입력줄 바로 위 높이 176. Android 터치 때문에 절대 위치로 띄우지 않는다), `below`(키보드 자리 패널)를 돌려준다. `Composer`의 새 `trailing`이 있을 때만 입력칸과 버튼을 한 알약으로 감싸고, 없으면 예전 구조 그대로다. 이모티콘이 켜진 1:1(`ChatThread emoticons`)은 `usePhotoAttach`·`AttachedPhotoRow`로 사진을 바로 고르고, 이모티콘이 없는 대화(운영팀 문의 등)는 기존 `PrivatePhotos`를 유지한다. 테스트 라벨: ‘사진’(+), ‘이모티콘’(웃는 얼굴), ‘○○ 선택’, ‘○○ 보내기’, ‘이모티콘 선택 취소’, testID `emoticon-selection`.
+
+## DEV-486 Sheet 위 겹침 자리·휴지통 아이콘
+- `Sheet`의 `overlay`는 시트 상자 밖, Modal 안 바탕 위에 그린다. 앱 루트 `Toast`는 Modal 뒤에 그려져 시트를 연 동안 보이지 않으므로 시트 안 알림은 부르는 쪽이 `overlay={<Toast …/>}`로 넘긴다(생산자 판매 조건 시트).
+- `Icon`에 `trash`(뚜껑·몸통·세로 두 줄, 24px 선 1.75) 추가.

@@ -7,14 +7,12 @@ import { apiLogin, apiUrl, loginProducer, monitor, producerUrl } from "./helpers
 // 시드: 한라봉(p-hallabong) 작성 중, 천혜향(p-cheonhye) 반려, 청견(p-cheonggyeon) 첫 신청 심사 중, 하우스 감귤(p-house) 판매 중.
 test.use({ viewport: { width: 390, height: 844 } });
 
-const toastText = "판매를 시작하려면 판매·가격을 먼저 채워 주세요";
-
-test("AC-04-1 DEV-361: pre-sale cards open 판매·가격 and approved cards keep 물량·판매 설정", async ({ page }) => {
+test("AC-04-1 DEV-361 DEV-487: pre-sale cards open 판매·가격 and approved cards open 판매 관리", async ({ page }) => {
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products?filter=draft`);
   await expect(page.getByText("한라봉 5kg").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "물량·판매 설정", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "판매 관리", exact: true })).toHaveCount(0);
   // PR C: '판매페이지 수정'·'기간·가격'은 '상품 수정' 하나로 합쳤다
   const card = page
     .locator("div")
@@ -31,42 +29,34 @@ test("AC-04-1 DEV-361: pre-sale cards open 판매·가격 and approved cards kee
   await page.goto(`${producerUrl}/products?filter=selling`);
   await expect(page.getByText("하우스 감귤 5kg / 10kg").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "판매·가격", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "물량·판매 설정", exact: true }).first().click();
-  await expect(page).toHaveURL(/\/products\/[\w-]+\/sales$/);
-  // 목록 카드 버튼도 같은 글자라(스택 아래 숨김) 화면 제목을 본다
-  await expect(page.getByText("물량·판매 설정").last()).toBeVisible();
+  // DEV-487: 물량·판매 설정 화면 대신 카드의 '판매 관리' 시트
+  await page.getByRole("button", { name: "판매 관리", exact: true }).first().click();
+  await expect(page.getByTestId("sales-manage-sheet")).toBeVisible();
+  await expect(page).toHaveURL(/\/products(\?|$)/);
   assertClean();
 });
 
-test("AC-04-1 DEV-361: opening 물량·판매 설정 for a draft or rejected product moves to 판매·가격 with a toast", async ({ page }) => {
+test("AC-04-1 DEV-487: the old 물량·판매 설정 address opens the product list", async ({ page }) => {
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
-  for (const id of ["p-hallabong", "p-cheonhye"]) {
+  for (const id of ["p-hallabong", "p-house"]) {
     await page.goto(`${producerUrl}/products/${id}/sales`);
-    await expect(page).toHaveURL(new RegExp(`/products/${id}/sell$`));
-    await expect(page.getByText(toastText, { exact: true })).toBeVisible();
-    await expect(page.getByText("공급 물량 승인 요청")).toHaveCount(0);
+    await expect(page).toHaveURL(/\/products(\?|$)/);
     await expect(page.getByText(/먼저 입력해 주세요/)).toHaveCount(0);
   }
   assertClean();
 });
 
-test("AC-04-1 DEV-361: approved and pending products keep 물량·판매 설정 without a first-request form", async ({ page }) => {
+test("AC-04-1 DEV-487: a pending first request shows its chip with withdraw inside 판매 관리, no total or pause", async ({ page }) => {
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products/p-house/sales`);
-  await expect(page.getByText("물량 추가 신청", { exact: true }).first()).toBeVisible();
-  await expect(page.getByLabel("신청 후 총 공급 물량 (kg)")).toBeVisible();
-  await expect(page.getByText("판매 시작 요청")).toHaveCount(0);
-  await expect(page).toHaveURL(/\/products\/p-house\/sales$/);
-
-  // 첫 신청 심사 중: 상태와 철회만 보이고 신청 칸은 없다
-  await page.goto(`${producerUrl}/products/p-cheonggyeon/sales`);
-  await expect(page.getByText("판매 시작 요청", { exact: true })).toBeVisible();
-  await expect(page.getByText(/공급 물량 심사 중/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "신청 철회" })).toBeVisible();
-  await expect(page.getByLabel("신청 후 총 공급 물량 (kg)")).toHaveCount(0);
-  await expect(page).toHaveURL(/\/products\/p-cheonggyeon\/sales$/);
+  await page.goto(`${producerUrl}/products?filter=review`);
+  await page.getByRole("button", { name: "청견 5kg 상품 수정", exact: true }).locator("xpath=..").getByRole("button", { name: "판매 관리", exact: true }).click();
+  const sheet = page.getByTestId("sales-manage-sheet");
+  await expect(sheet.getByTestId("pending-chip")).toContainText(/판매 시작 요청 [\d,.]+kg 심사 중/);
+  await expect(sheet.getByRole("button", { name: "신청 철회" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "총 물량 바꾸기" })).toHaveCount(0);
+  await expect(sheet.getByRole("button", { name: "판매 중지" })).toHaveCount(0);
   assertClean();
 });
 
@@ -192,19 +182,20 @@ test("AC-04-1 DEV-361: 판매·가격 → 판매페이지 → back refreshes the
   assertClean();
 });
 
-test("AC-04-8 DEV-361: withdrawing a pending first request on 물량·판매 설정 moves to 판매·가격", async ({ page, request }) => {
+test("AC-04-8 DEV-361 DEV-487: withdrawing a pending first request from 판매 관리 returns the product to 작성 중", async ({ page, request }) => {
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
   const { draft, read, send } = await sellReadyDraft(request);
   const id = draft.productId;
   const named = await send("patch", `/api/products/${id}`, { version: draft.version, name: "철회 테스트 귤", variety: "조생" });
   await send("post", `/api/products/${id}/capacity-requests`, { requestedTotalGrams: 50_000, version: named.version });
-  await page.goto(`${producerUrl}/products/${id}/sales`);
-  await expect(page.getByText("판매 시작 요청", { exact: true })).toBeVisible();
-  await expect(page.getByText(/50kg 공급 물량 심사 중/)).toBeVisible();
-  await page.getByRole("button", { name: "신청 철회" }).click();
-  await page.getByRole("button", { name: "확인", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/products/${id}/sell$`));
+  await page.goto(`${producerUrl}/products?filter=review`);
+  await page.getByRole("button", { name: "철회 테스트 귤 상품 수정", exact: true }).locator("xpath=..").getByRole("button", { name: "판매 관리", exact: true }).click();
+  const sheet = page.getByTestId("sales-manage-sheet");
+  await expect(sheet.getByTestId("pending-chip")).toContainText("판매 시작 요청 50kg 심사 중");
+  await sheet.getByRole("button", { name: "신청 철회" }).click();
+  await expect(sheet.getByText("판매 시작 요청을 철회할까요?", { exact: true })).toBeVisible();
+  await sheet.getByRole("button", { name: "철회", exact: true }).click();
   await expect(
     page.getByText("신청을 철회했어요. 판매·가격에서 고친 뒤 다시 요청해 주세요.", { exact: true }),
   ).toBeVisible();

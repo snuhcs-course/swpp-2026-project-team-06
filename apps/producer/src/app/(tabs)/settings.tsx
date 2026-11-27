@@ -20,12 +20,14 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { HelpButton } from "../../lib/Tour";
 import { useSession } from "../../lib/session";
+import { consumerFarmTarget } from "../../lib/consumerFarmLink";
 import { LoadError, openConsumerFarm } from "../../lib/views";
 export default function Settings() {
   const router = useRouter(),
     { refresh, user } = useSession();
   const farm = useAsync(() => farms.mine(), []);
-  const farmId = farm.data?.farmId;
+  // shareUrl이 있는 농가만(받기 전·조회 실패·링크 없음이면 null)
+  const consumerFarm = consumerFarmTarget(farm.data);
   const [withdrawing, setWithdrawing] = useState(false);
   const [reset, setReset] = useState(false),
     [busy, setBusy] = useState(false),
@@ -97,10 +99,12 @@ export default function Settings() {
               onPress={() => router.push("/password")}
             />
           ) : null}
-          {farmId ? (
+          {/* 공유 링크(shareUrl)가 없는 농가는 소비자 앱에서 열리지 않는다(승인 전·숨긴 농가, DEV-477).
+              링크를 알기 전(받는 중·조회 실패)에도 두지 않는다: 눌러도 반응 없는 줄을 만들지 않는다 */}
+          {consumerFarm ? (
             <ListRow
               label="소비자 앱에서 내 농가 보기"
-              onPress={() => void openConsumerFarm(farmId)}
+              onPress={() => void openConsumerFarm(consumerFarm)}
             />
           ) : null}
           <ListRow label="로그아웃" onPress={() => auth.logout()} last={!!user?.isTestAccount} />

@@ -142,3 +142,39 @@ test("DEV-341 without body streaming only the generous total limit applies", asy
     f.restore();
   }
 });
+
+test("DEV-477 where Blob cannot be built from bytes (React Native), the body is read with res.blob() instead of chunks", async () => {
+  const RealBlob = globalThis.Blob;
+  // React Native's Blob: only other Blobs or strings, bytes throw (BlobManager.createFromParts)
+  class NativeLikeBlob extends RealBlob {
+    constructor(parts = [], options) {
+      if (parts.some((p) => p instanceof ArrayBuffer || ArrayBuffer.isView(p)))
+        throw new Error("Creating blobs from 'ArrayBuffer' and 'ArrayBufferView' are not supported");
+      super(parts, options);
+    }
+  }
+  const native = new RealBlob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+  let streamed = 0;
+  const response = {
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-type": "image/jpeg" }),
+    // expo/fetch gives a readable body, but chunks cannot become a React Native Blob
+    get body() {
+      return { getReader: () => { streamed += 1; return slowBody(1, 1).getReader(); } };
+    },
+    blob: () => Promise.resolve(native),
+  };
+  const f = stubFetch(() => Promise.resolve(response));
+  globalThis.Blob = NativeLikeBlob;
+  photos.clearPrivatePhotos();
+  try {
+    const blob = await photos.privatePhotoBlob("http://x/native-thumb", 50, 1_000);
+    assert.equal(blob, native);
+    assert.equal(streamed, 0);
+  } finally {
+    globalThis.Blob = RealBlob;
+    photos.clearPrivatePhotos();
+    f.restore();
+  }
+});

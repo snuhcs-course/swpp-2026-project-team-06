@@ -191,13 +191,12 @@ test("AC-33-4 DEV-248: first order photo-only message binds to the selected orde
     await page.goto(`${consumerUrl}/orders/${order.orderId}`);
     await page.getByRole("button", { name: /^농가에 물어보기(?: ›)?$/ }).click();
     await expect(page.getByRole("textbox", { name: "메시지", exact: true })).toBeEditable();
-    await page.getByRole("button", { name: "사진·이모티콘", exact: true }).click();
     await page.getByRole("button", { name: "사진", exact: true }).click();
     await page.locator('input[type="file"]').setInputFiles({
       name: "dev248.png", mimeType: "image/png",
       buffer: Buffer.from(fixture("image").base64, "base64"),
     });
-    await expect(page.getByRole("img", { name: "비공개 문의 사진", exact: true })).toBeVisible();
+    await expect(page.getByRole("img", { name: "첨부 사진 1", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "전송", exact: true })).toBeEnabled();
     const sent = page.waitForResponse(r => r.request().method() === "POST" &&
       new URL(r.url()).pathname === "/api/messaging/chats/f-halla/messages");
@@ -222,19 +221,18 @@ test("AC-33-2 DEV-248: multiple order selection retains text and clears prior-or
     }
     const composer = page.getByRole("textbox", { name: "메시지", exact: true });
     await composer.fill("DEV248 changed order draft");
-    await page.getByRole("button", { name: "사진·이모티콘", exact: true }).click();
     await page.getByRole("button", { name: "사진", exact: true }).click();
     await page.locator('input[type="file"]').setInputFiles({
       name: "dev248.png", mimeType: "image/png",
       buffer: Buffer.from(fixture("image").base64, "base64"),
     });
-    await expect(page.getByRole("img", { name: "비공개 문의 사진", exact: true })).toBeVisible();
+    await expect(page.getByRole("img", { name: "첨부 사진 1", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "주문 바꾸기", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "주문 바꾸기", exact: true }).click();
     await page.screenshot({ path: info.outputPath("order-selection-sheet.png") });
     await page.getByRole("button", { name: new RegExp("주문 " + first.orderId) }).click();
     await expect(composer).toHaveValue("DEV248 changed order draft");
-    await expect(page.getByRole("img", { name: "비공개 문의 사진", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("img", { name: "첨부 사진 1", exact: true })).toHaveCount(0);
     await expect(page.getByText(/사진을 다시 첨부해 주세요/)).toBeVisible();
     const sent = page.waitForResponse(r => r.request().method() === "POST" &&
       new URL(r.url()).pathname === "/api/messaging/chats/f-halla/messages");

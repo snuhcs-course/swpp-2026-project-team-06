@@ -31,7 +31,8 @@ class User(Base):
     kakao_id: Mapped[str | None] = mapped_column(String(64))
     is_test_account: Mapped[bool] = mapped_column(Boolean, default=False)
     # 운영자가 표시한 운영 검증용 실계정(DEV-107). 시드 테스트 계정과 달리 로그인·온보딩은
-    # 그대로이고, 테스트 농가 숨기기(DEV-93·98)에서만 테스트 계정처럼 센다
+    # 그대로이고, 테스트 농가 숨기기(DEV-93·98)의 주문 검사와 공개 범위(R-29, DEV-472)에서
+    # 테스트 계정처럼 센다: 켠 생산자의 농가는 일반 사용자에게 숨고, 켠 소비자는 테스트 농가를 본다
     ops_tester: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     role: Mapped[str] = mapped_column(String(16))
     name: Mapped[str] = mapped_column(String(100))

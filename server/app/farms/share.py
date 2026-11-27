@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.farms.service import get_approved_farm
+from app.farms.service import public_farm
 
 router = APIRouter(tags=["farms"])
 templates = Jinja2Templates(directory=Path(__file__).with_name("templates"))
@@ -26,7 +26,8 @@ def farm_share_url(request: Request, farm_id: str) -> str:
 
 @router.get("/s/farms/{farm_id}", name="share_farm", include_in_schema=False)
 def share_farm(request: Request, farm_id: str, db: Annotated[Session, Depends(get_db)]):
-    farm = get_approved_farm(db, farm_id)
+    # 공유 페이지는 로그인 없이 열린다(크롤러·메신저 미리보기). 테스트 농가는 404(DEV-472)
+    farm = public_farm(db, farm_id, None)
     consumer = get_settings().consumer_app_url.rstrip("/")
     image = urljoin(consumer + "/", farm.photo) if farm and farm.photo else None
     if image and urlsplit(image).scheme not in {"http", "https"}:

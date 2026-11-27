@@ -97,6 +97,7 @@ make db             # local PostgreSQL 16 (server/docker-compose.yml); make db-d
 make migrate seed   # alembic upgrade head + demo seed, local database only (RESET=1 to reseed)
 make dev            # both apps + Mock API (npm run dev); make dev-api runs FastAPI
 make check          # before a PR: lint (ruff check) + test
+make apk            # EAS internal Android APKs (see "Native apps with EAS"); make eas-env lists EAS variable names
 ```
 
 - `make test` runs `test-server` (pytest + alembic check), `test-apps` (`npm run test:mock`,
@@ -291,6 +292,17 @@ evaluator mark and evaluator build flag no longer enable seed selection in relea
 Development builds retain seed selection when Kakao is disabled/unavailable; explicit app Mock
 mode retains it alongside Kakao. The old UAT seed rows below are retained fixture history.
 
+**Review farms stay out of the public app (DEV-472, R-29).** A farm whose producer is a seed test
+account or an ops tester (operator web, Users, "운영 검증 표시") is shown only to signed-in test or
+ops-tester accounts. Signed-out visitors and regular consumers get the suspended-farm behaviour:
+the farm, its products and news are missing from lists, details and orders answer 404, and the
+farm's share link (`/s/farms/<id>`) is a 404 for everyone, so the producer app shows no share link
+for it. Mark the producer-app review account as an ops tester so its farm stays hidden while the
+reviewer can still use the producer app; do not mark the consumer-app review account, or it sees
+the hidden farms. ID accounts are created as regular accounts. The filter is off only when
+`APP_ENV=local` and `MOCK_LOGIN_ENABLED=true` (local seed, demo, CI), because the demo farms
+belong to seed test accounts.
+
 **Historical UAT fixture procedure (DEV-305; superseded by DEV-363/367).**
 The following records the earlier seeded session, including its data setup and cleanup.
 These steps are not prerequisites for current ID-account UAT; do not purge production data or
@@ -453,7 +465,9 @@ web page, so in a dev client use a test account (or set `EXPO_PUBLIC_API_URL` to
 
 Web-only code is split by platform (`*.native.ts` next to the web file, or `Platform.OS`
 branches). Tokens live in `expo-secure-store` on devices, analytics use `posthog-react-native`,
-photos come from `expo-image-picker`. Kakao login keeps the server contract: the app opens the
+photos come from `expo-image-picker`. Uploads go through `postForm` (`packages/api/src/formPost*.ts`): React
+Native `XMLHttpRequest` on devices, because SDK 57 replaces the global `fetch` with expo/fetch, which rejects
+`{uri, name, type}` FormData parts (DEV-493). Kakao login keeps the server contract: the app opens the
 Kakao page in an auth session with `state=app-…`, Kakao returns to the usual web page
 `https://farmclub.kr/auth/kakao` (or `https://farm.farmclub.kr/auth/kakao`), and that page hands
 the code to the app scheme (`farmclub-consumer://auth/kakao`). `scripts/test-native-config.mjs`
@@ -484,11 +498,29 @@ Kakao login returns through the web page `/auth/kakao`, which hands the code bac
 the app cannot finish a login until that page is live.
 
 ```bash
-# once per app (apps/consumer, apps/producer), after `eas login` (projects already exist under snu-omm)
+# from the repository root, after `eas login` (projects already exist under snu-omm); from a subfolder: make -C "$(git rev-parse --show-toplevel)" apk
+make eas-env                    # both apps' EAS variable names (never values) for ENV=preview, missing business info marked
+make apk                        # Android APK, consumer then producer; APP=consumer or APP=producer for one, DRY_RUN=1 to run only the checks
+# the same by hand, once per app (apps/consumer, apps/producer):
 npx eas-cli@latest build -p android --profile internal   # APK; the build page shows an install link and QR code
 npx eas-cli@latest build -p ios --profile internal       # .app for the iOS Simulator (no Apple account needed)
 npx eas-cli@latest update --channel preview --environment preview --message "..."   # later JS changes, no reinstall
 ```
+
+**What `make apk` uploads (DEV-483).** EAS uploads the whole repository from its root, filtered by the
+root `.easignore` (with that file present eas-cli reads no `.gitignore`, so it repeats their rules). It
+leaves out `.git`, `docs/`, `demo/`, `.github/`, `.agents/`, `.claude/`, `server/tests/` and
+`server/migrations/`, which cut the upload from about 283 MB to 47 MB (compressed, 2026-11-25). The rest of
+`server/` stays: `packages/api/src/sourceTextSafety.ts` imports
+`server/app/source_analysis/text_safety_lists.json`. `scripts/test-easignore.mjs` (part of `npm run test:mock`)
+fails when app or package code imports a path that `.easignore` drops, or when a `.gitignore` rule is missing
+from it. Write `.git` without a trailing slash: in the default git mode eas-cli puts a shallow clone's `.git`
+into the upload and only removes it for that exact pattern. Neither mode uploads only committed code: without
+`requireCommit` in `eas.json` the git mode also copies the working tree (uncommitted and untracked files
+included), the same as `EAS_NO_VCS=1`. So `make apk` stops unless `git status` is clean, runs in git mode
+(the build page then shows the commit) and unsets `EAS_NO_VCS`. Every build it starts raises the Android
+`versionCode` by one (`internal` extends `preview`, which has `autoIncrement`), even if the build fails;
+`DRY_RUN=1` starts nothing. `.easignore` lives outside the app folders and is not part of the fingerprint.
 
 `eas update` bundles with the EAS **environment variables** of the given environment, not with the
 `env` block of `eas.json` (that block only applies to `eas build`). `EXPO_PUBLIC_API_URL`,
@@ -509,6 +541,7 @@ case, so a new store profile is covered too) on the EAS build server (`EAS_BUILD
 names only. `EXPO_PUBLIC_BUSINESS_MAIL_ORDER_NO` only warns until it is issued. Local `expo start`/`export`,
 CI, `eas update` and the local config read before `eas build` are not checked because only the build
 server sets `EAS_BUILD` and `EAS_BUILD_PROFILE`, so check the environment before an update:
+`make eas-env ENV=<environment>` (names only, missing ones marked, safe to paste; DEV-483) or
 `npx eas-cli@latest env:list --environment <environment>` (names and values; do not paste the output into
 issues or PRs). Which EAS environment a profile uses is printed in the build log ("Resolved … environment"). The file loads no other module, so it does not change the runtime fingerprint.
 The temporary evaluator build flag used for the 11/4 heuristic evaluation was removed from
@@ -526,7 +559,9 @@ The link works for anyone who has it. iOS Simulator: download the build, unpack 
 the `.app` onto a booted simulator (or `xcrun simctl install booted <path>.app`). Check, in this
 order: install and launch, Kakao login and return to the app (on Android also that the screen
 you came from and the pending action are kept), onboarding, home / farm / product / order /
-chat, photo attachment in chat, and in the producer app sign-up and photo upload. Record each
+chat, photo attachment in chat, and in the producer app sign-up and photo upload. Check uploads and the
+new-product flow against a real server (a local one is enough), not in Mock mode: Mock sends no upload request,
+which is how a broken native upload reached ONE store review (DEV-493). Record each
 device in DEV-41 (model, OS version, install, login, problems). These builds send nothing to
 PostHog: the key is only set in the EAS `production` environment. Known limits: the ‘카카오톡으로
 로그인’ button inside the auth session may not switch to the KakaoTalk app (Kakao account

@@ -69,11 +69,13 @@ test("AC-15-12 the card's reply action picks that post and the send passes its b
 });
 
 test("AC-15-13 consumer photo replies reuse the private photo picker and render with tap-to-zoom", () => {
-  // DEV-468: 공통 + 메뉴의 사진 동작은 기존 숨긴 파일 칸을 연다. 작은 첨부 행·확대 보기는 유지한다.
+  // DEV-468·478: + 의 사진 동작은 기존 숨긴 파일 칸을 연다. 작은 첨부 행·확대 보기는 유지한다.
   assert.match(src, /tool=\{tools\.tool\}/);
   assert.match(src, /onPhoto: producer \? onAttach : upload && loadPhoto \? attach\.open : undefined/);
   const tools = readFileSync(new URL("../packages/ui/src/ComposerTools.tsx", import.meta.url), "utf8");
-  assert.match(tools, /onPress: \(\) => setMode/);
+  // DEV-478: ‘+’는 메뉴 없이 사진 고르기를 바로 열고(선택한 이모티콘은 비운다), 이모티콘은 입력칸 안 웃는 얼굴로 연다
+  assert.match(tools, /onPress: \(\) => \{ onSelect\(undefined\); setOpen\(false\); onPhoto\(\); \}/);
+  assert.match(tools, /accessibilityLabel="이모티콘"/);
   assert.match(tools, /onPhoto\(\)/);
   assert.doesNotMatch(src, /<PrivatePhotos/);
   assert.match(src, /<AttachedPhotoRow/);

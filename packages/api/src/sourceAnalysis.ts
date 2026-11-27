@@ -2,6 +2,7 @@ export { hasMoney, hasHealthClaim, hasPlatformText, hasPeriodText } from "./sour
 import { ApiError, apiUrl, getToken, isMock, request } from "./client";
 import { blobUrl } from "./objectUrl";
 import { privatePhotoBlob } from "./privatePhoto";
+import { postForm } from "./formPost";
 import { appendFile, type UploadFile } from "./upload";
 export type SourceBasicInfo = {
   variety: string;
@@ -429,14 +430,12 @@ export async function uploadSource(
   form.append("originalPhoto", String(original));
   if (typeof input === "string") form.append("text", input);
   else appendFile(form, "file", input);
-  const res = await fetch(`${apiUrl}${at(bid)}/sources`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
-    body: form,
+  // 앱은 XMLHttpRequest, 웹은 fetch(formPost, DEV-493)
+  const res = await postForm(`${apiUrl}${at(bid)}/sources`, form, {
+    Authorization: `Bearer ${getToken() ?? ""}`,
   });
-  const body = await res.json();
-  if (!res.ok) throw new ApiError(res.status, body);
-  return body as SourceAsset;
+  if (!res.ok) throw new ApiError(res.status, res.body);
+  return res.body as SourceAsset;
 }
 /**
  * 자료 페이지 이미지 주소(웹 blob URL / 네이티브 data URL). 다 쓰면 받은 쪽이 해제한다.

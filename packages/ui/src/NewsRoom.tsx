@@ -813,8 +813,9 @@ export function NewsRoom({
             canSend={ready && !uploading && (!!selectedEmoticon || !!body.trim() || (!producer && photoIds.length > 0))}
             busy={busy}
             tool={tools.tool}
+            trailing={tools.trailing}
+            onFocus={tools.close}
             above={<>
-              {tools.above}
               {replyPost ? (
                 // 고른 소식(DEV-467). 답장은 그 소식에 붙고 농가만 본다
                 <View testID="room-reply-post" style={{flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent}}>
@@ -843,6 +844,8 @@ export function NewsRoom({
                 <View style={{flex: 1}}><T variant="caption" muted>소비자에게 답장 · 모든 팔로워에게 보여요</T><T numberOfLines={2}>{quotePreview(replyTarget.body)}</T></View>
                 <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTarget(null)} style={{width: 44, height: 44, alignItems: "center", justifyContent: "center"}}><Icon name="close" size={18} /></Pressable>
               </View> : null}
+              {/* 고른 이모티콘 큰 미리보기는 입력줄 바로 위(DEV-478) */}
+              {tools.above}
             </>}
           />
           {tools.below}

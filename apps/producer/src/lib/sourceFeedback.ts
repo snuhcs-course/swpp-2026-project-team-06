@@ -19,7 +19,10 @@ export function sourceActionError(error: unknown): SourceActionError {
   if (error instanceof TypeError)
     return { message: "서버에 연결하지 못했어요. 연결을 확인하고 다시 확인해 주세요.", canRefresh: true };
   // Plain Errors are client-side checks written in Korean (e.g. missing variety).
-  if (error instanceof Error && error.message)
+  if (error instanceof Error && /[가-힣]/.test(error.message))
     return { message: error.message, canRefresh: false };
+  // Library/runtime errors are English internals (DEV-493: "Unsupported FormDataPart implementation"):
+  // never show them; keep the original in the log for tracing.
+  if (error) console.warn("[source] 처리 실패", error);
   return { message: "처리하지 못했어요. 다시 시도해 주세요.", canRefresh: true };
 }

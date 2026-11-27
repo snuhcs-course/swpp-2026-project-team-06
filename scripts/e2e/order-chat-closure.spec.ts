@@ -135,7 +135,8 @@ test("AC-33-2/4 DEV-249 C03: lost text-and-photo send response retains one attac
     }
     await expect(page.getByRole("button", { name: "다시 보내기", exact: true })).toBeVisible();
     await expect(composer).toHaveValue(text);
-    await expect(page.getByRole("img", { name: "비공개 문의 사진", exact: true }).first()).toBeVisible();
+    // DEV-478: 남은 초안 사진은 작성창 72px 썸네일 ‘첨부 사진 1’로 직접 확인한다
+    await expect(page.getByRole("img", { name: "첨부 사진 1", exact: true })).toBeVisible();
     expect(chatFixture("inspect").messages).toHaveLength(1);
     expect(chatFixture("inspect").attachmentCount).toBe(1);
     await page.screenshot({ path: info.outputPath("C03-committed-response-lost-draft-retained.png") });

@@ -77,7 +77,7 @@ function openTabRoot(
 }
 
 export default function TabsLayout() {
-  const { user, tabBarHidden, requireLogin } = useSession();
+  const { user, tabsKey, tabBarHidden, requireLogin } = useSession();
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
@@ -115,7 +115,9 @@ export default function TabsLayout() {
       // DEV-473: 탭 안 화면이 죽으면 그 화면만 오류 안내로 바꾼다(탭 바는 남는다). 레이아웃 없는 탭 화면(홈)과
       // 앞으로 (tabs) 바로 아래에 더할 화면도 여기서 받는다. 탭 폴더 Stack은 각자 같은 경계를 다시 둔다
       unstable_screenErrorBoundary={TabScreenBoundary}
-      key={user?.userId ?? "guest"}
+      // 계정이 바뀌면(로그인·로그아웃·토큰 교체) 탭 아래 화면 상태를 버린다. 저장된 토큰을 auth/me로 확인하는 동안
+      // 누른 동작은 남긴다(DEV-481: 전 key `user?.userId ?? "guest"`는 답이 오는 순간 탭을 다시 만들어 그 동작을 지웠다)
+      key={tabsKey}
       backBehavior="history"
       screenOptions={{
         headerShown: false,

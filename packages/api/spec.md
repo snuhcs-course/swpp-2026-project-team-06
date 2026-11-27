@@ -147,3 +147,8 @@ DEV-452 선택된 표현 정리 통합: source-copy plan.presentation은 선택 
 
 ## DEV-485 사유별 생산자 확인
 FEAT-03/04/07 및 AC-SRC-2/3/5/9/10/11: reviewPrompts는 사유별 질문·설명·심각도·확인 기록 문구를 제공한다. 기존 reviewExplanations 호환을 유지한다. 확인 버튼은 기존 검토 저장 경로를 사용하고 성공 뒤 완료 표시하며, 연결 문단의 모든 KEEP 결정이 같은 배치를 승인하면 연결을 유지한다. 사용 제한은 단순 확인으로 통과시키지 않는다. UI는 일반 황색/중요 산호색과 기호·문구를 함께 사용한다.
+## DEV-493 앱 파일 업로드
+- 파일 업로드(FormData POST)는 `postForm`(`src/formPost.ts`·`src/formPost.native.ts`)으로만 보낸다. 웹은 fetch 그대로, 앱은 React Native `XMLHttpRequest`다. Expo SDK 57은 앱의 전역 fetch를 expo/fetch로 바꾸는데, expo/fetch는 RN 방식 `{uri, name, type}` 파트를 "Unsupported FormDataPart implementation"으로 거절한다. RN 네트워킹은 그 파트를 파일에서 바로 읽어 보내므로 영상(100MB)도 JS 메모리에 올리지 않는다.
+- 앱에서 응답을 못 받으면 `ApiError(0, "인터넷 연결을 확인하고 다시 시도해 주세요.")`(`request()`와 같은 문구)로 던지고, 원인은 `cause`와 경고 로그에 남긴다. JSON이 아닌 오류 응답(프록시 413·502)은 두 플랫폼 모두 본문 `{}`의 ApiError다.
+- 고른 사진의 형식·이름은 `pickedImage`로 다시 압축한 파일(uri 확장자) 기준으로 정한다. quality < 1이면 PNG 밖은 JPEG 바이트인데 picker의 mimeType·fileName은 원본(HEIC·WebP)이라 서버가 400을 줬다.
+- `scripts/test-native-upload.mjs`가 fetch로 FormData 보내기, `{uri}` 파트 직접 붙이기, 허용 목록 밖 직접 fetch, picker 원본 형식 직접 쓰기를 막는다. 상세는 tasks/DEV-493.md.

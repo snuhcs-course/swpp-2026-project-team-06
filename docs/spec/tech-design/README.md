@@ -18,7 +18,7 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 
 | 엔티티 | 필수 필드 | 관계 |
 | --- | --- | --- |
-| `User` | id, kakaoId?(I2 카카오 로그인), isTestAccount(시드 테스트 계정, Mock 로그인 대상), opsTester(운영자가 표시한 운영 검증용 실계정. 테스트 농가 숨기기에서만 테스트 계정처럼 센다, DEV-107), role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone, nickname?(I2 온보딩, 농가에 보이는 이름), email?(I2 카카오계정 이메일, 연락용) | (kakaoId, role)당 1개. 같은 사람이라도 소비자·생산자 계정은 따로(ADR 0010). 소비자 카카오 계정은 nickname·name·phone·필수 동의가 모두 있어야 온보딩 완료(FEAT-01 AC-01-12) |
+| `User` | id, kakaoId?(I2 카카오 로그인), isTestAccount(시드 테스트 계정, Mock 로그인 대상), opsTester(운영자가 표시한 운영 검증용 실계정. 테스트 농가 숨기기의 주문 검사와 공개 범위(R-29, DEV-472)에서 테스트 계정처럼 센다. 로그인·온보딩은 그대로, DEV-107), role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone, nickname?(I2 온보딩, 농가에 보이는 이름), email?(I2 카카오계정 이메일, 연락용) | (kakaoId, role)당 1개. 같은 사람이라도 소비자·생산자 계정은 따로(ADR 0010). 소비자 카카오 계정은 nickname·name·phone·필수 동의가 모두 있어야 온보딩 완료(FEAT-01 AC-01-12) |
 | `UserConsent` | id, userId, kind(TERMS·PRIVACY·AGE14·MARKETING), version, agreed, agreedAt | User 1 : N, (userId, kind)당 1개. 다시 동의하면 버전·시각 갱신(AC-01-14) |
 | `ShippingAddress` | id, userId, label?, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), isDefault(기본 배송지 여부), createdAt | User 1 : N ShippingAddress (사용자별 저장 배송지, AC-08-5). 계정당 50개, 기본을 지우면 가장 최근 것이 기본(AC-01-15) |
 | `Farm` | id, producerId, name, region, intro, mainItems(주 품목), contactPhone(신청 연락처), approvalStatus(PENDING/APPROVED/REJECTED/SUSPENDED), rejectReason?, suspendReason?, appliedAt, decidedAt?, bankName?·accountNumber?·accountHolder?·accountUpdatedAt?(입금 계좌, DEV-68) | User(role = PRODUCER) 1 : 1 Farm. 가입 신청 때 생기고, 신청한 대표자 이름은 `User.name` |
@@ -203,7 +203,7 @@ AI 초안 게시율은 `draft_published`(서버)가 없어 이번 파일럿에�
 | 자원 | 추가 계약 |
 | --- | --- |
 | Product | approvedSupplyGrams, salesLimitGrams, salesPaused, version. reservedGrams/shippedGrams/remainingGrams는 주문 스냅샷·반환량에서 계산. 한 주문 박스 상한은 별개 |
-| Stage/Allocation | stable stageId, 단일 판매값과 주문 가격·중량 스냅샷. 예약 기간 날짜/삭제 잠금, 옵션별 가격 엄격 증가 |
+| Stage/Allocation | stable stageId, 단일 판매값과 주문 가격·중량 스냅샷. 예약 기간 삭제 잠금(DEV-489부터 날짜 변경 허용), 옵션별 가격 엄격 증가 |
 | Thread | (farmId,consumerId) 유일, aiMode·version·양쪽 읽음 위치. 전달 질문 없는 대화도 조회 |
 | RoomReply | farmId·consumerId·body·createdAt, 방송과 구분. 소비자별 권한 필터 뒤 페이지 조회 |
 | FarmAiSettings | 농가별 버전·enabled·원칙·FAQ·추가 전달 주제, 변경 이력 |
