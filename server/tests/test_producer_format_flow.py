@@ -149,6 +149,22 @@ def test_AC_SRC_1_5_6_7_9_11_visual_failure_manual_recovery_and_private_source(
     assert next(f for f in preserved["fields"] if f["fieldKey"] == "storage")["value"] == storage
     draft = save(preserved)
     assert client.get("/api/products/p-house").json().get("moduleDetail") == before
+    # DEV-452: a page cannot be applied while an attached material failed to read.
+    blocked = apply(client, h, b, draft)
+    assert blocked.status_code == 409, blocked.text
+    assert blocked.json()["details"]["reason"] == "SOURCE_PROCESSING_INCOMPLETE"
+    privacy()
+    # Manual recovery: remove the unreadable material, keep the hand-written text, then apply.
+    sources = client.get(base, headers=h).json()["sources"]
+    revision = next(a["revision"] for a in sources if a["id"] == source["id"])
+    removed = client.delete(f"{base}/sources/{source['id']}?version={revision}", headers=h)
+    assert removed.status_code == 202, removed.text
+    drain()
+    assert source["id"] not in [a["id"] for a in client.get(base, headers=h).json()["sources"]]
+    kept = body_for(client, h, b)
+    assert next(f for f in kept["fields"] if f["fieldKey"] == "summary")["value"] == manual
+    assert next(f for f in kept["fields"] if f["fieldKey"] == "storage")["value"] == storage
+    draft = save(kept)
     result = apply(client, h, b, draft)
     assert result.status_code == 200, result.text
     expected = [
@@ -161,4 +177,10 @@ def test_AC_SRC_1_5_6_7_9_11_visual_failure_manual_recovery_and_private_source(
         {"id": m["id"], "texts": m["texts"]} for m in public.json()["moduleDetail"]["modules"]
     ] == expected
     assert storage_key not in public.text and "/source-analysis/" not in public.text
-    privacy()
+    # The removed material stays unreachable for everyone, owner included.
+    for tail in ("/content", "/text", "/pages/1", "/pages/1/image"):
+        url = f"{base}/sources/{source['id']}{tail}"
+        assert client.get(url).status_code == 401
+        assert client.get(url, headers=h).status_code == 404
+    for path in (f"/api/media/{storage_key}", f"/.artifacts/private-sources/{storage_key}"):
+        assert client.get(path).status_code == 404
