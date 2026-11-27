@@ -125,7 +125,7 @@ export function SourceDetailsEditor({
   /** DEV-452 combined view: control at each section heading of the read-only page. */
   sectionAccessory?: (sectionId: string, moduleIds: string[], title: string) => ReactNode;
   /** DEV-452 combined view: the section being edited in a sheet (its title and module ids). */
-  editSection?: { title: string; moduleIds: string[]; add?: boolean } | null;
+  editSection?: { title: string; moduleIds: string[]; add?: boolean; illustration?: string } | null;
   onCloseSection?: () => void;
   /**
    * DEV-452 combined edit view: review notes sit under their own section, and passages the page
@@ -424,7 +424,7 @@ export function SourceDetailsEditor({
     };
   });
   /** One product's page canvas; a section sheet passes only that section's modules (DEV-452). */
-  const canvas = (target: SourceBatch["targets"][number], opts: { preview: boolean; only?: string[]; add?: boolean }) => {
+  const canvas = (target: SourceBatch["targets"][number], opts: { preview: boolean; only?: string[]; add?: boolean; illustration?: string }) => {
     const all = SOURCE_MODULES.map(([id]) => ({
             id,
             enabled: enabled[target.id]?.includes(id) ?? false,
@@ -471,6 +471,7 @@ export function SourceDetailsEditor({
           sectionAccessory={opts.preview ? sectionAccessory : undefined}
           onlyIds={opts.only}
           initialSelected={opts.add && opts.only?.length === 1 ? opts.only[0] : undefined}
+          initialIllustration={opts.illustration}
           scrollRef={scrollRef}
           hiddenSectionIds={hidden[target.id] ?? []}
           onHiddenSectionsChange={(ids) => {
@@ -750,7 +751,7 @@ export function SourceDetailsEditor({
       {editSection ? (
         <Sheet visible onClose={() => { if (!busy) onCloseSection?.(); }} title={`${editSection.title} ${editSection.add ? "추가" : "고치기"}`}>
           <View style={{ gap: 12 }}>
-            {batch.targets.map((target) => canvas(target, { preview: false, only: editSection.moduleIds, add: editSection.add }))}
+            {batch.targets.map((target) => canvas(target, { preview: false, only: editSection.moduleIds, add: editSection.add, illustration: editSection.illustration }))}
             <Button
               label="저장하고 닫기"
               loading={busy}

@@ -519,6 +519,19 @@ function ExtraPhotos({
   );
 }
 /** 상품 사진 한 장(비공개 사진은 인증 blob으로) */
+/** "지금 이름이 맞아요" is remembered in the web browser for that name pair; in the app it lasts for the visit (DEV-452). */
+const NAME_KEPT = "farmclub.nameKept";
+function nameKept(key: string) {
+  if (Platform.OS !== "web") return false;
+  try { return (JSON.parse(localStorage.getItem(NAME_KEPT) ?? "[]") as string[]).includes(key); } catch { return false; }
+}
+function keepName(key: string) {
+  if (Platform.OS !== "web") return;
+  try {
+    const list = JSON.parse(localStorage.getItem(NAME_KEPT) ?? "[]") as string[];
+    localStorage.setItem(NAME_KEPT, JSON.stringify([...list.filter((k) => k !== key), key].slice(-50)));
+  } catch { /* storage unavailable: the choice lasts for this visit */ }
+}
 /** 미리보기: 대표사진과 더 보여 줄 사진을 구매자 화면처럼 넘겨 보게 한다(user review 11/28, DEV-452). */
 function PreviewGallery({ productId, cover, extra, alt }: { productId: string; cover: string | null; extra: string[]; alt: string }) {
   const [urls, setUrls] = useState<(string | null)[]>(() => extra.map(() => null));
@@ -669,9 +682,10 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   const combinedSetup = from === "setup";
   // DEV-452 (PM 11/27 redesign): the generated page is shown as buyers see it; fixing happens in sheets.
   const [nameNoticeOff, setNameNoticeOff] = useState("");
+  const [sizeCardOff, setSizeCardOff] = useState(false);
   const [reviewSheet, setReviewSheet] = useState<null | "photos" | "info" | "leftover" | "add" | { only?: string[] }>(null);
   const [pageSections, setPageSections] = useState<Record<string, string[]>>({});
-  const [editSection, setEditSection] = useState<{ title: string; moduleIds: string[]; add?: boolean } | null>(null);
+  const [editSection, setEditSection] = useState<{ title: string; moduleIds: string[]; add?: boolean; illustration?: string } | null>(null);
   const [copyData, setCopyData] = useState<SourceCopyData | null>(null);
   const [copyTick, setCopyTick] = useState(0);
   // Total quantity from the combined setup page (grams). null = the producer has not entered it yet.
@@ -1755,6 +1769,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       // Everything that blocks the request is handled one at a time first (DEV-452 redesign).
       if (photoMissing) throw new Error("상품 사진이 없어요. 위 ‘상품 사진 추가’로 대표 사진을 한 장 이상 넣어 주세요.");
       if (readingBlocked) throw new Error("자료 일부를 다 읽지 못했어요. 위 ‘다 못 읽은 부분 다시 읽기’를 눌러 주세요.");
+      if (nameMismatch) throw new Error("상품명이 자료와 달라요. 위 ‘확인할 것’에서 이름을 확인해 주세요.");
       if (sheetItems) { setBuyerPreview(false); setReviewSheet({}); return; }
       if (!batch || !target || !productId) return;
       const [w, latest, p] = await Promise.all([productWorkspace.open(productId, newIdempotencyKey()), api.drafts(batch.id), catalog.myProduct(productId)]);
@@ -1900,10 +1915,15 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     : null;
   // A sale request needs a representative product photo (server: representative.selected).
   const photoMissing = combinedSetup && preSale && !!batch && !!target && productPhotos(batch, target.id).length === 0;
+  // DEV-452 (user review 11/28): a typed name that differs from the material's (e.g. a typo) is a check item.
+  const docName = combinedSetup && target ? cleanProductName(docValue(review, target.id, "name") ?? "") : "";
+  const typedName = form?.name ?? "";
+  const nameKey = target ? `${target.id}:${typedName}:${docName}` : "";
+  const nameMismatch = combinedSetup && preSale && !!docName && differs(typedName, docName) && nameNoticeOff !== nameKey && !nameKept(nameKey);
   const toCheck = (copyData ? checkItems(copyData, [], null).length : reviewPendingCount) + photoChecks
-    + (readingBlocked ? 1 : 0) + (photoMissing ? 1 : 0);
-  /** Items handled in the one-at-a-time sheet (photo and reading blockers have their own buttons). */
-  const sheetItems = toCheck - (readingBlocked ? 1 : 0) - (photoMissing ? 1 : 0);
+    + (readingBlocked ? 1 : 0) + (photoMissing ? 1 : 0) + (nameMismatch ? 1 : 0);
+  /** Items handled in the one-at-a-time sheet (photo, reading and name blockers have their own buttons). */
+  const sheetItems = toCheck - (readingBlocked ? 1 : 0) - (photoMissing ? 1 : 0) - (nameMismatch ? 1 : 0);
   const mainLabel = preSale && combinedSetup ? (toCheck ? `판매 시작 요청 · 확인 ${toCheck}` : "판매 시작 요청") : preSale ? "다음: 판매·가격" : unapplied ? `상품에 반영 (${unapplied})` : "상품에 반영";
   // 판매 종료 상품은 하단 버튼이 없다. 같은 안내는 위쪽 줄에만 둔다(PM 11/18)
   // While the combined page is being made there is nothing to save or request yet (user review 11/28).
@@ -2077,6 +2097,15 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                 : "페이지를 훑어보고 판매 시작을 요청해 주세요."}</T>
               {sheetItems ? <Button label="하나씩 확인하기" onPress={() => setReviewSheet({})} /> : null}
             </View>
+            {nameMismatch ? (
+              <View testID="name-mismatch" style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#E9B980", gap: 8 }}>
+                <T variant="sub">{`자료에는 상품명이 ‘${docName}’(으)로 적혀 있어요. 입력한 이름 ‘${typedName}’이 맞나요?`}</T>
+                <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                  <Button compact variant="outline" label={`‘${docName}’로 바꾸기`} disabled={busy} onPress={() => { setField("name", docName); setNotice(`상품명을 ‘${docName}’로 바꿨어요. 품종 등 다른 칸은 ‘정보 고치기’에서 확인해 주세요.`); }} />
+                  <Button compact variant="text" label="지금 이름이 맞아요" disabled={busy} onPress={() => { keepName(nameKey); setNameNoticeOff(nameKey); }} />
+                </View>
+              </View>
+            ) : null}
             {photoMissing ? (
               <View testID="photo-missing" style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#E9B980", gap: 8 }}>
                 <T variant="sub">상품 사진이 없어요. 대표 사진을 한 장 이상 넣어야 판매를 요청할 수 있어요.</T>
@@ -2378,20 +2407,6 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                           <T variant="heading" style={{ flex: 1 }}>{form.name}</T>
                           <Button compact variant="text" label="✎ 정보 고치기" onPress={() => setReviewSheet("info")} />
                         </View>
-                        {(() => {
-                          // DEV-452 (user review 11/28): a name that differs from the material, e.g. a typo, is pointed out.
-                          const docName = cleanProductName(docValue(review, target.id, "name") ?? "");
-                          if (!differs(form.name, docName) || nameNoticeOff === `${target.id}:${form.name}:${docName}`) return null;
-                          return (
-                            <View testID="name-mismatch" style={{ gap: 8, padding: 12, borderRadius: 10, backgroundColor: "#FFF4E5" }}>
-                              <T variant="sub">{`자료에는 상품명이 ‘${docName}’(으)로 적혀 있어요. 입력한 이름 ‘${form.name}’이 맞나요?`}</T>
-                              <View style={{ flexDirection: "row", gap: 8 }}>
-                                <Button compact variant="outline" label={`‘${docName}’로 바꾸기`} disabled={busy} onPress={() => setReviewSheet("info")} />
-                                <Button compact variant="text" label="지금 이름이 맞아요" disabled={busy} onPress={() => setNameNoticeOff(`${target.id}:${form.name}:${docName}`)} />
-                              </View>
-                            </View>
-                          );
-                        })()}
                           {reviewSheet === "info" ? (
                             <Sheet visible onClose={() => { if (!busy) setReviewSheet(null); }} title="상품 정보">
                               <View style={{ gap: 12 }}>
@@ -2544,9 +2559,26 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                               {reviewChrome && target ? (
                                 // Unfolded like the product editor's 내용 추가 (user review 11/28).
                                 <View testID="add-section-row" style={{ marginHorizontal: tokens.space.gutter, marginBottom: 12, gap: 8 }}>
+                                  {/* 크기 참고 is offered on the page with the size picture choice (user review 11/28). */}
+                                  {!(pageSections[target.id] ?? []).includes("sizePhoto") && !sizeCardOff ? (
+                                    <View testID="size-card" style={{ padding: 14, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: tokens.color.border, marginBottom: 8 }}>
+                                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                        {sourceModuleIcon("sizePhoto") ? <Image source={sourceModuleIcon("sizePhoto")!} accessible={false} resizeMode="contain" style={{ width: 24, height: 24 }} /> : null}
+                                        <T weight="semibold" style={{ flex: 1 }}>크기 참고</T>
+                                        <Button compact variant="text" label="이 섹션 빼기" disabled={busy || working} onPress={() => setSizeCardOff(true)} />
+                                      </View>
+                                      <T variant="caption" muted>귤 크기를 손 그림으로 보여 줄 수 있어요. 크기를 고르면 페이지에 넣기 전에 한 번 더 보여 드려요.</T>
+                                      <View style={{ flexDirection: "row", gap: 8 }}>
+                                        {([["small", "소과"], ["medium", "중과"], ["large", "대과"]] as const).map(([id, label]) => (
+                                          <Button key={id} compact variant="outline" label={label} disabled={busy || working} style={{ flex: 1 }}
+                                            onPress={() => setEditSection({ title: "크기 참고", moduleIds: ["sizePhoto"], add: true, illustration: `hand-citrus-${id}` })} />
+                                        ))}
+                                      </View>
+                                    </View>
+                                  ) : null}
                                   <T variant="caption" muted>내용 추가</T>
                                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                                    {SOURCE_MODULES.filter(([id]) => id !== "hero" && !(pageSections[target.id] ?? []).includes(id)).map(([id, label]) => {
+                                    {SOURCE_MODULES.filter(([id]) => id !== "hero" && !(id === "sizePhoto" && !sizeCardOff) && !(pageSections[target.id] ?? []).includes(id)).map(([id, label]) => {
                                       const artwork = sourceModuleIcon(id);
                                       return (
                                         <Pressable

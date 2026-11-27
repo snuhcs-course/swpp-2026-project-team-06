@@ -125,8 +125,10 @@ test("DEV-452 AC-SRC-1/5/10/11: required setup, generated page, check sheet and 
   expect(await sections()).toEqual(was);
 
   // 5b. A section the page does not have yet can be added (opens ready to type).
-  await page.getByTestId("add-section-row").getByRole("button", { name: "크기 참고 추가", exact: true }).click();
+  // 크기 참고 is offered on the page with the size picture choice (user review 11/28).
+  await page.getByTestId("size-card").getByRole("button", { name: "중과", exact: true }).click();
   await expect(page.getByText("크기 참고 추가", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByTestId("source-size-panel")).toBeVisible();
   await page.getByRole("dialog").locator("textarea").first().fill("지름 7~8cm 정도예요.");
   await page.getByRole("button", { name: "저장하고 닫기", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 20_000 });

@@ -192,11 +192,8 @@ function ModuleBody({
   mediaUrl,
   inset = 16,
   editing,
-  illustrationAccessory,
 }: {
   editing?: StoryEditing;
-  /** Shown under the size illustration on the owner's review page (change or remove it). */
-  illustrationAccessory?: ReactNode;
   module: StoryModule;
   mediaUrl: (uri: string) => string;
   inset?: number;
@@ -253,9 +250,6 @@ function ModuleBody({
           ))}
       {module.illustrationId && illustrations[module.illustrationId] ? (
         <Illustration id={module.illustrationId} inset={inset} />
-      ) : null}
-      {illustrationAccessory && module.illustrationId && illustrations[module.illustrationId] ? (
-        <View style={{ alignItems: "flex-end" }}>{illustrationAccessory}</View>
       ) : null}
     </View>
   );
@@ -413,11 +407,6 @@ export function ModuleStory({
                   module={module}
                   mediaUrl={mediaUrl}
                   editing={editing}
-                  illustrationAccessory={
-                    !editing && sectionAccessory && module.illustrationId
-                      ? sectionAccessory(module.id, [module.id], "크기 참고")
-                      : undefined
-                  }
                 />
               ))}
           </View>

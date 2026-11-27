@@ -55,6 +55,7 @@ export function PageCanvas({
   sectionAccessory,
   onlyIds,
   initialSelected,
+  initialIllustration,
   preview = false,
   emptyHint = false,
   showStoryTextHints = false,
@@ -83,6 +84,8 @@ export function PageCanvas({
   onlyIds?: string[];
   /** DEV-452 "섹션 추가": open with this (empty) module ready to type into. */
   initialSelected?: string;
+  /** Size picture to start with when the 크기 참고 section opens from a size choice (DEV-452). */
+  initialIllustration?: string;
   preview?: boolean;
   /** 새 상품 채우기 화면(DEV-184): 빈 글 칸을 점선 네모 + '여기를 채워 주세요'로 보인다. */
   emptyHint?: boolean;
@@ -170,6 +173,16 @@ export function PageCanvas({
     m.texts.some((t) => t.value.trim()) ||
     m.photos.length > 0 ||
     !!m.illustrationId;
+  const illustrationApplied = useRef(false);
+  useEffect(() => {
+    if (!initialIllustration || illustrationApplied.current) return;
+    illustrationApplied.current = true;
+    update("sizePhoto", (n) => {
+      n.illustrationId = initialIllustration;
+      n.enabled = true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialIllustration]);
   // DEV-452 (user review 11/28): 크기 참고 is on the new page by default, so the size picture is easy
   // to find. Buyers see nothing until a size is chosen; the owner can take the card out.
   const sizeModule = displayModules.find((m) => m.id === "sizePhoto");
