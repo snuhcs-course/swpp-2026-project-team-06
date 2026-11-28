@@ -168,7 +168,7 @@ class ExtractionResponse:
     request_id: str | None
 
 
-def provider_schema():
+def provider_schema(output_model=Extraction):
     """Gemini rejects the combinatorial size of nested bounded arrays.
 
     Keep object/enum/required contracts on the wire; enforce length and count
@@ -186,10 +186,25 @@ def provider_schema():
             return [compact(v) for v in value]
         return value
 
-    return compact(Extraction.model_json_schema())
+    return compact(output_model.model_json_schema())
 
 
-def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=False):
+def extract(
+    mode,
+    model,
+    chunk,
+    targets,
+    images,
+    *,
+    prompt=PROMPT,
+    mock_empty=False,
+    output_model=Extraction,
+    reasoning_effort=None,
+):
+    if reasoning_effort not in {None, "low", "medium"}:
+        raise ExtractionError("UNSUPPORTED_REASONING_EFFORT")
+    if mode == "mock" and output_model is not Extraction:
+        raise ExtractionError("UNSUPPORTED_MOCK_SCHEMA")
     if mode == "mock":
         t23 = chunk["checksum"] in MOCK_T23_SHAS
         if chunk["checksum"] not in {MOCK_SHA, MOCK_REFINE_SHA, MOCK_FARM_SHA} and not t23:
@@ -272,7 +287,8 @@ def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=Fa
             reasoning = {
                 "google/gemini-3.1-flash-lite": {"enabled": False},
                 "google/gemini-3-flash-preview": {"effort": "minimal", "exclude": True},
-                "openai/gpt-6.1-sol": {"effort": "low", "exclude": True},
+                "openai/gpt-6.1-sol": {"effort": reasoning_effort or "low", "exclude": True},
+                "openai/gpt-6.2-astra": {"effort": reasoning_effort or "medium", "exclude": True},
             }[model]
             parts = [{"type": "text", "text": content[0]["text"]}]
             parts.extend(
@@ -288,9 +304,9 @@ def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=Fa
                 response_format={
                     "type": "json_schema",
                     "json_schema": {
-                        "name": "Extraction",
+                        "name": output_model.__name__,
                         "strict": True,
-                        "schema": provider_schema(),
+                        "schema": provider_schema(output_model),
                     },
                 },
                 max_tokens=settings.source_max_output_tokens,
@@ -307,7 +323,9 @@ def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=Fa
             if not result.choices or result.choices[0].finish_reason != "stop":
                 raise ExtractionError("INCOMPLETE_OR_REFUSED", usage=usage, request_id=result.id)
             try:
-                extraction = Extraction.model_validate_json(result.choices[0].message.content or "")
+                extraction = output_model.model_validate_json(
+                    result.choices[0].message.content or ""
+                )
             except ValidationError as exc:
                 raise ExtractionError(
                     "INVALID_MODEL_OUTPUT", usage=usage, request_id=result.id
@@ -317,8 +335,8 @@ def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=Fa
             model=model,
             instructions=prompt,
             input=[{"role": "user", "content": content}],
-            text_format=Extraction,
-            reasoning={"effort": "medium"},
+            text_format=output_model,
+            reasoning={"effort": reasoning_effort or "medium"},
             max_output_tokens=settings.source_max_output_tokens,
             store=False,
         )
