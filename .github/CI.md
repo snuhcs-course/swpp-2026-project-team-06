@@ -24,12 +24,14 @@ CI의 첫 job `changes`가 이벤트와 바뀐 파일로 길을 고르고(`scrip
 | `hotfix` | `hotfix` 라벨 PR(PR·큐·main push) | 바뀐 경로의 job만(린트·타입·pytest·Mock) | **안 돎**. 머지 뒤 **CI full**이 전체를 돈다 |
 | `full` | **CI full**(nightly 03:00 KST, hotfix 머지 뒤, 수동) | 전부 | spec 전체 |
 
-- **문서 전용**: 바뀐 파일이 전부 `docs` 묶음(`docs/**`(검증 코퍼스 `docs/spec/validation/**` 제외), 모든 `*.md`, `.github/tasks/**`, `.github/spec-check/**`, `.agents/**`, `Makefile`·`make/**`, `demo/**` 등)이면 어느 길이든 server·apps·admin-web·integration을 건너뛰고 `ci-ok`만 통과한다.
+- **문서 전용**: 바뀐 파일이 전부 `docs` 묶음(`docs/**`(검증 코퍼스 `docs/spec/validation/**` 제외), 모든 `*.md`, `.github/tasks/**`, `.github/spec-check/**`, `.agents/**`, `Makefile`·`make/**`, `demo/**` 등)이면 어느 길이든 server·apps·admin-web·integration을 건너뛰고 `collaboration`와 `ci-ok`만 돈다.
 - **스크립트 전용**: `scripts/admin-web/**`·`scripts/ci/**`(분류 파일 제외)만 바뀌면 admin-web job만 돈다.
 - **CI 자체**(`ci.yml`, `classify.mjs`, `integration-map.json`)가 바뀌면 모든 job과 spec 전체.
 - **모르는 경로**(어느 묶음에도 없는 파일)는 모든 job과 spec 전체(안전한 쪽). 새 최상위 폴더를 만들면 `integration-map.json`에 넣는다.
 - integration spec 고르기(`integration.map`, 위에서부터 첫 규칙): spec 파일 자체 → 그 spec, 출처 분석(`server/app/source_analysis/**`와 관련 packages 파일) → `source-*`·`new-product-*` 등, `server/app/admin/**` → `/admin`을 쓰는 spec, `apps/consumer/**` → 소스에 `consumerUrl|loginConsumer`가 있는 spec, `apps/producer/**` → `producerUrl|loginProducer`가 있는 spec. 공용(`packages/**`, 나머지 `server/**`, e2e helpers, lock 파일)은 전체. `server/tests/**`·Mock 테스트(`scripts/test-*.mjs`)는 integration 없음. EAS 업로드 목록 `.easignore`와 `scripts/eas.mjs`는 apps job(그 안의 `scripts/test-easignore.mjs`)만 돌고 integration은 없다(DEV-483).
 - `changes` job이 매번 `node --test scripts/ci/test-classify.mjs`와 `classify.mjs --check`(모든 spec이 어떤 규칙에 걸리는지, 격리 목록 형식)를 돈다. 로컬: `make test-ci`.
+- job `collaboration`(DEV-437)는 길·경로와 상관없이 매번 돈다: 팀 안내 페이지 두 판(영어판 `docs/collaboration/index.html`이 기본, 한국어판 `docs/collaboration/ko/index.html`)의 `data-agents` 값을 AGENTS.md 해당 절과, 저장소 링크를 파일·제목과 대조하고, 두 판의 id(절·단계)·페이지 안 링크·저장소 링크·값이 같은지 본다(`scripts/ci/check-collaboration.mjs`, 테스트 `test-check-collaboration.mjs`). PR·머지 큐에서 실패하면 `ci-ok`가 막고, main push에서는 경고만 남겨 배포를 멈추지 않는다. 로컬: `make test-ci`.
+- AGENTS.md의 검사 대상 문장이나, 페이지가 링크한 파일의 제목을 바꾸면 이 검사가 실패한다. 같은 PR에서 페이지를 고친다.
 - 분류가 놓친 영향은 nightly(**CI full**)가 잡는다. 실패하면 알림 이슈가 열린다.
 
 ### 샤드

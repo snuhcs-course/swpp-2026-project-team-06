@@ -4,6 +4,7 @@
 // - 접속 호스트가 운영 도메인(privacy.ts PRODUCTION_HOSTS, EXPO_PUBLIC_POSTHOG_HOSTS로 덮어씀)이 아니면
 //   켜지 않는다(DEV-125). Vercel 기본 주소·데모·localhost에서 연 운영 빌드가 실사용자 지표에 섞이지 않게.
 // - 사용자 구분은 내부 userId만(N-05). 이름·연락처·주소·메시지 본문은 보내지 않는다.
+// - 오류 추적(DEV-496): 잡히지 않은 예외·Promise 거부를 `$exception`으로 보낸다. 메시지의 개인정보는 before_send가 지운다.
 // Expo가 빌드 때 process.env.EXPO_PUBLIC_* 를 값으로 바꾼다. 앱 tsconfig에 Node 타입이 없어 여기서만 선언한다.
 declare const process: {
   env: {
@@ -23,6 +24,7 @@ import {
   isAllowedHost,
   maskText,
   parseHosts,
+  scrubException,
   scrubUrls,
   type AppEventName,
   type AppEvents,
@@ -60,6 +62,12 @@ function start(app: AppName): boolean {
     disable_surveys: true,
     disable_product_tours: true,
     disable_conversations: true,
+    // 오류 추적(DEV-496). 콘솔 오류는 보내지 않는다
+    capture_exceptions: {
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    },
     session_recording: {
       maskAllInputs: true,
       // 모든 글자를 maskTextFn에 넘기고, 개인정보 경로·영역이면 가린다
@@ -72,6 +80,7 @@ function start(app: AppName): boolean {
     before_send: (event) => {
       if (!event) return event;
       scrubUrls(event.properties);
+      scrubException(event.event, event.properties);
       scrubUrls(event.$set as Record<string, unknown> | undefined);
       scrubUrls(event.$set_once as Record<string, unknown> | undefined);
       return event;

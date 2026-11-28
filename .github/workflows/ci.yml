@@ -240,6 +240,34 @@ jobs:
         if: needs.changes.outputs.deploy_scripts == 'true'
         run: bash scripts/ci/test-deploy-changed.sh
 
+  # DEV-437: 팀 안내 페이지 두 판(docs/collaboration/index.html, docs/collaboration/ko/index.html)의 data-agents 값과 저장소 링크를 AGENTS.md·저장소와, 두 판끼리 대조한다.
+  # 바뀐 경로와 상관없이 매번 돈다(의존성 없음, 수 초). PR·머지 큐에서 실패하면 ci-ok가 막는다.
+  # main push(push·validated·hotfix 길, hotfix 뒤 CI full 포함)에서는 경고만 남겨, 문서 검사가 배포(workflow_run 성공 조건)를
+  # 멈추지 않게 한다. nightly·수동 CI full에서는 실패로 남아 알림 이슈가 열린다.
+  collaboration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Test the checker (fixtures)
+        id: test
+        continue-on-error: ${{ github.event_name == 'push' }}
+        run: node --test scripts/ci/test-check-collaboration.mjs
+
+      - name: Check docs/collaboration against AGENTS.md
+        id: check
+        continue-on-error: ${{ github.event_name == 'push' }}
+        run: node scripts/ci/check-collaboration.mjs
+
+      - name: Warn on main push
+        if: steps.test.outcome == 'failure' || steps.check.outcome == 'failure'
+        run: echo "::warning::docs/collaboration 안내 페이지가 AGENTS.md·저장소·다른 판과 어긋난다(main push라 막지 않음). 위 단계 로그를 보고 고친다."
+
   # DEV-234: 실제 스택(FastAPI + PostgreSQL + Expo 웹 2개) + Chromium. server·apps를 기다리지 않고 바로 시작하고,
   # changes가 고른 spec을 실행 시간 기준으로 나눈 샤드(최대 3개)에서 돈다. 샤드마다 DB·서버를 따로 띄운다.
   integration:
@@ -333,7 +361,7 @@ jobs:
 
   # DEV-234: 브랜치 보호·머지 큐의 필수 체크. 앞 job이 하나라도 실패·취소되면 실패, 건너뛴 것은 통과.
   ci-ok:
-    needs: [changes, server, apps, admin-web, integration]
+    needs: [changes, collaboration, server, apps, admin-web, integration]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2

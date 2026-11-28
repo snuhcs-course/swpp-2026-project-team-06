@@ -562,8 +562,9 @@ you came from and the pending action are kept), onboarding, home / farm / produc
 chat, photo attachment in chat, and in the producer app sign-up and photo upload. Check uploads and the
 new-product flow against a real server (a local one is enough), not in Mock mode: Mock sends no upload request,
 which is how a broken native upload reached ONE store review (DEV-493). Record each
-device in DEV-41 (model, OS version, install, login, problems). These builds send nothing to
-PostHog: the key is only set in the EAS `production` environment. Known limits: the ‘카카오톡으로
+device in DEV-41 (model, OS version, install, login, problems). These builds send PostHog events
+once an update reaches them: the OneStore apps are `internal` builds on the `preview` channel, so the key is
+set in both the `production` and `preview` environments (DEV-436); use a test account so the events are left out of analysis. Known limits: the ‘카카오톡으로
 로그인’ button inside the auth session may not switch to the KakaoTalk app (Kakao account
 login still works); producer source documents (PDF, text) attach on the web only.
 
@@ -635,7 +636,7 @@ Accounts, purchases and console changes are done by a person. In order:
 ## How we work
 
 1. Every change starts from an issue in Linear, synced with GitHub Issues.
-2. Branch from `main` using the issue's branch name. Issue keys go in branch names, commits, and PR titles, for example `[DEV-12] ...`.
+2. Create the branch directly from `origin/main` as `<github id>/<issue key in lowercase>-<2-5 word English summary>` (lowercase, digits and hyphens only; Linear's "Copy git branch name" adds the Korean title, so do not use it). Issue keys go in branch names, commits, and PR titles, for example `[DEV-12] ...`.
 3. Record scope and decisions in a new issue file in the code folder (`tasks/DEV-123.md`), then open a draft PR.
 4. Run an AI first-pass review, then get one human approval. CI must pass before merge.
 

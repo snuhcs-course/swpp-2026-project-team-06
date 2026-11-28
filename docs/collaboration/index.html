@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="farmclub collaboration map: the workflow, what people do, the layers of control, and links to the source rules">
+<meta name="robots" content="noindex">
+<title>farmclub collaboration map</title>
+<link rel="canonical" href="https://docs.farmclub.kr/collaboration/">
+<link rel="alternate" hreflang="en" href="https://docs.farmclub.kr/collaboration/">
+<link rel="alternate" hreflang="ko" href="https://docs.farmclub.kr/collaboration/ko/">
+<link rel="alternate" hreflang="x-default" href="https://docs.farmclub.kr/collaboration/">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!--
+  DEV-437 팀 협업 지도 영어판. 기본 판이라 공개 주소 /collaboration/에 나간다(11/27 오너 결정). 한국어판은 ko/index.html(/collaboration/ko/).
+  main에 머지되면 GitHub Pages(main의 /docs)가 그대로 올린다. 상대 링크는 ko/ 와 ./ 뿐이다.
+  규칙 문장의 원본은 이 페이지가 가리키는 한국어 문서(AGENTS.md, CI.md)다. 이 판은 규칙을 영어로 풀어 쓰고 원문 절로 연결한다.
+  예외: CI가 AGENTS.md와 글자 그대로 대조하는 data-agents 값은 한국어 원문을 두고 바로 뒤 괄호에 영어 풀이를 붙인다.
+  check-collaboration가 두 판을 같은 규칙으로 보고, 절 id·단계 id·페이지 안 링크·저장소 링크·data-agents 값이 두 판에서 같은지 대조한다. 어느 판도 예외가 아니다.
+  조판은 한국어판과 같고 줄 길이(본문 약 70~75자)와 줄바꿈 규칙만 영어에 맞춘다. 절 id는 바꾸지 않는다. 폴더 설명은 docs/collaboration/spec.md.
+-->
+<style>
+:root{
+  --bg:#FFFFFF; --ink:#111111; --ink-2:#55534E; --hair:#DEDCD6; --rule:#111111; --tint:#F4F3EF;
+  --accent:#C94F0C; --accent-ink:#A8420A; --uline:#A9A7A0;
+  --sans:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --fc-bg:#111111; --fc-fg:#F4F3EF; --fc-tint:rgba(244,243,239,.10); --fc-shadow:0 1px 2px rgba(17,17,17,.10),0 6px 18px rgba(17,17,17,.12);
+  --pad:40px; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#121211;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1C1B19;--accent:#EC7F45;--accent-ink:#EC7F45;--uline:#6E6C66;--fc-bg:#EEEDE8;--fc-fg:#121211;--fc-tint:rgba(18,18,17,.08);--fc-shadow:0 1px 2px rgba(0,0,0,.30),0 6px 18px rgba(0,0,0,.40);color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#121211;--ink:#EEEDE8;--ink-2:#A8A69F;--hair:#34332F;--rule:#EEEDE8;--tint:#1C1B19;--accent:#EC7F45;--accent-ink:#EC7F45;--uline:#6E6C66;--fc-bg:#EEEDE8;--fc-fg:#121211;--fc-tint:rgba(18,18,17,.08);--fc-shadow:0 1px 2px rgba(0,0,0,.30),0 6px 18px rgba(0,0,0,.40);color-scheme:dark}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:28px;font-variant-numeric:tabular-nums;overflow-wrap:break-word;word-break:keep-all}
+.page{max-width:calc(1200px + 2 * var(--pad));margin:0 auto;padding:0 var(--pad) 96px}
+.g12{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px}
+h1,h2,h3,p,ol,ul,dl,dd{margin:0}
+ol,ul{padding:0;list-style:none}
+a{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-decoration-color:var(--uline);text-underline-offset:4px}
+a:hover{color:var(--accent-ink);text-decoration-color:currentColor}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+code{font-family:var(--mono);font-size:max(13px,.875em);background:var(--tint);padding:1px 4px;border-radius:2px;overflow-wrap:anywhere;word-break:normal}
+/* 한글이 섞인 코드는 고정폭 글꼴에 한글이 없어 자간이 벌어지므로 본문 글꼴로 */
+code.h{font-family:var(--sans);font-size:.94em}
+.mut{color:var(--ink-2)}
+.cap{font-size:13px;line-height:20px;color:var(--ink-2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* 머리 */
+header.top{padding-top:48px}
+
+h1{grid-column:1/-1;font-size:72px;line-height:76px;font-weight:600;letter-spacing:-.04em}
+.intro{grid-column:1/9;margin-top:28px;display:grid;gap:12px;font-size:19px;line-height:32px;letter-spacing:-.01em}
+.toc{margin-top:56px;border-top:1px solid var(--rule);padding-top:12px}
+.toc h2{grid-column:1/4;font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2);padding-top:12px}
+.toc ol{grid-column:4/13;columns:2;column-gap:24px}
+.toc li{break-inside:avoid}
+.toc a{display:flex;align-items:center;min-height:44px;text-decoration:none;border-bottom:1px solid var(--hair)}
+.toc a:hover{color:var(--accent-ink)}
+
+/* 절: 제목은 왼쪽 세 열, 내용은 나머지 */
+section.sec{margin-top:112px;border-top:1px solid var(--rule);padding-top:20px;scroll-margin-top:64px}
+.sec > h2{grid-column:1/4;align-self:start;position:sticky;top:68px;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.025em}
+.sec > .c{grid-column:4/13;display:grid;gap:20px;align-content:start;min-width:0}
+.sec > .c > p,.sec > .c > ul.plain,.part > p{max-width:40em}
+h3{font-size:18px;line-height:28px;font-weight:600;letter-spacing:-.01em}
+.part{margin-top:24px;display:grid;gap:12px;scroll-margin-top:64px}
+ul.plain{display:grid;gap:6px}
+ul.plain li{padding-left:18px;position:relative}
+ul.plain li::before{content:"";position:absolute;left:0;top:13px;width:8px;height:1px;background:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+/* 승인 표지: 사람이 확인해야 다음 단계로 가는 곳 */
+.gate{display:inline-flex;align-items:center;gap:6px;font-size:13px;line-height:20px;font-weight:600;color:var(--accent-ink);white-space:nowrap;vertical-align:1px;margin-right:4px}
+.gate::before{content:"";width:8px;height:8px;background:var(--accent);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+/* 작업 순서 표: 행은 AGENTS.md 단계, 열은 하는 쪽 */
+.wide{grid-column:1/-1;margin-top:28px}
+.lane-h,.lane li{display:grid;grid-template-columns:150px minmax(0,1.15fr) minmax(0,1.15fr) minmax(0,.9fr) 230px;column-gap:24px}
+.lane-h{padding:10px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.lane-h span{font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2)}
+.lane li{padding:14px 0;border-bottom:1px solid var(--hair);font-size:15px;line-height:24px}
+.lane .st{font-weight:600;font-size:16px}
+.lane .st i{font-style:normal;font-family:var(--mono);font-size:13px;color:var(--ink-2);display:inline-block;width:22px}
+.lane .c{display:block;min-width:0}
+.lane .rec{font-size:13px;line-height:20px;color:var(--ink-2);padding-top:2px}
+.lane .rec code{background:none;padding:0;font-size:13px}
+.lane .lk{display:none}
+.forks{grid-column:4/13;margin-top:20px;display:grid;gap:8px;max-width:48em}
+.forks li{font-size:15px;line-height:24px}
+
+/* 표 */
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px;line-height:24px}
+th,td{text-align:left;vertical-align:top;padding:12px 24px 12px 0;border-bottom:1px solid var(--hair)}
+th:last-child,td:last-child{padding-right:0}
+thead th{font-size:13px;line-height:20px;font-weight:600;color:var(--ink-2);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding-top:10px;padding-bottom:10px}
+tr.grp th{font-size:15px;font-weight:600;color:var(--ink);padding-top:24px;border-bottom:1px solid var(--rule)}
+td.nm{font-weight:600}
+td.nw{white-space:nowrap}
+
+/* 고위험 경로 */
+.paths{display:grid;grid-template-columns:140px minmax(0,1fr);border-top:1px solid var(--rule)}
+.paths dt,.paths dd{padding:10px 0;border-bottom:1px solid var(--hair);font-size:15px;line-height:24px}
+.paths dt{color:var(--ink-2);font-size:13px;font-weight:600}
+.paths dd{display:flex;flex-wrap:wrap;gap:6px 8px}
+
+/* 이름 규칙 */
+.names{border-top:1px solid var(--rule);max-width:860px}
+.name{display:grid;grid-template-columns:80px minmax(0,1fr) auto;column-gap:24px;align-items:center;padding:14px 0;border-bottom:1px solid var(--hair)}
+.name > .k{font-size:13px;font-weight:600;color:var(--ink-2)}
+.name .v{display:grid;gap:2px;min-width:0}
+.name .v > code{background:none;padding:0;font-size:15px;line-height:24px;overflow-wrap:normal}
+.name .ex{font-size:13px;line-height:20px;color:var(--ink-2)}
+.name .ex code{background:none;padding:0;color:var(--ink-2)}
+button.copy{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--ink);background:transparent;color:var(--ink);border-radius:0;padding:0 16px;min-height:44px;cursor:pointer}
+button.copy:hover{background:var(--ink);color:var(--bg)}
+
+pre{font-family:var(--mono);font-size:13px;line-height:22px;background:var(--tint);padding:14px 16px;margin:0;overflow-x:auto}
+
+/* 찾아보기 */
+.idx{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;row-gap:48px}
+.idx > div{border-top:1px solid var(--hair);padding-top:14px;display:grid;gap:10px;align-content:start;scroll-margin-top:64px;min-width:0}
+.idx > div.span{grid-column:1/-1}
+.idx p,.idx li{font-size:15px;line-height:24px}
+
+footer.foot{margin-top:112px;border-top:1px solid var(--rule);padding-top:20px;scroll-margin-top:64px}
+footer.foot h2{grid-column:1/4;font-size:18px;line-height:28px;font-weight:600}
+footer.foot .c{grid-column:4/13;display:grid;gap:12px;max-width:44em;font-size:15px;line-height:24px}
+
+/* 위 바: 페이지 이름(제목이 지나간 뒤) · 절 링크(지금 절 표시) · 언어 바꾸기. 높이 48, 바탕색, 아래 가는 선 하나 */
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+[id]{scroll-margin-top:64px}
+.skip{position:absolute;left:16px;top:-64px;z-index:20;background:var(--bg);color:var(--ink);border:1px solid var(--ink);padding:10px 14px;font-size:15px;line-height:24px;text-decoration:none}
+.skip:focus{top:2px}
+.bar{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--hair)}
+.bar-in{max-width:calc(1200px + 2 * var(--pad));margin:0 auto;padding:0 var(--pad);height:48px;display:flex;align-items:center;gap:24px}
+.bar-name{flex:none;font-size:15px;line-height:20px;font-weight:600;text-decoration:none;white-space:nowrap}
+.js .bar:not(.past) .bar-name{visibility:hidden}
+.bar-toc li a{color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.bar a[aria-current]{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-thickness:1px;text-decoration-color:var(--ink);text-underline-offset:6px}
+.bar-toc li a:hover,.lang-sw a:hover{color:var(--ink)}
+.bar-toc{flex:1}
+.bar-ctl{display:contents}
+.bar-toc summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;height:48px;font-size:15px;line-height:20px;font-weight:600}
+.bar-toc summary::-webkit-details-marker{display:none}
+.bar-toc[open] summary{text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:1px}
+.bar-toc ol{position:absolute;left:0;right:0;top:48px;background:var(--bg);border-bottom:1px solid var(--rule);padding:0 var(--pad) 8px}
+.bar-toc li a{display:flex;align-items:center;min-height:44px;border-bottom:1px solid var(--hair);font-size:16px}
+.lang-sw{flex:none;margin-left:auto;display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;color:var(--ink-2)}
+.lang-sw a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink-2);text-decoration:none}
+/* 넓은 화면(1200 이상): 위에는 아무것도 붙이지 않고, 화면 아래 가운데에 떠 있는 조작부(.fc) 하나. 좁은 화면 바(.bar)는 숨긴다.
+   먹색 면(어두운 테마는 종이색 면)으로 본문과 갈라지고, 두 부분: [‹ › 지금 절·단계 ▴] | [EN 한국어].
+   목록은 바와 같은 폭으로 8px 위에 열리고, 작업 순서 아래에 여덟 단계를 들여 보인다. 아래 2px 진행선. 모서리 11, 주황 없음. */
+.fc{display:none}
+@media (min-width:1200px){
+  .bar{display:none}
+  .fc{display:block;position:fixed;z-index:20;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom, 0px))}
+  .fc-bar{position:relative;display:flex;align-items:center;height:44px;min-width:320px;max-width:480px;padding:0 6px;background:var(--fc-bg);color:var(--fc-fg);border-radius:11px;box-shadow:var(--fc-shadow);font-size:13px;line-height:20px}
+  .fc button{appearance:none;-webkit-appearance:none;border:0;margin:0;padding:0;background:none;color:inherit;font:inherit;font-size:18px;line-height:32px;width:32px;height:32px;border-radius:7px;cursor:pointer;opacity:.8;flex:none}
+  .fc button:hover{opacity:1;background:var(--fc-tint)}
+  .fc button:disabled{opacity:.28;cursor:default;background:none}
+  .fc-toc{flex:1 1 auto;min-width:0}
+  .fc-label{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;margin-left:2px;border-radius:7px;font-weight:600;min-width:0}
+  .fc-label::-webkit-details-marker{display:none}
+  .fc-label:hover{background:var(--fc-tint)}
+  .fc-cur{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fc-caret{flex:none;font-size:13px;opacity:.7}
+  .fc-caret::before{content:"\25B4"}
+  .fc-toc[open] .fc-caret::before{content:"\25BE"}
+  .fc-div{flex:none;width:1px;height:20px;margin:0 6px;background:var(--fc-fg);opacity:.18}
+  .fc-lang{flex:none;display:flex;gap:2px}
+  .fc-lang a{display:flex;align-items:center;height:32px;padding:0 8px;border-radius:7px;color:inherit;text-decoration:none;opacity:.6}
+  .fc-lang a[aria-current]{opacity:1;font-weight:500}
+  .fc-lang a:hover{opacity:1;background:var(--fc-tint)}
+  .fc :focus-visible{outline:2px solid var(--fc-fg);outline-offset:2px}
+  .fc-list{position:absolute;left:0;right:0;bottom:calc(100% + 8px);max-height:calc(100vh - 120px);overflow:auto;padding:8px 6px;background:var(--fc-bg);color:var(--fc-fg);border-radius:11px;box-shadow:var(--fc-shadow)}
+  .fc-toc[open] .fc-list{animation:fc-in .12s ease-out}
+  .fc-head{margin:0;padding:4px 12px 6px;font-size:13px;line-height:20px;font-weight:600;opacity:.55}
+  .fc-list ol{list-style:none;margin:0;padding:0}
+  .fc-list a{position:relative;display:flex;align-items:center;height:36px;padding:0 12px;border-radius:7px;color:inherit;text-decoration:none;font-size:14px;line-height:20px;white-space:nowrap;opacity:.7}
+  .fc-list a:hover,.fc-list a:focus-visible{opacity:1;background:var(--fc-tint)}
+  .fc-list a[aria-current]{opacity:1;font-weight:600}
+  .fc-list a[aria-current]::before{content:"";position:absolute;left:2px;top:9px;bottom:9px;width:2px;border-radius:1px;background:var(--fc-fg)}
+  .fc-list .fc-steps a{padding-left:30px;font-size:13px}
+  .fc-steps .n{display:inline-block;width:20px;font-family:var(--mono);font-size:13px;opacity:.7}
+  .fc-prog{position:absolute;left:12px;right:12px;bottom:0;height:2px;border-radius:1px;background:var(--fc-fg);opacity:.5;transform-origin:left center;transform:scaleX(0)}
+  [id],section.sec,.part,.idx > div,footer.foot{scroll-margin-top:24px}
+  .sec > h2{top:24px}
+  header.top{padding-top:96px}
+  .page{padding-bottom:160px}
+}
+@keyframes fc-in{from{opacity:0;transform:translateY(4px)}}
+@media (prefers-reduced-motion:reduce){.fc-toc[open] .fc-list{animation:none}}
+@media (max-width:560px){.bar-name{display:none}}
+
+/* 작업 순서 표 위 단계 줄과 단계 링크 */
+.strip{display:flex;flex-wrap:wrap;margin-bottom:16px;font-size:15px;line-height:24px}
+.strip li{display:flex;align-items:center}
+.strip li + li::before{content:"·";color:var(--ink-2);padding:0 10px}
+.strip a{display:inline-flex;align-items:center;min-height:44px;text-decoration:none;white-space:nowrap}
+.strip a:hover{text-decoration:underline}
+.strip a span{font-family:var(--mono);font-size:13px;color:var(--ink-2);margin-right:6px}
+/* 작업 순서는 표가 전폭이라 절 제목을 고정하면 표 위에 겹친다 */
+#flow > h2{position:static}
+.lane li{position:relative}
+.lane li:target::before{content:"";position:absolute;left:-12px;top:0;bottom:0;width:2px;background:var(--ink)}
+.lane .st a.no{font-family:var(--mono);font-size:13px;color:var(--ink-2);display:inline-block;width:22px;text-decoration:none}
+.lane .st a.no:hover{color:var(--ink);text-decoration:underline}
+@media (max-width:860px){
+  .strip{flex-wrap:nowrap;overflow-x:auto;margin:0 calc(-1 * var(--pad)) 12px;padding:0 var(--pad);scrollbar-width:thin}
+  .lane li:target::before{left:-10px}
+}
+
+/* 좁은 화면: 한 열. 작업 순서 표는 단계마다 한 덩어리 */
+@media (max-width:860px){
+  :root{--pad:16px}
+  .g12{grid-template-columns:minmax(0,1fr)}
+  .g12 > *{grid-column:1/-1 !important}
+  header.top{padding-top:32px}
+  h1{font-size:48px;line-height:52px}
+  .intro{margin-top:20px;font-size:17px;line-height:28px}
+  .toc{margin-top:40px}.toc ol{columns:1}
+  section.sec{margin-top:72px}
+  .sec > h2{position:static;font-size:24px;line-height:32px;margin-bottom:16px}
+  .lane-h{display:none}
+  .lane li{grid-template-columns:minmax(0,1fr);row-gap:6px;padding:14px 0}
+  .lane .c{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:8px}
+  .lane .c:empty{display:none}
+  .lane .lk{display:block;font-size:13px;line-height:24px;font-weight:600;color:var(--ink-2)}
+  .lane .rec .lk{line-height:20px}
+  .forks{margin-top:16px}
+  .paths{grid-template-columns:1fr}.paths dt{border-bottom:0;padding-bottom:0}
+  .name{grid-template-columns:minmax(0,1fr) auto}.name > .k{grid-column:1/-1}
+  .idx{grid-template-columns:1fr;row-gap:36px}
+  table{min-width:600px}
+  .tbl::before{content:"표는 옆으로 밀어 볼 수 있다";display:block;font-size:13px;color:var(--ink-2);padding-bottom:6px}
+}
+
+/* 인쇄·PDF: 한 열, 버튼·차례 없음, 표의 행이 쪽을 넘어 갈라지지 않게 */
+@media print{
+  @page{size:A4;margin:16mm 14mm}
+  body{font-size:10pt;line-height:1.6}
+  .page{padding:0}
+  .toc,button.copy,.bar,.fc,.skip{display:none}
+  .strip a span{color:inherit}
+  h1{font-size:36pt;line-height:1}
+  .sec > h2{position:static}
+  section.sec{margin-top:24pt}
+  .lane li,tr,.name{break-inside:avoid}
+  a{text-decoration:none}
+}
+
+/* 영어판: keep-all을 풀고, 본문 줄 길이를 약 70~75자로 */
+body{word-break:normal;overflow-wrap:break-word;hyphens:manual}
+.sec > .c > p,.sec > .c > ul.plain,.part > p,.forks{max-width:36em}
+.intro p{max-width:37em}
+footer.foot .c{max-width:38em}
+@media (max-width:860px){.tbl::before{content:"Tables scroll sideways"}}
+@media (min-width:861px){.lane-h,.lane li{grid-template-columns:150px minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1fr) 230px}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<nav class="bar" aria-label="Sections">
+  <div class="bar-in">
+    <a class="bar-name" href="#top">Collaboration map</a>
+    <div class="bar-ctl">
+      <details class="bar-toc"><summary>Contents</summary><ol><li><a href="#flow">Workflow</a></li><li><a href="#roles">What people do</a></li><li><a href="#controls">Layers of control</a></li><li><a href="#names">Naming</a></li><li><a href="#checks">PR checks and merging</a></li><li><a href="#screens">Changing a screen</a></li><li><a href="#limits">Known limits</a></li><li><a href="#ref">Reference</a></li></ol></details>
+      <span class="lang-sw" role="group" aria-label="Language"><a href="./" hreflang="en" lang="en" aria-current="page">EN</a><span aria-hidden="true">|</span><a href="ko/" hreflang="ko" lang="ko">한국어</a></span>
+    </div>
+  </div>
+</nav>
+<nav class="fc" aria-label="Page navigation">
+  <div class="fc-bar">
+    <button type="button" class="fc-prev" aria-label="Previous section or step" hidden>&#8249;</button><button type="button" class="fc-next" aria-label="Next section or step" hidden>&#8250;</button>
+    <details class="fc-toc">
+      <summary class="fc-label"><span class="sr">Contents: </span><span class="fc-cur">Collaboration map</span><span class="fc-caret" aria-hidden="true"></span></summary>
+      <div class="fc-list"><p class="fc-head" aria-hidden="true">Contents</p><ol><li><a href="#flow">Workflow</a><ol class="fc-steps"><li><a href="#step-1"><span class="n">1</span> Linear issue</a></li><li><a href="#step-2"><span class="n">2</span> Branch</a></li><li><a href="#step-3"><span class="n">3</span> spec</a></li><li><a href="#step-4"><span class="n">4</span> draft PR</a></li><li><a href="#step-5"><span class="n">5</span> Build</a></li><li><a href="#step-6"><span class="n">6</span> Review request</a></li><li><a href="#step-7"><span class="n">7</span> Address review</a></li><li><a href="#step-8"><span class="n">8</span> Merge</a></li></ol></li><li><a href="#roles">What people do</a></li><li><a href="#controls">Layers of control</a></li><li><a href="#names">Naming</a></li><li><a href="#checks">PR checks and merging</a></li><li><a href="#screens">Changing a screen</a></li><li><a href="#limits">Known limits</a></li><li><a href="#ref">Reference</a></li></ol></div>
+    </details>
+    <span class="fc-div" aria-hidden="true"></span>
+    <span class="fc-lang" role="group" aria-label="Language"><a href="./" hreflang="en" lang="en" aria-current="page">EN</a><a href="ko/" hreflang="ko" lang="ko">한국어</a></span>
+    <span class="fc-prog" aria-hidden="true"></span>
+  </div>
+</nav>
+<div class="page">
+
+<header class="top" id="top">
+  <div class="g12">
+    <h1>Collaboration map</h1>
+    <div class="intro">
+      <p>How the four people on the farmclub team (SWPP 2026, Team 6) work with AI coding agents. The rules themselves live in <code>AGENTS.md</code>. This page explains the order and the reasons, then links to the rule.</p>
+      <p>Code an agent writes still has to pass human review and the merge queue before it reaches main. Only two places actually block it by machine: the merge queue and the main ruleset. The rest is held by team rules.</p>
+      <p class="mut">AGENTS.md and the issue files are in Korean. Where this page shows a rule value that CI compares with AGENTS.md, it keeps the Korean original and gives an English gloss in parentheses. Everything else is paraphrased and links to the Korean section. A <a href="ko/" hreflang="ko">Korean edition</a> of this page has the same content.</p>
+    </div>
+  </div>
+  <nav class="toc g12" aria-label="Contents">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#flow">Workflow</a></li>
+      <li><a href="#roles">What people do</a></li>
+      <li><a href="#controls">Layers of control</a></li>
+      <li><a href="#names">Naming</a></li>
+      <li><a href="#checks">PR checks and merging</a></li>
+      <li><a href="#screens">Changing a screen</a></li>
+      <li><a href="#limits">Known limits</a></li>
+      <li><a href="#ref">Reference</a></li>
+    </ol>
+  </nav>
+</header>
+
+<main id="main">
+
+<section class="sec g12" id="flow">
+  <h2>Workflow</h2>
+  <div class="c">
+    <p>A PR goes through <b data-agents="steps" data-check="count">8</b> steps. The step numbers match <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#작업-순서-spec-anchored">작업 순서</a> (workflow) in AGENTS.md. A cell marked <span class="gate">approve</span> needs a person to check it before the next step. Each step number is a link you can share.</p>
+    <p class="mut" id="trace">The right-hand column is the real record left by DEV-434 (splitting the account-deletion sheet text by app; normal risk).</p>
+  </div>
+  <div class="wide" id="steps">
+    <ol class="strip" aria-label="Steps"><li><a href="#step-1"><span>1</span>Linear issue</a></li><li><a href="#step-2"><span>2</span>Branch</a></li><li><a href="#step-3"><span>3</span>spec</a></li><li><a href="#step-4"><span>4</span>draft PR</a></li><li><a href="#step-5"><span>5</span>Build</a></li><li><a href="#step-6"><span>6</span>Review request</a></li><li><a href="#step-7"><span>7</span>Address review</a></li><li><a href="#step-8"><span>8</span>Merge</a></li></ol>
+    <div class="lane-h" role="presentation"><span>Step</span><span>Person</span><span>AI agent</span><span>Automated</span><span>DEV-434 record</span></div>
+    <ol class="lane" role="list" data-agents-list="steps">
+      <li id="step-1"><span class="st"><a class="no" href="#step-1" aria-label="Link to step 1">1</a>Linear issue</span>
+        <span class="c"><span class="lk">Person</span><span>Fills in why and the done criteria, sets In Progress</span></span><span class="c"></span><span class="c"></span>
+        <span class="c rec"><span class="lk">Record</span><span><a href="https://linear.app/sswp6/issue/DEV-434">Linear DEV-434</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/762">GitHub #762</a></span></span></li>
+      <li id="step-2"><span class="st"><a class="no" href="#step-2" aria-label="Link to step 2">2</a>Branch</span>
+        <span class="c"><span class="lk">Person</span><span>Creates it from <code>origin/main</code> following the <a href="#names">naming rules</a></span></span><span class="c"></span><span class="c"></span>
+        <span class="c rec"><span class="lk">Record</span><code>nemodleo/dev-434-split-withdraw-kept-line</code></span></li>
+      <li id="step-3"><span class="st"><a class="no" href="#step-3" aria-label="Link to step 3">3</a>spec</span>
+        <span class="c"><span class="lk">Person</span><span><span class="gate">approve</span>Checks the scope, then the first commit</span></span>
+        <span class="c"><span class="lk">AI</span><span>Writes scope and decisions in the issue file (spec skill)</span></span><span class="c"></span>
+        <span class="c rec"><span class="lk">Record</span><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/packages/ui/tasks/DEV-434.md">packages/ui/tasks/DEV-434.md</a></span></li>
+      <li id="step-4"><span class="st"><a class="no" href="#step-4" aria-label="Link to step 4">4</a>draft PR</span>
+        <span class="c"></span><span class="c"><span class="lk">AI</span><span>Opens a draft PR (pr-context skill)</span></span><span class="c"></span>
+        <span class="c rec"><span class="lk">Record</span><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/768">PR #768</a></span></li>
+      <li id="step-5"><span class="st"><a class="no" href="#step-5" aria-label="Link to step 5">5</a>Build</span>
+        <span class="c"><span class="lk">Person</span><span>The author owns every line the agent wrote</span></span>
+        <span class="c"><span class="lk">AI</span><span>Implements the issue file. New decisions go into the issue file first</span></span><span class="c"></span>
+        <span class="c rec"><span class="lk">Record</span>4 commits (issue file, code, spec, captures)</span></li>
+      <li id="step-6"><span class="st"><a class="no" href="#step-6" aria-label="Link to step 6">6</a>Review request</span>
+        <span class="c"><span class="lk">Person</span><span>Marks ready, assigns one reviewer</span></span>
+        <span class="c"><span class="lk">AI</span><span>First AI review, fixes the musts (pr-review skill)</span></span>
+        <span class="c"><span class="lk">Auto</span><span>spec-check. Reports, does not block</span></span>
+        <span class="c rec"><span class="lk">Record</span><span><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/768#issuecomment-7081111085">AI review comment</a>, spec-check <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/45036911656">run</a></span></span></li>
+      <li id="step-7"><span class="st"><a class="no" href="#step-7" aria-label="Link to step 7">7</a>Address review</span>
+        <span class="c"><span class="lk">Person</span><span><span class="gate">approve</span>Human review. Close each comment with a commit or a reply</span></span><span class="c"></span><span class="c"></span>
+        <span class="c rec"><span class="lk">Record</span><span>No Approve. PR body <code class="h">사람이 한 일: 문장 결정(11/22)</code> (what the human did: decided the wording)</span></span></li>
+      <li id="step-8"><span class="st"><a class="no" href="#step-8" aria-label="Link to step 8">8</a>Merge</span>
+        <span class="c"><span class="lk">Person</span><span><span class="gate">approve</span>Tells it to merge, checks the deploy, writes the Linear result</span></span><span class="c"></span>
+        <span class="c"><span class="lk">Auto</span><span>Merge queue runs the required checks; only changed targets deploy</span></span>
+        <span class="c rec"><span class="lk">Record</span><span>Queue <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/45038045704">run</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/4a76c3cc71827208e242cf013940a35a7372b909">4a76c3c</a>, deploy <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/45039250148">run</a></span></span></li>
+    </ol>
+  </div>
+  <ul class="forks plain" aria-label="Exceptions">
+    <li>A failing spec-check does not block the merge. Instead, the reviewer does not approve until the author has posted a decision on it (<a href="#checks">PR checks and merging</a>).</li>
+    <li>A PR that touches a high-risk path does not reach <a href="#step-8">step 8</a> without human review. GitHub settings do not enforce this. The team rule does.</li>
+    <li>Only urgent production fixes use the <code>hotfix</code> label. They merge without integration tests, and CI full runs everything after the merge.</li>
+  </ul>
+</section>
+
+<section class="sec g12" id="roles">
+  <h2>What people do</h2>
+  <div class="c">
+    <p>The issue file scope, the first AI review and spec-check all take the issue file as their reference, and an agent wrote that file. If the issue file is wrong, all three miss the same thing. So people do the four things below, and human review reads the issue file as well as the diff.</p>
+    <ul class="plain">
+      <li><b>Scope check</b> (<a href="#step-3">step 3</a>). Read the allowed paths in the issue file before the first commit. Nothing blocks a change outside the scope by machine.</li>
+      <li><b>Human review</b> (<a href="#step-7">step 7</a>). Either another member's GitHub Approve, or the author reading the diff and writing it on the <code class="h">사람이 한 일:</code> (what the human did) line of the PR body. The agent only writes there what a person actually did.</li>
+      <li><b>Telling it to merge</b> (<a href="#step-8">step 8</a>). The agent does not merge unless a person tells it to. A high-risk PR without human review is not merged even then.</li>
+      <li><b>Deploy check</b> (<a href="#step-8">step 8</a>). Read the first line of the deploy log (<code>Comparing</code>), the last line (<code>Deploying</code>/<code>Skipping</code>), and the production response with curl. Do not trust the commit label in the Actions list.</li>
+    </ul>
+    <p class="cap">Source: AGENTS.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#사람에이전트-역할-swpp-126">people and agent roles</a>, pr-review <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/skills/pr-review/SKILL.md#2-사람-리뷰-리뷰어-1명">2. human review</a></p>
+
+    <div class="part" id="risk">
+      <h3><b data-agents="high-risk" data-check="count">16</b> high-risk paths</h3>
+      <p>TA feedback asked for a clear line between what agents do and what people do (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/tasks/SWPP-126.md">SWPP-126</a>). The line is drawn by path only, so nobody has to judge. If a PR changes any of these, its body says <code class="h">위험 등급: 고위험</code> (risk level: high) and human review is required.</p>
+      <dl class="paths">
+        <dt>Database schema</dt><dd><code data-agents="high-risk" data-check="set">server/migrations/**</code><code data-agents="high-risk" data-check="set">server/app/*/models.py</code></dd>
+        <dt>Accounts, auth, config</dt><dd><code data-agents="high-risk" data-check="set">server/app/accounts/**</code><code data-agents="high-risk" data-check="set">server/app/admin/**</code><code data-agents="high-risk" data-check="set">server/app/core/security.py</code><code data-agents="high-risk" data-check="set">server/app/core/config.py</code><code data-agents="high-risk" data-check="set">server/app/core/masking.py</code></dd>
+        <dt>Orders, product AI</dt><dd><code data-agents="high-risk" data-check="set">server/app/orders/**</code><code data-agents="high-risk" data-check="set">server/app/ai/**</code></dd>
+        <dt>Deploy config</dt><dd><code data-agents="high-risk" data-check="set">.github/workflows/**</code><code data-agents="high-risk" data-check="set">server/railway.json</code><code data-agents="high-risk" data-check="set">server/Dockerfile*</code><code data-agents="high-risk" data-check="set">**/vercel.json</code><code data-agents="high-risk" data-check="set">**/eas.json</code></dd>
+        <dt>Team rules</dt><dd><code data-agents="high-risk" data-check="set">AGENTS.md</code><code data-agents="high-risk" data-check="set">.agents/skills/**</code></dd>
+      </dl>
+    </div>
+
+    <div class="part" id="human-only">
+      <h3>Not given to agents</h3>
+      <p>People handle the production database, production shells (<code>railway ssh</code> and the like), production variables, GitHub settings (ruleset, labels, Pages) and the Vercel and Railway consoles themselves. An agent only prepares the command to run and how to check it (AGENTS.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#금지">prohibited</a>, CI.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/CI.md#사람이-할-설정-레포-관리자-에이전트는-바꾸지-않는다">settings people change</a>).</p>
+    </div>
+
+    <div class="part">
+      <h3>AI usage record</h3>
+      <p>The Linear result and the PR body record <code data-agents="ai-log" class="h">Agent 시간 / Tokens / Human 시간</code> (agent time / tokens / human time) in <span data-agents="ai-log">0.5시간 단위</span> (half-hour units). Without a run log, the time is estimated from start and end times and marked <code class="h">약</code> (about). Tokens are written only when the tool reports them, otherwise left blank. Human time is self-reported. This record says nothing about the quality of the result (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/tasks/SWPP-130.md">SWPP-130</a>).</p>
+      <p>Commits and PRs do not carry <code>Co-Authored-By: Claude</code> (SWPP-115). How AI was used, and cases where it was wrong, go in one line under "AI 사용" (AI usage) in the PR body. These lines feed the AI collaboration report for each iteration (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#ai-사용-기록">source</a>).</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec g12" id="controls">
+  <h2>Layers of control</h2>
+  <div class="c">
+    <p>Of eight layers, two block by machine: the merge queue (required checks) and the main ruleset. spec-check only reports. The rest are rules that people keep. What each layer misses is collected under <a href="#limits">known limits</a>.</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th style="width:19%">Layer</th><th style="width:19%">Who</th><th style="width:33%">Catches</th><th>Misses</th></tr></thead>
+        <tbody>
+          <tr class="grp"><th colspan="4">Blocked by machine</th></tr>
+          <tr><td class="nm">Merge queue and required checks</td><td>Automated</td><td>Tests picked by changed paths, run on the latest main; the check on this page</td><td>Checks that were not picked (the daily CI full covers them). <code>figma-line</code> runs on PRs only</td></tr>
+          <tr><td class="nm">main ruleset</td><td>GitHub</td><td>Direct push, force push and deletion on main; merges other than squash</td><td>Approval count (0), pushes after review</td></tr>
+          <tr class="grp"><th colspan="4">Report only</th></tr>
+          <tr><td class="nm">spec-check</td><td>Automated (CI-only key)</td><td>Mismatches between the diff and the issue file or FEAT acceptance criteria. PR content is treated as untrusted data (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/spec-check/prompt.txt">prompt.txt</a>)</td><td>Criteria and files not in the table. Its accuracy has never been measured</td></tr>
+          <tr class="grp"><th colspan="4">Kept by people</th></tr>
+          <tr><td class="nm">Issue file scope</td><td>Agent writes it, a person checks</td><td>Changes outside the scope, decisions that were not planned</td><td>An issue file that is wrong to begin with</td></tr>
+          <tr><td class="nm">First AI review</td><td>Agent (run by the author)</td><td>Diff not matching the criteria, <code>spec.md</code> or the issue file; scope drift; a missing risk level</td><td>The blind spots of the agent that wrote the code</td></tr>
+          <tr><td class="nm">Human review</td><td>Person</td><td>The issue file itself; the diff against FEAT and <code>spec.md</code>. Required for high risk</td><td>A second pair of eyes when only the author reviewed; commits after review</td></tr>
+          <tr><td class="nm">Deploy check</td><td>Person</td><td>The commit that actually shipped and the production response</td><td>A check that was skipped</td></tr>
+          <tr class="grp"><th colspan="4">Per-person setup</th></tr>
+          <tr><td class="nm">Agent permissions</td><td>Author's local settings</td><td>With the example settings, the agent asks before push and merge and cannot read <code>.env</code></td><td>There is no shared setting. Without it the agent runs with the author's logins</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="sec g12" id="names">
+  <h2>Naming</h2>
+  <div class="c">
+    <p>Put the issue key in the branch name, the commit message and the PR title, and the PR links itself to the Linear issue. Write the rest in English. Linear's "Copy git branch name" put the Korean issue title into branch names, which broke link encoding and shell quoting, so the team does not use it (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/tasks/SWPP-119.md">SWPP-119</a>).</p>
+    <div class="names">
+      <div class="name"><span class="k">Branch</span><span class="v"><code data-agents="branch" class="h">&lt;github 아이디&gt;/&lt;이슈 키 소문자&gt;-&lt;영어 요약 2~5단어&gt;</code><span class="ex">(&lt;github id&gt;/&lt;issue key, lowercase&gt;-&lt;2 to 5 word English summary&gt;). Example: <code>nemodleo/dev-434-split-withdraw-kept-line</code></span></span><button class="copy" type="button" data-copy="nemodleo/dev-434-split-withdraw-kept-line" aria-label="Copy the branch example">Copy</button></div>
+      <div class="name"><span class="k">Commit</span><span class="v"><code data-agents="commit" class="h">type(scope): 요약 (DEV-12)</code><span class="ex">(요약 = summary). type is one of <code data-agents="commit" data-check="set">feat fix docs refactor test chore</code>. Example: <code>feat(ui): split withdraw sheet kept line by role (DEV-434)</code></span></span><button class="copy" type="button" data-copy="feat(ui): split withdraw sheet kept line by role (DEV-434)" aria-label="Copy the commit example">Copy</button></div>
+      <div class="name"><span class="k">PR title</span><span class="v"><code data-agents="pr-title">[DEV-12] &lt;English summary&gt;</code><span class="ex">Example: <code>[DEV-434] Split the withdraw sheet kept line for consumers and producers</code>. It becomes the squash commit title</span></span><button class="copy" type="button" data-copy="[DEV-434] Split the withdraw sheet kept line for consumers and producers" aria-label="Copy the PR title example">Copy</button></div>
+    </div>
+    <p class="sr" aria-live="polite" id="copy-status"></p>
+    <p>Do not rename a branch after the PR is open. GitHub closes the PR if you do. The main ruleset blocks direct pushes and force pushes to main (GitHub settings checked on 2026-11-23).</p>
+    <p class="cap">Source: AGENTS.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#브랜치커밋pr">branches, commits and PRs</a></p>
+  </div>
+</section>
+
+<section class="sec g12" id="checks">
+  <h2>PR checks and merging</h2>
+  <div class="c">
+    <p>The required checks in the main ruleset are <code data-agents="checks" data-check="set">ci-ok</code> <code data-agents="checks" data-check="set">figma-line</code> <code data-agents="checks" data-check="set">checker-tests</code>. CI skips jobs depending on which paths changed, so making each job required would let a skipped job block the merge. The last job, <code>ci-ok</code>, collects them instead. A skipped job counts as passed; a failed or cancelled job counts as failed (DEV-234, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/CI.md#ci-길lane--dev-234">CI.md lanes</a>).</p>
+    <div class="tbl"><table>
+      <thead><tr><th style="width:24%">Check</th><th>What it looks at</th></tr></thead>
+      <tbody>
+        <tr><td><code>ci-ok</code></td><td>The server, apps, admin-web and integration jobs picked for that lane, plus <code>collaboration</code> (this page). A docs-only PR skips server, apps and integration.</td></tr>
+        <tr><td><code>figma-line</code></td><td>Whether a PR that changes screen code has exactly one <code>Figma:</code> line in its body. Skipped in the merge queue.</td></tr>
+        <tr><td><code>checker-tests</code></td><td>Contract tests for the spec-check tool itself (no model, no key).</td></tr>
+        <tr><td><code>spec-code-review</code></td><td>Not required. The result is one of PASS, NO_FINDINGS, MISMATCH, INCOMPLETE, SKIPPED. NO_FINDINGS and SKIPPED are not PASS.</td></tr>
+      </tbody>
+    </table></div>
+    <p>spec-check is a model's judgement and can be wrong, so its result does not block the merge. When it fails, the author posts a PR comment with a decision (<span data-agents="spec-check">고침·스펙 변경·오탐·사람 리뷰 대체</span>: fix, spec change, false positive, or human review instead), and the reviewer does not approve before that comment exists. It runs on push, body edits and leaving draft for ready PRs (DEV-196, spec-check <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/spec-check/README.md#11-결과가-fail일-때">1.1</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/spec-check/README.md#3-실행과-결과">3</a>). Check the table format before pushing with <code>python3 .agents/skills/pr-context/check_table.py &lt;body file&gt;</code> (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/pull_request_template.md">PR template</a>).</p>
+
+    <div class="part" id="merge">
+      <h3>Merge queue and deploys</h3>
+      <p>A PR that only passed on an old main can break main once it lands. The merge queue tests the commit that combines the PRs ahead of it in line, and moves main to that commit if it passes. CI on the main push does not run again (the <code>validated</code> lane) when the same commit already passed in the queue.</p>
+      <p>Deploys ship only the targets that changed since the moving tag: <code>server/**</code> to Railway, the apps to Vercel, <code>scripts/admin-web/</code> to the Vercel admin page. Commits older than the tag are skipped, so a late run cannot roll production back (DEV-139). The deploy check is done with the log and curl, as described under <a href="#roles">what people do</a>.</p>
+      <p>If CI on main breaks, whoever merged fixes it or reverts right away. Other people's deploys stop while it is broken. On stacking PRs AGENTS.md says <span data-agents="stacking">DEV-126(CI·spec-check 트리거 수정) 전까지는 쌓지 않는다</span> (no stacking until DEV-126, the CI and spec-check trigger fix) (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#브랜치커밋pr">source</a>). DEV-126 was cancelled, though. See <a href="#limits">known limits</a>.</p>
+      <p class="cap">Source: <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/CI.md#머지-큐와-배포">CI.md merge queue and deploys</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/CI.md#hotfix-길">hotfix lane</a>, README <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/README.md#automatic-deploys-dev-65-dev-66">Automatic deploys</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="sec g12" id="screens">
+  <h2>Changing a screen</h2>
+  <div class="c">
+    <p>DEV-74 (PR #158) changed the producer login screen, but Figma kept the old one. Since then, any change to how a screen looks or what it says goes through a proposal board, approval, then development. The same PR updates Figma v6 or names a follow-up issue. Before and after captures of the main states go in the PR and in Linear.</p>
+    <div class="tbl"><table>
+      <thead><tr><th style="width:50%"><code>Figma:</code> line in the PR body</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td><code class="h">Figma: 반영함 — &lt;링크 또는 node-id&gt;</code><br><span class="cap">(updated, with a link or node-id)</span></td><td>The same PR updated <a href="https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G">Figma v6</a></td></tr>
+        <tr><td><code class="h">Figma: 해당 없음 — &lt;이유&gt;</code><br><span class="cap">(not applicable, with a reason)</span></td><td>The screen's look and text did not change</td></tr>
+        <tr><td><code class="h">Figma: 후속 — DEV-xx</code><br><span class="cap">(follow-up issue)</span></td><td>A later issue will fix Figma</td></tr>
+      </tbody>
+    </table></div>
+    <p><code>figma-line</code> checks only the format of the line. Whether Figma matches the code is checked by a person. The HTML screens in <code>docs/design/</code> are the record from iteration 1.</p>
+    <p class="cap">Source: DEV-88, AGENTS.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#제품-스펙-docsspec">product spec</a>, spec-check <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/spec-check/README.md#7-figma-줄-검사-dev-88">7. Figma line check</a>, docs/design <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/design/README.md#제안-보드-승인-전">proposal boards</a></p>
+  </div>
+</section>
+
+<section class="sec g12" id="limits">
+  <h2>Known limits</h2>
+  <div class="c">
+    <p>Only what we confirmed in repository files and GitHub settings. When something is fixed, the same PR removes it from this table. DEV-204 is the only one with an open issue.</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th style="width:42%">Limit</th><th style="width:33%">What we do now</th><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr class="grp"><th colspan="3">Human review</th></tr>
+          <tr><td>GitHub does not require an approval (0 required). A high-risk PR can pass on the author's own review, recorded as one line in the PR body.</td><td>The rule and the <code class="h">사람이 한 일:</code> line. In the SWPP-119 survey (10/22), 59 of the 60 PRs merged since 10/08 had no Approve.</td><td>GitHub settings (2026-11-23), <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/tasks/SWPP-119.md">SWPP-119</a></td></tr>
+          <tr><td>Pushes after review are not blocked, and a new commit does not dismiss an approval.</td><td>The reviewer writes down the commit they reviewed in the PR template and looks again at later changes.</td><td>GitHub settings (2026-11-23), <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/pull_request_template.md">PR template</a></td></tr>
+          <tr><td>CI does not check the <code class="h">위험 등급:</code> (risk level) line. High risk is defined by path only, so <code>scripts/ci/**</code> and <code>.github/spec-check/**</code>, which decide what gets checked, are not high risk.</td><td>The first AI review and human review look at it. Planned in DEV-204 (Backlog).</td><td><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/tasks/SWPP-126.md">SWPP-126</a></td></tr>
+          <tr class="grp"><th colspan="3">Automated checks</th></tr>
+          <tr><td>spec-check does not block merges. The <code>spec-check</code> environment has no protection rules, so a PR that edits the checker, prompt or workflow runs that edited code with the key.</td><td>A failing result needs a decision comment before Approve. People look at such PRs first.</td><td>GitHub settings (2026-11-23), <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/spec-check/README.md#1-관리자가-한-번-설정할-항목">spec-check README 1</a></td></tr>
+          <tr><td>spec-check's accuracy has never been measured. The model only gets what is in the PR table and the issue file, and the recorded model is <code>claude-sonnet-5-5</code>, possibly the same family as the agent that wrote the code.</td><td>Missing input gives INCOMPLETE. Human review is the last check.</td><td><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/spec-check/README.md#21-모델에-보내는-것안-보내는-것-dev-81">README 2.1</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/spec-check/EVIDENCE.md">EVIDENCE.md</a></td></tr>
+          <tr><td>PR CI picks integration specs by changed path and can miss an effect. Playwright also fails intermittently (on 11/05 a single external resource timeout stopped the main deploy).</td><td>The merge queue runs everything when related files change, and CI full runs daily. One retry in CI; tests that keep failing are quarantined.</td><td><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/CI.md#간헐-실패">CI.md intermittent failures</a></td></tr>
+          <tr><td>No CI check stops a secret from being committed.</td><td>Only the AGENTS.md rule and review.</td><td><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/.github/workflows">workflows</a></td></tr>
+          <tr class="grp"><th colspan="3">Agent permissions and operations</th></tr>
+          <tr><td>The limits on agents are rules. Agents run with the author's GitHub and Railway logins, and there is no shared permission setting.</td><td>Optional example settings (ask before push and merge, no reading <code>.env</code>).</td><td><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/examples/claude-settings.local.example.json">example file</a></td></tr>
+          <tr><td>Instructions inside issues, comments or web pages that a local agent reads are not blocked. Only spec-check treats them as untrusted data.</td><td>The author checks what the agent does.</td><td><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/spec-check/prompt.txt">prompt.txt</a></td></tr>
+          <tr><td>Anyone with label permission can add the <code>hotfix</code> label. When to use it is a rule.</td><td>CI full runs everything after the merge.</td><td><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/CI.md#hotfix-길">CI.md hotfix lane</a></td></tr>
+          <tr><td>PRs cannot be stacked. The prerequisite issue DEV-126 was cancelled (Linear, checked 2026-11-24), so the "until DEV-126" in AGENTS.md will never lift.</td><td>Merge the needed part of earlier work first as a small PR. How to reword the rule is not decided yet.</td><td><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/skills/pr-context/SKILL.md#pr-쌓기-a--b">pr-context stacking</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="sec g12" id="ref">
+  <h2>Reference</h2>
+  <div class="c">
+    <div class="idx">
+      <div id="where" class="span">
+        <h3>Where things are</h3>
+        <div class="tbl"><table>
+          <thead><tr><th style="width:22%">Tool</th><th style="width:44%">What is there</th><th>Sync</th></tr></thead>
+          <tbody>
+            <tr><td class="nw">Linear <code>DEV-xx</code></td><td>Development issues. The body is the work order (why / done criteria / log / result)</td><td>Two-way with GitHub Issues</td></tr>
+            <tr><td class="nw">Linear <code>SWPP-xx</code></td><td>Planning, research, design, meeting and document issues</td><td>Not synced with GitHub Issues. PRs link by issue key</td></tr>
+            <tr><td class="nw">GitHub Projects</td><td>The issue board graders look at</td><td>Checked by the PM</td></tr>
+            <tr><td class="nw">GitHub Wiki</td><td>Graded documents (English)</td><td>Generated from <code>docs/wiki/</code> on main</td></tr>
+            <tr><td class="nw">Schedule sheet</td><td>Iteration plan (P numbers such as <code>I1-P3</code>)</td><td>Updated by hand</td></tr>
+            <tr><td class="nw">Figma v6</td><td>The reference for how screens look, admin web included. <a href="https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G">Open</a></td><td>Updated in PRs that change screens</td></tr>
+            <tr><td class="nw">Test addresses</td><td><code data-agents="test-urls">farmclub-consumer.vercel.app</code>, <code data-agents="test-urls">farmclub-producer.vercel.app</code></td><td>Same server and database as production. PostHog is off here, so checks and captures happen here (DEV-125, DEV-236)</td></tr>
+          </tbody>
+        </table></div>
+        <p class="cap">Production addresses: README <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/README.md#domains-dev-69">Domains</a>. Source: AGENTS.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#프로젝트">project</a></p>
+      </div>
+      <div id="docs">
+        <h3>What we build, how we build it</h3>
+        <p><code>docs/spec/</code> is the source for behaviour, rules and acceptance criteria. Read <code>prd.md</code>, <code>functional/FEAT-xx-*.md</code>, <code>rules.md</code>, then <code>ia.md</code>. When documents disagree, ask instead of guessing.</p>
+        <p>In a code folder, <code>spec.md</code> holds implementation decisions and <code>tasks/&lt;issue key&gt;.md</code> is the record of one issue. Test names carry the acceptance criterion ID (<code>test_AC_09_1_...</code>). Why each issue gets its own file: <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/tech-design/adr/0014-per-issue-task-files.md">ADR 0014</a>.</p>
+        <p class="cap"><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/README.md#읽는-순서">reading order</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/README.md#문서끼리-다를-때">when documents disagree</a>, AGENTS.md <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#파일-구조">file layout</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/spec/tech-design/adr">ADRs</a>, README <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/README.md#local-run-make">Local run</a></p>
+      </div>
+      <div id="agents">
+        <h3>AGENTS.md and personal rules</h3>
+        <p><code>AGENTS.md</code> is the only source of team rules. Codex reads it directly; Claude Code reads it through <code>@AGENTS.md</code> in <code>CLAUDE.md</code>. Personal rules can only add to it, and the shared rule wins on conflict. Do not create <code>AGENTS.override.md</code> in the repo.</p>
+        <p>The shared skills are <code data-agents="skills" data-check="set">spec</code> (issue files), <code data-agents="skills" data-check="set">pr-context</code> (draft PR and body) and <code data-agents="skills" data-check="set">pr-review</code> (first AI review). Their source is <code>.agents/skills/</code>.</p>
+<pre>cp .agents/examples/CLAUDE.local.example.md CLAUDE.local.md
+cp .agents/examples/claude-settings.local.example.json .claude/settings.local.json
+cp .agents/examples/codex-AGENTS.example.md ~/.codex/AGENTS.md</pre>
+        <p class="cap"><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#개인-규칙-덧붙이기">personal rules</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#공용-스킬-agentsskills">shared skills</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.agents/skills/spec/SKILL.md">spec skill</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/AGENTS.md#spec-anchored-원칙-에이전트-필수">Spec-Anchored principles</a></p>
+      </div>
+      <div id="auto">
+        <h3>Automation</h3>
+        <p>Only when each one runs. What they do is described in <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/CI.md">.github/CI.md</a> and the header comment of each workflow.</p>
+        <ul class="plain">
+          <li><code>ci.yml</code>: PR push, merge queue, main push</li>
+          <li><code>ci-full.yml</code>: daily at 03:00 KST, after a hotfix merge, by hand</li>
+          <li><code>spec-check.yml</code>: PR opened, push, body edit, ready, merge queue</li>
+          <li><code>deploy-railway.yml</code>, <code>deploy-vercel.yml</code>: after CI on a main push succeeds</li>
+          <li><code>wiki-sync.yml</code>: when <code>docs/wiki/**</code> changes on main</li>
+          <li>GitHub Pages (settings): publishes <code>docs/</code> on every main push, this page included</li>
+        </ul>
+      </div>
+      <div id="meetings">
+        <h3>Meeting notes and the wiki</h3>
+        <p>The source is <code>docs/wiki/</code>, which overwrites the wiki when it merges to main. Edits made on the wiki page are lost. For meeting notes, copy <code>docs/wiki/meetings/_template.md</code> to <code>YYYY-MM-DD-english-summary.md</code> and write in English. TAs read these, so leave out personal, company and tax details.</p>
+        <p class="cap"><a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/wiki/README.md">docs/wiki/README.md</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/.github/workflows/wiki-sync.yml">wiki-sync.yml</a></p>
+      </div>
+      <div id="faq">
+        <h3>Common snags</h3>
+        <ul class="plain">
+          <li>The merge button does nothing: read the log of the red required check. Human review is separate even when it works.</li>
+          <li>The PR does not show up in Linear: the issue key in the branch, commit messages and PR title.</li>
+          <li>spec-check says INCOMPLETE: check the table format with <code>check_table.py</code> first.</li>
+          <li>A deploy was skipped: the first line of the deploy log. Either nothing changed since the moving tag or CI on main failed.</li>
+          <li>Two migration heads: merge main, then run <code>alembic heads</code>. Whoever merges second renumbers.</li>
+          <li>The <code>collaboration</code> check is red: read the key, line, actual and expected values in the log and fix as described <a href="#upkeep">below</a>.</li>
+          <li>Commits do not count in Insights: check that <code>git config user.email</code> matches your GitHub email.</li>
+          <li>Stuck for over an hour: tell the PM.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot g12" id="upkeep">
+  <h2>Editing this page</h2>
+  <div class="c">
+    <p>The CI <code>collaboration</code> job (<a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/scripts/ci/check-collaboration.mjs">check-collaboration.mjs</a>) compares two things on every run. It checks the marked values for 11 keys (<code>branch</code> <code>commit</code> <code>pr-title</code> <code>checks</code> <code>high-risk</code> <code>steps</code> <code>skills</code> <code>ai-log</code> <code>spec-check</code> <code>test-urls</code> <code>stacking</code>) against the matching AGENTS.md sections, and checks repository links against the files and their headings. On PRs and in the merge queue a mismatch blocks; on a main push it only warns.</p>
+    <p>The Korean edition is checked the same way, and CI also fails if the two editions differ in section ids, step ids, in-page links, repository links or marked values. Change both editions in the same PR.</p>
+    <p class="mut">The check does not read prose, elements hidden with CSS or the content behind external links. Whoever changes a rule, and their reviewer, update the related section.</p>
+    <p class="cap">Source <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/collaboration/index.html">docs/collaboration/index.html</a>, <a href="https://github.com/snuhcs-course/swpp-2026-project-team-06/commits/main/docs/collaboration/index.html">history</a></p>
+  </div>
+</footer>
+</div>
+
+<script>
+// Copy buttons only. No network requests. If the clipboard is unavailable, select the example so it can be copied by hand.
+(function(){
+  var status=document.getElementById('copy-status');
+  function say(b,t){
+    b.textContent=t;
+    if(status){status.textContent='';setTimeout(function(){status.textContent=t;},50);}
+    clearTimeout(b._t);b._t=setTimeout(function(){b.textContent='Copy';},1500);
+  }
+  function select(b){
+    try{
+      var codes=b.parentNode.querySelectorAll('code');var c=codes[codes.length-1];
+      var r=document.createRange();r.selectNodeContents(c);var s=window.getSelection();s.removeAllRanges();s.addRange(r);
+      say(b,'Selected, copy by hand');
+    }catch(e){say(b,'Could not copy');}
+  }
+  var buttons=document.querySelectorAll('button.copy');
+  for(var i=0;i<buttons.length;i++){(function(b){
+    b.addEventListener('click',function(){
+      var t=b.getAttribute('data-copy')||'';
+      try{
+        if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(function(){say(b,'Copied');},function(){select(b);});}
+        else{select(b);}
+      }catch(e){select(b);}
+    });
+  })(buttons[i]);}
+})();
+</script>
+<script>
+// 위 바(좁은 화면)와 떠 있는 조작부(넓은 화면): 지금 절·단계 표시, 이전·다음, 진행선, 다른 언어 링크에 지금 위치 싣기.
+// JS가 없어도 차례 목록과 언어 링크는 그대로 이동한다(이전·다음 단추와 지금 위치 글은 없다). 외부 요청·저장 없음. 브라우저 언어로 옮기지 않는다.
+(function(){
+  document.documentElement.classList.add('js');
+  var bar=document.querySelector('.bar'), fc=document.querySelector('.fc'); if(!bar) return;
+  var wide=matchMedia('(min-width:1200px)');
+  // 절과 작업 순서 행, 문서 순서. 이전·다음은 이 순서로 걷는다(작업 순서 안에서는 1~8단계를 먼저).
+  var places=[].slice.call(document.querySelectorAll('main section.sec, .lane li[id]'));
+  var marks=[].slice.call(document.querySelectorAll('.bar-toc li a, .fc-list a'));
+  var others=[].slice.call(document.querySelectorAll('.lang-sw a:not([aria-current]), .fc-lang a:not([aria-current])'));
+  var bases=others.map(function(a){return a.getAttribute('href').split('#')[0];});
+  var tocs=[].slice.call(document.querySelectorAll('.bar-toc, .fc-toc'));
+  var h1=document.querySelector('h1'), queued=false, idx=-1;
+  var cur=fc&&fc.querySelector('.fc-cur'), page=cur?cur.textContent:'';
+  var prev=fc&&fc.querySelector('.fc-prev'), next=fc&&fc.querySelector('.fc-next'), prog=fc&&fc.querySelector('.fc-prog');
+  if(prev){prev.hidden=false; next.hidden=false;}
+  function link(id){ return fc&&fc.querySelector('.fc-list a[href="#'+id+'"]'); }
+  function update(){
+    queued=false;
+    // 기준선: 좁은 화면은 바 아래 24px, 넓은 화면은 위에서 48px. 착지 위치(64px, 넓은 화면 24px)보다 아래여야 방금 간 곳이 표시된다.
+    var line=wide.matches?48:bar.getBoundingClientRect().bottom+24, sec=null, place=null; idx=-1;
+    for(var i=0;i<places.length;i++){
+      if(places[i].getBoundingClientRect().top<=line){place=places[i]; idx=i; if(places[i].tagName==='SECTION') sec=places[i];}
+    }
+    var step=place&&place.tagName==='LI'?place:null;
+    for(var j=0;j<marks.length;j++){
+      var h=marks[j].getAttribute('href'), inFc=!!marks[j].closest('.fc');
+      var on=inFc?(step?h==='#'+step.id:(sec&&h==='#'+sec.id)):(sec&&h==='#'+sec.id);
+      if(on) marks[j].setAttribute('aria-current','true'); else marks[j].removeAttribute('aria-current');
+    }
+    for(var k=0;k<others.length;k++) others[k].setAttribute('href', bases[k]+(place?'#'+place.id:''));
+    if(cur){
+      var t=page;
+      if(sec){ var a=link(sec.id); t=a?a.textContent:t; }
+      if(step){ var s=link(step.id); if(s) t+=' · '+s.textContent; }
+      if(cur.textContent!==t) cur.textContent=t;
+    }
+    if(prev){ prev.disabled=idx<0; next.disabled=idx>=places.length-1; }
+    if(prog){ var m=document.documentElement.scrollHeight-innerHeight; prog.style.transform='scaleX('+(m>0?Math.min(1,scrollY/m):0)+')'; }
+    if(h1) bar.classList.toggle('past', h1.getBoundingClientRect().bottom<bar.getBoundingClientRect().bottom);
+  }
+  function soon(){ if(!queued){queued=true; requestAnimationFrame(update);} }
+  function go(id){ if(location.hash==='#'+id){ var e=document.getElementById(id); if(e) e.scrollIntoView(); } else location.hash='#'+id; }
+  if(prev){
+    prev.addEventListener('click', function(){ update(); go(idx>0?places[idx-1].id:'top'); });
+    next.addEventListener('click', function(){ update(); if(idx<places.length-1) go(places[idx+1].id); });
+  }
+  // 절이 화면보다 길어 IntersectionObserver의 비율 문턱은 기준선을 넘는 순간을 놓친다. 그래서 스크롤마다(프레임당 한 번) 계산한다.
+  addEventListener('scroll', soon, {passive:true});
+  addEventListener('resize', soon);
+  addEventListener('hashchange', soon);
+  others.forEach(function(a){ a.addEventListener('click', update); });
+  tocs.forEach(function(toc){
+    toc.addEventListener('click', function(e){ if(e.target.closest('li a')) toc.open=false; });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape' && toc.open){ toc.open=false; toc.querySelector('summary').focus(); } });
+    document.addEventListener('click', function(e){ if(toc.open && !toc.contains(e.target)) toc.open=false; });
+  });
+  update();
+})();
+</script>
+</body>
+</html>

@@ -159,3 +159,6 @@ Preserve the validated source-guided renderer as an optional page design. Store 
 Local recovery editor uses the actual private workspace endpoints and inline editing in the same source-guided layout, with photo replace/remove and explicit private save; it is not an arbitrary-upload generation implementation. User-confirmed r006 fixture and source bytes remain local/ignored. No static fixture is presented as a fresh generation result.
 
 DEV-452 local candidate adds versioned productWorkspace.saveSetup/generate (workspace plus batch version) and reviewPassage (passage binding, full pending snapshot and explicit action). Read-only private review/context/setup metadata cannot be replaced by page PUT. Generation run targets freeze current producer settings separately from document evidence.
+## DEV-494 관문 중 내 정보·배지
+- `keepUser`(`src/userState.ts`): 다시 읽은 내 정보가 이전과 같으면 이전 객체를 그대로 둔다. 두 앱 세션이 refresh에서 쓴다. 403 관문 응답마다 내 정보를 다시 읽어도 `[user]` effect가 요청을 되풀이하지 않는다.
+- `accountGated`: 비밀번호 변경·가입 온보딩·약관 재동의 관문이 남았는가. 탭 배지 같은 주기 요청은 이때 쉰다. 상세는 `apps/consumer/tasks/DEV-494.md`.

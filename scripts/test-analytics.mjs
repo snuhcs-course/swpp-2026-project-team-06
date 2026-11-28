@@ -13,9 +13,12 @@ import {
   isPrivatePath,
   parseHosts,
   maskText,
+  scrubErrorText,
+  scrubException,
   scrubUrls,
   stripQuery,
 } from "../packages/analytics/src/privacy.ts";
+import { ANR_THRESHOLD_MS, ANR_TICK_MS, createStallDetector } from "../packages/analytics/src/anr.ts";
 
 const inArea = { closest: (sel) => (sel === "[data-ph-private]" ? {} : null) };
 const outside = { closest: () => null };
@@ -195,9 +198,11 @@ test("DEV-312: app event names and allowed keys match the tracking plan", () => 
       "checkout_submitted",
       "deposit_reported",
       "product_viewed",
+      "app_not_responding",
       ...Object.keys(PRODUCER_EVENTS),
     ].sort(),
   );
+  assert.deepEqual([...allowedProps("app_not_responding")], ["blockedMs"]);
   for (const [event, keys] of Object.entries(PRODUCER_EVENTS))
     assert.deepEqual([...allowedProps(event)], keys, event);
   // 개인정보·글자를 담을 만한 키 이름은 어디에도 없다
@@ -285,4 +290,64 @@ test("DEV-312: draft and sale events keep IDs, enums and a non-negative duration
 test("DEV-312: enum values are short codes (no Korean text, no spaces)", () => {
   for (const [key, values] of Object.entries(ENUM_VALUES))
     for (const v of values) assert.match(v, /^[a-z_]+$/, `${key}=${v}`);
+});
+
+test("DEV-496: app_not_responding carries only the blocked time", () => {
+  assert.deepEqual(cleanProps("app_not_responding", { blockedMs: 6200, screen: "/me/profile", userName: "김귤" }), { blockedMs: 6200 });
+  assert.deepEqual(cleanProps("app_not_responding", { blockedMs: -5 }), {});
+});
+
+test("DEV-496: a freeze of 5 s or more is reported once, shorter delays are not", () => {
+  const d = createStallDetector(0);
+  assert.equal(d.tick(ANR_TICK_MS), null);
+  assert.equal(d.tick(2 * ANR_TICK_MS + 4000), null); // 4초 늦음
+  const t = 3 * ANR_TICK_MS + 4000 + ANR_THRESHOLD_MS;
+  assert.equal(d.tick(t), ANR_THRESHOLD_MS); // 정확히 5초 늦음
+  assert.equal(d.tick(t + ANR_TICK_MS), null); // 다음 tick은 다시 정상
+});
+
+test("DEV-496: time spent in the background is not counted as a freeze", () => {
+  const d = createStallDetector(0);
+  d.tick(ANR_TICK_MS);
+  d.reset(60_000); // 1분 뒤 앞으로 돌아옴
+  assert.equal(d.tick(60_000 + ANR_TICK_MS), null);
+});
+
+test("DEV-496 N-05: error messages lose emails, long numbers and URL queries", () => {
+  assert.equal(
+    scrubErrorText("Failed for kim@example.com at 010-1234-5678 acct 110 123 456789"),
+    "Failed for [email] at [number] acct [number]",
+  );
+  assert.equal(
+    scrubErrorText("GET https://api.farmclub.kr/orders?phone=01012345678&q=x failed"),
+    "GET https://api.farmclub.kr/orders failed",
+  );
+  assert.equal(scrubErrorText("Cannot read property 'id' of undefined (line 12)"), "Cannot read property 'id' of undefined (line 12)");
+  assert.equal(scrubErrorText("x".repeat(500)).length, 200);
+});
+
+test("DEV-496 N-05: $exception events keep type and code location but scrub message and file URLs", () => {
+  const props = {
+    $exception_message: "bad user kim@example.com",
+    $exception_list: [
+      {
+        type: "TypeError",
+        value: "order 20261128 for 010-9876-5432 failed",
+        stacktrace: {
+          type: "raw",
+          frames: [{ filename: "https://farmclub.kr/_expo/app.js?token=abc", function: "submit", lineno: 10, colno: 3 }],
+        },
+      },
+    ],
+  };
+  scrubException("$exception", props);
+  assert.equal(props.$exception_message, "bad user [email]");
+  const [ex] = props.$exception_list;
+  assert.equal(ex.type, "TypeError");
+  assert.equal(ex.value, "order [number] for [number] failed");
+  assert.deepEqual(ex.stacktrace.frames[0], { filename: "https://farmclub.kr/_expo/app.js", function: "submit", lineno: 10, colno: 3 });
+  // 다른 이벤트는 건드리지 않는다
+  const other = { note: "kim@example.com" };
+  scrubException("product_viewed", other);
+  assert.equal(other.note, "kim@example.com");
 });
