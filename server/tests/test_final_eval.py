@@ -1001,6 +1001,10 @@ def test_AC_SRC_2_8_synthetic_pdf_25_pages_runner_records_skips(monkeypatch):
         lambda image: [{"id": "s0", "text": "합성 구성: 감귤 7kg입니다.", "box": [0, 0, 1, 1]}],
     )
     monkeypatch.setattr(preprocess, "qr_regions", lambda image: [])
+    # DEV-452 raised the product cap to 60 pages; keep the 20-page cap this fixture was made for,
+    # so the runner's skip recording is still checked.
+    monkeypatch.setattr(preprocess, "PDF_PAGE_CAP", 20)
+    monkeypatch.setattr(ev, "PDF_PAGE_CAP", 20)
     r = {
         "id": case["id"],
         "format": "pdf",
