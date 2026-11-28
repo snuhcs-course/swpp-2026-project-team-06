@@ -194,6 +194,228 @@ def test_AC_SRC_8_layout_whitespace_recovers_original_quote_but_not_changed_fact
     assert canonical_quote(" ", "감귤 5kg") is None
 
 
+@pytest.mark.parametrize(
+    "quote,source,expected",
+    [
+        ("과즙이 풍부합니다.", "과즙이 풍부\n합니다.", "과즙이 풍부\n합니다."),
+        ("껍질에는 점이 있어요.", "껍질\n에는 점이 있어요.", "껍질\n에는 점이 있어요."),
+        ("과즙이 풍부합니다.", "제목\n과즙이 풍부\n합니다.\n다음", "과즙이 풍부\n합니다."),
+        ("과즙이 풍부합니다.", "과즙이 풍부 \r\n\t합니다.", "과즙이 풍부 \r\n\t합니다."),
+        ("과즙이\n풍부합니다.", "과즙이풍부합니다.", "과즙이풍부합니다."),
+    ],
+)
+def test_AC_SRC_8_DEV_453_hangul_line_wrap_returns_exact_source(quote, source, expected):
+    from app.source_analysis.worker import canonical_quote
+
+    assert canonical_quote(quote, source) == expected
+    assert expected in source
+
+
+@pytest.mark.parametrize(
+    "quote,source",
+    [
+        ("감귤 24kg", "감귤 2\n4kg"),
+        ("감귤 4kg", "감귤 4\nkg"),
+        ("2024년", "2024\n년"),
+        ("감귤4kg", "감귤\n4kg"),
+        ("과즙이풍부합니다.", "과즙이 풍부합니다."),
+        ("과즙이 풍부합니다.", "과즙이 풍부\n\n합니다."),
+        ("과즙이 풍부합니다.", "과즙이 풍부\n하지 않아요."),
+        ("‘감귤’", "‘감귤’이 아니라 ‘사과’".replace("‘감귤’", "’감귤’")),
+        ("감귤 | 4kg", "감귤 4kg"),
+        ("달콤한 감귤", "새콤한 감귤"),
+    ],
+)
+def test_AC_SRC_8_DEV_453_does_not_fuzz_numbers_spaces_or_content(quote, source):
+    from app.source_analysis.worker import canonical_quote
+
+    assert canonical_quote(quote, source) is None
+
+
+def test_AC_SRC_8_DEV_453_candidate_keeps_original_span_quote_and_value():
+    from app.source_analysis.worker import validate_candidates
+
+    chunk = {
+        "sourceId": "s",
+        "sourceRevision": 1,
+        "pages": [
+            {
+                "number": 1,
+                "spans": [{"id": "a", "text": "과즙이 풍부"}, {"id": "b", "text": "합니다."}],
+            }
+        ],
+    }
+    extraction = Extraction.model_validate(
+        {
+            "candidates": [
+                {
+                    "targetId": "t",
+                    "fieldKey": "taste",
+                    "value": "과즙이 풍부합니다.",
+                    "historical": False,
+                    "evidence": [
+                        {
+                            "sourceId": "s",
+                            "sourceRevision": 1,
+                            "page": 1,
+                            "spanIds": ["a", "b"],
+                            "quote": "과즙이 풍부합니다.",
+                        }
+                    ],
+                }
+            ],
+            "photoRequests": [],
+        }
+    )
+    accepted, diag = validate_candidates(extraction, chunk, {"t"})
+    assert diag["acceptedCount"] == 1 and diag["rejectedCount"] == 0
+    result = accepted.candidates[0]
+    assert result.value == "과즙이 풍부합니다."
+    assert result.evidence[0].quote == "과즙이 풍부\n합니다."
+    assert result.evidence[0].span_ids == ["a", "b"]
+    assert extraction.candidates[0].evidence[0].quote == "과즙이 풍부합니다."
+
+
+@pytest.mark.parametrize("bad", ["source", "revision", "page", "span", "historical", "private"])
+def test_AC_SRC_8_DEV_453_line_wrap_does_not_bypass_evidence_guards(bad):
+    from app.source_analysis.worker import validate_candidates
+
+    chunk = {
+        "sourceId": "s",
+        "sourceRevision": 1,
+        "pages": [
+            {
+                "number": 1,
+                "spans": [{"id": "a", "text": "과즙이 풍부"}, {"id": "b", "text": "합니다."}],
+            }
+        ],
+    }
+    evidence = {
+        "sourceId": "s",
+        "sourceRevision": 1,
+        "page": 1,
+        "spanIds": ["a", "b"],
+        "quote": "과즙이 풍부합니다.",
+    }
+    data = {
+        "targetId": "t",
+        "fieldKey": "taste",
+        "value": "과즙이 풍부합니다.",
+        "historical": False,
+        "evidence": [evidence],
+    }
+    if bad == "source":
+        evidence["sourceId"] = "other"
+    elif bad == "revision":
+        evidence["sourceRevision"] = 2
+    elif bad == "page":
+        evidence["page"] = 2
+    elif bad == "span":
+        evidence["spanIds"] = ["missing"]
+    elif bad == "historical":
+        data["historical"] = True
+    else:
+        data["value"] += " 문의 010-1234-5678"
+        evidence["quote"] += " 문의 010-1234-5678"
+    extraction = Extraction.model_validate({"candidates": [data], "photoRequests": []})
+    accepted, diag = validate_candidates(extraction, chunk, {"t"})
+    assert accepted.candidates == []
+    expected = {"historical": "HISTORICAL_FIELD", "private": "UNSUPPORTED_PRIVATE_VALUE"}
+    assert diag["rejected"][0]["code"] == expected.get(bad, "INVALID_EVIDENCE")
+
+
+@pytest.mark.parametrize(
+    "source,quote,code",
+    [
+        ("면역력 증진에 좋아\n요", "면역력 증진에 좋아요", "HEALTH_CLAIM"),
+        ("감귤 4kg 8,000원 안내입\n니다.", "감귤 4kg 8,000원 안내입니다.", "MONEY_AMOUNT"),
+    ],
+)
+def test_AC_SRC_3_DEV_453_recovered_quote_cannot_bypass_page_safety(source, quote, code):
+    from app.ai.source_refine import Refinement
+    from app.source_analysis import refinement
+    from app.source_analysis.worker import validate_candidates
+
+    spans = [{"id": str(i), "text": t} for i, t in enumerate(source.splitlines())]
+    chunk = {"sourceId": "s", "sourceRevision": 1, "pages": [{"number": 1, "spans": spans}]}
+    extraction = Extraction.model_validate(
+        {
+            "candidates": [
+                {
+                    "targetId": "t",
+                    "fieldKey": "summary",
+                    "value": quote,
+                    "historical": False,
+                    "evidence": [
+                        {
+                            "sourceId": "s",
+                            "sourceRevision": 1,
+                            "page": 1,
+                            "spanIds": [s["id"] for s in spans],
+                            "quote": quote,
+                        }
+                    ],
+                }
+            ],
+            "photoRequests": [],
+        }
+    )
+    accepted, diag = validate_candidates(extraction, chunk, {"t"})
+    assert diag["acceptedCount"] == 1
+    candidate = {"id": "c", **accepted.candidates[0].model_dump(by_alias=True)}
+    output = Refinement.model_validate(
+        {
+            "modules": [{"module": "summary", "texts": [{"value": quote, "candidateIds": ["c"]}]}],
+            "excluded": [],
+        }
+    )
+    modules, diag = refinement.validate(output, [candidate], "t")
+    assert modules == []
+    assert diag["rejected"][0]["code"] == code
+
+
+@pytest.mark.parametrize("kind", ["gap", "reversed", "duplicate"])
+def test_AC_SRC_8_DEV_453_wrap_fallback_requires_consecutive_source_spans(kind):
+    from app.source_analysis.worker import validate_candidates
+
+    spans = [{"id": "a", "text": "과즙이 풍부"}, {"id": "b", "text": "합니다."}]
+    ids, quote = ["a", "b"], "과즙이 풍부합니다."
+    if kind == "gap":
+        spans.insert(1, {"id": "omitted", "text": "하지 않아요. 다른 상품은"})
+    elif kind == "reversed":
+        spans = [{"id": "a", "text": "다"}, {"id": "b", "text": "가"}]
+        ids, quote = ["b", "a"], "가다"
+    else:
+        spans = [{"id": "a", "text": "가"}]
+        ids, quote = ["a", "a"], "가가"
+    chunk = {"sourceId": "s", "sourceRevision": 1, "pages": [{"number": 1, "spans": spans}]}
+    extraction = Extraction.model_validate(
+        {
+            "candidates": [
+                {
+                    "targetId": "t",
+                    "fieldKey": "taste",
+                    "value": quote,
+                    "historical": False,
+                    "evidence": [
+                        {
+                            "sourceId": "s",
+                            "sourceRevision": 1,
+                            "page": 1,
+                            "spanIds": ids,
+                            "quote": quote,
+                        }
+                    ],
+                }
+            ],
+            "photoRequests": [],
+        }
+    )
+    accepted, diag = validate_candidates(extraction, chunk, {"t"})
+    assert accepted.candidates == []
+    assert diag["rejected"][0]["code"] == "INVALID_EVIDENCE"
+
+
 def test_AC_SRC_8_rapid_output_is_json_safe_and_recognition_is_reenabled(monkeypatch):
     import json
 
