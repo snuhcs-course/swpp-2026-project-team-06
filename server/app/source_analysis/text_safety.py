@@ -46,9 +46,7 @@ _RANGE = re.compile(
 def ranges(value):
     """Range endpoints written as a~b, a-b, a에서 b 사이 or a부터 b까지, as (a, b).
     Units are checked by numbers(). Two separate values ("13.2Brix 13.5Brix") are not a range."""
-    return {
-        (m["a"].replace(",", ""), m["b"].replace(",", "")) for m in _RANGE.finditer(value)
-    }
+    return {(m["a"].replace(",", ""), m["b"].replace(",", "")) for m in _RANGE.finditer(value)}
 
 
 def _contains(value, words):
@@ -112,7 +110,8 @@ _LINEUP_LIST = re.compile(
     + "|".join(
         r"\s*".join(map(re.escape, re.sub(r"\s+", "", m))) for m in SAFETY_LISTS["lineupMarkers"]
     )
-    + r")\s*(?::|은|는|으로는|로는)?\s*[^\s,·/、]+\s*[,·/、]\s*[^\s,·/、]+",
+    # DEV-452 QA 11/28: "주 생산품목 : 비트차 & 비트칩" lists with & or 및 too.
+    + r")\s*(?::|은|는|으로는|로는)?\s*[^\s,·/、&＆]+\s*(?:[,·/、&＆]|및)\s*[^\s,·/、&＆]+",
     re.IGNORECASE,
 )
 
@@ -127,3 +126,12 @@ def has_product_lineup(value, target_name=""):
         return True
     own = re.sub(r"\s+", "", target_name or "")
     return sum(1 for name in SAFETY_LISTS["cultivars"] if name in compact and name not in own) >= 3
+
+
+def is_target_comparison(value, target_name):
+    """A contrast with the explicitly named subject is not a sale-product lineup."""
+    if not target_name or not re.search(re.escape(target_name) + r"(?:은|는)", value):
+        return False
+    if re.search(r"(?:판매|취급|구성)\s*(?:품종|상품|목록)", value):
+        return False
+    return bool(re.search(r"(?:지만|반면|비해|달리|보다)", value))
