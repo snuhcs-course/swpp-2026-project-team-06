@@ -194,7 +194,7 @@ for (const format of formats) {
     const runs = () => get<{ items: SourceRun[] }>(`${base}/runs`);
     const openButton = page.getByRole("button", { name: "AI 시트 열기", exact: true });
     const closeSheet = () => page.getByRole("button", { name: "AI 시트 닫기", exact: true }).first().click();
-    const start = page.getByRole("button", { name: /^AI로 (?:다시 )?채우기$/ });
+    const start = page.getByRole("button", { name: /^(?:AI로 (?:다시 )?채우기|자료로 페이지 만들기)$/ });
     const status = page.getByTestId("source-analysis-status");
     await openButton.click();
     // The analysis input mirrors the selling product's variety (DEV-346 refresh_basic_info)
@@ -270,39 +270,31 @@ Path(output).write_bytes(data)
         ),
       ).toBe(true);
       await openButton.click();
-      await expect(page.getByText("실패 · 테스트 결과", { exact: true })).toBeVisible();
+      // 5617bc7b (DEV-452): unread material keeps the draft private until it is read again or removed.
+      await expect(page.getByText(/미완성 초안 · 아직 상품에 반영할 수 없어요\. · 테스트 결과/)).toBeVisible();
       // DEV-361 C-25: the AI sheet's run panel names the failed file as the 2-tab screen did
       await expect(page.getByText("자료를 처리하지 못했어요. 내용을 확인한 후 다시 시도해 주세요.", { exact: false }).first()).toBeVisible();
-      // DEV-287: retry directly, keep the local click gate, and drain the real mock retry.
-      const retry = page.getByRole("button", { name: "재시도", exact: true });
-      await expect(page.getByRole("checkbox", { name: /비용이 다시/ })).toHaveCount(0);
-      await expect(retry).toBeEnabled();
-      await page.clock.install();
-      await page.clock.pauseAt(new Date());
-      const retried = page.waitForResponse((r) => r.url().endsWith(`${base}/runs/${failed.id}/retry`)
-        && r.request().method() === "POST");
-      await retry.click();
-      expect((await retried).status()).toBe(202);
-      await expect(status).toBeVisible();
-      await expect(retry).toHaveCount(0);
-      work();
-      await expect.poll(async () => (await runs()).items[0].status, { timeout: 20_000 }).toBe("FAILED");
-      // Poll the completed run while still inside the three-second local gate.
-      await page.clock.fastForward(2500);
-      await expect(status).toHaveCount(0);
-      await expect(retry).toBeDisabled();
-      await page.clock.fastForward(501);
-      await expect(retry).toBeEnabled();
-      await page.clock.resume();
+      // A permanent reading error (OCR not configured / unsupported mock source) offers no
+      // "미완료 부분 다시 처리"; retry and its click gate are covered in source-review-regressions.
+      await expect(page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true })).toHaveCount(0);
       await shot("analysis-failure");
+      // Manual recovery: the owner removes the file that cannot be read, which lifts the gate.
+      await page.getByTestId("source-material-box").getByRole("button", { name: "자료 삭제", exact: true }).click();
+      await expect(page.getByTestId("source-material-box").getByTestId("attachment-tile")).toHaveCount(0);
+      await expect(page.getByText(/미완성 초안/)).toHaveCount(0);
       await closeSheet();
       testInfo.annotations.push({ type: "gap", description: "Visual extraction success/evidence NOT RUN: mock accepts only text fixture checksums. Remaining steps exercise manual recovery after real analysis failure." });
     }
     const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
     const storageText = page.getByLabel("보관 방법 내용", { exact: true });
     // An empty introduction is added from the composer's '내용 추가' chips
-    if (format !== "text") await page.getByRole("button", { name: "상품 소개 추가", exact: true }).click();
-    await expect(summary).toHaveValue(format === "text" ? "제주산 감귤입니다." : "");
+    // DEV-452: a failed reading no longer wipes the product's current page (the old flow left an empty
+    // draft), so a section is added only when the page does not have it yet.
+    const addSummary = page.getByRole("button", { name: "상품 소개 추가", exact: true });
+    await expect(summary.or(addSummary).first()).toBeVisible({ timeout: 20_000 });
+    if (format !== "text" && !(await summary.isVisible())) await addSummary.click();
+    if (format === "text") await expect(summary).toHaveValue("제주산 감귤입니다.");
+    else await expect(summary).toBeVisible();
     expect((await publicProduct()).moduleDetail).toEqual(before.moduleDetail);
     await shot("private-draft");
     if (format === "text") {
@@ -319,7 +311,7 @@ Path(output).write_bytes(data)
     const manual = `T12 ${format} 생산자가 확인한 소개`;
     const storage = `T12 ${format} 서늘한 곳에 보관해 주세요.`;
     await summary.fill(manual);
-    if (format !== "text") await page.getByRole("button", { name: "보관 방법 추가", exact: true }).click();
+    if (format !== "text" && !(await storageText.isVisible())) await page.getByRole("button", { name: "보관 방법 추가", exact: true }).click();
     await storageText.fill(storage);
     await shot("edit");
     // The composer removes a module instead of hiding its section; its text stays in the draft.
@@ -359,10 +351,14 @@ Path(output).write_bytes(data)
     await expect(summary).toHaveValue(manual);
     await expect(storageText).toHaveValue(storage);
     await shot("reopen");
-    await analyze();
-    await expect(summary).toHaveValue(manual);
-    await expect(storageText).toHaveValue(storage);
-    await shot("reanalysis");
+    // Re-analysis keeps the producer's edits. Only the text format still has material to analyse;
+    // the unreadable file was removed above.
+    if (format === "text") {
+      await analyze();
+      await expect(summary).toHaveValue(manual);
+      await expect(storageText).toHaveValue(storage);
+      await shot("reanalysis");
+    }
     await save.click();
     await expect(page.getByText(savedNotice, { exact: true })).toBeVisible();
 

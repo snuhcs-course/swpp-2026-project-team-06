@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { apiUrl, loginProducer, monitor, producerUrl } from "./helpers";
+import { apiUrl, loginProducer, monitor, openFreshComposer, producerUrl } from "./helpers";
 
 // DEV-184 v2: 새 상품 두 장 — ① 구매자 모양 채우기 ② 판매·가격 → 미리보기 → 판매 시작 요청
 const sourceEnabled = process.env.SOURCE_ANALYSIS_ENABLED === "true";
@@ -30,8 +30,7 @@ for (const width of [360, 390, 430]) {
     await page.setViewportSize({ width, height: 850 });
     const clean = monitor(page);
     await loginProducer(page, "강영수");
-    await page.goto(`${producerUrl}/products`);
-    await page.getByRole("button", { name: "새 상품", exact: true }).click();
+    await openFreshComposer(page);
     await expect(page).toHaveURL(/composer=1/);
 
     // ① 빈 칸은 점선 네모(채우라는 표시), 가격 칸은 없다
@@ -95,8 +94,8 @@ for (const width of [360, 390, 430]) {
           })
         ).json()
       ).photos.length as number;
+    // DEV-452 (recorded acceptance): '다음' applies nothing; the page and photos go with the sale request.
     const before = await photos();
-    expect(before).toBeGreaterThan(0);
     await page.goBack();
     await expect(page).toHaveURL(/composer=1/);
     // 새로고침해도(화면 기억이 사라져도) 세션 저장소의 반영 기록으로 같은 초안임을 알아본다
@@ -105,7 +104,7 @@ for (const width of [360, 390, 430]) {
     await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
     await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
     expect(await photos()).toBe(before);
-    // 대표사진만 바꾸고 다시 '다음'을 누르면(새 초안) 바뀐 사진이 상품에 반영된다
+    // DEV-452: 대표사진을 바꿔도 '다음'은 상품을 바꾸지 않는다(사진은 판매 요청과 함께 반영된다)
     const cover = async () =>
       (
         await (
@@ -131,7 +130,7 @@ for (const width of [360, 390, 430]) {
     await page.getByRole("button", { name: "AI 시트 닫기" }).first().click();
     await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
     await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
-    expect(await cover()).not.toBe(oldCover);
+    expect(await cover()).toBe(oldCover);
 
     // ② 판매·가격: 한 화면에서 옵션·받는 시기·가격·배송·물량
     const sell = page; // 스택 위의 보이는 화면만 다룬다
