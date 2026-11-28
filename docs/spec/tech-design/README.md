@@ -173,7 +173,7 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 | `form_error_shown` | 생산자 앱 화면 검사·서버 검증 오류 안내가 보일 때(속성: screen, code. 안내 글자 없음) | 파일럿: 오류 안내 횟수와 위치 |
 | `app_not_responding` | 두 앱(iOS·Android)에서 앱이 앞에 있는 동안 JS 스레드가 5초 이상 멈췄다가 풀릴 때 한 번(속성: blockedMs. 백그라운드 시간은 세지 않음, DEV-496) | ANR rate |
 | `$exception` | 잡히지 않은 JS 예외·Promise 거부(PostHog 오류 추적이 보냄, 웹·앱. 앱을 죽인 예외는 다음 실행 때 보냄. 메시지의 이메일·4자리 이상 숫자·URL 쿼리는 지우고 200자로 자름, DEV-496) | Crash report |
-| `$exception` (server) | 서버의 예상 못 한 오류(500)를 서버가 직접 보냄(`source=server`, distinct_id 고정 `server`). 속성: `$exception_list`(type, 정리한 메시지, 스택의 파일·함수·줄), `$exception_level=error`, 경로 템플릿 `route`(예: `/api/orders/{order_id}`, 쿼리 없음), `method`. 요청 본문·헤더·쿠키·쿼리 값·소스 줄·지역 변수는 보내지 않음. 메시지 정리는 앱과 같음. `POSTHOG_PROJECT_API_KEY`가 비면 안 보냄(DEV-498) | Crash report |
+| `$exception` (server) | 서버의 예상 못 한 오류(500)를 서버가 직접 보냄(`source=server`, distinct_id 고정 `server`). 속성: `$exception_list`(type, 정리한 메시지, 스택의 파일·함수·줄), `$exception_level=error`, 경로 템플릿 `route`(예: `/api/orders/{order_id}`, 쿼리 없음), `method`. 요청 본문·헤더·쿠키·쿼리 값·소스 줄·지역 변수는 보내지 않음. 메시지는 첫 줄만, SQLAlchemy `[SQL: …]`·`[parameters: …]` 앞까지 자른 뒤 앱과 같은 규칙으로 정리. `POSTHOG_PROJECT_API_KEY`가 비면 안 보냄(DEV-498) | Crash report |
 
 앱이 보내는 것과 서버가 보내는 것(ADR 0005, DEV-71):
 - 앱(`packages/analytics`): 화면 전환마다 `$pageview`(네이티브는 `$screen`), `product_viewed`(productId, farmId), `checkout_started`(productId), `checkout_submitted`, `deposit_reported`. 세션 녹화·히트맵도 앱이 켠다.

@@ -38,7 +38,7 @@ This document describes the implemented architecture and cites the [I4 product s
 | 4.2 | 2026-11-22 | Team 6 | DEV-435: no iPad support; unused Android permissions blocked before store review |
 | 4.3 | 2026-11-26 | Team 6 | DEV-436: PostHog events also from the store builds of the apps (no replay); privacy policy updated, effective 2026-11-27 |
 | 4.4 | 2026-11-28 | Team 6 | DEV-496: crash and ANR telemetry through PostHog (uncaught JS errors as `$exception`, 5-second JS freezes as `app_not_responding`); privacy policy updated, effective 2026-11-29 |
-| 4.5 | 2026-11-27 | Team 6 | DEV-498: unexpected server errors (HTTP 500) are also reported to PostHog as `$exception` from the server (route template, error type, scrubbed message and stack frames only; no request data; off when no key is set) |
+| 4.5 | 2026-11-28 | Team 6 | DEV-498: unexpected server errors (HTTP 500) are also reported to PostHog as `$exception` from the server (route template, error type, first line of the scrubbed message without SQL or parameters, and stack frames only; no request data; off when no key is set) |
 
 
 ## 1. System Architecture

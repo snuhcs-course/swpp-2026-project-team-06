@@ -117,10 +117,12 @@ def test_posthog_failure_or_timeout_still_returns_same_500_body(
     assert "PostHog 서버 오류 보고 실패" in caplog.text
 
 
-def test_unhandled_error_is_logged_with_traceback(app_client, caplog):
-    _post(app_client)
-    rec = next(r for r in caplog.records if r.getMessage().startswith("Unhandled error"))
-    assert rec.exc_info and rec.exc_info[0] is RuntimeError
+def test_unhandled_error_is_reraised_so_the_server_logs_the_traceback(app_client, with_key, sent):
+    # Starlette는 500 처리기 뒤에 예외를 다시 던지고, uvicorn이 traceback을 남긴다(Railway)
+    raising = TestClient(app_client.app, raise_server_exceptions=True)
+    with pytest.raises(RuntimeError):
+        _post(raising)
+    assert len(sent) == 1  # 다시 던지기 전에 PostHog 보고는 이미 끝났다
 
 
 def test_scrub_error_text_matches_app_rules():
@@ -129,3 +131,20 @@ def test_scrub_error_text_matches_app_rules():
     assert scrub_error_text("card 1234 5678-9012") == "card [number]"
     assert scrub_error_text("id 123 and 12 3") == "id 123 and 12 3"
     assert len(scrub_error_text("x" * 500)) == 200
+
+
+def test_database_error_message_drops_detail_sql_and_parameters():
+    exc = RuntimeError(
+        '(psycopg.errors.UniqueViolation) duplicate key value violates unique constraint "uq_name"'
+        " [SQL: INSERT INTO users (name, address) VALUES (%(name)s, %(address)s)]"
+        "\nDETAIL:  Key (name)=(홍길동) already exists."
+        "\n[parameters: {'name': '홍길동', 'address': '제주시 애월읍'}]"
+    )
+    message = service.exception_message(exc)
+    assert message == (
+        '(psycopg.errors.UniqueViolation) duplicate key value violates unique constraint "uq_name"'
+    )
+    event = service.build_exception_event(exc, "/api/x", "POST", "phc_test")
+    dumped = json.dumps(event, ensure_ascii=False)
+    for leaked in ("홍길동", "제주시", "INSERT INTO", "DETAIL"):
+        assert leaked not in dumped

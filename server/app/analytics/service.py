@@ -35,6 +35,18 @@ def scrub_error_text(text: str) -> str:
     return text[:EXCEPTION_MESSAGE_MAX]
 
 
+def exception_message(exc: BaseException) -> str:
+    """보낼 오류 메시지. 첫 줄만, SQLAlchemy의 `[SQL: …]`·`[parameters: …]` 앞까지 자르고
+    개인정보를 가린다. DB 오류의 다음 줄(`DETAIL: Key (...)=(...)`)과 쿼리 값에는
+    이름·주소가 들어갈 수 있다."""
+    text = str(exc).split("\n", 1)[0]
+    for marker in ("[SQL:", "[parameters:"):
+        cut = text.find(marker)
+        if cut >= 0:
+            text = text[:cut]
+    return scrub_error_text(text.strip())
+
+
 def build_exception_event(
     exc: BaseException, route: str, method: str, api_key: str
 ) -> dict[str, Any]:
@@ -58,7 +70,7 @@ def build_exception_event(
             "$exception_list": [
                 {
                     "type": type(exc).__name__,
-                    "value": scrub_error_text(str(exc)),
+                    "value": exception_message(exc),
                     "mechanism": {"handled": False, "type": "generic"},
                     "stacktrace": {"type": "raw", "frames": frames},
                 }
