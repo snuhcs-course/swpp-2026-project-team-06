@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     share_base_url: str = ""
 
     # 서버 오류 보고(DEV-498). 공개 프로젝트 키(phc_...). 비면 보내지 않는다.
+    # 수집 주소(us.i.posthog.com)라 아래 DEV-307의 조회 주소 posthog_host(us.posthog.com)와 따로 둔다.
     posthog_project_api_key: SecretStr = SecretStr("")
     posthog_capture_host: str = "https://us.i.posthog.com"
 
