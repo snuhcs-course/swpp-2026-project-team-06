@@ -339,3 +339,40 @@ FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
 | 2026-11-17 | 작업 사진 업로드는 잠금 없이 소유·작업 공간을 먼저 확인하고 읽기 트랜잭션을 닫은 뒤(`db.rollback()`, 변환 동안 idle in transaction 방지) JPEG 변환·저장을 하고, `workspace.owned`(advisory lock + FOR UPDATE)로 다시 확인하고 행만 넣는다. 잠금 확인이 실패하면 저장한 파일은 고아 정리가 지운다 | 큰 사진 변환 동안 같은 상품의 저장·반영·다른 업로드가 기다리지 않게 | AC-SRC-11 |
 | 2026-11-17 | 공개 반영(`copy_photo`)은 `page_variant(display)`를 써서 이미 만든 미리보기 바이트를 새 키로 복사한다(같은 변환이라 결과 동일) | 반영 때 12MP PNG를 다시 디코딩하지 않음 | AC-SRC-9 |
 | 2026-11-17 | 감수한 점: 미리보기는 그 브라우저에 최대 하루 남는다(자료를 지우거나 상품 연결을 바꿔도 이미 받은 사본은 `max-age` 동안 그 생산자 브라우저에만 남음, 다른 로그인은 `Vary: Authorization`으로 재검증). 앱 메모리 공유본은 로그인이 바뀌거나 로그아웃하면 지운다. 상품사진 업로드는 미리보기 두 장을 더 만들어 12MP 기준 서버 처리 0.64초→0.79초(로컬 측정) | 여는 시간 49.6초→2.1초(10Mbps)에 비해 작은 비용. 원본·가림 전 이미지는 계속 `no-store` | AC-SRC-5/6 |
+
+
+## DEV-452 원문 보존 초안 통합 (2026-11-25)
+FEAT-03/04/07 · AC-SRC-2/3/5/6/7/10/11 · M-11/13/18. 원문 보존은 명시적 batch 정책이며 기존 자동 정리와 분리한다. 전체 현재 검증 후보 근거를 입력으로 하고 생산자가 고친 칸을 보존한다. 원문 위치/revision/가림 version/인용/대상/규칙 version에 묶인 항목별 확인은 전용 테이블에 저장한다. API 저장은 현재 계획 및 검토 버전을 검사하며 공개는 기존 명시 적용 경로만 따른다. 상세 범위/소유권은 server/tasks/DEV-452.md.
+
+2026-11-25 DEV-452: 사용자 지시로 검토 대기 문구도 비공개 초안에 보존한다. 포함 상태와 확인 상태를 분리하고 설명을 표시하며 공개 반영 전에 확인한다. source-preserving-drafts.md와 DEV-452 최신 결정이 종전 보류 정책을 대체한다.
+
+2026-11-25 DEV-452/453: source-preserving-v4-source-blocks는 과도한 홍보만 경고하고 순서 검증 인접 문장/동일 제목 span 옵션을 조립한다. 원래 passage/ID/문구·owner 배치를 보존하며 다른 추출 항목 간 연결은 문맥 확인을 유지한다. historical non-story TEXT 허용은 trusted sourcecopy batch에 한정하고 모든 다른 검증과 policy-sensitive cache/write fence를 유지한다. 기존 run 자동 backfill 없음.
+
+- DEV-452 prose layout: source_reflow applies whitespace-only narrative wrapping at module assembly, preserving exact evidence and owner formatting. Separate layout version affects planHash, not per-passage review binding. Publication wording checks normalize declared layout transforms and scope option properties to their exact heading.
+
+- DEV-453 block-first experiment: source_blocks defines strict reference-only block schema and full private coverage/exclusion ledger; source_analysis optional output_model/reasoning_effort preserves legacy defaults. block_experiment compares fixed saved OCR through common materialization, validation and source-preserving builder, using serialized existing local spend ledger and explicit$30cumulative cap. Unknown routing stays ledger-only; synthetic transcript positions are never original PDF page provenance. No default worker adoption.
+
+- DEV-451 same-facts experiment: source_assembly is reference-bound minimal page editing/organization over exact frozen moduletexts, not a new extractor. assembly_experiment whitelists modelwire inputs, uses the existing isolated cumulative budget ledger, and preserves every raw output and advisory source/number/flag diagnostic. No default worker adoption; original gold/scorer fixed.
+
+
+- DEV-452 optional presentation: source_presentation.py persists one ASSEMBLE Item in existing refinement JSON, default-disabled config. Source/decision/editor/media snapshots fence late writes; central plan resolver preserves owner flags and explicit edits across review/editor/publication. presentation_plan.py v2 admits full ID accounting and bounded verifiable edits; any field over 100 candidate IDs or structural limit falls back without truncation. KEEP-only acknowledgement preserves applied placement, actual edits invalidate it. No automatic paid retry; provider accounting follows actual OpenRouter reservation. No new schema migration.
+- DEV-451 broad regression: pipeline_compare.py freezes accepted candidates and exact code/prompt/input hashes for A legacy v11 / B deterministic preservation / C admitted Astra, two trials. Empty inputs stay explicit skips; raw and effective outputs remain separate. No extraction/OCR rerun, gold sent to model, holdout access or automatic adoption.
+
+- DEV-453 OCR recovery: sanitized crop-level Item.diagnostics checkpoints and three-total-attempt transient recovery through existing budgeted paid_vision_call. Unknown uncertainty/crash is not automatically resent. Successful checkpoints can cross explicit retry only with exact source/revision/sanitization/image/prompt/model binding. Every retry has its own reservation; unknown charges remain reserved. No UI/publication/schema changes.
+
+- DEV-452 processing.issues tracks latest source/revision/sanitization/work-scope attempts. Private review exposes additive processingIssues; all publish/apply-all paths call require_complete under existing locks. Explicit whole-source removal resolves that source only. No synthetic success or review-checkbox bypass. Evaluation_outcomes separately reports operational delivery failures, partial-processing uncertainty and content/scoring misses without changing frozen scores.
+
+- DEV-451 evaluation_replacements: processing-only eligibility and chronological first-success selection, max2 replacements; no score/gold input to selection. evaluation_outcomes exposes diagnostic content denominators/unmeasured counts alongside unchanged end-to-end delivery. Configured caps are disclosed scope limits; partial runtime read failures are not diagnostic. Valid empty and all-candidate rejection remain diagnostic poor content outcomes. Private targeted runner reconstructs original frozen commit and shares existing budget; user executes paid stage.
+
+DEV-484: source-proven candidate paragraphs and full continuation chains preserve source words/evidence before module display. Plain-text s0 span IDs share the numeric adjacency contract. Mixed appearance/taste sentences route as a single general product description, retaining context review. Existing owner flags must be visible in owner preview; do not treat flagged content as undetected or mutate frozen benchmarks.
+
+## DEV-485 사유별 생산자 확인
+FEAT-03/04/07 및 AC-SRC-2/3/5/9/10/11: reviewPrompts는 사유별 질문·설명·심각도·확인 기록 문구를 제공한다. 기존 reviewExplanations 호환을 유지한다. 확인 버튼은 기존 검토 저장 경로를 사용하고 성공 뒤 완료 표시하며, 연결 문단의 모든 KEEP 결정이 같은 배치를 승인하면 연결을 유지한다. 사용 제한은 단순 확인으로 통과시키지 않는다. UI는 일반 황색/중요 산호색과 기호·문구를 함께 사용한다.
+
+### DEV-464 saved source layout integration (local r006 recovery)
+Preserve the validated source-guided renderer as an optional page design. Store its bounded sections, source media and caption/text links with the existing private page snapshot JSON (no migration). Workspace validation rejects dangling text/photo references and media outside the product's allowed photos. Publication retains design metadata and resolves only publicly referenced photos; authenticated private previews resolve the same owned media. Legacy pages without design keep the existing rendering. A saved-layout page uses a versioned workspace reference at final initial-sale submission; rebase sales-term version changes only when the underlying page still exactly matches its published baseline. Source-copy workspaces retain their existing source-completeness and owner-review gates.
+
+Local recovery editor uses the actual private workspace endpoints and inline editing in the same source-guided layout, with photo replace/remove and explicit private save; it is not an arbitrary-upload generation implementation. User-confirmed r006 fixture and source bytes remain local/ignored. No static fixture is presented as a fresh generation result.
+
+### DEV-452 combined setup and source-bound decisions
+Setup/generate lock batch→product through workspace ownership, fence workspace and source versions, preserve partial private inputs in server-owned setupInputs, and freeze canonical producerInputs with run.targets. Existing product validators apply complete sale settings; partial inputs cannot borrow older sale values to pass final submission. Review decisions are server-owned passage/context hashes, saved atomically with pending edits. Changed passages reopen review; caption omission retains owned media. sourceProcessingIncomplete is independent of sourceReviewRequired and cannot be cleared by ordinary PUT or confirmation. Saved r006 recovery remains a partial example, not arbitrary-upload generation acceptance.
