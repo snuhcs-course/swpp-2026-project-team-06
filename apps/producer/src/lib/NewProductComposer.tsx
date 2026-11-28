@@ -1,9 +1,10 @@
+import { josa } from "./josa";
 import { useRetryGate } from "./useRetryGate";
 import { FieldFeedback, FieldFeedbackContext } from "./FieldFeedback";
 import { chooseSourceFiles } from "./sourceFiles";
 import { EditorActions } from "./EditorActions";
 import { sourceActionError, type SourceActionError } from "./sourceFeedback";
-import { SourceRunProgress } from "./SourceRunProgress";
+import { SourceRunProgress, SourceRunSteps } from "./SourceRunProgress";
 import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 // 새 상품 한 화면 편집(DEV-184): 기본 정보 + 상세페이지를 한 스크롤에 두고,
 // 사진·자료는 아래에 붙은 AI 시트에서 넣는다. 비공개 저장과 명시적 적용은 그대로 나눈다.
@@ -19,6 +20,8 @@ import {
   readStore,
   uploadSource,
   writeStore,
+  type SourceCopyPassage,
+  type SourceCopyReview as SourceCopyData,
   sourceAnalysis as api,
   type DraftStage,
   type MyProduct,
@@ -42,9 +45,12 @@ import {
   HeaderBar,
   ModuleStory,
   Icon,
+  SOURCE_MODULES,
+  sourceModuleIcon,
   Notice,
   PeekSheet,
   Photo,
+  ProductGallery,
   ProductPageBody,
   Screen,
   Scroll,
@@ -69,11 +75,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { AccessibilityInfo, ActivityIndicator, Platform, Pressable, TextInput, View, type ScrollView } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Image, Platform, Pressable, TextInput, View, type ScrollView } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
+import { CheckSheet, checkItems, currentModule } from "./CheckSheet";
+import { clearSourceCopyCache, isAutoRemoved, SourceCopyReview } from "./SourceCopyReview";
+import { BasicFacts, productPhotos, cleanProductName, PRICE_KEEP_NOTE, PRICE_TRANSFER_NOTE, WEIGHT_KEEP_NOTE, WEIGHT_TRANSFER_NOTE, SEASON_KEEP_NOTE, SEASON_TRANSFER_NOTE, PhotoStrip, isDocPrice, isDocWeight, isDocSeason, differs, docValue, needsPhotoConfirm, photosInUse, sourceCopyOnce, type FactRow } from "./CombinedPageEditor";
 import { toPageData } from "./BuyerPreview";
 import { useHideTabBar, useSession } from "./session";
-import { ACTIVE, canEditBatch, panel, sourceError, sourceNotices, states } from "./sourceBatch";
+import { SourceProcessingNotice } from "./SourceProcessingNotice";
+import { ACTIVE, canEditBatch, panel, processingIssues, readingRetryItems, sourceError, sourceNotices, states } from "./sourceBatch";
 import { isPreSale } from "./productGroups";
 import { pickMedia } from "./pick";
 import { CollapsingFrame, CollapsingSpacer, CollapsingTop, useCollapsingTop } from "./CollapsingTop";
@@ -510,6 +520,39 @@ function ExtraPhotos({
   );
 }
 /** 상품 사진 한 장(비공개 사진은 인증 blob으로) */
+/** "지금 이름이 맞아요" is remembered in the web browser for that name pair; in the app it lasts for the visit (DEV-452). */
+const NAME_KEPT = "farmclub.nameKept";
+function nameKept(key: string) {
+  if (Platform.OS !== "web") return false;
+  try { return (JSON.parse(localStorage.getItem(NAME_KEPT) ?? "[]") as string[]).includes(key); } catch { return false; }
+}
+function keepName(key: string) {
+  if (Platform.OS !== "web") return;
+  try {
+    const list = JSON.parse(localStorage.getItem(NAME_KEPT) ?? "[]") as string[];
+    localStorage.setItem(NAME_KEPT, JSON.stringify([...list.filter((k) => k !== key), key].slice(-50)));
+  } catch { /* storage unavailable: the choice lasts for this visit */ }
+}
+/** 미리보기: 대표사진과 더 보여 줄 사진을 구매자 화면처럼 넘겨 보게 한다(user review 11/28, DEV-452). */
+function PreviewGallery({ productId, cover, extra, alt }: { productId: string; cover: string | null; extra: string[]; alt: string }) {
+  const [urls, setUrls] = useState<(string | null)[]>(() => extra.map(() => null));
+  const key = extra.join("|");
+  useEffect(() => {
+    let alive = true;
+    const made: string[] = [];
+    void Promise.all(extra.map((uri) => productPhotoUrl(productId, uri).catch(() => null))).then((list) => {
+      list.forEach((u) => { if (u?.startsWith("blob:")) made.push(u); });
+      if (alive) setUrls(list);
+      else made.forEach((u) => URL.revokeObjectURL(u));
+    });
+    return () => {
+      alive = false;
+      made.forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, key]);
+  return <ProductGallery photos={[cover, ...urls]} alt={alt || "상품"} />;
+}
 function PhotoThumb({ productId, uri, alt }: { productId: string; uri: string; alt: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -636,7 +679,26 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   >(null);
   const router = useRouter(),
     navigation = useNavigation(),
-    { batchId, notice: openNotice, terms: termsParam } = useLocalSearchParams<{ batchId?: string; notice?: string; terms?: string }>();
+    { batchId, notice: openNotice, terms: termsParam, from } = useLocalSearchParams<{ batchId?: string; notice?: string; terms?: string; from?: string }>();
+  const combinedSetup = from === "setup";
+  // DEV-452 (PM 11/27 redesign): the generated page is shown as buyers see it; fixing happens in sheets.
+  const [nameNoticeOff, setNameNoticeOff] = useState("");
+  const [sizeCardOff, setSizeCardOff] = useState(false);
+  const [reviewSheet, setReviewSheet] = useState<null | "photos" | "info" | "leftover" | "add" | { only?: string[] }>(null);
+  const [pageSections, setPageSections] = useState<Record<string, string[]>>({});
+  const [editSection, setEditSection] = useState<{ title: string; moduleIds: string[]; add?: boolean; illustration?: string } | null>(null);
+  const [copyData, setCopyData] = useState<SourceCopyData | null>(null);
+  const [copyTick, setCopyTick] = useState(0);
+  // Total quantity from the combined setup page (grams). null = the producer has not entered it yet.
+  const [setupGrams, setSetupGrams] = useState<number | null>(null);
+  const [reviewPendingCount, setReviewPendingCount] = useState(0);
+  // Material passages with prices, left out because the setup prices win (DEV-452).
+  const [docPrices, setDocPrices] = useState<SourceCopyPassage[]>([]);
+  const [docWeights, setDocWeights] = useState<SourceCopyPassage[]>([]);
+  const [docSeasons, setDocSeasons] = useState<SourceCopyPassage[]>([]);
+  // Brix wording in the material (often last year's average): reference for ②, never auto-filled.
+  const [docBrix, setDocBrix] = useState<string[]>([]);
+  const [copyPlan, setCopyPlan] = useState<{ planHash: string; reviewVersion: number } | null>(null);
   const productOnly = !!fixedProductId;
   const [batch, setBatch] = useState<SourceBatch | null>(null),
     [review, setReview] = useState<SourceReview | null>(null),
@@ -732,6 +794,14 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   }, [batch?.id, coverId, coverRevision, cover?.sanitizationVersion]);
   const [product, setProduct] = useState<MyProduct | null>(null),
     [form, setForm] = useState<ProductForm | null>(null);
+  const openedUpload = useRef<string | null>(null);
+  useEffect(() => {
+    if (!batch || !product || !form || openedUpload.current === batch.id) return;
+    openedUpload.current = batch.id;
+    if (batch.sourceCopyEnabled && ["DRAFT", "REJECTED"].includes(product.status) && !runs.length && !batch.sources.length) setSheetOpen(true);
+  }, [batch, product, form, runs.length]);
+
+
   // DEV-361: 구매자에게 보이는 상품의 판매 조건(화면 안 초안)과 서버 상품 초안
   const [terms, setTerms] = useState<Terms | null>(null);
   const [draftView, setDraftView] = useState<ProductDraftView | null>(null);
@@ -961,7 +1031,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         if (alive.current) setBusy(false);
       });
   };
-  const pickCover = async () => {
+  // asCover=false(사진 추가, DEV-452): 일반 상품 사진으로만 올리고 대표사진은 아직 없을 때만 지정한다.
+  const pickPhoto = async (asCover: boolean) => {
     if (!batch || !target || busy || activeRun) return;
     const files = await chooseSourceFiles(true, false).catch((e) => {
       console.warn("[cover] 사진 고르기 실패", e); // 화면에는 한국어만, 원인은 로그에(DEV-493)
@@ -984,7 +1055,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       // Pin the previous fallback before adding a new photo, so failed replacement keeps it.
       const previous = latest.sources.find(x => x.originalPhoto && (x.common || x.targetIds.includes(target.id)));
       let version = latest.version;
-      if (!latest.targets.find(t => t.id === target.id)?.representativeAssetId && previous?.status === "PREPARED") {
+      if (asCover && !latest.targets.find(t => t.id === target.id)?.representativeAssetId && previous?.status === "PREPARED") {
         // 응답의 batch 버전을 바로 쓴다(다시 읽지 않음, DEV-341)
         version = (await api.setRepresentative(batch.id, latest.version, [target.id], previous.id)).version;
       }
@@ -994,8 +1065,10 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         const current = await api.get(batch.id);
         const photo = current.sources.find(x => x.id === uploaded.id);
         if (photo?.status === "PREPARED") {
-          await api.setRepresentative(batch.id, current.version, [target.id], uploaded.id);
-          clearValidation("representativePhoto");
+          if (asCover || !current.targets.find(t => t.id === target.id)?.representativeAssetId) {
+            await api.setRepresentative(batch.id, current.version, [target.id], uploaded.id);
+            clearValidation("representativePhoto");
+          }
           clearValidation("photos"); // 대표사진이 바뀌면 사진 상한 판단도 다시(3차 scan)
           await load();
           return;
@@ -1006,11 +1079,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       } catch (e) {
-        setNotice("사진을 변경하지 못했어요. 기존 사진은 유지돼요. 다시 선택해 주세요.");
+        setNotice(asCover ? "사진을 변경하지 못했어요. 기존 사진은 유지돼요. 다시 선택해 주세요." : "사진을 추가하지 못했어요. 다시 선택해 주세요.");
         throw e;
       }
     });
   };
+  const pickCover = () => pickPhoto(true);
   useEffect(() => {
     void load().catch((e) => {
       if (alive.current) setError(sourceActionError(e));
@@ -1040,8 +1114,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       });
     if (!alive.current || (!force && productDirtyRef.current)) return;
     const shown = withDraft(p, view?.draft ?? null);
+    const setupView = combinedSetup ? await productWorkspace.open(productId, newIdempotencyKey()) : null;
+    const savedTerms = setupView?.snapshot.setupInputs?.terms;
+    const setupKg = setupView?.snapshot.setupInputs?.requestedKg;
+    setSetupGrams(setupKg ? Math.round(setupKg * 1000) : null);
     const f = toForm(shown),
-      t = isLive(p.status) || p.status === "CLOSED" ? termsFrom(shown) : null;
+      t = savedTerms ? {...savedTerms,rows:savedTerms.rows.map(r=>({...r,startsAt:r.startsAt??"",endsAt:r.endsAt??""}))} : isLive(p.status) || p.status === "CLOSED" || combinedSetup ? termsFrom(shown) : null;
     setProduct(p);
     setForm(f);
     setTerms(t);
@@ -1049,7 +1127,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     setDraftMode(isLive(p.status) ? (view ? "draft" : "direct") : null);
     setConflicts(view?.conflicts ?? []);
     savedKey.current = editKey(f, t);
-  }, [productId]);
+  }, [productId, combinedSetup]);
   // `?terms=1`(예전 기간·가격 주소, 품절 안내): 판매 조건 시트를 연다. 판매 전 상품은 판매·가격으로(C-13)
   const termsHandled = useRef(false);
   useEffect(() => {
@@ -1134,32 +1212,31 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             e.status === "ready",
         )
         ?.field.value.trim() ?? "";
-    const name = value("name").slice(0, 40),
+    const name = cleanProductName(value("name")),
       storage = value("storage");
-    setForm((old) => {
-      if (!old) return old;
-      const next = { ...old },
-        filled: (keyof ProductForm)[] = [];
-      if (
-        name &&
-        !touched.current.has("name") &&
-        DEFAULT_NAMES.includes(old.name.trim())
-      ) {
-        next.name = name;
-        filled.push("name");
-      }
-      if (
-        storage &&
-        storage.length <= 30 &&
-        !touched.current.has("storage") &&
-        DEFAULT_STORAGE.includes(old.storage.trim()) &&
-        storage !== old.storage.trim()
-      ) {
-        next.storage = storage;
-        filled.push("storage");
-      }
-      return filled.length ? next : old;
-    });
+    const old = form;
+    if (!old) return;
+    const values: Partial<ProductForm> = {};
+    if (name && !touched.current.has("name") && DEFAULT_NAMES.includes(old.name.trim())) values.name = name;
+    if (
+      storage &&
+      storage.length <= 30 &&
+      !touched.current.has("storage") &&
+      DEFAULT_STORAGE.includes(old.storage.trim()) &&
+      storage !== old.storage.trim()
+    ) values.storage = storage;
+    if (!Object.keys(values).length) return;
+    setForm((f) => (f ? { ...f, ...values } : f));
+    // DEV-452: in the combined flow these are part of the generated result. Save them at once so the
+    // product list shows the name and opening the page does not count as an unsaved change.
+    if (combinedSetup && productId) {
+      const body: ProductPatch = { version: product.version };
+      if (values.name) body.name = values.name;
+      if (values.storage) body.info = { origin: product.info.origin, storage: values.storage };
+      catalog.update(productId, body, keyFor("product", body))
+        .then((saved) => { if (alive.current) setProduct(saved); })
+        .catch(() => undefined); // stays an ordinary unsaved change; 임시 저장 saves it
+    }
   }, [review, target, product]);
   const setField = <K extends keyof ProductForm>(k: K, v: ProductForm[K]) => {
     touched.current.add(k);
@@ -1223,9 +1300,14 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     savedKey.current = key;
     return view;
   };
+  const unresolvedReading = processingIssues(review, target?.id);
   const canEdit = canEditBatch(batch, runs, drafts, review, activeRun);
   // 저장하지 않은 상세 수정이 있으면 편집기를 내리지 않는다(첨부를 바꿔도 수정이 사라지지 않게).
-  const showEditor = !!review && !working && (canEdit || editorDirty);
+  // DEV-452 (user 11/28, choice A): when the material could not be read and the owner removed it,
+  // the page is written by hand — the editor stays open once a run happened and no material is left.
+  const manualAfterRun = !!batch && !activeRun && runs.length > 0 &&
+    !batch.sources.some((s) => !s.originalPhoto && !s.placement?.extracted);
+  const showEditor = !!review && !working && (canEdit || editorDirty || unresolvedReading.length > 0 || manualAfterRun);
   /** 화면의 모든 입력을 비공개로 저장한다(판매 전 상품은 상품 칸을 바로 상품에). 구매자에게 보이는 상품은 상품 초안 결과를 돌려준다 */
   const saveAll = async (): Promise<ProductDraftView | null> => {
     // 상품만 여는 composer는 새 대표사진을 사진 맨 앞에 넣어 두어 10장을 넘을 수 있다. 서버에 보내기 전에 같은 문구로 막는다(5차 scan)
@@ -1357,31 +1439,12 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   /** 상세페이지 초안을 상품에 반영(apply). 판매·가격 저장보다 먼저 해야 상품 버전이 꼬이지 않는다. */
   // 이 화면에서 이미 반영한 초안. 같은 초안을 다시 반영하면 서버가 대표사진을 또 복사해 사진이 늘어난다.
   const applied = useRef("");
-  const applyDraft = async (c: {
-    draft: SourceDraft;
-    productId: string;
-    version: number;
-  }) => {
-    const id = `${c.draft.id}:${c.draft.version}`;
-    if (applied.current !== id && readApplied(c.productId) !== id) {
-      await api.apply(
-        batch!.id,
-        c.draft,
-        c.productId,
-        c.version,
-        keyFor("apply", [c.draft.id, c.productId, c.version]),
-      );
-      applied.current = id;
-      writeApplied(c.productId, id);
-      pending.current.clear();
-      await Promise.all([load(), reloadProduct()]);
-    }
-    goNext();
-  };
   /** 이 화면이 아직 반영하지 않은 최신 판매페이지 초안(C-9). 판매페이지가 바뀌었는데 초안이 낡았으면 멈춘다 */
   const pendingPage = async (): Promise<SourceDraft | null> => {
     if (!batch || !target || !productId) return null;
     const [ds, r, b] = await Promise.all([api.drafts(batch.id), api.review(batch.id), api.get(batch.id)]);
+    if (processingIssues(r, target.id).length)
+      throw new Error("자료를 모두 읽지 못했어요. 미완료 부분을 다시 처리하거나 해당 자료를 제외한 뒤 반영해 주세요.");
     const d = ds.items.find((x) => x.targetId === target.id && isFresh(x, r.reviewVersion, b.version));
     if (!d) {
       // 판매 전 '다음'과 같은 판정: 분석·초안이 있는데 최신 초안이 없으면 멈춘다
@@ -1527,7 +1590,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       ? "이전 분석을 취소해 주세요"
       : runs.length
         ? "AI로 다시 채우기"
-        : "AI로 채우기";
+        : batch?.sourceCopyEnabled ? "자료로 페이지 만들기" : "AI로 채우기";
   const start = () =>
     mutate(async () => {
       if (!batch) return;
@@ -1540,7 +1603,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           "고친 상세페이지를 저장하지 못해 AI로 다시 채우지 않았어요. 위 안내를 확인해 주세요.",
         );
       await flushAttachments.current?.();
-      await flushBasicInfo.current?.(true);
+      await flushBasicInfo.current?.(!batch?.sourceCopyEnabled);
       const latest = await api.get(batch.id);
       const started = await api.start(
         batch.id,
@@ -1553,15 +1616,39 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       setSheetOpen(false);
       await load();
     }, true);
-  const run = runs[0];
+  const run = activeRun ?? runs.find((r) => unresolvedReading.some((i) => i.runId === r.id)) ?? runs[0];
+  const readingRetries = run ? readingRetryItems(run, unresolvedReading.length ? unresolvedReading.map((i) => i.itemId) : undefined) : [];
+  /** Re-reads only the unfinished parts of the material (same as "미완료 부분 다시 처리"). */
+  const retryReading = () =>
+    mutate(async () => {
+      if (!run) return;
+      if (!retryGate.enter()) return;
+      // Keep owner edits before starting a new analysis attempt.
+      if (editorDirty && !(await saveEditorFirst()))
+        throw new Error("작성한 내용을 저장하지 못해 다시 처리하지 않았어요.");
+      await flushAttachments.current?.();
+      await flushBasicInfo.current?.(!batch?.sourceCopyEnabled);
+      const ids = readingRetries.map((i) => i.id);
+      const retried = await api.retry(
+        batch!.id,
+        run.id,
+        ids,
+        true,
+        keyFor("retry", [run.id, ids]),
+      );
+      requested(retried.id, "retry");
+      pending.current.clear();
+      await load();
+    });
   const runPanel = run ? (
     <View key={run.id} style={panel}>
       {working && batch && sheetOpen ? <SourceRunProgress batch={batch} run={run} /> : null}
+      {unresolvedReading.length && !activeRun ? <SourceProcessingNotice issues={unresolvedReading} sources={batch?.sources} disabled={busy} onView={() => setSheetOpen(false)} /> : null}
       <T>
-        {run.status === "SUCCEEDED"
+        {unresolvedReading.length ? (activeRun ? "자료 처리를 진행하고 있어요." : "미완성 초안 · 아직 상품에 반영할 수 없어요.") : run.status === "SUCCEEDED"
           ? "AI가 다 채웠어요. 위에서 확인하고 고쳐 주세요."
           : run.status === "PARTIAL"
-            ? "일부 내용을 채우지 못했어요. 다시 시도해 주세요."
+            ? "초안을 저장했어요. 원문을 확인하고 고쳐 주세요."
             : run.status === "PRIVACY_REVIEW"
               ? "이전 분석을 취소한 뒤 다시 시작해 주세요"
               : (states[run.status] ?? run.status)}
@@ -1602,32 +1689,15 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           }
         />
       ) : null}
-      {run.items.some((i) => ["FAILED", "PARTIAL"].includes(i.status)) ? (
+      {readingRetries.length ? (
         <>
           <Button
-            label="재시도"
+            label="미완료 부분 다시 처리"
             variant="outline"
             disabled={
               busy || !!activeRun || retryGate.cooling
             }
-            onPress={() =>
-              mutate(async () => {
-                if (!retryGate.enter()) return;
-                const ids = run.items
-                  .filter((i) => ["FAILED", "PARTIAL"].includes(i.status))
-                  .map((i) => i.id);
-                const retried = await api.retry(
-                  batch!.id,
-                  run.id,
-                  ids,
-                  true,
-                  keyFor("retry", [run.id, ids]),
-                );
-                requested(retried.id, "retry");
-                pending.current.clear();
-                await load();
-              })
-            }
+            onPress={retryReading}
           />
         </>
       ) : null}
@@ -1673,11 +1743,13 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   // 구매자에게 보이는 상품의 상품명을 지우는 중이면 지금 상품명을 머리에 둔다('새 상품'으로 보이지 않게)
   const title =
     form && !DEFAULT_NAMES.includes(form.name.trim()) ? form.name : product && !preSale ? product.name : "새 상품";
-  /** 판매 전 '다음: 판매·가격': 판매페이지 초안을 반영하고 ②로(확인 없음, 구매자에게 안 보임). 대표사진이 없으면 누르면 강조 */
-  const nextPreSale = () =>
-    mutate(async () => {
+  /** DEV-452: moving to sales only saves private work. Final submission applies the page. */
+  const nextPreSale = () => mutate(async () => {
+    if (!combinedSetup) {
+      // Ordinary composer (DEV-452 regression fix 11/27): required product fields and the 10-photo cap
+      // before moving on (C-19·C-23). No representative photo or apply here (recorded DEV-452 acceptance:
+      // '다음' saves privately; the page is applied with the sale request).
       if (!productId || !form) return;
-      // 판매 시작에 필요한 상품 정보(서버 missing_fields 중 이 화면 칸). 버튼은 끄지 않고 누르면 첫 빈 칸을 강조한다(C-19·C-23)
       await flushBasicInfo.current?.();
       const variety = batch && target ? ((await api.get(batch.id)).targets.find((t) => t.id === target.id)?.basicInfo?.variety ?? "") : form.variety;
       const missing: Record<string, string> = {};
@@ -1685,7 +1757,6 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       if (!form.origin.trim()) missing.origin = "원산지를 적어 주세요.";
       if (!variety.trim()) missing["품종명"] = "품종명을 적어 주세요.";
       if (!form.storage.trim()) missing["보관"] = "보관 방법을 적어 주세요.";
-      // 판매 전도 '다음'이 판매페이지를 반영하며 새 대표사진을 맨 앞에 넣는다(사진 10장 상한, 서버도 거절)
       if (photoCapHit) missing.photos = photoCapMessage(photoOver);
       if (Object.keys(missing).length)
         throw new ApiError(400, { code: "VALIDATION_ERROR", message: Object.values(missing)[0], details: { fields: missing } });
@@ -1694,53 +1765,43 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         await saveAll();
         return goNext();
       }
-      const photoBatch = await api.get(batch.id);
-      const photoTarget = photoBatch.targets.find(t => t.id === target.id);
-      const photo = photoBatch.sources.find(source => source.id === photoTarget?.representativeAssetId)
-        ?? photoBatch.sources.find(source => source.originalPhoto && (source.common || source.targetIds.includes(target.id)));
-      if (!photo || !photo.originalPhoto || photo.status !== "PREPARED")
-        throw new ApiError(400, { code: "VALIDATION_ERROR", message: "대표사진을 추가해 주세요.", details: { fields: { representativePhoto: "대표사진을 한 장 올려 주세요." } } });
-      await saveAll();
-      const [ds, r, b] = await Promise.all([
-        api.drafts(batch.id),
-        api.review(batch.id),
-        api.get(batch.id),
-      ]);
-      let d = ds.items.find(
-        (x) =>
-          x.targetId === target.id &&
-          isFresh(x, r.reviewVersion, b.version),
-      );
-      if (!d) {
-        // 분석 전이면 상품 정보만 저장하고 넘어간다. 분석 뒤인데 최신 초안이 없으면 멈춘다.
-        // 취소된 분석만 있으면 분석 전과 같다(결과가 없어 다시 채울 이유가 없음).
-        if (
-          ds.items.length ||
-          runs.some((x) => x.status !== "CANCELLED")
-        )
-          throw new Error(
-            "상세페이지가 지금 사진·자료와 맞지 않아요. AI로 다시 채우거나 임시 저장한 뒤 다시 눌러 주세요.",
-          );
-        // A manual photo-only draft follows the same apply path without an AI run.
+    }
+    await saveAll();
+    if (combinedSetup) {
+      if (!terms) throw new Error("자료·판매 설정을 먼저 확인해 주세요.");
+      const problem = checkTerms(terms);
+      if (problem) throw new Error(`${problem.message} 위 ‘자료·판매 설정 고치기’에서 채워 주세요.`);
+      // Everything that blocks the request is handled one at a time first (DEV-452 redesign).
+      if (photoMissing) throw new Error("상품 사진이 없어요. 위 ‘상품 사진 추가’로 대표 사진을 한 장 이상 넣어 주세요.");
+      if (readingBlocked) throw new Error("자료 일부를 다 읽지 못했어요. 위 ‘다 못 읽은 부분 다시 읽기’를 눌러 주세요.");
+      if (nameMismatch) throw new Error("상품명이 자료와 달라요. 위 ‘확인할 것’에서 이름을 확인해 주세요.");
+      if (sheetItems) { setBuyerPreview(false); setReviewSheet({}); return; }
+      if (!batch || !target || !productId) return;
+      const [w, latest, p] = await Promise.all([productWorkspace.open(productId, newIdempotencyKey()), api.drafts(batch.id), catalog.myProduct(productId)]);
+      const kg = w.snapshot.setupInputs?.requestedKg;
+      if (!kg) throw new Error("자료·판매 설정에서 판매할 총 물량을 입력해 주세요.");
+      const draft = latest.items.find(d => d.targetId === target.id);
+      if (!draft) throw new Error("페이지를 먼저 저장해 주세요.");
+      await catalog.requestCapacity(productId, Math.round(kg * 1000), p.version, newIdempotencyKey(), {draftId:draft.id,draftVersion:draft.version});
+      setNotice("판매 시작을 요청했어요. 운영자가 확인하면 공개돼요.");
+      // DEV-452 QA 11/28: land on 심사 중, where the requested product now is (not 판매 중).
+      allowLeave.current = true; router.dismissTo({ pathname: "/products", params: { filter: "review" } }); return;
+    }
+    // Manual entry still saves a private hero draft without calling AI or applying it.
+    if (batch && target && form && !runs.some(r => r.status !== "CANCELLED")) {
+      const [r, ds] = await Promise.all([api.review(batch.id), api.drafts(batch.id)]);
+      if (!ds.items.some(d => d.targetId === target.id)) {
         const fields: SourceField[] = r.editorFields.map(entry => entry.field);
-        for (const [fieldKey, value, photoAssetIds] of [
-          ["name", form?.name ?? "", []],
-          ["hero", "", []],
-        ] as [string, string, string[]][]) {
-          const replacement: SourceField = { targetId: target.id, fieldKey, value, photoAssetIds, state: "CONFIRMED", provenance: "PRODUCER", candidateIds: [], illustrationId: null };
-          const index = fields.findIndex(field => field.targetId === target.id && field.fieldKey === fieldKey);
+        for (const [fieldKey, value] of [["name", form.name], ["hero", ""]] as [string, string][]) {
+          const replacement: SourceField = { targetId: target.id, fieldKey, value, photoAssetIds: [], state: "CONFIRMED", provenance: "PRODUCER", candidateIds: [], illustrationId: null };
+          const index = fields.findIndex(f => f.targetId === target.id && f.fieldKey === fieldKey);
           if (index < 0) fields.push(replacement); else fields[index] = replacement;
         }
-        const saved = await api.saveEditor(batch.id, r.reviewVersion, fields, [{ targetId: target.id, enabledModuleIds: ["hero"] }], keyFor("manual-cover", [r.reviewVersion, photo?.id, form?.name]));
-        d = saved.drafts.find(draft => draft.targetId === target.id);
-        if (!d) throw new Error("상품사진을 저장하지 못했어요. 다시 시도해 주세요.");
+        await api.saveEditor(batch.id, r.reviewVersion, fields, [{ targetId: target.id, enabledModuleIds: ["hero"] }], keyFor("manual-private", [r.reviewVersion, form.name]));
       }
-      const p = await catalog.myProduct(productId);
-      // 이미 반영한 초안이면 확인할 것이 없으니 바로 이동한다.
-      const key = `${d.id}:${d.version}`;
-      if (applied.current === key || readApplied(productId) === key) return goNext();
-      await applyDraft({ draft: d, productId, version: p.version });
-    });
+    }
+    goNext();
+  });
   // 판매 조건 시트 위 토스트(DEV-486). 앱 토스트는 시트(Modal) 뒤에 그려져 보이지 않는다
   const [termsToast, setTermsToast] = useState<string | null>(null);
   const hideTermsToast = useCallback(() => setTermsToast(null), []);
@@ -1795,8 +1856,15 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
     allowLeave.current = true;
     navigation.dispatch(action);
   };
+  const openCombinedSetup = () => mutate(async () => {
+    if (!productId) return;
+    await saveAll();
+    allowLeave.current = true;
+    router.push({ pathname: "/product-setup", params: { id: productId } });
+  });
   // 판매 정보 자리(구매자 화면의 받는 시기·옵션 줄). 판매 전은 다음 단계 안내, 그 밖은 초안 값과 '판매 조건 고치기'(C-6)
   const salesBlock = (shown: MyProduct) => {
+    if (preSale && combinedSetup && terms) return <View testID="combined-sale" style={{padding:16,gap:12}}><View style={{gap:2}}><T weight="semibold">판매 설정</T><T variant="caption" muted>판매 조건은 자료·판매 설정 화면에서 고쳐요. 페이지에는 이 값이 쓰여요.</T></View><TermsSummary value={terms}/><Button label="자료·판매 설정 고치기" variant="outline" onPress={()=>void openCombinedSetup()}/></View>;
     if (preSale)
       return (
         <View testID="sales-next-step" style={{ padding: 14, borderRadius: 16, borderWidth: 1.5, borderStyle: "dashed", borderColor: "#E9B980", backgroundColor: "#FFF7EB", gap: 4 }}>
@@ -1844,9 +1912,28 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       </View>
     );
   };
-  const mainLabel = preSale ? "다음: 판매·가격" : unapplied ? `상품에 반영 (${unapplied})` : "상품에 반영";
+  const photoChecks = batch && target ? photosInUse(batch, target.id).filter(needsPhotoConfirm).length : 0;
+  // Same list as the check sheet (grouped passages count once) + unfinished reading, which also blocks the request.
+  const readingBlocked = combinedSetup && unresolvedReading.length > 0 && !activeRun;
+  // Sale settings that would refuse the request (old drafts made before the setup page required them).
+  const saleProblem = combinedSetup && preSale
+    ? (terms ? checkTerms(terms)?.message : "판매 설정이 없어요.") ?? (setupGrams === null ? "판매할 총 물량을 적어 주세요." : null)
+    : null;
+  // A sale request needs a representative product photo (server: representative.selected).
+  const photoMissing = combinedSetup && preSale && !!batch && !!target && productPhotos(batch, target.id).length === 0;
+  // DEV-452 (user review 11/28): a typed name that differs from the material's (e.g. a typo) is a check item.
+  const docName = combinedSetup && target ? cleanProductName(docValue(review, target.id, "name") ?? "") : "";
+  const typedName = form?.name ?? "";
+  const nameKey = target ? `${target.id}:${typedName}:${docName}` : "";
+  const nameMismatch = combinedSetup && preSale && !!docName && differs(typedName, docName) && nameNoticeOff !== nameKey && !nameKept(nameKey);
+  const toCheck = (copyData ? checkItems(copyData, [], null).length : reviewPendingCount) + photoChecks
+    + (readingBlocked ? 1 : 0) + (photoMissing ? 1 : 0) + (nameMismatch ? 1 : 0);
+  /** Items handled in the one-at-a-time sheet (photo, reading and name blockers have their own buttons). */
+  const sheetItems = toCheck - (readingBlocked ? 1 : 0) - (photoMissing ? 1 : 0) - (nameMismatch ? 1 : 0);
+  const mainLabel = preSale && combinedSetup ? (toCheck ? `판매 시작 요청 · 확인 ${toCheck}` : "판매 시작 요청") : preSale ? "다음: 판매·가격" : unapplied ? `상품에 반영 (${unapplied})` : "상품에 반영";
   // 판매 종료 상품은 하단 버튼이 없다. 같은 안내는 위쪽 줄에만 둔다(PM 11/18)
-  const footerButtons = readOnly ? null : (
+  // While the combined page is being made there is nothing to save or request yet (user review 11/28).
+  const footerButtons = readOnly || (combinedSetup && working) ? null : (
     <View style={{ flexDirection: "row", gap: 8 }}>
       {/* 바로 반영 방식(C-2)은 비공개 저장이 없다 */}
       {live && draftMode === "direct" ? null : (
@@ -1880,18 +1967,82 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       />
     </View>
   );
+  const pagePreview = buyerPreview || combinedSetup;
+  const combinedEdit = false; // the old in-page combined editor was replaced by sheets (DEV-452 11/27)
+  // DEV-452: review controls on the generated page (hidden in the pure buyer preview and while generating).
+  const reviewChrome = combinedSetup && !buyerPreview && !working && !!product;
+  useEffect(() => {
+    if (!combinedSetup || !batch || !target || !review?.sourceCopyEnabled) return;
+    let alive = true;
+    sourceCopyOnce(batch.id, target.id, review.reviewVersion)
+      .then((d) => {
+        if (!alive) return;
+        setCopyData(d);
+        setReviewPendingCount(d.plan.passages.filter((p) => p.reviewPending).length);
+        setDocPrices(d.plan.passages.filter(isDocPrice));
+        setDocWeights(d.plan.passages.filter(isDocWeight));
+        setDocSeasons(d.plan.passages.filter(isDocSeason));
+        setDocBrix([...new Set(d.plan.passages.map((p) => p.originalValue).filter((v) => /\d\s*(?:브릭스|brix|°\s*bx)/i.test(v)))]);
+        setCopyPlan({ planHash: d.plan.planHash, reviewVersion: d.reviewVersion });
+      })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [combinedSetup, batch?.id, target?.id, review?.reviewVersion, review?.sourceCopyEnabled, copyTick]);
+  const leftovers = copyData
+    ? copyData.plan.passages.filter((p) => !p.inputPreferred && p.decision?.action !== "OMIT" && p.status !== "EXCLUDED"
+        && (currentModule(p, copyData.plan) === null || !p.includedInDraft)).length
+    : 0;
+  const autoRemoved = copyData ? copyData.plan.passages.filter(isAutoRemoved).length : 0;
+  /** Section heading control on the review page: "• 확인 N" and "✎ 고치기". */
+  const sectionAccessory = (_id: string, moduleIds: string[], sectionTitle: string) => {
+    const n = checkItems(copyData, [], moduleIds).length;
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        {n ? <Button compact variant="text" label={`• 확인 ${n}`} onPress={() => setReviewSheet({ only: moduleIds })} /> : null}
+        <Button compact variant="text" label="✎ 고치기" onPress={() => setEditSection({ title: sectionTitle, moduleIds })} />
+      </View>
+    );
+  };
+  const afterCheck = async () => {
+    clearSourceCopyCache();
+    await load();
+    setCopyTick((t) => t + 1);
+  };
+  /** ② 가격·구성: put the material's wording into the page, or take it out again (the sale settings stay as entered). */
+  const toggleDocPassages = (list: SourceCopyPassage[], on: boolean, notes: [string, string]) => mutate(async () => {
+    if (!batch || !target || !copyPlan || !list.length) return;
+    if (editorDirty && !(await saveEditorFirst())) throw new Error("고친 페이지를 저장하지 못했어요. 위 안내를 확인해 주세요.");
+    await api.saveSourceCopy(batch.id, target.id, {
+      reviewVersion: copyPlan.reviewVersion,
+      planHash: copyPlan.planHash,
+      decisions: list.map((p) => on
+        ? { bindingHash: p.bindingHash, action: "KEEP" as const, note: notes[0], module: p.module ?? "composition" }
+        : { bindingHash: p.bindingHash, action: "TRANSFER_TO_SETTINGS" as const, note: notes[1] }),
+    });
+    await load();
+  });
+  const toggleDocPrices = (on: boolean) => toggleDocPassages(docPrices, on, [PRICE_KEEP_NOTE, PRICE_TRANSFER_NOTE]);
+  /** Photo actions in ①. Saves page edits first because they change the review version. */
+  const photoAction = (run: () => Promise<unknown>) => mutate(async () => {
+    if (!batch) return;
+    if (editorDirty && !(await saveEditorFirst())) throw new Error("고친 페이지를 저장하지 못했어요. 위 안내를 확인해 주세요.");
+    await run();
+    await load();
+  });
+  // Combined setup keeps errors and the final-preview / request buttons visible on the read-only page.
+  const hideEditChrome = buyerPreview && !combinedSetup;
   const render = (basic: ReturnType<typeof useSourceBasicInfo>) => (
     <FieldFeedbackContext.Provider value={{ fields: validationFields, clear: clearValidation }}><Screen>
-      <View style={{ zIndex: 1 }}><HeaderBar title={title} onBack={() => goBackOr(router, "/products")}
-        rightWidth={96} right={<EditorActions preview={buyerPreview}
+      <View style={{ zIndex: 1 }}><HeaderBar title={combinedSetup ? (working ? "페이지 만드는 중" : buyerPreview ? "구매자 화면 미리보기" : "페이지 확인") : title} onBack={() => goBackOr(router, "/products")}
+        rightWidth={combinedSetup ? (working ? 0 : 88) : 96} right={combinedSetup ? (working ? undefined : <Button compact variant="text" label={buyerPreview ? "닫기" : "미리보기"} onPress={() => setBuyerPreview(!buyerPreview)} />) : <EditorActions preview={pagePreview}
           onPreview={() => { setBuyerPreview(!buyerPreview); setSheetOpen(false); }}
           // 상품만 여는 composer(자료 분석 꺼짐·Mock)와 판매 종료 상품은 AI 버튼을 숨긴다(C-1·C-11)
-          aiOpen={sheetOpen} onAi={batch && !readOnly ? () => { setBuyerPreview(false); setSheetOpen(!sheetOpen); } : undefined} />} /></View>
+          aiOpen={sheetOpen} onAi={batch && !readOnly ? () => { if(combinedSetup && productId){void openCombinedSetup();return;} setBuyerPreview(false); setSheetOpen(!sheetOpen); } : undefined} />} /></View>
       <CollapsingFrame>
       {/* 위쪽 줄(단계 표시·판매 종료 안내)은 대표사진에 붙여 두지 않고 스크롤에 따라 머리 아래로 숨긴다(PM 11/18) */}
       {hasTop ? (
         <CollapsingTop visible={top.visible} scrolled={top.scrolled} onHeight={top.setHeight}>
-          {product && preSale ? <PreSaleSteps step={1} /> : null}
+          {product && preSale && !combinedSetup ? <PreSaleSteps step={1} /> : null}
           {readOnly ? (
             // 회색 상자 없이 글자만(PM 11/18). 빨간 경고 삼각형은 화면 읽기에서 뺀다(문장이 같은 뜻)
             <View testID="closed-notice" style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 12, gap: 2 }}>
@@ -1911,7 +2062,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
       <Scroll bottom={batch && !readOnly ? footerHeight + 24 : 140} onScroll={top.onScroll} scrollRef={scrollRef}>
         {/* 미리보기와 같은 구매자 화면(ProductPageBody)에서 빈 칸만 점선으로, 누르면 그 자리에서 고친다(DEV-184). */}
         {hasTop ? <CollapsingSpacer height={top.height} /> : null}
-        {soldOutAfter !== null && live && !buyerPreview ? (
+        {soldOutAfter !== null && live && !pagePreview ? (
           <View style={{ paddingHorizontal: tokens.space.gutter, paddingVertical: 12 }}>
             <Notice
               title="상품에 반영했어요."
@@ -1944,7 +2095,45 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             ) : null}
           </View>
         ) : null}
-        {!batchId && !productOnly ? (
+        {reviewChrome ? (
+          <View testID="check-bar" style={{ padding: 16, gap: 10 }}>
+            <View style={{ padding: 14, borderRadius: 14, gap: 8, backgroundColor: toCheck ? "#FFF7EB" : "#EDF4E8" }}>
+              <T weight="semibold">{toCheck ? `확인할 것 ${toCheck}개` : "확인할 것을 모두 마쳤어요"}</T>
+              <T variant="caption" muted>{toCheck
+                ? "자료에서 가져온 사진과 문장 중 판매 전에 한 번 봐야 할 것들이에요."
+                : "페이지를 훑어보고 판매 시작을 요청해 주세요."}</T>
+              {sheetItems ? <Button label="하나씩 확인하기" onPress={() => setReviewSheet({})} /> : null}
+            </View>
+            {nameMismatch ? (
+              <View testID="name-mismatch" style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#E9B980", gap: 8 }}>
+                <T variant="sub">{`자료에는 상품명이 ${josa(`‘${docName}’`, "으로")} 적혀 있어요. 입력한 이름 ${josa(`‘${typedName}’`, "이가")} 맞나요?`}</T>
+                <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                  <Button compact variant="outline" label={`${josa(`‘${docName}’`, "으로")} 바꾸기`} disabled={busy} onPress={() => { setField("name", docName); setNotice(`상품명을 ${josa(`‘${docName}’`, "으로")} 바꿨어요. 품종 등 다른 칸은 ‘정보 고치기’에서 확인해 주세요.`); }} />
+                  <Button compact variant="text" label="지금 이름이 맞아요" disabled={busy} onPress={() => { keepName(nameKey); setNameNoticeOff(nameKey); }} />
+                </View>
+              </View>
+            ) : null}
+            {photoMissing ? (
+              <View testID="photo-missing" style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#E9B980", gap: 8 }}>
+                <T variant="sub">상품 사진이 없어요. 대표 사진을 한 장 이상 넣어야 판매를 요청할 수 있어요.</T>
+                <Button compact variant="outline" label="상품 사진 추가" disabled={busy} onPress={() => void pickCover()} />
+              </View>
+            ) : null}
+            {readingBlocked ? (
+              <View testID="reading-blocked" style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#E9B980", gap: 8 }}>
+                <T variant="sub">자료 일부를 다 읽지 못했어요. 그 부분을 다시 읽어야 판매를 요청할 수 있어요.</T>
+                <Button compact variant="outline" label="다 못 읽은 부분 다시 읽기" disabled={busy || !readingRetries.length || retryGate.cooling} onPress={retryReading} />
+              </View>
+            ) : null}
+            {saleProblem ? (
+              <View testID="sale-settings-missing" style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#E9B980", gap: 8 }}>
+                <T variant="sub">{`판매 설정을 마저 채워야 판매를 요청할 수 있어요. ${saleProblem}`}</T>
+                <Button compact variant="outline" label="자료·판매 설정 고치기" disabled={busy} onPress={() => void openCombinedSetup()} />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+        {combinedSetup && working && batch && activeRun ? <View style={{ padding: 20, gap: 20 }}><T variant="heading">상품 페이지를 만들고 있어요</T><SourceRunSteps batch={batch} run={activeRun} /></View> : !batchId && !productOnly ? (
           <View style={{ padding: tokens.space.gutter, gap: 12 }}>
             <T>열 상품을 찾지 못했어요. 상품 목록에서 다시 골라 주세요.</T>
             <Button
@@ -2018,7 +2207,8 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
               // 미리보기용 상품 값(상품 초안·판매 조건을 덮은 값)
               const shown: MyProduct = {
                 ...product,
-                ...(live && terms
+                // Combined setup previews the producer's own setup sale settings, not the empty pre-sale stages.
+                ...((live || (combinedSetup && preSale)) && terms
                   ? withDraft(product, {
                       fields: {
                         options: terms.options,
@@ -2044,25 +2234,90 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                 },
               };
               const coverEditable = !readOnly && !busy && !activeRun;
+              // DEV-452 ② 기본 정보: the producer's input is used; a different document value is shown under it.
+              const factRows = (): FactRow[] => {
+                if (!target) return [];
+                const doc = (key: string) => docValue(review, target.id, key);
+                const useBasic = (key: BasicInfoKey, value: string) => () => basic.change(target.id, key, value);
+                const weightsOn = docWeights.some((p) => p.decision?.action === "KEEP");
+                const variety = basic.inputs[target.id]?.variety ?? "";
+                const size = basic.inputs[target.id]?.size ?? "";
+                // Replace is offered only when the material's wording fits the field; otherwise it is reference only.
+                const row = (key: string, label: string, input: ReactNode, value: string, onUse?: (v: string) => void, max = 30): FactRow => {
+                  const d = doc(key);
+                  return { key, label, input, doc: differs(value, d) ? d : null, onUseDoc: differs(value, d) && onUse && d.trim().length <= max ? () => onUse(d.trim()) : undefined };
+                };
+                return [
+                  row("name", "상품명", <FillInput label="상품명" value={form.name} placeholder="예: 서귀포 천혜향" maxLength={60} editable={!fieldsLocked} changed={changed("name")} onChange={(v) => setField("name", v)} />, form.name, (v) => setField("name", v), 60),
+                  row("variety", "품종", basicField("variety", "품종명", "예: 천혜향", 100), variety, (v) => useBasic("variety", v)(), 100),
+                  row("origin", "원산지", <FillInput label="원산지" value={form.origin} placeholder="예: 제주 서귀포" maxLength={30} editable={!fieldsLocked} changed={changed("origin")} onChange={(v) => setField("origin", v)} />, form.origin, (v) => setField("origin", v)),
+                  {
+                    key: "composition",
+                    label: "구성 (판매 설정)",
+                    input: <T>{terms?.options.map((o) => o.label).join(" · ") || "판매 설정에서 중량 옵션을 입력해 주세요."}</T>,
+                    doc: docWeights.length ? docWeights.map((p) => p.originalValue).join(" / ") : null,
+                    docAdded: weightsOn,
+                    onAddDoc: docWeights.length && copyPlan ? () => void toggleDocPassages(docWeights, !weightsOn, [WEIGHT_KEEP_NOTE, WEIGHT_TRANSFER_NOTE]) : undefined,
+                  },
+                  row("size", "크기", basicField("size", "사이즈", "예: 중과, 지름 6~7cm", 200), size, (v) => useBasic("size", v)(), 200),
+                  row("storage", "보관", <FillInput label="보관" value={form.storage} placeholder="예: 서늘한 곳" maxLength={30} editable={!fieldsLocked} changed={changed("storage")} onChange={(v) => setField("storage", v)} />, form.storage, (v) => setField("storage", v)),
+                  {
+                    key: "price",
+                    label: "가격 (판매 설정)",
+                    input: <T>{terms ? terms.options.map((o) => { const price = terms.rows[0] ? cellOf(terms.rows[0], o.optionId).price : null; return `${o.label} ${price != null ? `${price.toLocaleString("ko-KR")}원` : "가격 미입력"}`; }).join(" · ") : "판매 설정에서 가격을 입력해 주세요."}</T>,
+                    doc: docPrices.length ? docPrices.map((p) => p.originalValue).join(" / ") : null,
+                    docAdded: docPrices.some((p) => p.decision?.action === "KEEP"),
+                    onAddDoc: docPrices.length && copyPlan ? () => void toggleDocPrices(!docPrices.some((p) => p.decision?.action === "KEEP")) : undefined,
+                  },
+                  {
+                    key: "season",
+                    label: "받는 시기 (판매 설정)",
+                    input: <T>{rangeText(terms?.deliveryWindow ?? null) ?? "판매 설정에서 받는 시기를 정해 주세요."}</T>,
+                    doc: docSeasons.length ? docSeasons.map((p) => p.originalValue).join(" / ") : null,
+                    docAdded: docSeasons.some((p) => p.decision?.action === "KEEP"),
+                    onAddDoc: docSeasons.length && copyPlan
+                      ? () => void toggleDocPassages(docSeasons, !docSeasons.some((p) => p.decision?.action === "KEEP"), [SEASON_KEEP_NOTE, SEASON_TRANSFER_NOTE])
+                      : undefined,
+                  },
+                  {
+                    key: "brix",
+                    label: "측정 당도 (선택)",
+                    input: basicField("brix", "측정 당도 (°Bx)", "예: 12.5", 8),
+                    doc: docBrix.length ? docBrix.join(" / ") : null,
+                    // Only a value the producer chooses; the material's number may be an old average.
+                    onUseDoc: docBrix.length ? () => { const n = docBrix[0].match(/(\d+(?:\.\d+)?)\s*(?:~\s*\d+(?:\.\d+)?)?\s*(?:브릭스|brix|°\s*bx)/i); if (n) basic.change(target.id, "brix", n[1]); } : undefined,
+                  },
+                ];
+              };
               const pressCover = () => (productOnly ? void pickProductPhoto() : void pickCover());
               return (
                 <View testID="product-basic-info">
                   <ProductPageBody
-                    p={toPageData(shown, farmName, 0)}
+                    p={toPageData(shown, farmName, combinedSetup ? (setupGrams ?? 0) : 0)}
                     reference={() => null}
                     slots={{
-                      photo: (
+                      photo: reviewChrome && batch && target ? (
+                        <View testID="review-hero">
+                          {shownCover
+                            ? <Photo uri={shownCover} width="100%" height={244} alt="대표사진" />
+                            : <View style={{ height: 160, alignItems: "center", justifyContent: "center", backgroundColor: "#F5F1E8" }}><T muted>상품 사진이 없어요</T></View>}
+                          <View style={{ position: "absolute", right: 12, bottom: 12 }}>
+                            <Button compact variant="secondary" label={shownCover ? `사진 고치기 · ${productPhotos(batch, target.id).length}장` : "사진 추가"}
+                              onPress={() => (shownCover ? setReviewSheet("photos") : void pickPhoto(false))} />
+                          </View>
+                        </View>
+                      ) : combinedSetup && pagePreview && !shownCover ? <View/> : (
                         <FieldFeedback field="representativePhoto">
-                          {batch && target ? <View style={buyerPreview ? { display: "none" } : undefined}><SourceExclusions
+                          {batch && target ? <View style={pagePreview ? { display: "none" } : undefined}><SourceExclusions
                             batchId={batch.id}
-                            visible={!buyerPreview}
+                            visible={!pagePreview}
                             products={[{
                               id: target.id,
                               name: form.name || target.name,
                               result: working ? undefined : review?.refinementResults?.[target.id],
                             }]}
                           /></View> : null}
-                          {buyerPreview && !validationFields.representativePhoto ? <Photo uri={shownCover} width="100%" height={244} alt="대표사진" /> : shownCover || coverPresent ? (
+                          {pagePreview && !validationFields.representativePhoto ? (form.photos.length > 1 ? <PreviewGallery productId={product.productId} cover={shownCover} extra={form.photos.slice(1)} alt={form.name} /> : <Photo uri={shownCover} width="100%" height={244} alt="대표사진" />) : shownCover || coverPresent ? (
                             !shownCover ? (
                               <View
                                 testID="hero-photo"
@@ -2126,13 +2381,13 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                               </T>
                             </Pressable>
                           )}
-                          {!buyerPreview && (coverChanged || changed("cover")) ? (
+                          {!pagePreview && (coverChanged || changed("cover")) ? (
                             <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 6 }}>
                               <ChangedMark text="대표사진" />
                             </View>
                           ) : null}
                           {/* 판매 종료 상품은 더 보여 줄 사진이 없으면 빈 안내 줄을 두지 않는다 */}
-                          {buyerPreview || (readOnly && form.photos.length <= 1) ? null : (
+                          {pagePreview || (readOnly && form.photos.length <= 1) ? null : (
                             <FieldFeedback field="photos">
                               <ExtraPhotos
                                 productId={product.productId}
@@ -2153,7 +2408,23 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                           )}
                         </FieldFeedback>
                       ),
-                      name: buyerPreview ? <T variant="heading">{form.name}</T> : (
+                      name: reviewChrome && target ? (
+                        <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <T variant="heading" style={{ flex: 1 }}>{form.name}</T>
+                          <Button compact variant="text" label="✎ 정보 고치기" onPress={() => setReviewSheet("info")} />
+                        </View>
+                          {reviewSheet === "info" ? (
+                            <Sheet visible onClose={() => { if (!busy) setReviewSheet(null); }} title="상품 정보">
+                              <View style={{ gap: 12 }}>
+                                <BasicFacts busy={busy || working} rows={factRows()} />
+                                {salesBlock(shown)}
+                                <Button label="저장하고 닫기" loading={busy} disabled={busy} onPress={() => void mutate(async () => { await saveAll(); setReviewSheet(null); })} />
+                              </View>
+                            </Sheet>
+                          ) : null}
+                        </View>
+                      ) : pagePreview ? <T variant="heading">{form.name}</T> : (
                         <FillInput
                           label="상품명"
                           value={form.name}
@@ -2169,7 +2440,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                           onChange={(v) => setField("name", v)}
                         />
                       ),
-                      origin: buyerPreview ? undefined : (
+                      origin: combinedEdit ? <></> : pagePreview ? undefined : (
                         <FillInput
                           label="원산지"
                           value={form.origin}
@@ -2180,26 +2451,31 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                           onChange={(v) => setField("origin", v)}
                         />
                       ),
-                      subName: buyerPreview ? undefined : <View style={{ gap: 8 }}>
+                      subName: combinedEdit ? <></> : pagePreview ? undefined : <View style={{ gap: 8 }}>
                         <T variant="caption" muted>품종명</T>
                         {basicField("variety", "품종명", "예: 온주밀감", 100)}
                       </View>,
-                      sale: buyerPreview ? (preSale && !product.stages.length ? <></> : undefined) : salesBlock(shown),
+                      sale: pagePreview ? (preSale && !shown.stages.length ? <></> : undefined) : salesBlock(shown),
                       story: productOnly ? (
                         <View testID="product-detail-page" style={{ gap: 12 }}>
+                          {unresolvedReading.length && !working ? <View accessibilityRole="alert" style={{ gap: 8 }}>
+                            <T>미완성 초안 · 비공개</T>
+                            <T variant="caption">아직 읽지 못한 자료가 있어 상품에 반영할 수 없어요.</T>
+                            <Button label="미완료 자료 확인" variant="outline" disabled={busy} onPress={() => setSheetOpen(true)} />
+                          </View> : null}
                           {shown.moduleDetail ? (
                             <ModuleStory content={shown.moduleDetail} />
                           ) : (
                             <DetailStory content={shown.detailContent} fallback={shown.description} title="농가 이야기" />
                           )}
-                          {!buyerPreview && !readOnly && shown.moduleDetail ? (
+                          {!pagePreview && !readOnly && shown.moduleDetail ? (
                             // 섹션 상세는 예전 블록 편집기(/story)로 고칠 수 없다. 오가며 맴돌지 않게 버튼 대신 안내만(scan-before-merge)
                             <View style={{ paddingHorizontal: tokens.space.gutter }}>
                               <T variant="caption" muted>
                                 이 상품의 상세는 자료로 만든 섹션 상세라 이 화면에서는 고칠 수 없어요. 상품 칸과 판매 조건은 고칠 수 있어요.
                               </T>
                             </View>
-                          ) : !buyerPreview && !readOnly ? (
+                          ) : !pagePreview && !readOnly ? (
                             <View style={{ paddingHorizontal: tokens.space.gutter, gap: 6 }}>
                               <Button
                                 label="상세 고치기"
@@ -2220,7 +2496,13 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                         </View>
                       ) : (
                         <View testID="product-detail-page" style={{ gap: 12 }}>
-                          {working && !buyerPreview ? (
+                          {/* Combined flow: the review check bar covers this; the buyer preview never shows it. */}
+                          {unresolvedReading.length && !working && !combinedSetup ? <View accessibilityRole="alert" style={{ gap: 8 }}>
+                            <T>미완성 초안 · 비공개</T>
+                            <T variant="caption">아직 읽지 못한 자료가 있어 상품에 반영할 수 없어요.</T>
+                            <Button label="미완료 자료 확인" variant="outline" disabled={busy} onPress={() => setSheetOpen(true)} />
+                          </View> : null}
+                          {working && !pagePreview ? (
                             <View
                               testID="source-analysis-status"
                               accessibilityLiveRegion="polite"
@@ -2251,9 +2533,17 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                                 locked={busy || working || readOnly}
                                 key={batch.id}
                                 emptyHint
-                                preview={buyerPreview || readOnly}
+                                preview={pagePreview || readOnly}
+                                combined={combinedSetup}
+                                sectionAccessory={reviewChrome ? sectionAccessory : undefined}
+                                editSection={reviewChrome ? editSection : null}
+                                onCloseSection={() => { setEditSection(null); void afterCheck(); }}
+                                onEnabledChange={setPageSections}
+                                sizeSuggestion={reviewChrome}
+                                sizeOff={sizeCardOff}
+                                onSizeOff={() => setSizeCardOff(true)}
                                 // '금액은 다음 단계(판매·가격)에서' 같은 안내는 다음 단계가 있는 판매 전 상품에만
-                                showStoryTextHints={preSale}
+                                showStoryTextHints={preSale && !combinedSetup}
                                 // 구매자에게 보이는 상품은 페이지 제목을 상품명으로 맞추지 않으므로 저장된 제목을 그대로 보인다(DEV-346).
                                 displayName={
                                   !preSale || DEFAULT_NAMES.includes(form.name.trim())
@@ -2276,8 +2566,45 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                                   await load();
                                 }}
                               />
+                              {reviewChrome && target ? (
+                                // Unfolded like the product editor's 내용 추가 (user review 11/28).
+                                <View testID="add-section-row" style={{ marginHorizontal: tokens.space.gutter, marginBottom: 12, gap: 8 }}>
+                                  <T variant="caption" muted>내용 추가</T>
+                                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                                    {SOURCE_MODULES.filter(([id]) => id !== "hero" && !(id === "sizePhoto" && !sizeCardOff) && !(pageSections[target.id] ?? []).includes(id)).map(([id, label]) => {
+                                      const artwork = sourceModuleIcon(id);
+                                      return (
+                                        <Pressable
+                                          key={id}
+                                          accessibilityRole="button"
+                                          accessibilityLabel={`${label} 추가`}
+                                          disabled={busy || working}
+                                          onPress={() => setEditSection({ title: label, moduleIds: [id], add: true })}
+                                          style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48, paddingHorizontal: 12, borderWidth: 1, borderColor: tokens.color.border, borderRadius: tokens.radius.md, backgroundColor: tokens.color.surface }}
+                                        >
+                                          {artwork ? <Image source={artwork} accessible={false} resizeMode="contain" style={{ width: 24, height: 24 }} /> : null}
+                                          <T variant="caption">{label}</T>
+                                          <Icon name="plus" size={18} />
+                                        </Pressable>
+                                      );
+                                    })}
+                                  </View>
+                                </View>
+                              ) : null}
+                              {reviewChrome && (leftovers || autoRemoved) ? (
+                                <Pressable
+                                  testID="leftover-row"
+                                  accessibilityRole="button"
+                                  onPress={() => setReviewSheet("leftover")}
+                                  style={{ marginHorizontal: tokens.space.gutter, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: tokens.color.border, gap: 2 }}
+                                >
+                                  <T weight="semibold">{`자료에서 안 쓴 내용 ${leftovers + autoRemoved}개 ›`}</T>
+                                  {autoRemoved ? <T variant="caption" muted>{`자동으로 뺀 문장 ${autoRemoved}개 포함`}</T> : null}
+                                  <T variant="caption" muted>필요한 문장을 골라 페이지에 넣을 수 있어요.</T>
+                                </Pressable>
+                              ) : null}
                             </>
-                          ) : buyerPreview || readOnly ? null : (
+                          ) : pagePreview || readOnly ? null : (
                             <Pressable
                               testID="detail-placeholder"
                               accessibilityRole="button"
@@ -2306,7 +2633,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                           )}
                         </View>
                       ),
-                      brix: buyerPreview ? undefined : <View style={{ padding: 20, gap: 8 }}>
+                      brix: combinedEdit ? <></> : pagePreview ? undefined : <View style={{ padding: 20, gap: 8 }}>
                         <T weight="semibold">측정 당도 (선택)</T>
                         {basicField("brix", "측정 당도 (°Bx)", "예: 12.5", 8)}
                         {/* 등급(PM 11/18 되살림, 예전 SCR-25와 같은 세 값). 고른 것을 다시 누르면 지운다 */}
@@ -2341,7 +2668,7 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                         </View>
                         {changed("grade") ? <ChangedMark label="등급" /> : null}
                       </View>,
-                      info: buyerPreview ? undefined : {
+                      info: pagePreview || combinedEdit ? undefined : {
                         origin: (
                           <View style={{ flex: 1 }}>
                             <FillInput
@@ -2390,10 +2717,10 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
                       infoOpen: !!validationFields["보관"],
                       // 새 상품 작성에서는 이 줄의 입력이 사이즈다(무게 kg은 다음 화면). 소비자 화면 이름표는 그대로(DEV-329)
                       // 구매자 미리보기는 소비자 화면 그대로 '중량·수량'
-                      infoLabels: buyerPreview || !target ? undefined : { size: "사이즈" },
+                      infoLabels: pagePreview || !target ? undefined : { size: "사이즈" },
                     }}
                   />
-                  {basic.error && !buyerPreview && !sheetOpen ? (
+                  {basic.error && !hideEditChrome && !sheetOpen ? (
                     <View accessibilityRole="alert" style={{ padding: 20 }}>
                       <T variant="caption" color={tokens.color.error}>
                         {basic.error}
@@ -2406,15 +2733,47 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
         )}
       </Scroll>
       </CollapsingFrame>
+      {reviewChrome && batch && target && reviewSheet && typeof reviewSheet === "object" ? (
+        <CheckSheet
+          batch={batch}
+          targetId={target.id}
+          photos={reviewSheet.only ? [] : photosInUse(batch, target.id).filter(needsPhotoConfirm)}
+          only={reviewSheet.only}
+          onClose={() => setReviewSheet(null)}
+          beforeMutation={async () => !editorDirty || (await saveEditorFirst())}
+          onChanged={afterCheck}
+          onConfirmPhoto={async (p) => { await api.confirmExtracted(batch.id, p); }}
+          onRemovePhoto={async (p) => { await api.removeSource(batch.id, p); }}
+        />
+      ) : null}
+      {reviewChrome && batch && target && reviewSheet === "photos" ? (
+        <Sheet visible onClose={() => { if (!busy) setReviewSheet(null); }} title="사진">
+          <PhotoStrip batch={batch} targetId={target.id} busy={busy || working}
+            onRepresentative={(p) => void photoAction(async () => { const latest = await api.get(batch.id); await api.setRepresentative(batch.id, latest.version, [target.id], p.id); })}
+            onConfirm={(p) => void photoAction(() => api.confirmExtracted(batch.id, p))}
+            onRemove={(p) => void photoAction(() => api.removeSource(batch.id, p))}
+            onAdd={() => void pickPhoto(false)} />
+        </Sheet>
+      ) : null}
+      {reviewChrome && batch && target && reviewSheet === "leftover" && review ? (
+        <Sheet visible onClose={() => { if (!busy) { setReviewSheet(null); void afterCheck(); } }} title="자료에서 안 쓴 내용">
+          <SourceCopyReview batchId={batch.id} targetId={target.id} section={null}
+            enabled={!!review.sourceCopyEnabled} reviewVersion={review.reviewVersion}
+            locked={busy}
+            beforeMutation={async () => !editorDirty || (await saveEditorFirst())}
+            onReload={afterCheck} onBusy={() => undefined} />
+        </Sheet>
+      ) : null}
       {readOnly ? (
         // 판매 종료: 하단 바는 오류가 있을 때만(안내 문장은 위쪽 줄에 하나만)
-        errorPanel && !buyerPreview ? <BottomBar>{errorPanel}</BottomBar> : null
+        errorPanel && !hideEditChrome ? <BottomBar>{errorPanel}</BottomBar> : null
       ) : productOnly ? (
-        <View style={buyerPreview ? { display: "none" } : { display: "contents" }}>
+        <View style={hideEditChrome ? { display: "none" } : { display: "contents" }}>
           <BottomBar summary={errorPanel ?? undefined}>{footerButtons}</BottomBar>
         </View>
       ) : batch ? (
-        <View style={buyerPreview ? { display: "none" } : { display: "contents" }}>
+        // The combined waiting screen has nothing to save or request; no empty bottom bar (QA 11/28).
+        <View style={hideEditChrome || (combinedSetup && working) ? { display: "none" } : { display: "contents" }}>
         <PeekSheet hideClosedPeek
           open={sheetOpen}
           onOpenChange={setSheetOpen}
@@ -2455,9 +2814,9 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
           footer={
             sheetOpen ? (
               <View style={{ gap: 8 }}>
-                <T variant="caption">과일 품종명 *</T>
+                <T variant="caption">{batch.sourceCopyEnabled ? "어떤 상품을 만들까요? (선택)" : "과일 품종명 *"}</T>
                 <FillInput label="과일 품종명" value={basic.inputs[target?.id ?? ""]?.variety ?? ""}
-                  placeholder="예: 온주밀감" maxLength={100} editable={!(fieldsLocked || activeRun)}
+                  placeholder={batch.sourceCopyEnabled ? "여러 상품 자료라면 하나를 적어 주세요. 예: 카라향" : "예: 온주밀감"} maxLength={100} editable={!(fieldsLocked || activeRun)}
                   onFocus={() => focusBasic("sheetVariety")}
                   onChange={(v) => { if (target) basic.change(target.id, "variety", v); setStartError(""); }} onBlur={blurBasic} />
                 {basicNoteFor("sheetVariety")}
@@ -2498,6 +2857,11 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
             <T variant="caption" muted>
               판매페이지 수정을 &apos;임시 저장&apos;한 뒤에 첨부한 사진·자료를 바꿀 수
               있어요.
+            </T>
+          ) : null}
+          {batch.sourceCopyEnabled ? (
+            <T variant="caption" muted>
+              PDF·이미지·쓰던 글을 넣으면 한 상품의 페이지를 만들어요. 여러 상품이 섞여 있으면 만들 상품을 위에 적어 주세요. 상품사진은 따로 선택해 주세요.
             </T>
           ) : null}
           <T variant="caption" muted>
