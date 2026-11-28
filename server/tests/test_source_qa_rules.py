@@ -222,3 +222,16 @@ def test_AC_SRC_3_an_auto_removed_sentence_can_be_put_back_in_a_chosen_section()
         if m["module"] == "farmStory"
         for t in m["texts"]
     )
+
+
+def test_AC_SRC_11_a_blocked_publication_names_the_sentence_and_why():
+    """DEV-452 (user 11/28): the refusal says which sentence and why, never repeating the number."""
+    from app.source_analysis.source_copy_service import restricted_text
+
+    texts = ["껍질이 얇아요.", "원물 그대로 보내드려요. 수정 1795809545494"]
+    message = restricted_text(texts, "황금향")
+    assert "‘수정 [가림]’" in message
+    assert "개인정보로 보이는 숫자가 있어" in message
+    assert "1795809545494" not in message
+    assert "껍질" not in message  # only the sentence with the problem
+    assert restricted_text(["껍질이 얇아요."], "황금향") is None

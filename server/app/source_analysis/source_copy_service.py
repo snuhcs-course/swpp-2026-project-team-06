@@ -407,8 +407,42 @@ def validate_publication(db, batch, target_id, texts):
                 "SOURCE_REVIEW_CHANGED",
                 "수정·제외한 원문이 상세에 남아 있어요. 저장된 문구를 확인해 주세요.",
             )
+    target = next(t for t in batch.targets if t["id"] == target_id)
+    blocked = restricted_text(texts, target.get("name", ""))
+    if blocked:
+        raise invalid({"modules": blocked})
+
+
+# What a restricted phrase is, in the owner's words (with the subject particle).
+_RESTRICTED_LABELS = (
+    ("PRIVATE_VALUE", "전화·계좌 번호 같은 개인정보로 보이는 숫자가"),
+    ("HEALTH_CLAIM", "질병 예방·치료로 읽힐 수 있는 효능 표현이"),
+    ("OTHER_PRODUCT", "다른 상품 설명이"),
+)
+
+
+def restricted_text(texts, target_name):
+    """The first public text that cannot be published, as a message naming the sentence and why.
+
+    DEV-452 (user 11/28): the old message did not say which text was the problem. The sentence is
+    shown with private values masked, so the message never repeats a number it refuses.
+    """
+    import re
+
+    from app.source_analysis.preprocess import scrub
     from app.source_analysis.source_preserving import _RESTRICTED, _safety
 
-    target = next(t for t in batch.targets if t["id"] == target_id)
-    if any(_RESTRICTED.intersection(_safety(value, target.get("name", ""))) for value in texts):
-        raise invalid({"modules": "공개 제한 표현은 수정하거나 제외한 뒤 다시 적용해 주세요."})
+    for value in texts:
+        codes = _RESTRICTED.intersection(_safety(value, target_name))
+        if not codes:
+            continue
+        sentences = [s for s in re.split(r"(?<=[.!?。])\s+|\n+", value) if s.strip()]
+        hit = next(
+            (s for s in sentences if _RESTRICTED.intersection(_safety(s, target_name))), value
+        )
+        shown = re.sub(r"\s+", " ", scrub(hit)).strip()
+        if len(shown) > 40:
+            shown = shown[:40].rstrip() + "…"
+        label = next(text for code, text in _RESTRICTED_LABELS if code in codes)
+        return f"‘{shown}’에 {label} 있어 공개할 수 없어요. 고치거나 뺀 뒤 다시 반영해 주세요."
+    return None
