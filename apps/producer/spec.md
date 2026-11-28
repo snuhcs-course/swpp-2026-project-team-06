@@ -288,6 +288,21 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 상태 칩 선택지는 화면이 정한 다음 처리 API(`confirmDeposit`·`rejectDeposit`·`ship`·`refundSettled`·`refundIssue`)와 응답의 `undoAction`만 쓴다. 실행 취소 요청 키는 처리(`actionId`)마다 하나를 연결이 끊긴 재시도에 다시 쓴다.
 - 읽기 라벨은 기존 e2e가 쓰는 것을 유지한다(`<주문 번호> 입금 승인`, `<주문 번호> 송장 수정`, `<주문 번호> <누구> 송장 입력`, `<주문 번호> 채팅하기`, `<주문 번호> <누구> 고르기`). 새 라벨: `<주문 번호> 상태 <상태>, 변경`, 머리 `실행 취소`, 목록 `<주문 번호> <처리> 되돌리기`.
 
+
+## DEV-452 원문 보존 확인
+새 composer 작업은 sourceCopyEnabled를 명시한다. 기존 작업은 명시 전환 전 정책을 유지한다. 문장 점검/현재 정보 확인과 배치·사용 제한을 구분하고, 기존 수동 입력 저장이 성공한 뒤에만 확인을 저장한다. 최초 선택 시 서버 결정과 저장 직전 결정을 비교하여 다른 세션의 변경을 덮어쓰지 않는다. 실패/재조회/폴링 중 입력을 보존한다. 공개 변경은 기존 상품 반영 확인을 따른다. FEAT-03/04/07 · AC-SRC-2/3/5/6/7/11.
+
+2026-11-25 DEV-452: 사용자 지시로 검토 대기 문구도 비공개 초안에 보존한다. 포함 상태와 확인 상태를 분리하고 설명을 표시하며 공개 반영 전에 확인한다. source-preserving-drafts.md와 DEV-452 최신 결정이 종전 보류 정책을 대체한다.
+
+DEV-452 원문 조립 metadata를 표시하고 확인 기본 모듈은 실제 조립 위치를 따른다. 명시적 owner 위치 선택은 옵션 조립이 덮어쓰지 않는다. 날짜/가격 확인과 비공개 저장/명시 공개 경계는 유지한다.
+
+
+DEV-452 선택된 표현 정리 통합: source-copy plan.presentation은 선택 상태 metadata이며 PENDING/APPLIED/FALLBACK/STALE만 한국어로 안내하고 DISABLED/누락은 표시하지 않는다. 내부 reason·모델명은 제품 화면에 노출하지 않는다. 표현 정리 완료도 기존 원문과 owner 확인 대기 상태를 해제하지 않는다. 확인 기본 위치는 plan.modules[].texts[].passageIds로 찾은 실제 위치를 먼저 쓰고, 구버전 응답은 기존 optionAssembly/autoRepair/module 위치로 돌아간다. 저장 전 직접 고른 위치·문구와 최초 서버 결정 비교는 유지한다. FEAT-03/04/07 · AC-SRC-2/3/5/11.
+
+- DEV-452 미완료 읽기: 서버 processingIssues로 현재 상품의 미완료 자료를 안내하고 이전 실패 run의 미완료 작업도 재시도 대상으로 유지한다. 비공개 보기/저장은 허용, 재시도 전 입력 flush 실패 시 중단. 읽기 미완료 공개 차단은 서버가 강제한다. 설정/예산/파일 문제는 원인 해결 안내. 명시 제외는 기존 자료 삭제만 사용한다.
+
+## DEV-485 사유별 생산자 확인
+FEAT-03/04/07 및 AC-SRC-2/3/5/9/10/11: reviewPrompts는 사유별 질문·설명·심각도·확인 기록 문구를 제공한다. 기존 reviewExplanations 호환을 유지한다. 확인 버튼은 기존 검토 저장 경로를 사용하고 성공 뒤 완료 표시하며, 연결 문단의 모든 KEEP 결정이 같은 배치를 승인하면 연결을 유지한다. 사용 제한은 단순 확인으로 통과시키지 않는다. UI는 일반 황색/중요 산호색과 기호·문구를 함께 사용한다.
 ## DEV-477 앱에서 막히는 작은 곳 (2026-11-24)
 - 자료 칸(`lib/SourceAttachments.tsx`)은 썸네일 상태를 받는 중·받음·없음·실패로 나눈다. 받는 중은 면색 칸, 없음(쪽이 아직 없거나 404)은 아이콘 + 'PDF · n쪽'/'PDF'/'사진', 실패는 '미리보기를 불러오지 못했어요'. '준비 중' 문구는 쓰지 않는다. 앱에서 썸네일이 늘 실패하던 원인은 `packages/api/src/privatePhoto.ts`(React Native Blob, `packages/api/tasks/DEV-477.md`).
 - '소비자 앱에서 내 농가 보기'(SCR-30·SCR-33)는 `shareUrl`이 있을 때만 둔다. 승인 전·숨긴 농가(DEV-472)는 소비자 앱에서 404라서. 두 화면 모두 `lib/consumerFarmLink.ts`의 `consumerFarmTarget`으로 정하고, 농가 정보를 받기 전·조회 실패면 줄이 없다(눌러도 반응 없는 줄을 두지 않음).
@@ -314,3 +329,11 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 총 물량 = `salesLimitGrams`. 저장: `< 예약+출하` 거절(요청 없음), `≤ approvedSupplyGrams` `catalog.salesSettings`(한도만, `salesPaused` 그대로), 그보다 크면 `catalog.requestCapacity`(증액). 증액 승인은 서버가 한도도 같이 올린다(`catalog/service.py` `decide_capacity_request`, Mock `capacity.ts`). 카드 정보는 목록 응답(`MyProductCard`의 SalesState·`pendingCapacityRequest`)만 쓰고 상세를 읽지 않는다.
 - 시트 안 실패는 시트 안 빨간 줄(앱 토스트는 Modal 뒤), 성공은 시트를 닫고 앱 토스트 후 목록 다시 읽기. 멱등 키는 동작·값이 같으면 재사용.
 - `products/[id]/sales.tsx`는 `/products`로 Redirect(예전 링크). 현황 상품 줄은 상품 수정으로. 상품 수정의 반영 뒤 전체 품절 Notice는 버튼 없이 ‘총 물량(○kg)을 모두 팔았어요. 상품 목록의 판매 관리에서 늘릴 수 있어요.’. 증액이 반려되면(상품은 판매 중, `rejectReason`) 카드와 시트에 빨간 ‘늘리기 반려: {사유}’. 시트는 연 카드 id로 목록의 최신 카드를 쓰고, 실패하면 목록을 다시 읽는다(버전 충돌 회복). `lib/soldOutGuide.ts`·`scripts/test-sold-out-guide.mjs` 삭제.
+
+### DEV-464 saved source layout integration (local r006 recovery)
+Preserve the validated source-guided renderer as an optional page design. Store its bounded sections, source media and caption/text links with the existing private page snapshot JSON (no migration). Workspace validation rejects dangling text/photo references and media outside the product's allowed photos. Publication retains design metadata and resolves only publicly referenced photos; authenticated private previews resolve the same owned media. Legacy pages without design keep the existing rendering. A saved-layout page uses a versioned workspace reference at final initial-sale submission; rebase sales-term version changes only when the underlying page still exactly matches its published baseline. Source-copy workspaces retain their existing source-completeness and owner-review gates.
+
+Local recovery editor uses the actual private workspace endpoints and inline editing in the same source-guided layout, with photo replace/remove and explicit private save; it is not an arbitrary-upload generation implementation. User-confirmed r006 fixture and source bytes remain local/ignored. No static fixture is presented as a fresh generation result.
+
+### DEV-452 unified setup, user-directed local candidate
+New source-enabled products enter `/product-setup`: sources/pasted text and SalesTermsEditor with total quantity on one screen. Partial private save is explicit; generate flushes pasted material and posts current workspace/batch versions with all entered inputs. Generated composer receives `from=setup`, shows the saved sale summary, supports review/edit, then final preview/request without the old separate sale step. Product detail reopening restores this route mode from saved setupInputs. Existing live-product and disabled-source flows remain. Figma follow-up DEV-430.
