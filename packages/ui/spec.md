@@ -234,3 +234,8 @@ AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달�
 ## DEV-486 Sheet 위 겹침 자리·휴지통 아이콘
 - `Sheet`의 `overlay`는 시트 상자 밖, Modal 안 바탕 위에 그린다. 앱 루트 `Toast`는 Modal 뒤에 그려져 시트를 연 동안 보이지 않으므로 시트 안 알림은 부르는 쪽이 `overlay={<Toast …/>}`로 넘긴다(생산자 판매 조건 시트).
 - `Icon`에 `trash`(뚜껑·몸통·세로 두 줄, 24px 선 1.75) 추가.
+
+### DEV-464 saved source layout integration (local r006 recovery)
+Preserve the validated source-guided renderer as an optional page design. Store its bounded sections, source media and caption/text links with the existing private page snapshot JSON (no migration). Workspace validation rejects dangling text/photo references and media outside the product's allowed photos. Publication retains design metadata and resolves only publicly referenced photos; authenticated private previews resolve the same owned media. Legacy pages without design keep the existing rendering. A saved-layout page uses a versioned workspace reference at final initial-sale submission; rebase sales-term version changes only when the underlying page still exactly matches its published baseline. Source-copy workspaces retain their existing source-completeness and owner-review gates.
+
+Local recovery editor uses the actual private workspace endpoints and inline editing in the same source-guided layout, with photo replace/remove and explicit private save; it is not an arbitrary-upload generation implementation. User-confirmed r006 fixture and source bytes remain local/ignored. No static fixture is presented as a fresh generation result.
