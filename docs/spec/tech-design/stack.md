@@ -33,6 +33,7 @@
 | AI 관측 | Langfuse Cloud(무료) | AI 입력·출력·근거 기록(M-08), 정확도 평가(N-08) | 0004 |
 | 지표 | PostHog Cloud(무료), I1부터 | PRD 4장 지표, 개인정보 없이 | [0005](./adr/0005-analytics-posthog.md) |
 | 에러 | PostHog 오류 추적(웹·앱 JS 예외, 앱 멈춤 `app_not_responding`, DEV-496). 서버 오류 추적과 네이티브 크래시는 아직 없음(Sentry는 쓰지 않음, ADR 0005) | | — |
+| 알림 | 농가 주문 알림은 카카오 알림톡, 실패하면 업체 대체 문자(LMS). 발송 업체 솔라피(REST, HMAC-SHA256 서명). 서버 `notifications` 모듈이 주문 트랜잭션에 알림 행(outbox)을 넣고, API 프로세스 안 발송 루프(5초, `FOR UPDATE SKIP LOCKED` 임대)가 보낸다. `NOTIFY_PROVIDER` 기본 `none`(보내지 않음) | 새 서비스·비용 없이 주문과 외부 호출을 뗀다. 앱 푸시는 새 네이티브 빌드가 필요해 범위 밖(DEV-495) | — |
 | 결제 | I1 Mock. I2부터 PortOne(NHN KCP) | 주문·결제 모델은 PortOne 연동을 가정 | — |
 | CI/CD | GitHub Actions CI(ci.yml): 첫 job `changes`가 바뀐 경로(`scripts/ci/integration-map.json`)로 server(ruff·pytest·alembic)·apps(타입체크·Mock·웹 export)·admin-web·integration(실제 스택 + Playwright, 영향받는 spec만, 시간 기준 최대 3샤드)을 골라 돌리고 `ci-ok`가 모은다. 문서만 바뀌면 다 건너뛴다. 머지 큐(`merge_group`)는 integration 전체, 큐에서 통과한 커밋의 main push는 다시 돌리지 않는다. nightly·`hotfix` 머지 뒤 전체 검사는 ci-full.yml(DEV-234, `.github/CI.md`). 서버 배포는 main CI 성공 뒤, 마지막 배포 커밋(이동 태그 `deploy/railway-api`)과 그 커밋 사이에 `server/**` 변경이 있으면 Actions가 Railway CLI `railway up`으로 올림(deploy-railway.yml, DEV-65·66·139; GitHub App은 조직 승인 문제로 미연결). 앱은 main CI 성공 뒤 마지막 배포(`deploy/vercel-<app>`) 이후 앱 관련 변경이 있으면 Actions가 `expo export` → `vercel deploy --prod`(deploy-vercel.yml, DEV-67; `VERCEL_TOKEN` 등록 시에만 동작, 레포 변수 `APP_API_URL`이 비면 Mock 빌드). 관리자 페이지(`scripts/admin-web`)는 CI job `admin-web`에서 테스트하고, main CI 성공 뒤 마지막 배포(`deploy/vercel-admin`) 이후 `scripts/admin-web/` 변경이 있으면 빌드 없이 `vercel deploy scripts/admin-web --prod`(같은 workflow의 `deploy-admin`, DEV-114) | | — |
 | 패키지 | npm workspaces(앱), uv 또는 pip(서버) | 설정 최소 | — |
@@ -59,6 +60,7 @@ server/            FastAPI 서버
     messaging/     소식, 좋아요, 채팅, 질문함, 연락처 가림
     ai/            Claude 어댑터, 상품 초안, 문의 응답, 개인정보 제거(출하 문장 해석은 I2)
     analytics/     PostHog 서버 이벤트
+    notifications/ 농가 주문 알림톡 outbox·발송 루프·솔라피 클라이언트(DEV-495)
   migrations/      Alembic 마이그레이션
 docs/              스펙(docs/spec)·위키(docs/wiki)
 demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립트. 영상은 GitHub Release(DEV-133)
@@ -162,3 +164,4 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 | 2026-11-05 | 0.9 | DEV-236: Vercel 기본 주소를 공식 도메인으로 넘기지 않고(DEV-127 리다이렉트 제거, noindex 헤더) 서버 보조 주소로 CORS·카카오 복귀를 받는다. 운영 화면 테스트는 기본 주소에서(PostHog 꺼짐) |
 | 2026-11-21 | 0.11 | DEV-377: 2장 ‘앱 빌드’ 줄에 설치 이름(`farmclub`·`farmclub 농가`). 식별자·웹 제목은 그대로 |
 | 2026-11-22 | 0.12 | DEV-435: 2장 ‘앱 빌드’ 줄에 iPad 미지원·막은 Android 권한 |
+| 2026-11-28 | 0.13 | DEV-495: 2장 ‘알림’ 줄(카카오 알림톡 + 대체 문자, 솔라피, 프로세스 안 발송 루프), 3장 `notifications/` |

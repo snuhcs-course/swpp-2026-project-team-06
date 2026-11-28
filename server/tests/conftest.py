@@ -18,6 +18,8 @@ os.environ["FIXED_NOW"] = "2026-10-07T10:00:00+09:00"
 os.environ["MOCK_LOGIN_ENABLED"] = "true"
 os.environ["APP_ENV"] = "local"
 os.environ["ANTHROPIC_API_KEY"] = ""
+# DEV-495: 알림은 테스트에서 절대 보내지 않는다(no-op). 솔라피 테스트는 MockTransport만 쓴다
+os.environ["NOTIFY_PROVIDER"] = "none"
 
 # DEV-355: an empty env value is ignored (env_ignore_empty), so a developer's server/.env
 # could still supply live AI keys and providers. Tests read no .env file, same as CI.
@@ -33,6 +35,40 @@ def _ensure_test_database() -> None:
         exists = conn.execute("select 1 from pg_database where datname = %s", (TEST_DB,)).fetchone()
         if not exists:
             conn.execute(f'create database "{TEST_DB}"')
+
+
+# 실제로 연결하면 안 되는 외부 발송 업체(DEV-495)
+_BLOCKED_HOSTS = ("solapi.com",)
+
+
+def _blocked(host) -> bool:
+    name = (host.decode() if isinstance(host, bytes) else str(host or "")).lower().rstrip(".")
+    return any(name == h or name.endswith("." + h) for h in _BLOCKED_HOSTS)
+
+
+@pytest.fixture(autouse=True)
+def _no_provider_network(monkeypatch):
+    """솔라피로 실제 연결을 열면 테스트가 실패한다. MockTransport는 이 경로를 거치지 않는다."""
+    import socket
+
+    import httpx
+
+    real_getaddrinfo = socket.getaddrinfo
+    real_handle = httpx.HTTPTransport.handle_request
+
+    def getaddrinfo(host, *args, **kwargs):
+        if _blocked(host):
+            raise AssertionError(f"test tried to resolve {host}")
+        return real_getaddrinfo(host, *args, **kwargs)
+
+    def handle_request(self, request):
+        if _blocked(request.url.host):
+            raise AssertionError(f"test tried to connect to {request.url.host}")
+        return real_handle(self, request)
+
+    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", handle_request)
+    yield
 
 
 @pytest.fixture(scope="session", autouse=True)

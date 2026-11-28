@@ -33,6 +33,7 @@
   - ai: I1에는 없다. (I2) 출하 문장 해석(FEAT-17)은 ai 어댑터가 후보 주문을 돌려주고, 확정·반영은 이 모듈이 한다. AI에 받는 사람 이름·주소를 보내지 않는다(M-18).
   - farms: 농가 정지(R-24) 때 farms가 이 모듈의 일괄 환불을 부른다.
   - analytics: `order_paid`, `order_canceled` 서버 이벤트.
+  - notifications(DEV-495, FEAT-18): `request_deposit`이 입금 대기로 바꾼 직후 `notifications.order_awaiting_deposit`, `report_deposit`이 `deposit_reported_at`을 처음 채운 때 `notifications.deposit_reported`를 같은 세션으로 부른다. 알림 쪽은 savepoint 안에서 행만 넣고 실패해도 예외를 올리지 않으며, 외부 발송은 커밋 뒤 발송 루프가 한다. 주문 쪽은 알림 결과를 기다리거나 보지 않는다.
 
 ## 구현 결정
 | 날짜 | 결정 | 이유 | 관련 AC |

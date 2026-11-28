@@ -72,6 +72,7 @@ from app.core.ids import new_id
 from app.farms import models as _farms_models  # noqa: F401
 from app.media import models as _media_models  # noqa: F401
 from app.messaging import models as _messaging_models  # noqa: F401
+from app.notifications import models as _notifications_models  # noqa: F401
 from app.orders import models as _orders_models  # noqa: F401
 from app.source_analysis import models as _source_models  # noqa: F401
 
@@ -202,6 +203,9 @@ RULES: dict[str, Rule] = {
     "refunds": lambda k: false(),
     "order_inquiries": lambda k: false(),
     "thread_order_contexts": lambda k: false(),
+    # 농가 주문 알림(DEV-495). 주문을 전부 지우므로 알림도 전부, 끄기 설정은 남는 농가 것만
+    "notifications": lambda k: false(),
+    "notification_settings": lambda k: _in(_t("notification_settings").c.farm_id, k.farms),
     "source_batches": lambda k: _in(_t("source_batches").c.id, k.batches),
     "source_requests": lambda k: _in(_t("source_requests").c.farm_id, k.farms),
     "source_assets": lambda k: _in(_t("source_assets").c.batch_id, k.batches),

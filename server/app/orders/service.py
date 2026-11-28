@@ -13,6 +13,7 @@ from app.core.clock import now, today
 from app.core.config import get_settings
 from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
+from app.notifications import service as notifications
 from app.orders.deposit_code import code_name, pick_code
 from app.orders.models import Order, Payment, Refund
 from app.orders.schemas import (
@@ -755,6 +756,8 @@ def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
     order.status = "AWAITING_DEPOSIT"
     order.deposit_due_at = now() + timedelta(hours=get_settings().deposit_deadline_hours)
     db.flush()
+    # 농가에 새 주문 알림(DEV-495). 같은 트랜잭션에 행만 넣고, 실패해도 주문은 그대로 간다
+    notifications.order_awaiting_deposit(db, order, farm)
     return order_view(db, order)
 
 
@@ -838,6 +841,9 @@ def report_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
         raise conflict("INVALID_TRANSITION", "입금 대기 주문이 아니에요.")
     if order.deposit_reported_at is None:
         order.deposit_reported_at = now()
+        db.flush()
+        # 농가에 입금 알림(DEV-495). 처음 채운 때만(미승인 뒤 다시 알리면 새 알림)
+        notifications.deposit_reported(db, order)
     db.flush()
     return order_view(db, order)
 

@@ -29,6 +29,12 @@ def mask(text: str) -> tuple[str, bool]:
     return masked, bool(contacts)
 
 
+def phone_tail(phone: str | None) -> str:
+    """로그·관리 응답용 끝 4자리(DEV-495): '010-0000-1234' → '●●●●1234'. 4자리가 안 되면 '●●●●'."""
+    digits = "".join(ch for ch in phone or "" if ch.isdigit())
+    return "●●●●" + (digits[-4:] if len(digits) >= 4 else "")
+
+
 def strip(text: str, placeholder: str = "[연락처]") -> str:
     """AI로 보내기 전에 연락처를 지운다(M-18)."""
     for value in find_contacts(text):
