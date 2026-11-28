@@ -87,6 +87,7 @@ test-source-final: ## Offline stage-2 evaluator and final-text scorer tests (DEV
 test-source-preserving: ## Source-first planning, owner decisions and editor regressions (DEV-452)
 	@$(LOCAL_DB_ONLY)
 	$(SERVER) uv run pytest tests/test_product_setup.py tests/test_page_review.py tests/test_story_design.py tests/test_source_sale.py tests/test_source_preserving.py tests/test_source_review_prompts.py tests/test_source_reflow.py tests/test_source_options.py tests/test_source_review_extraction.py tests/test_source_assembly.py tests/test_ocr_recovery.py tests/test_source_processing.py tests/test_source_gemini_ocr.py tests/test_presentation_plan.py tests/test_source_presentation.py tests/test_source_copy_publication.py tests/test_source_copy_service.py tests/test_source_editor.py tests/test_source_refine.py tests/test_photo_extract.py tests/test_source_analysis.py
+	node --test scripts/test-page-review.mjs scripts/test-source-guided-story.mjs scripts/test-source-story-presentation.mjs scripts/test-source-copy.mjs scripts/test-source-processing.mjs scripts/test-source-sale.mjs scripts/test-source-run-progress.mjs scripts/test-combined-page-editor.mjs scripts/test-check-sheet.mjs
 
 test-server: ## pytest + alembic check (CI server job; run make db first)
 	@$(LOCAL_DB_ONLY)
