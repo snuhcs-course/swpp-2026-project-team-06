@@ -56,7 +56,9 @@ export function BuyerPreview({
 }) {
   // 승인 전 사진은 공개 주소로 열리지 않아 인증 blob으로 불러온다(`sourcePhoto.productPhotoUrl`과 같은 규칙).
   const [urls, setUrls] = useState<Record<string, string>>({});
+  const storyMedia = Object.values((product.moduleDetail?.design as { media?: Record<string, { uri: string }> } | undefined)?.media ?? {});
   const uris = [
+    ...storyMedia.map(m => m.uri),
     ...product.photos,
     ...(product.moduleDetail?.modules ?? []).flatMap((m) =>
       m.photos.map((x) => x.uri),
@@ -90,7 +92,7 @@ export function BuyerPreview({
   const media = (uri: string) =>
     uri.startsWith(PRIVATE)
       ? (urls[uri] ?? "")
-      : uri.startsWith("/")
+      : uri.startsWith("/api/")
         ? apiUrl + uri
         : uri;
   // 상품 사진 주소(DEV-322): 비공개 사진은 받은 blob, API 경로만 API 주소를 붙이고 나머지(시드 `/photos/…`·절대 주소)는 그대로.
