@@ -4,6 +4,10 @@ import { EditorActions } from "../../../../lib/EditorActions";
 // 판매 조건 칸은 composer 판매 조건 시트와 같은 SalesTermsEditor(DEV-361 PR C). 판매 중 상품은 composer(상품 수정)에서 고친다.
 import {
   ApiError,
+  isMock,
+  productWorkspace,
+  sourceAnalysis,
+  type SalePreview,
   catalog,
   farms,
   newIdempotencyKey,
@@ -25,6 +29,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 
+import { salePage, salePageWarnings } from "../../../../lib/sourceSale";
 import { BuyerPreview } from "../../../../lib/BuyerPreview";
 import { NumField } from "../../../../lib/fields";
 import { useHideTabBar, useSession } from "../../../../lib/session";
@@ -103,6 +108,10 @@ export default function Sell() {
   const focusSeq = useRef(0);
   // 지금 상품을 렌더를 기다리지 않고 본다(저장 응답과 늦게 온 포커스 응답을 견줄 때). setP는 늘 setProduct로 한다
   const product = useRef<MyProduct | null>(null);
+  const [privatePreview, setPrivatePreview] = useState<MyProduct | null>(null);
+  const [pageState, setPageState] = useState<SalePreview | null>(null);
+  const releasePreview = useRef<() => void>(() => {});
+  useEffect(() => () => releasePreview.current(), []);
   const setProduct = (next: MyProduct) => {
     product.current = next;
     setP(next);
@@ -119,6 +128,13 @@ export default function Sell() {
     setLoadError(null);
     try {
       const [r, f] = await Promise.all([catalog.myProduct(id), farms.mine()]);
+      if (!isMock && (r.status === "DRAFT" || r.status === "REJECTED") && (await sourceAnalysis.config()).enabled) {
+        const workspace = await productWorkspace.open(id, newIdempotencyKey());
+        if (workspace.snapshot.setupInputs) {
+          router.replace({ pathname: "/product-setup", params: { id } });
+          return false;
+        }
+      }
       setProduct(r);
       setFarm(f);
       fill(
@@ -132,7 +148,7 @@ export default function Sell() {
       setLoadError(e);
       return false;
     }
-  }, [id]);
+  }, [id, router]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -172,7 +188,7 @@ export default function Sell() {
   if (!p || !terms || !farm)
     return (
       <Screen>
-        <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} right={<EditorActions preview={false} onPreview={() => setPreview(true)} />} />
+        <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")}  />
         {loadError ? (
           <LoadError error={loadError} onRetry={() => void load()} />
         ) : (
@@ -286,9 +302,22 @@ export default function Sell() {
   const requestedGrams = Math.round((requestedKg ?? 0) * 1000);
   // 판매페이지(①)에서 '다음'으로 왔으면 뒤로(스택에 composer를 또 쌓지 않음), 아니면 상품 수정을 연다
   const toPage = () =>
-    from === "composer" && router.canGoBack()
+    (from === "source-page" || from === "recovered")
+      ? router.push({ pathname: "/source-page", params: { id } })
+      : from === "composer" && router.canGoBack()
       ? router.back()
       : router.push({ pathname: "/products/[id]/detail", params: { id } });
+  const preparePreview = async () => {
+    const fresh = await save();
+    if (!fresh) return;
+    const result = await salePage(fresh);
+    releasePreview.current();
+    releasePreview.current = result.release;
+    setPrivatePreview(result.product);
+    setPageState(result.state);
+    setPreview(true);
+  };
+  const warnings = salePageWarnings(pageState);
   const salesEditor = (
     <View style={{ gap: 24 }}>
       {p.status === "REJECTED" && p.rejectReason ? (
@@ -357,7 +386,7 @@ export default function Sell() {
   );
   return (
     <FieldFeedbackContext.Provider value={{ fields: invalidFields, clear: () => {} }}><Screen>
-      <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} right={<EditorActions preview={preview} onPreview={() => setPreview(!preview)} />} />
+      <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} right={<EditorActions preview={preview} onPreview={() => preview ? setPreview(false) : run(preparePreview)} />} />
       <CollapsingFrame>
         {editable ? (
           <CollapsingTop visible={top.visible} scrolled={top.scrolled} onHeight={top.setHeight}>
@@ -366,8 +395,17 @@ export default function Sell() {
         ) : null}
         <Scroll bottom={160} onScroll={top.onScroll}>
           {editable ? <CollapsingSpacer height={top.height} /> : null}
+          {preview ? <View style={{ padding: tokens.space.gutter, gap: 8 }}>
+            <T variant="heading">최종 미리보기</T>
+            <T>페이지와 판매 조건을 확인한 뒤 판매 시작을 요청해 주세요.</T>
+            {warnings.map(w => <Notice key={w} title={w} tone="error" />)}
+            {warnings.length ? <Button label="판매페이지에서 확인하기" variant="outline" onPress={toPage} /> : null}
+          </View> : <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 12, gap: 8 }}>
+            <T variant="caption">자료 읽기나 문구 확인이 남아 있어도 판매 조건은 입력할 수 있어요. 마지막 요청 전에 함께 확인해요.</T>
+            <Button label="판매페이지로 돌아가기" variant="text" onPress={toPage} />
+          </View>}
           <View testID={preview ? "buyer-preview" : "sales-editor"}>
-            <BuyerPreview product={p} farm={farm} requestedGrams={requestedGrams} salesPreview={preview ? salesReadOnly : salesEditor} />
+            <BuyerPreview product={preview && privatePreview ? privatePreview : p} farm={farm} requestedGrams={requestedGrams} salesPreview={preview ? salesReadOnly : salesEditor} />
           </View>
         </Scroll>
       </CollapsingFrame>
@@ -382,11 +420,13 @@ export default function Sell() {
         })} /></>
       ) : null}</View> : undefined}>
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <Button label="저장" variant="secondary" size="producer" disabled={busy || !editable} style={{ flex: 1 }} onPress={() => run(async () => { if (await save()) toast("저장했어요"); })} />
-          <Button label="판매 시작 요청" size="producer" disabled={busy || !editable} loading={busy} style={{ flex: 2 }} onPress={() => run(async () => {
-            const fresh = await save();
-            if (!fresh) return;
-            await catalog.requestCapacity(id, requestedGrams, fresh.version, keyFor("request", [requestedGrams, fresh.version]));
+          <Button label="저장" variant="secondary" size="producer" disabled={busy || !editable} style={{ flex: 1 }} onPress={() => run(async () => { if (await save()) { setPreview(false); toast("저장했어요"); } })} />
+          <Button label={preview ? "판매 시작 요청" : "최종 미리보기"} size="producer" disabled={busy || !editable} loading={busy} style={{ flex: 2 }} onPress={() => run(async () => {
+            if (!preview) return preparePreview();
+            if (warnings.length) { setError(warnings.join("\n")); return; }
+            const fresh = privatePreview ?? p;
+            const page = pageState?.workspace ? { draftId: "workspace-" + id, draftVersion: pageState.workspace.version } : pageState?.draft ? { draftId: pageState.draft.id, draftVersion: pageState.draft.version } : undefined;
+            await catalog.requestCapacity(id, requestedGrams, fresh.version, keyFor("request", [requestedGrams, fresh.version, page]), page);
             track("sale_start_requested", { productId: id, screen: "product_sell", requestKind: fresh.approvedSupplyGrams === 0 ? "initial" : "increase" });
             toast("판매 시작을 요청했어요. 운영자가 확인하면 공개돼요.");
             router.dismissTo("/products");

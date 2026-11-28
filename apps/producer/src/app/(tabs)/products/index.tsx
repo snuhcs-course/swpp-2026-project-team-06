@@ -3,8 +3,10 @@ import {
   allPages,
   catalog,
   newIdempotencyKey,
+  productWorkspace,
   serverNow,
   type MyProductCard,
+  type PageStatus,
 } from "@farmclub/api";
 import {
   Button,
@@ -31,6 +33,7 @@ import { optionBoxesFromCard } from "../../../lib/optionBoxes";
 import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
 import { productPhotoUrl } from "../../../lib/sourcePhoto";
+import { ProgressBar, runPercent } from "../../../lib/SourceRunProgress";
 import {
   productGroup,
   isPreSale,
@@ -42,6 +45,27 @@ import {
  * DEV-300: 카드 물량 = 옵션마다 '5kg  32,000원   24박스 예약'(가격은 지금 판매 기간, 박스는 모든 기간 합. DEV-487부터 판매 박스는 안 보임).
  * 목록 카드(`GET /api/products/mine`)의 `options`를 바로 쓴다(카드마다 상세를 읽지 않는다). 옵션이 없으면 예전 kg 줄.
  */
+/** DEV-452: page generation state on a draft card made through the combined setup page. */
+function PageStatusLine({ status }: { status: PageStatus }) {
+  if (status.state === "NONE") return null;
+  const percent = status.state === "MAKING" && status.run
+    ? runPercent({ sources: (status.sources ?? []) as never }, status.run as never)
+    : 0;
+  const text =
+    status.state === "MAKING" ? `페이지 만드는 중 · ${percent}%`
+    : status.state === "FAILED" ? "페이지를 만들지 못했어요 · 열어서 다시 시도해 주세요"
+    : status.toCheck ? `페이지 완성 · 확인할 것 ${status.toCheck}` : "페이지 완성 · 확인할 것 없음";
+  return (
+    // Inside the card header, whose tap opens the page; no nested button.
+    <View testID={`page-status-${status.productId}`} style={{ gap: 6, paddingVertical: 6 }}>
+      <T variant="caption" weight="semibold" color={status.state === "FAILED" ? tokens.color.error : status.state === "READY" && status.toCheck ? tokens.color.accent : undefined}>
+        {text} ›
+      </T>
+      {status.state === "MAKING" ? <ProgressBar percent={percent} /> : null}
+    </View>
+  );
+}
+
 function SalesLine({ product }: { product: MyProductCard }) {
   // 앱이 서버보다 먼저 배포되면 옛 카드에는 options가 없다 → kg 줄
   const rows = optionBoxesFromCard(product.options ?? []);
@@ -484,6 +508,12 @@ export default function Products() {
     [],
   );
   const list = useLiveList(load, user?.userId ?? "", active && !!user, 8000);
+  // DEV-452: page generation state of combined-setup drafts (polled faster while pages are being made).
+  const loadStatus = useCallback(() => productWorkspace.pageStatus().then((r) => r.items), []);
+  const statuses = useLiveList(loadStatus, user?.userId ?? "", active && !!user, 4000);
+  const statusOf = (id: string) => statuses.data?.find((item) => item.productId === id);
+  const openPage = (status: PageStatus) =>
+    router.push(`/products/source-analysis?batchId=${status.batchId}&composer=1&from=setup`);
   // 연 카드의 id만 들고 최신 카드는 목록에서 찾는다(목록이 다시 읽히면 시트도 새 버전으로, 버전 충돌 뒤 회복)
   const [managingId, setManagingId] = useState<string | null>(null);
   const managing = managingId ? list.data?.find((item) => item.productId === managingId) ?? null : null;
@@ -588,8 +618,12 @@ export default function Products() {
           >
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${product.name || "이름 없는 초안"}${product.hasUnappliedChanges ? " (반영 안 한 수정 있음)" : ""} 상품 수정`}
-              onPress={() => router.push(`/products/${product.productId}/detail`)}
+              accessibilityLabel={`${product.name || statusOf(product.productId)?.nameHint || "이름 없는 초안"}${product.hasUnappliedChanges ? " (반영 안 한 수정 있음)" : ""}${statusOf(product.productId) && statusOf(product.productId)!.state !== "NONE" ? " 페이지" : ""} 상품 수정`}
+              onPress={() => {
+                const status = statusOf(product.productId);
+                if (status && status.state !== "NONE") openPage(status);
+                else router.push(`/products/${product.productId}/detail`);
+              }}
               style={{ flexDirection: "row", gap: 16, minHeight: 64 }}
             >
               <CardPhoto product={product} />
@@ -624,8 +658,11 @@ export default function Products() {
                   ) : null}
                 </View>
                 <T weight="semibold" numberOfLines={2}>
-                  {product.name || "이름 없는 초안"}
+                  {product.name || statusOf(product.productId)?.nameHint || "이름 없는 초안"}
                 </T>
+                {statusOf(product.productId) ? (
+                  <PageStatusLine status={statusOf(product.productId)!} />
+                ) : null}
                 {/* 이름 없는 초안끼리 가르는 마지막 저장 시각(DEV-226, HE-X5) */}
                 {product.status === "DRAFT" && draftSaved(product.updatedAt, { md, time }, serverNow()) ? (
                   <T variant="caption" muted numberOfLines={1}>
@@ -671,7 +708,12 @@ export default function Products() {
                 label="상품 수정"
                 variant="outline"
                 style={{ flex: 1 }}
-                onPress={() => router.push(`/products/${product.productId}/detail`)}
+                onPress={() => {
+                  const status = statusOf(product.productId);
+                  // Combined-setup drafts open their generated page directly (DEV-452).
+                  if (status && status.state !== "NONE") openPage(status);
+                  else router.push(`/products/${product.productId}/detail`);
+                }}
               />
               {isPreSale(product) ? (
                 <Button
