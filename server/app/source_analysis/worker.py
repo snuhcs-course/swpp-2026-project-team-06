@@ -23,8 +23,10 @@ from app.ai.source_ocr import (
     OCR_RETRY_MAX_TOKENS,
     Transcription,
     crops,
+    split_crop,
     transcribe,
 )
+from app.ai.source_refine import PHOTO_FIELDS
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.farms import models as _farm_models  # noqa: F401
@@ -55,6 +57,16 @@ from app.source_analysis.schemas import Extraction
 from app.source_analysis.service import refresh_runs
 from app.source_analysis.storage import Storage
 from app.source_analysis.text_safety import numbers
+
+
+def scrub_inputs(value):
+    if isinstance(value, str):
+        return scrub(value)
+    if isinstance(value, dict):
+        return {key: scrub_inputs(v) for key, v in value.items()}
+    if isinstance(value, list):
+        return [scrub_inputs(v) for v in value]
+    return value
 
 
 def claim():
@@ -143,6 +155,91 @@ def heartbeat(item_id, token):
         thread.join(timeout=2)
 
 
+EXTRACTED_PER_FIELD = 2
+
+
+def add_extracted_photos(db, batch, source, prepared):
+    """Store photos found inside a document as unconfirmed product photos (DEV-452).
+
+    Provenance and confirmation live in Asset.placement["extracted"]. Near-duplicates (the
+    same photo repeated on several pages or in another document) are kept once. At most
+    EXTRACTED_PER_FIELD photos per page section are placed; the rest stay available in the
+    producer's photo strip. The producer must confirm or remove each placed photo before a
+    sale request (setup.py).
+    """
+    import hashlib
+
+    from app.source_analysis.photo_extract import PHOTO_VERSION, dhash, field_for, near_duplicate
+    from app.source_analysis.photos import ready_photo
+    from app.source_analysis.representative import reconcile
+
+    existing = list(
+        db.scalars(
+            select(Asset).where(
+                Asset.batch_id == batch.id,
+                Asset.deleted.is_(False),
+                Asset.original_photo.is_(True),
+            )
+        )
+    )
+    # A re-prepared source replaces its own earlier extraction.
+    for old in existing:
+        if (old.placement or {}).get("extracted", {}).get("sourceId") == source.id:
+            old.deleted = True
+    existing = [a for a in existing if not a.deleted]
+    hashes = [
+        a.placement["extracted"]["hash"] for a in existing if (a.placement or {}).get("extracted")
+    ]
+    placed = {}
+    for a in existing:
+        key = (a.placement or {}).get("fieldKey")
+        if key:
+            placed[key] = placed.get(key, 0) + 1
+    stem = source.filename.rsplit(".", 1)[0][:150]
+    count = 0
+    for number, raw in enumerate(prepared, 1):
+        for photo in raw.get("photos") or []:
+            digest = dhash(photo["image"])
+            if any(near_duplicate(digest, h) for h in hashes):
+                continue
+            hashes.append(digest)
+            data = base64.b64decode(photo["image"])
+            key = field_for(photo["box"], raw.get("spans") or [])
+            use = placed.get(key, 0) < EXTRACTED_PER_FIELD
+            if use:
+                placed[key] = placed.get(key, 0) + 1
+            count += 1
+            asset = Asset(
+                batch_id=batch.id,
+                checksum=hashlib.sha256(data).hexdigest(),
+                storage_key=Storage().put(data),
+                filename=f"{stem}-p{number}-{count}.png"[:200],
+                mime="image/png",
+                size=len(data),
+                target_ids=list(source.target_ids),
+                common=source.common,
+                original_photo=True,
+                placement={
+                    "revision": 1,
+                    "fieldKey": key if use else None,
+                    "extracted": {
+                        "sourceId": source.id,
+                        "page": number,
+                        "box": photo["box"],
+                        "method": photo["method"],
+                        "hash": digest,
+                        "version": PHOTO_VERSION,
+                        "confirmed": False,
+                    },
+                },
+            )
+            db.add(asset)
+            db.flush()
+            ready_photo(db, asset, data)
+    if count:
+        reconcile(db, batch)
+
+
 def lock_context(db, item_id, token):
     item = db.get(Item, item_id)
     if item is None:
@@ -177,6 +274,13 @@ def page_scope(pages):
     return {(p["number"], None) for p in pages} | {
         (p["number"], sid) for p in pages for sid in p["spanIds"]
     }
+
+
+SOURCE_COPY_EXTRACTION_POLICY = "source-copy-historical-text-v1"
+
+
+def extraction_policy(allow_historical_fields):
+    return SOURCE_COPY_EXTRACTION_POLICY if allow_historical_fields else "legacy"
 
 
 def enqueue_extraction(db, source, run, item, pages):
@@ -215,6 +319,12 @@ def enqueue_extraction(db, source, run, item, pages):
             )
         )
     )
+    # A policy switch must not reuse a successful job validated under the old mode.
+    # Missing diagnostics identify legacy jobs; do not invalidate legacy caches globally.
+    policy = extraction_policy(db.get(Batch, run.batch_id).source_copy_enabled)
+    previous = [
+        old for old in previous if old.diagnostics.get("extractionPolicy", "legacy") == policy
+    ]
     if run.mode == "openrouter" and source.mime != "text/plain":
         # The job owns the document; OCR uses crops and extraction packs bounded pages.
         requests = [
@@ -291,13 +401,34 @@ def canonical_quote(quote, source):
     return source[tokens[start].start() : tokens[start + len(wanted) - 1].end()]
 
 
-def validate(extraction, chunk, allowed_targets):
+_EN_UNITS = (
+    ("years?", "년"),
+    ("months?", "개월"),
+    ("weeks?", "주"),
+    ("days?", "일"),
+    ("hours?", "시간"),
+)
+
+
+def korean_units(value):
+    """'1 year' → '1년': undo an English unit the model wrote for a Korean source unit."""
+    for english, korean in _EN_UNITS:
+        value = re.sub(rf"(\d+(?:[.,]\d+)?)\s*{english}\b", rf"\g<1>{korean}", value, flags=re.I)
+    return value
+
+
+def validate(extraction, chunk, allowed_targets, *, allow_historical_fields=False):
     span_map = {(p["number"], s["id"]): s["text"] for p in chunk["pages"] for s in p["spans"]}
     for candidate_index, candidate in enumerate(extraction.candidates):
         quotes = "\n".join(e.quote for e in candidate.evidence)
 
         if numbers(candidate.value) - numbers(quotes):
-            raise ExtractionError("UNSUPPORTED_NUMBER")
+            # DEV-452: a value that only translated the unit ("1 year" for "1년") is put back
+            # into the source's Korean unit; any other unsupported number is still rejected.
+            repaired = korean_units(candidate.value)
+            if repaired == candidate.value or numbers(repaired) - numbers(quotes):
+                raise ExtractionError("UNSUPPORTED_NUMBER")
+            candidate.value = repaired
         if (
             candidate.field_key == "pieceCount"
             and numbers(candidate.value)
@@ -313,7 +444,11 @@ def validate(extraction, chunk, allowed_targets):
             candidate.target_id = None
         if scrub(candidate.value) != candidate.value:
             raise ExtractionError("UNSUPPORTED_PRIVATE_VALUE")
-        if candidate.historical and candidate.field_key != "historicalSales":
+        if (
+            candidate.historical
+            and candidate.field_key != "historicalSales"
+            and not (allow_historical_fields and candidate.field_key not in PHOTO_FIELDS)
+        ):
             raise ExtractionError("HISTORICAL_FIELD")
         for evidence in candidate.evidence:
             if evidence.source_id != chunk["sourceId"] or (
@@ -339,13 +474,15 @@ def validate(extraction, chunk, allowed_targets):
     return extraction
 
 
-def validate_candidates(extraction, chunk, allowed_targets):
+def validate_candidates(extraction, chunk, allowed_targets, *, allow_historical_fields=False):
     """Keep strict per-candidate checks; a bad quote cannot discard unrelated facts."""
     accepted, rejected = [], []
     for index, candidate in enumerate(extraction.candidates):
         single = extraction.model_copy(update={"candidates": [candidate.model_copy(deep=True)]})
         try:
-            validate(single, chunk, allowed_targets)
+            validate(
+                single, chunk, allowed_targets, allow_historical_fields=allow_historical_fields
+            )
         except ExtractionError as exc:
             rejected.append(
                 {
@@ -421,8 +558,7 @@ def store_candidates(db, batch, item, extraction):
                     page_level
                     or evidence.get("spanIds")
                     and all(
-                        (evidence["page"], sid) in succeeded_scope
-                        for sid in evidence["spanIds"]
+                        (evidence["page"], sid) in succeeded_scope for sid in evidence["spanIds"]
                     )
                 )
                 for evidence in candidate.evidence
@@ -480,7 +616,18 @@ def store_candidates(db, batch, item, extraction):
 
 
 def paid_vision_call(
-    item_id, token, stage, model, chunk, targets, images, fn, output_tokens=None, *, guard=None
+    item_id,
+    token,
+    stage,
+    model,
+    chunk,
+    targets,
+    images,
+    fn,
+    output_tokens=None,
+    *,
+    guard=None,
+    reservation_mode=None,
 ):
     """Fence every individual request, reserve before sending, settle even after cancellation."""
     from app.source_analysis.budget import reserve, settle
@@ -497,7 +644,7 @@ def paid_vision_call(
         reservation = reserve(
             db,
             item,
-            run.mode,
+            reservation_mode or run.mode,
             model,
             chunk,
             targets,
@@ -569,10 +716,10 @@ def _ordered_results(jobs, stop, concurrency):
         # Executor shutdown waits for every already sent request to settle, also on close.
 
 
-def _ocr_results(pages, page_images, call, failed, concurrency):
+def _ocr_results(pages, page_images, call, failed, concurrency, recovery=None):
     """Bound submitted work as well as threads; yield results in source order."""
     stop = Event()
-    skipped = Transcription([], {"cost": 0}, None)
+    skipped = Transcription([], {"cost": 0}, None, skipped=True)
 
     def jobs():
         for number, page in enumerate(pages):
@@ -588,7 +735,7 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
                 yield number, exc
             yield number, None  # End of page, including empty and failed pages.
 
-    def invoke(number, index, encoded, retry=False):
+    def invoke(number, index, encoded, retry=False, allow_split=True):
         if stop.is_set() or failed[number].is_set():
             return skipped
 
@@ -604,7 +751,8 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
                 raise
 
         try:
-            return call(
+            invoke_call = call if recovery is None else partial(recovery, call)
+            return invoke_call(
                 f"ocr-{pages[number]['number']}-{index}" + ("-retry" if retry else ""),
                 OCR_MODEL,
                 {"prompt": OCR_PROMPT},
@@ -617,9 +765,33 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
             if isinstance(exc, ExtractionError) and exc.code in OCR_HARD_ERRORS:
                 stop.set()
             # DEV-264: a crop that ran out of output room is read once more with double room.
-            # Uncertain/timeout requests are not retried (the first may have been charged).
+            # Classified transient recovery is owned by the optional budgeted crop wrapper.
             if not retry and isinstance(exc, ExtractionError) and exc.code in OCR_RETRY_CODES:
                 return invoke(number, index, encoded, retry=True)
+            # Dense output hit even the larger cap: split this crop once. Each half is
+            # independently fenced/reserved/checkpointed. Refusals, uncertain sends and
+            # arbitrary invalid output never trigger this extra recovery.
+            if (
+                retry
+                and allow_split
+                and recovery is not None
+                and isinstance(exc, ExtractionError)
+                and exc.code == "INCOMPLETE_OCR"
+                and exc.details.get("finishReason") == "length"
+            ):
+                halves = split_crop(encoded)
+                if halves:
+                    lines = []
+                    for half, image in enumerate(halves):
+                        part = invoke(
+                            number, f"{index}-half{half}", image, retry=True, allow_split=False
+                        )
+                        if isinstance(part, (ExtractionError, PreparationError)):
+                            return part
+                        if part.skipped:
+                            return ExtractionError("SOURCE_CHANGED")
+                        lines.extend(part.lines)
+                    return Transcription(lines, {"cost": 0}, None)
             # Soft failures are consumed in source order, even if a later crop fails first.
             return exc
         except BaseException:
@@ -632,17 +804,37 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
                 yield number, result
 
 
-def transcribe_pages(chunk, page_images, call):
-    """Read each crop once; merge in page/crop order and discard failed-page fragments."""
+# Remote-reading failures of the page itself (too dense to finish, unreadable output). Budget,
+# auth, uncertain sends and privacy changes are never replaced with embedded text.
+NATIVE_TEXT_FALLBACK = {"INCOMPLETE_OCR", "INVALID_OCR", "OCR_TEXT_LIMIT"}
+
+
+def transcribe_pages(chunk, page_images, call, recovery=None, progress=None):
+    """Merge budgeted crop results in source order; discard exhausted failed-page fragments."""
     diagnostics = {"pagesEmpty": [], "pagesFailed": []}
     first_failure = None
     pages = chunk["pages"]
     spans = [[] for _ in pages]
     failed = [Event() for _ in pages]
     recorded_failures = set()
+    # DEV-452: text embedded in a PDF page (ids "pdf-s…", already treated as authoritative in
+    # preprocessing) may stand in for a page the remote reader cannot finish. Local OCR never does.
+    native = {
+        page["number"]: [s for s in page["spans"] if str(s.get("id", "")).startswith("pdf-s")]
+        for page in pages
+    }
     for page in pages:
         page["spans"] = []  # Never fall back to local OCR after remote OCR failed.
-    results = _ocr_results(pages, page_images, call, failed, get_settings().source_ocr_concurrency)
+    results = _ocr_results(
+        pages, page_images, call, failed, get_settings().source_ocr_concurrency, recovery
+    )
+    finished = set()  # pages fully read or given up (progress counts pages, never crops)
+
+    def report(number):
+        if progress and number not in finished:
+            finished.add(number)
+            progress("READ", len(finished), len(pages))
+
     with closing(results):
         for number, result in results:
             page = pages[number]
@@ -652,6 +844,7 @@ def transcribe_pages(chunk, page_images, call):
                 if number in recorded_failures:
                     continue
                 if result is None:
+                    report(number)
                     page["spans"] = spans[number]
                     if not page["spans"]:
                         diagnostics["pagesEmpty"].append(page["number"])
@@ -670,10 +863,18 @@ def transcribe_pages(chunk, page_images, call):
                     raise
                 if number not in recorded_failures:
                     code = exc.code if isinstance(exc, ExtractionError) else "PAGE_IMAGE_MISSING"
-                    diagnostics["pagesFailed"].append({"number": page["number"], "code": code})
-                    first_failure = first_failure or exc
+                    embedded = native.get(page["number"]) or []
+                    if code in NATIVE_TEXT_FALLBACK and sum(len(s["text"]) for s in embedded) >= 20:
+                        page["spans"] = [{"id": s["id"], "text": s["text"]} for s in embedded]
+                        diagnostics.setdefault("pagesNativeText", []).append(
+                            {"number": page["number"], "code": code}
+                        )
+                    else:
+                        diagnostics["pagesFailed"].append({"number": page["number"], "code": code})
+                        first_failure = first_failure or exc
                     recorded_failures.add(number)
                     failed[number].set()
+                    report(number)
     if not any(page["spans"] for page in pages):
         exc = first_failure or ExtractionError("OCR_UNCERTAIN")
         if isinstance(exc, PreparationError):
@@ -756,15 +957,30 @@ def _extract_results(chunk, targets, model, call, extract_part):
                 yield index, part, result
 
 
-def extract_vision_chunks(chunk, targets, model, call, extract_part, diagnostics):
+def extract_vision_chunks(
+    chunk,
+    targets,
+    model,
+    call,
+    extract_part,
+    diagnostics,
+    *,
+    allow_historical_fields=False,
+    progress=None,
+):
     """Keep independent paid chunk results; never replay failed requests."""
     candidates, photo_requests, rejected, seen = [], [], [], set()
     usage, request_id, first_failure = {}, None, None
     skipped, succeeded = 0, 0
     diagnostics["chunksFailed"] = []
     results = _extract_results(chunk, targets, model, call, extract_part)
+    total = sum(1 for _ in extraction_chunks(chunk, skip_empty=True)) if progress else 0
+    done = 0
     with closing(results):
         for index, part, response in results:
+            done += 1
+            if progress:
+                progress("ANALYSE", done, total)
             if isinstance(response, ExtractionError):
                 exc = response
                 exc.retry_after = None
@@ -778,7 +994,10 @@ def extract_vision_chunks(chunk, targets, model, call, extract_part, diagnostics
                 continue
             succeeded += 1
             accepted, checked = validate_candidates(
-                response.extraction, part, {t["id"] for t in targets}
+                response.extraction,
+                part,
+                {t["id"] for t in targets},
+                allow_historical_fields=allow_historical_fields,
             )
             for candidate in accepted.candidates:
                 signature = candidate.model_dump_json(by_alias=True)
@@ -831,17 +1050,79 @@ def save_vision_diagnostics(item_id, token, chunk, diagnostics):
             raise ExtractionError("PRIVACY_CHANGED")
         by_number = {p["number"]: p["spans"] for p in chunk["pages"]}
         item.pages = [{**p, "ocrSpans": by_number[p["number"]]} for p in item.pages]
-        item.diagnostics = diagnostics
+        item.diagnostics = {
+            **diagnostics,
+            "ocrRecovery": item.diagnostics.get("ocrRecovery", {}),
+            **(
+                {"progress": item.diagnostics["progress"]} if "progress" in item.diagnostics else {}
+            ),
+        }
         db.commit()
 
 
-def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
+def report_progress(item_id, token, stage, done, total):
+    """Real work counts for the producer's progress bar (DEV-452). Best effort, never fatal."""
+    try:
+        with get_sessionmaker()() as db:
+            context = lock_context(db, item_id, token)
+            if not context:
+                return
+            item = context[3]
+            item.diagnostics = {
+                **item.diagnostics,
+                "progress": {"stage": stage, "done": done, "total": total},
+            }
+            db.commit()
+    except Exception:  # noqa: BLE001 - progress must not change the job outcome
+        pass
+
+
+def ocr_recovery(item_id, token):
+    from app.source_analysis.ocr_recovery import Recovery
+
+    def access(key, state=None):
+        with get_sessionmaker()() as db:
+            context = lock_context(db, item_id, token)
+            if not context:
+                raise ExtractionError("SOURCE_CHANGED")
+            _, source, _, item = context
+            if (
+                not source.privacy_approved
+                or source.sanitization_version != item.sanitization_version
+            ):
+                raise ExtractionError("PRIVACY_CHANGED")
+            if state is None:
+                return item.diagnostics.get("ocrRecovery", {}).get(key)
+            item.diagnostics = {
+                **item.diagnostics,
+                "ocrRecovery": {**item.diagnostics.get("ocrRecovery", {}), key: state},
+            }
+            db.commit()
+
+    with get_sessionmaker()() as db:
+        context = lock_context(db, item_id, token)
+        if not context:
+            raise ExtractionError("SOURCE_CHANGED")
+        _, source, _, item = context
+        binding = [source.id, source.revision, source.checksum, item.sanitization_version]
+    return Recovery(binding, access, access)
+
+
+def vision_extraction(
+    item_id, token, chunk, targets, mode, model, page_images, *, allow_historical_fields=False
+):
     diagnostics = {}
+
+    def progress(stage, done, total):
+        report_progress(item_id, token, stage, done, total)
+
     try:
         diagnostics = transcribe_pages(
             chunk,
             page_images,
             lambda *args: paid_vision_call(item_id, token, *args),
+            lambda *args: ocr_recovery(item_id, token)(*args),
+            progress,
         )
         result = extract_vision_chunks(
             chunk,
@@ -850,6 +1131,8 @@ def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
             lambda *args: paid_vision_call(item_id, token, *args),
             lambda part: extract(mode, model, part, targets, []),
             diagnostics,
+            allow_historical_fields=allow_historical_fields,
+            progress=progress,
         )
     except ExtractionError as exc:
         diagnostics = exc.details.get("ocrDiagnostics", diagnostics)
@@ -865,6 +1148,10 @@ def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
 
 def process(item_id, token):
     with get_sessionmaker()() as lookup:
+        if lookup.get(Item, item_id).phase == "ASSEMBLE":
+            from app.source_analysis.source_presentation import process as present_target
+
+            return present_target(item_id, token)
         if lookup.get(Item, item_id).phase == "REFINE":
             from app.source_analysis.refinement import process as refine_target
 
@@ -960,8 +1247,19 @@ def process(item_id, token):
             # DEV-264: the producer-typed product name tells products apart in mixed sources.
             # Contact data is masked like every other model input (M-18); basicInfo stays out.
             selected_targets = [
-                {"id": t["id"], "name": scrub(t.get("name") or "")} for t in selected_targets
+                {
+                    "id": t["id"],
+                    "name": scrub(t.get("name") or ""),
+                    **(
+                        {"producerInputs": scrub_inputs(t["producerInputs"])}
+                        if t.get("producerInputs")
+                        else {}
+                    ),
+                }
+                for t in selected_targets
             ]
+            # Trusted batch state only: neither source payload nor provider output opts in.
+            allow_historical_fields = batch.source_copy_enabled
             mode, model = run.mode, run.model
             if mode != "mock" and not use_vision_ocr:
                 from app.source_analysis.budget import reserve
@@ -1017,6 +1315,10 @@ def process(item_id, token):
                 )
                 db.add(page)
                 pages.append(page)
+            # DEV-452: product photos found inside the document become product-photo assets.
+            # Only the combined setup flow (source-copy batches) has the confirmation step.
+            if batch.source_copy_enabled:
+                add_extracted_photos(db, batch, source, prepared)
             source.status, source.error = "PREPARED", None
             source.preprocess_version = PREPROCESS_VERSION
             source.page_count = len(prepared)
@@ -1030,7 +1332,14 @@ def process(item_id, token):
         try:
             if use_vision_ocr:
                 response, diagnostics = vision_extraction(
-                    item_id, token, chunk, selected_targets, mode, model, page_images
+                    item_id,
+                    token,
+                    chunk,
+                    selected_targets,
+                    mode,
+                    model,
+                    page_images,
+                    allow_historical_fields=allow_historical_fields,
                 )
             else:
                 response = extract(mode, model, chunk, selected_targets, images)
@@ -1048,7 +1357,10 @@ def process(item_id, token):
             accounting.commit()
         extraction = response.extraction
         if not use_vision_ocr:
-            extraction, diagnostics = validate_candidates(extraction, chunk, allowed)
+            extraction, diagnostics = validate_candidates(
+                extraction, chunk, allowed, allow_historical_fields=allow_historical_fields
+            )
+        diagnostics["extractionPolicy"] = extraction_policy(allow_historical_fields)
         with get_sessionmaker()() as db:
             # Account for completed provider usage even if cancellation fenced the result.
             context = lock_context(db, item_id, token)
@@ -1059,12 +1371,17 @@ def process(item_id, token):
                 current.duration_ms = int((time.monotonic() - started) * 1000)
             if context:
                 batch, source, run, item = context
-                if source.sanitization_version != item.sanitization_version or (
+                if batch.source_copy_enabled != allow_historical_fields:
+                    item.status, item.error = "CANCELLED", "SOURCE_CHANGED"
+                elif source.sanitization_version != item.sanitization_version or (
                     mode != "mock" and not source.privacy_approved
                 ):
                     item.status, item.error = "CANCELLED", "PRIVACY_CHANGED"
                 else:
-                    item.diagnostics = diagnostics
+                    item.diagnostics = {
+                        **diagnostics,
+                        "ocrRecovery": getattr(item, "diagnostics", {}).get("ocrRecovery", {}),
+                    }
                     if diagnostics["rejectedCount"] and not extraction.candidates:
                         item.status, item.error = "FAILED", "CANDIDATES_REJECTED"
                     elif diagnostics.get("pagesFailed") or diagnostics.get("chunksFailed"):
@@ -1105,7 +1422,7 @@ def fail(item_id, token, exc):
         if context:
             batch, source, run, item = context
             retry_after = getattr(exc, "retry_after", None)
-            if retry_after is not None and item.attempt < 3:
+            if item.phase != "ASSEMBLE" and retry_after is not None and item.attempt < 3:
                 item.status = "QUEUED"
                 item.available_at = utcnow() + timedelta(
                     seconds=retry_after * 2 ** (item.attempt - 1)
