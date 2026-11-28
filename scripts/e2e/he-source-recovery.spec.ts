@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { loginProducer, producerUrl } from "./helpers";
+import { loginProducer, openFreshComposer, producerUrl } from "./helpers";
 
 function prepareSources() {
   const cwd = path.resolve("server");
@@ -14,8 +14,8 @@ function prepareSources() {
 async function composer(page: import("./fixtures").Page) {
   await page.setViewportSize({ width: 390, height: 844 });
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products`);
-  await page.getByRole("button", { name: "새 상품", exact: true }).click();
+  // DEV-452: '새 상품' opens the combined setup page; the composer under test edits a fresh draft.
+  await openFreshComposer(page);
   await expect(page).toHaveURL(/composer=1/);
   await expect(page.getByRole("button", { name: "AI 시트 닫기", exact: true })).toHaveCount(0);
 }

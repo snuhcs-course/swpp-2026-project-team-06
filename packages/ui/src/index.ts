@@ -113,6 +113,7 @@ export { BrixReading } from "./BrixReading";
 export {
   PRODUCT_PHOTO_HEIGHT,
   ProductPageBody,
+  ProductGallery,
   type ProductPageData,
   type ProductPageSlots,
   type MyReservation,
@@ -152,3 +153,6 @@ export { LOGIN_CONFIG_TIMEOUT_MS, withTimeout } from "./timeout";
 export { ScreenError, type ScreenErrorProps } from "./ScreenError";
 
 export { EmoticonImage, EmoticonMessage } from "./Emoticon";
+
+export { SourceGuidedStory } from "./SourceGuidedStory";
+export { getSourceStoryDesign, type SourceStoryDesign } from "./sourceStoryDesign";

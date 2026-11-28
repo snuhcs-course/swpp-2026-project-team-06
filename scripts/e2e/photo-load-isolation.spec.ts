@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { producerUrl, loginProducer, monitor } from "./helpers";
+import { producerUrl, loginProducer, monitor, openFreshComposer } from "./helpers";
 
 // DEV-361 PR C: removed "AC-SRC-11 DEV-341: product page editor isolates a failed photo and retries only it" (deleted
 // ProductPageEditor; covered by "AC-SRC-11 DEV-341: composer editor keeps other photos when one preview fails and retries only it").
@@ -54,8 +54,8 @@ test("AC-SRC-11 DEV-341: composer editor keeps other photos when one preview fai
       if (asset.originalPhoto) photos.push(asset.id);
     }
   });
-  await page.goto(`${producerUrl}/products`);
-  await page.getByRole("button", { name: "새 상품", exact: true }).click();
+  // DEV-452: '새 상품' opens the combined setup page; the composer under test edits a fresh draft.
+  await openFreshComposer(page);
   await expect(page).toHaveURL(/composer=1/);
   await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   const chooser = page.waitForEvent("filechooser");

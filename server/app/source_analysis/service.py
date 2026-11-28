@@ -22,8 +22,10 @@ from app.source_analysis.models import (
     RequestRecord,
     ReviewedField,
     Run,
+    SourceCopyDecision,
     new_id,
 )
+from app.source_analysis.ocr_recovery import successful_checkpoints
 from app.source_analysis.preprocess import PreparationError, identify, redact
 from app.source_analysis.schemas import ILLUSTRATIONS, MODULE_FIELDS, hidden_modules
 from app.source_analysis.storage import Storage
@@ -142,7 +144,11 @@ def targets(db, farm_id, inputs, current=None):
 
 
 def create_batch(db, farm_id, body):
-    row = Batch(farm_id=farm_id, targets=targets(db, farm_id, body.targets))
+    row = Batch(
+        farm_id=farm_id,
+        targets=targets(db, farm_id, body.targets),
+        source_copy_enabled=body.source_copy_enabled,
+    )
     db.add(row)
     db.flush()
     return json_row(row)
@@ -220,7 +226,12 @@ def upload(db, row, data, filename, ids, common, expected, original):
         raise invalid({"file": str(exc)}) from exc
     if original and not mime.startswith("image/"):
         raise invalid({"originalPhoto": "원본 사진은 이미지 파일만 지정할 수 있어요."})
-    rows = list(db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False))))
+    rows = [
+        a
+        for a in db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False)))
+        # DEV-452: photos found inside documents do not use the producer's upload allowance.
+        if not (a.placement or {}).get("extracted")
+    ]
     checksum = hashlib.sha256(data).hexdigest()
     duplicate = next(
         (a for a in rows if a.checksum == checksum and a.original_photo == original), None
@@ -264,6 +275,9 @@ def upload(db, row, data, filename, ids, common, expected, original):
 
 
 def invalidate(db, row, source):
+    from app.source_analysis.source_copy_service import invalidate_source
+
+    invalidate_source(db, row.id, source.id)
     item_ids = select(Item.id).where(Item.asset_id == source.id)
     db.execute(update(Candidate).where(Candidate.item_id.in_(item_ids)).values(outdated=True))
     db.execute(
@@ -297,8 +311,26 @@ def patch_asset(db, row, source, body):
     return asset_view(source)
 
 
+def confirm_extracted(db, row, source, revision):
+    """The producer keeps a photo found in a document (DEV-452). Removing uses remove_asset."""
+    version(source.revision, revision)
+    extracted = (source.placement or {}).get("extracted")
+    if not extracted:
+        raise invalid({"photo": "자료에서 가져온 사진만 확인할 수 있어요."})
+    source.placement = {**source.placement, "extracted": {**extracted, "confirmed": True}}
+    # Confirming does not change page content, so drafts and previews stay current.
+    return asset_view(source)
+
+
 def remove_asset(db, row, source):
     source.deleted = True
+    if (source.placement or {}).get("extracted"):
+        # DEV-452: dropping a photo found in a document keeps the analysis and the other photos.
+        row.review_version += 1
+        from app.source_analysis.representative import reconcile
+
+        reconcile(db, row)
+        return {"deleted": True}
     invalidate(db, row, source)
     from app.source_analysis.representative import reconcile
 
@@ -347,6 +379,9 @@ def privacy(db, row, source, body):
             p.redacted_spans = safe
             p.redactions = boxes
     if changed:
+        from app.source_analysis.source_copy_service import invalidate_source
+
+        invalidate_source(db, row.id, source.id)
         source.sanitization_version += 1
         # Waiting privacy items can adopt this revision; already-started results cannot.
         running_ids = list(
@@ -398,13 +433,17 @@ def privacy(db, row, source, body):
 
 def start_run(db, row, expected, retry_items=None, visual_pages=None):
     version(row.version, expected)
-    if any(not (t.get("basicInfo") or {}).get("variety", "").strip() for t in row.targets):
+    if not row.source_copy_enabled and any(
+        not (t.get("basicInfo") or {}).get("variety", "").strip() for t in row.targets
+    ):
         raise invalid({"variety": "과일 품종명을 입력해 주세요."})
     if db.scalar(select(Run.id).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
         raise conflict("RUN_ACTIVE", "이미 분석하고 있어요.")
     sources = list(
         db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False)))
     )
+    # DEV-452: photos found inside documents are results of an earlier run, not inputs.
+    sources = [a for a in sources if not (a.placement or {}).get("extracted")]
     inputs = sources
     # Photos referenced from the existing product page (DEV-346) have no bytes to analyse.
     sources = [a for a in sources if not a.product_photo]
@@ -442,15 +481,22 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
             invalidate(db, row, source)
             reparsed.add(source.id)
     visual_pages = {sid: nums for sid, nums in visual_pages.items() if sid not in reparsed}
+    run_targets = deepcopy(row.targets)
+    from app.source_analysis.models import ProductWorkspace
+
+    for target in run_targets:
+        workspace = (
+            db.get(ProductWorkspace, target.get("productId")) if target.get("productId") else None
+        )
+        if workspace and workspace.snapshot.get("setupInputs"):
+            target["producerInputs"] = deepcopy(workspace.snapshot["setupInputs"])
     run = Run(
-        inputs=[
-            {"id": p.id, "revision": p.revision, "description": p.description} for p in inputs
-        ],
+        inputs=[{"id": p.id, "revision": p.revision, "description": p.description} for p in inputs],
         visual_pages=visual_pages,
         batch_id=row.id,
         mode=settings.source_analysis_provider,
         model=settings.source_analysis_model,
-        targets=deepcopy(row.targets),
+        targets=run_targets,
     )
     db.add(run)
     db.flush()
@@ -461,7 +507,7 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
         ids = [t["id"] for t in row.targets] if source.common else source.target_ids
         if previous and source.id not in reparsed:
             for old in previous:
-                if old.phase in {"PLACE_PHOTOS", "REFINE"}:
+                if old.phase in {"PLACE_PHOTOS", "REFINE", "ASSEMBLE"}:
                     continue  # Placement/refinement jobs are rebuilt once for the new run.
                 if old.revision != source.revision:
                     raise conflict("SOURCE_CHANGED", "자료가 바뀌었으니 새 분석을 시작해 주세요.")
@@ -473,6 +519,9 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
                         target_ids=ids,
                         phase=old.phase,
                         pages=old.pages,
+                        diagnostics={"ocrRecovery": successful_checkpoints(old.diagnostics)}
+                        if old.sanitization_version == source.sanitization_version
+                        else {},
                         sanitization_version=source.sanitization_version,
                         status=(
                             "PRIVACY_REVIEW"
@@ -540,6 +589,8 @@ def run_view(db, run):
             else i.diagnostics.get("emptyReason"),
             "candidatesSkipped": i.diagnostics.get("candidatesSkipped", 0),
             "acceptedCount": i.diagnostics.get("acceptedCount", 0),
+            # DEV-452: live work counts for the waiting bar ({stage, done, total} or null).
+            "progress": i.diagnostics.get("progress"),
             "rejectedCount": i.diagnostics.get("rejectedCount", 0),
         }
         for i in items
@@ -587,6 +638,10 @@ def prefill_expected_brix(db, row):
     """
     from app.ai.grounding import single_brix
 
+    if row.source_copy_enabled:
+        # DEV-452: in the combined setup flow brix is the producer's input. A number in the
+        # material (often "작년 평균 13~14브릭스") is shown for reference, never filled in.
+        return
     blank = [t for t in row.targets if (t.get("basicInfo") or {}).get("expectedBrix") is None]
     if not blank:
         return
@@ -650,6 +705,11 @@ def retry(db, row, run, body):
         i.status not in ("FAILED", "PARTIAL") for i in items
     ):
         raise invalid({"itemIds": "실패하거나 일부 완료된 항목만 다시 분석할 수 있어요."})
+    if any(i.phase == "ASSEMBLE" for i in items):
+        raise conflict(
+            "PRESENTATION_RETRY_DISABLED",
+            "문장 구성은 자동으로 다시 요청하지 않아요. 원문 초안을 사용해 주세요.",
+        )
     if any(i.error == "REQUEST_UNCERTAIN" for i in items) and not body.acknowledge_uncertain:
         raise conflict(
             "RETRY_ACK_REQUIRED", "재호출 비용이 생길 수 있어요. 확인 후 재시도해 주세요."
@@ -687,10 +747,13 @@ def review(db, row):
         for evidence in candidate.evidence:
             if evidence not in merged["evidence"]:
                 merged["evidence"].append(evidence)
+    from app.source_analysis.processing import issues as processing_issues
     from app.source_analysis.refinement import current_refinements, review_results
 
     result = {
-        "refinementResults": review_results(db, row),
+        "processingIssues": processing_issues(db, row),
+        "sourceCopyEnabled": row.source_copy_enabled,
+        "refinementResults": {} if row.source_copy_enabled else review_results(db, row),
         "reviewVersion": row.review_version,
         "targets": row.targets,
         "candidates": list(unique.values()),
@@ -726,11 +789,32 @@ def review(db, row):
     }
 
     from app.source_analysis.editor import suggestions
+    from app.source_analysis.source_copy_service import refinements as source_copy_refinements
 
     result["editorFields"] = suggestions(
-        {**result, "refinements": current_refinements(db, row)},
+        {
+            **result,
+            "refinements": (
+                source_copy_refinements(db, row)
+                if row.source_copy_enabled
+                else current_refinements(db, row)
+            ),
+        },
         list(db.scalars(select(Asset).where(Asset.batch_id == row.id))),
     )
+    if row.source_copy_enabled:
+        # The shared editor can refresh basic-info suggestions. Source review must keep
+        # any explicitly producer-authored/confirmed/excluded field byte-for-byte.
+        protected = {
+            (f["targetId"], f["fieldKey"]): f
+            for f in result["fields"]
+            if f["state"] in {"CONFIRMED", "EXCLUDED"}
+            or f["provenance"] == "PRODUCER"
+            and any(f[k] for k in ("value", "candidateIds", "photoAssetIds", "illustrationId"))
+        }
+        from app.source_analysis.source_copy_service import decorate_editor_fields
+
+        decorate_editor_fields(db, row, result["editorFields"], protected)
     return result
 
 
@@ -742,12 +826,25 @@ def patch_review(db, row, body, *, inactive=frozenset()):
     refined_records = (
         stored_fields(db, row.id) if any(f.provenance == "REFINED" for f in body.fields) else set()
     )
+    source_records = set()
+    if row.source_copy_enabled:
+        from app.source_analysis.source_copy_service import stored_fields as source_copy_fields
+
+        source_records = source_copy_fields(db, row)
+        refined_records |= source_records
     current_ids = {
         tid: {c.id for c in current_candidates(db, row.id, tid)}
         for tid in {f.target_id for f in body.fields if f.provenance == "REFINED"}
     }
     seen = set()
     for entry in body.fields:
+        source_signature = (
+            entry.target_id,
+            entry.field_key,
+            entry.value,
+            frozenset(entry.candidate_ids),
+        )
+        source_owned = source_signature in source_records and entry.provenance == "REFINED"
         if (entry.target_id, entry.field_key) in seen:
             raise invalid({"fields": "같은 항목은 한 번만 수정해 주세요."})
         seen.add((entry.target_id, entry.field_key))
@@ -768,13 +865,15 @@ def patch_review(db, row, body, *, inactive=frozenset()):
             or (entry.provenance != "REFINED" and c.field_key != entry.field_key)
             or (
                 entry.provenance == "REFINED"
+                and not source_owned
                 and (
                     not includes_target(c.target_id, entry.target_id, len(row.targets))
                     or c.target_id is None
                     and not farm_common_allowed({"fieldKey": c.field_key}, entry.field_key)
                 )
             )
-            or entry.provenance != "REFINED" and c.target_id not in (None, entry.target_id)
+            or entry.provenance != "REFINED"
+            and c.target_id not in (None, entry.target_id)
             for c in candidates
         ):
             raise conflict("INVALID_EVIDENCE", "최신 자료의 같은 상품·항목 근거를 선택해 주세요.")
@@ -805,12 +904,17 @@ def patch_review(db, row, body, *, inactive=frozenset()):
             )
             if signature not in refined_records or (
                 not preserve_inactive
+                and not source_owned
                 and not set(entry.candidate_ids) <= current_ids[entry.target_id]
             ):
                 raise invalid(
                     {"provenance": "저장된 정리 문구와 근거만 REFINED로 사용할 수 있어요."}
                 )
-        if entry.state != "EXCLUDED" and (entry.target_id, entry.field_key) not in inactive:
+        if (
+            not row.source_copy_enabled
+            and entry.state != "EXCLUDED"
+            and (entry.target_id, entry.field_key) not in inactive
+        ):
             if entry.value and has_health_claim(entry.value):
                 raise invalid({entry.field_key: "건강 효능 문구는 넣을 수 없어요."})
             if entry.value and has_money(entry.value):
@@ -883,9 +987,9 @@ def save_drafts(db, row, body, *, editor=False, migrated=False):
                 continue
             # A page migrated as-is (DEV-346) keeps its published wording; the rules apply when
             # the producer next saves it in the composer.
-            if not migrated and has_health_claim(field.value):
+            if not migrated and not row.source_copy_enabled and has_health_claim(field.value):
                 raise invalid({field.field_key: "건강 효능 문구는 넣을 수 없어요."})
-            if not migrated and has_money(field.value):
+            if not migrated and not row.source_copy_enabled and has_money(field.value):
                 raise invalid({field.field_key: "상세 문구에 금액을 넣을 수 없어요."})
             candidates = list(
                 db.scalars(
@@ -997,6 +1101,7 @@ def save_drafts(db, row, body, *, editor=False, migrated=False):
 def delete_batch(db, row):
     for run in db.scalars(select(Run).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
         cancel(db, run)
+    db.execute(delete(SourceCopyDecision).where(SourceCopyDecision.batch_id == row.id))
     db.execute(delete(Draft).where(Draft.batch_id == row.id))
     db.execute(
         delete(RequestRecord).where(

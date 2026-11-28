@@ -27,7 +27,7 @@ export default function NewProduct() {
       request.current = sourceAnalysis
         .config()
         .then((config) =>
-          config.enabled ? productWorkspace.open(undefined, key.current) : null,
+          config.enabled ? productWorkspace.open(undefined, key.current, false, undefined, true) : null,
         );
     void request.current
       .then((workspace) => {
@@ -35,8 +35,8 @@ export default function NewProduct() {
         if (!workspace) router.replace("/products/manual");
         else
           router.replace({
-            pathname: "/products/source-analysis",
-            params: { batchId: workspace.batchId, composer: "1" },
+            pathname: "/product-setup",
+            params: { id: workspace.productId },
           });
       })
       .catch(() => {

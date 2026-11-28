@@ -697,7 +697,7 @@ def test_AC_SRC_3_extraction_numbers_keep_source_units(quote, value, accepted):
         assert diagnostics["rejected"][0]["code"] == "UNSUPPORTED_NUMBER"
 
 
-def test_AC_SRC_8_pdf_first_twenty_pages_metadata_and_reproducible_material(monkeypatch):
+def test_AC_SRC_8_pdf_all_pages_metadata_and_reproducible_material(monkeypatch):
     import json
 
     import pypdfium2 as pdfium
@@ -719,6 +719,13 @@ def test_AC_SRC_8_pdf_first_twenty_pages_metadata_and_reproducible_material(monk
     monkeypatch.setattr(preprocess, "_upright", lambda image: (image, 0))
     monkeypatch.setattr(preprocess, "_tiled_ocr", ocr)
     monkeypatch.setattr(preprocess, "qr_regions", lambda image: [])
+    # DEV-452: a whole 25-page document is read (no 20-page cut).
+    pages = preprocess.parse(data, mime)
+    assert len(rendered) == len(pages) == 25
+    assert pages[0]["pagesAnalysed"] == 25 and pages[0]["pagesSkipped"] == 0
+    # The per-PDF cap still applies above its (now larger) limit.
+    rendered.clear()
+    monkeypatch.setattr(preprocess, "PDF_PAGE_CAP", 20)
     pages = preprocess.parse(data, mime)
     assert len(rendered) == len(pages) == 20
     assert pages[0]["pagesAnalysed"] == 20 and pages[0]["pagesSkipped"] == 5

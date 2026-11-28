@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { loginProducer, producerUrl, monitor } from "./helpers";
+import { loginProducer, producerUrl, monitor, openFreshComposer } from "./helpers";
 
 // DEV-361 PR C: the 2-tab workspace screen is gone; `/products/source-analysis?batchId=` always opens the composer.
 // The first test now checks the same compact attachment tiles and live analysis states in the composer's AI sheet.
@@ -197,7 +197,8 @@ test("AC-SRC-1 DEV-361: New Product opens uploads linked to a new private produc
   await page.route(
     "**/api/source-analysis/product-workspaces",
     async (route) => {
-      if (route.request().method() !== "POST") return route.continue();
+      // Only creations count: the setup page itself reopens the product it was given (productId).
+      if (route.request().method() !== "POST" || route.request().postDataJSON()?.productId) return route.continue();
       creates++;
       const response = await route.fetch();
       productId = (await response.json()).productId;
@@ -206,22 +207,18 @@ test("AC-SRC-1 DEV-361: New Product opens uploads linked to a new private produc
   );
   await page.goto(`${producerUrl}/products`);
   await page.getByRole("button", { name: "새 상품", exact: true }).click();
-  await expect(page).toHaveURL(/source-analysis\?batchId=/);
-  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "자료 파일 추가", exact: true }),
-  ).toBeVisible();
+  // DEV-452 (PM 11/26): '새 상품' creates one private product and opens its combined setup page.
+  await expect(page).toHaveURL(/product-setup\?id=/);
+  await expect.poll(() => productId).toBeTruthy();
+  expect(new URL(page.url()).searchParams.get("id")).toBe(productId);
   await expect(
     page.getByText("상세를 만들 상품 선택 (최대 10개)", { exact: true }),
   ).toHaveCount(0);
   expect(creates).toBe(1);
-  // 새 상품 채우기(DEV-184): 시트를 접고 분석 없이 다음으로 가면 상품 정보만 저장하고 판매·가격으로
+  // The one-screen composer (editing a draft) checks the empty product fields before 판매·가격.
+  await openFreshComposer(page);
   await expect(page).toHaveURL(/composer=1/);
   await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("");
-  await page
-    .getByRole("button", { name: "AI 시트 닫기", exact: true })
-    .last()
-    .click();
   await page
     .getByRole("button", { name: "다음: 판매·가격", exact: true })
     .click();
@@ -234,10 +231,10 @@ test("AC-SRC-1 DEV-361: New Product opens uploads linked to a new private produc
   await page
     .getByRole("button", { name: "다음: 판매·가격", exact: true })
     .click();
-  await expect(page).toHaveURL(/composer=1/);
-  await expect(page.getByTestId("invalid-field-representativePhoto")).toBeVisible();
-  expect(creates).toBe(1);
-  expect(productId).toBeTruthy();
+  // DEV-452 decision 2A: with the required fields filled, '다음' saves and moves on; the representative
+  // photo is required at the sale request.
+  await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
+  await expect(page.getByTestId("invalid-field-representativePhoto")).toHaveCount(0);
 });
 
 test("AC-SRC-1: workspace retry reuses the new product and idempotency key", async ({
@@ -251,7 +248,8 @@ test("AC-SRC-1: workspace retry reuses the new product and idempotency key", asy
   await page.route(
     "**/api/source-analysis/product-workspaces",
     async (route) => {
-      if (route.request().method() !== "POST") return route.continue();
+      // Only creations count: the setup page itself reopens the product it was given (productId).
+      if (route.request().method() !== "POST" || route.request().postDataJSON()?.productId) return route.continue();
       batches++;
       keys.push(route.request().headers()["idempotency-key"]);
       // Lose the response after the server commits; retry must return the same product.
@@ -273,10 +271,8 @@ test("AC-SRC-1: workspace retry reuses the new product and idempotency key", asy
   await page
     .getByRole("button", { name: "자료 작업 다시 열기", exact: true })
     .click();
-  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "자료 파일 추가", exact: true }),
-  ).toBeVisible();
+  // DEV-452: the retried workspace opens the combined setup page of that same product.
+  await expect(page).toHaveURL(new RegExp(`product-setup\\?id=${firstProductId}`));
   expect(creates).toBe(1);
   expect(batches).toBe(2);
   expect(keys[0]).toBeTruthy();
@@ -290,7 +286,7 @@ for (const width of [360, 390, 430]) {
       await page.setViewportSize({ width, height: 850 });
       const clean = monitor(page);
       await loginProducer(page, "강영수");
-      await page.goto(`${producerUrl}/products/new`);
+      await openFreshComposer(page);
       await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
       const variety = page.getByLabel("과일 품종명", { exact: true });
       await expect(variety).toBeVisible();
@@ -345,7 +341,7 @@ for (const width of [360, 390, 430]) {
 test("AC-SRC-5/11: failed basic-info save retains manual input and file for one explicit retry", async ({ page }) => {
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires enabled local source API");
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products/new`);
+  await openFreshComposer(page);
   await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   const variety = page.getByLabel("과일 품종명", { exact: true });
   await expect(variety).toBeVisible();

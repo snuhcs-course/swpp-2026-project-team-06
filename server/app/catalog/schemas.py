@@ -317,9 +317,15 @@ class SalesInput(CamelModel):
     version: int
 
 
+class SalePageInput(CamelModel):
+    draft_id: str = Field(min_length=1, max_length=64)
+    draft_version: int = Field(ge=1)
+
+
 class CapacityRequestInput(CamelModel):
     requested_total_grams: int = Field(gt=0)
     version: int
+    page: SalePageInput | None = None
 
 
 class VersionInput(CamelModel):

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { apiUrl, producerUrl, loginProducer, apiLogin } from "./helpers";
+import { apiUrl, producerUrl, loginProducer, apiLogin, openFreshComposer } from "./helpers";
 
 // DEV-361 PR C (C-18): the 2-tab source workspace is gone and `/products/source-analysis` is always the composer,
 // which opens only a batch tied to exactly one product. The first four tests used to open ad-hoc batches (no product,
@@ -245,13 +245,26 @@ test("AC-SRC-11 DEV-361: photos without descriptions remain available for manual
     page.getByTestId("source-photo-frame").getByRole("img"),
   ).toBeVisible();
   await expect(text).toHaveCSS("border-top-width", "1px");
+  // DEV-452 (user review 11/28): the section list opens right under the photo, above 사진 추가.
+  await introduction.getByRole("button", { name: "사진 1 위치 이동", exact: true }).click();
+  const moveTitle = introduction.getByText("사진 1을 옮길 섹션", { exact: true });
+  await expect(moveTitle).toBeVisible();
+  const [listBox, addBox] = [await moveTitle.boundingBox(), await addPhoto.boundingBox()];
+  expect(listBox!.y).toBeLessThan(addBox!.y);
+  await introduction.getByRole("button", { name: "취소", exact: true }).click();
+  await expect(moveTitle).toHaveCount(0);
 
-  await page.getByRole("button", { name: "크기 참고 추가", exact: true }).click();
+  // DEV-452 (user review 11/28): 크기 참고 is on a new page from the start with the size picture choice.
+  await expect(page.getByRole("button", { name: "크기 참고 추가", exact: true })).toHaveCount(0);
   const size = page.getByTestId("canvas-section-sizePhoto");
-  const sizePhoto = size.getByRole("button", { name: "크기 참고 사진 추가", exact: true });
-  await expect(sizePhoto).toBeInViewport();
-  await expect(sizePhoto).toHaveCSS("border-top-width", "2px");
-  await expect(size.getByRole("textbox", { name: "크기 참고 내용", exact: true })).toHaveCSS("border-top-width", "1px");
+  await expect(size.getByRole("button", { name: "중과", exact: true })).toBeVisible();
+  await expect(size.getByRole("button", { name: "이 섹션 빼기", exact: true })).toBeVisible();
+  const sizeText = size.getByRole("textbox", { name: "크기 참고 내용", exact: true });
+  await expect(sizeText).toHaveCSS("border-top-width", "1px");
+  await sizeText.click();
+  await expect(size.getByRole("button", { name: "크기 참고 사진 추가", exact: true })).toBeVisible();
+  await size.getByRole("button", { name: "이 섹션 빼기", exact: true }).click();
+  await expect(page.getByRole("button", { name: "크기 참고 추가", exact: true })).toBeVisible();
 });
 
 test("AC-SRC-11 DEV-361: inline photo description survives failure and flushes before analysis", async ({
@@ -493,7 +506,7 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
   await page.setViewportSize({ width: 390, height: 844 });
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products/new`);
+  await openFreshComposer(page);
   const materials = page.getByTestId("source-material-box");
   const photos = page.getByTestId("product-photo-box");
   // 새 상품은 한 화면 편집 + 하단 AI 시트(DEV-184)
@@ -601,12 +614,13 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
     { cwd: path.resolve("server"), env: process.env, timeout: 120000 },
   );
   await expect(page.getByTestId("source-analysis-status")).toHaveCount(0, { timeout: 15000 });
-  // Analysis works without a photo; applying the resulting page still requires one.
+  // DEV-452: '다음' only saves privately and applies nothing, so a missing representative photo is not an
+  // error here; the photo requirement is checked with the sale request.
   await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
-  // The same error is also rendered (hidden) inside the collapsed sheet; the visible copy is the page alert.
-  await expect(page.getByRole("alert").getByText("대표사진을 한 장 올려 주세요.", { exact: true })).toBeVisible();
-  // A validation error offers no server refresh (the composer's refresh is '다시 확인'; the 2-tab one is gone, DEV-361)
-  await expect(page.getByRole("button", { name: "다시 확인", exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
+  await expect(page.getByText("대표사진을 한 장 올려 주세요.", { exact: true })).toHaveCount(0);
+  await page.goBack();
+  await expect(page).toHaveURL(/composer=1|source-analysis/);
   await openSheet();
   await expect(page).toHaveURL(/\/products\/source-analysis/);
   await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();

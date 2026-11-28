@@ -1,6 +1,6 @@
 import type { SourceField } from "@farmclub/api";
 import { test, expect, type Page } from "./fixtures";
-import { apiLogin, apiUrl, loginProducer, producerUrl } from "./helpers";
+import { apiLogin, apiUrl, loginProducer, openFreshComposer, producerUrl } from "./helpers";
 
 // Contract tests deliberately create their own editor, never reuse manual products,
 // and prevent every paid analysis request from reaching a provider.
@@ -11,8 +11,8 @@ async function freshEditor(page: Page) {
     await route.continue();
   });
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products`);
-  await page.getByRole("button", { name: "새 상품", exact: true }).click();
+  // DEV-452: '새 상품' opens the combined setup page; the composer under test edits a fresh draft.
+  await openFreshComposer(page);
   await expect(page).toHaveURL(/batchId=.+composer=1/);
   await expect(page.getByLabel("상품명", { exact: true })).toBeVisible();
   return page.url();
@@ -102,7 +102,7 @@ test("AC-SRC-11: leaving locks editable values until the pending draft save fini
   await expect(page).toHaveURL(editorUrl);
 });
 
-test("AC-SRC-9/11: no-photo draft saves but Next cannot leave, cancelled cover chooser preserves state", async ({ page }) => {
+test("AC-SRC-9/11: no-photo draft saves, Next moves on without a photo (DEV-452 2A), cancelled cover chooser preserves state", async ({ page }) => {
   const editorUrl = await freshEditor(page);
   await page.getByLabel("상품명", { exact: true }).fill("사진 없는 수동 초안");
   await page.getByLabel("품종명", { exact: true }).fill("온주밀감");
@@ -122,12 +122,12 @@ test("AC-SRC-9/11: no-photo draft saves but Next cannot leave, cancelled cover c
   await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("사진 없는 수동 초안");
   expect(chooserCount).toBe(1);
   expect(runs).toBe(0);
+  // DEV-452 decision 2A: '다음' saves privately and moves on; a representative photo is required at the
+  // sale request, not here.
   await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
-  await expect(page).toHaveURL(editorUrl);
-  await expect(page.getByRole("alert").getByText(/대표.*사진/)).toBeVisible();
-  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
-  await expect(page.getByText(/비공개로 저장했어요|임시 저장됐어요/)).toBeVisible();
-  await page.reload();
+  await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
+  await expect(page.getByRole("alert").getByText(/대표.*사진/)).toHaveCount(0);
+  await page.goto(editorUrl);
   await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("사진 없는 수동 초안");
   await expect(page.getByLabel("품종명", { exact: true })).toHaveValue("온주밀감");
   expect(runs).toBe(0);

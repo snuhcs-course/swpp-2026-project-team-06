@@ -1,3 +1,4 @@
+import { SourceCopyReview } from "./SourceCopyReview";
 import { PageCanvas } from "./PageCanvas";
 import { chooseSourceFiles } from "./sourceFiles";
 import { sourcePhotoUrl } from "./sourcePhoto";
@@ -16,7 +17,7 @@ import {
   type SourceReview,
 } from "@farmclub/api";
 import { Button, Icon, Sheet, SOURCE_MODULES, T, tokens } from "@farmclub/ui";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { View, type ScrollView } from "react-native";
 
 const identity = (f: SourceField) => `${f.targetId}:${f.fieldKey}`;
@@ -113,7 +114,32 @@ export function SourceDetailsEditor({
   displayName,
   preview = false,
   locked = false,
+  combined = false,
+  sectionAccessory,
+  editSection,
+  onCloseSection,
+  onEnabledChange,
+  sizeSuggestion = false,
+  sizeOff = false,
+  onSizeOff,
 }: {
+  /** DEV-452 combined view: the sections currently on the page (for "섹션 추가"). */
+  onEnabledChange?: (enabled: Record<string, string[]>) => void;
+  /** DEV-452 page review: offer the 크기 참고 size picture inside 맛과 크기 (user review 11/28). */
+  sizeSuggestion?: boolean;
+  /** The owner took the suggestion away for this visit. */
+  sizeOff?: boolean;
+  onSizeOff?: () => void;
+  /** DEV-452 combined view: control at each section heading of the read-only page. */
+  sectionAccessory?: (sectionId: string, moduleIds: string[], title: string) => ReactNode;
+  /** DEV-452 combined view: the section being edited in a sheet (its title and module ids). */
+  editSection?: { title: string; moduleIds: string[]; add?: boolean; illustration?: string } | null;
+  onCloseSection?: () => void;
+  /**
+   * DEV-452 combined edit view: review notes sit under their own section, and passages the page
+   * does not use are listed after the page. No separate review block on top.
+   */
+  combined?: boolean;
   /** 새 상품 채우기: 상세 맨 위 제목을 입력 중인 상품명으로 바로 보여 준다(저장 때 같은 값으로 맞춤). */
   displayName?: string;
   preview?: boolean;
@@ -134,12 +160,23 @@ export function SourceDetailsEditor({
   onSaved: (draft: SourceDraft) => Promise<void>;
   onReload: () => Promise<void>;
 }) {
+  const [copyBusy, setCopyBusy] = useState(false);
+  const sourceCopyRefresh = useRef(false);
+  const sourceCopyModules = useRef<Record<string, string[]>>({});
   const [entries, setEntries] = useState<SourceEditorField[]>(
     review.editorFields,
   );
   const [enabled, setEnabled] = useState<Record<string, string[]>>(() =>
     initialSelection(batch, review, drafts),
   );
+  // Sections that are really on the page: switched on and with something in them (user review 11/28).
+  // An empty switched-on section must not hide its "추가" choice or the 크기 참고 card.
+  useEffect(() => {
+    onEnabledChange?.(Object.fromEntries(Object.entries(enabled).map(([tid, ids]) => [tid, ids.filter((id) =>
+      entries.some((e) => e.field.targetId === tid && keys(id).includes(e.field.fieldKey) && e.field.state !== "EXCLUDED"
+        && (e.field.value.trim() || e.field.photoAssetIds.length || e.field.illustrationId)))])));
+  }, [enabled, entries, onEnabledChange]);
+
   const [hidden, setHidden] = useState<Record<string, string[]>>(() =>
     initialHidden(drafts),
   );
@@ -264,7 +301,23 @@ export function SourceDetailsEditor({
   useEffect(() => {
     if (!dirty) {
       setEntries(review.editorFields);
-      setEnabled(initialSelection(batch, review, drafts));
+      const nextSelection = initialSelection(batch, review, drafts);
+      if (sourceCopyRefresh.current && review.sourceCopyEnabled) {
+        for (const target of batch.targets) {
+          const added = SOURCE_MODULES.filter(([id]) =>
+            review.editorFields.some((e) => e.field.targetId === target.id &&
+              keys(id).includes(e.field.fieldKey) && e.status === "ready" &&
+              e.field.state === "UNREVIEWED" && filled(e.field)) &&
+            !entries.some((e) => e.field.targetId === target.id &&
+              keys(id).includes(e.field.fieldKey) && e.status === "ready" && filled(e.field)),
+          ).map(([id]) => id);
+          sourceCopyModules.current[target.id] = [...new Set([...(sourceCopyModules.current[target.id] ?? []), ...added])];
+        }
+        sourceCopyRefresh.current = false;
+      }
+      setEnabled(Object.fromEntries(batch.targets.map((t) => [t.id,
+        [...new Set([...(nextSelection[t.id] ?? []), ...(sourceCopyModules.current[t.id] ?? [])])],
+      ])));
       setHidden(initialHidden(drafts));
       version.current = review.reviewVersion;
       base.current = { fields: review.editorFields, choices: draftChoices(drafts) };
@@ -380,11 +433,292 @@ export function SourceDetailsEditor({
   };
   useEffect(() => {
     saveRef.current = (fresh, name, freshDrafts) =>
-      busy || uploading ? Promise.resolve(false) : save(fresh, name, freshDrafts);
+      busy || uploading || copyBusy ? Promise.resolve(false) : save(fresh, name, freshDrafts);
     return () => {
       saveRef.current = null;
     };
   });
+  /** One product's page canvas; a section sheet passes only that section's modules (DEV-452). */
+  // DEV-452 (user review 11/28): the size picture is offered in 맛과 크기 and set right there.
+  // Choosing a size puts the hand picture on the page; "그림 빼기" takes it away and the offer returns.
+  const setSize = (targetId: string, illustrationId: string | null) => {
+    setEntries((old) => old.map((entry) => entry.field.targetId === targetId && entry.field.fieldKey === "sizePhoto"
+      ? { status: "ready" as const, field: { ...entry.field, illustrationId, state: "CONFIRMED" as const, provenance: "PRODUCER" as const, candidateIds: [] } }
+      : entry));
+    setEnabled((old) => {
+      const ids = (old[targetId] ?? []).filter((id) => id !== "sizePhoto");
+      const field = entries.find((e) => e.field.targetId === targetId && e.field.fieldKey === "sizePhoto")?.field;
+      const keep = illustrationId || field?.value.trim() || field?.photoAssetIds.length;
+      return { ...old, [targetId]: keep ? [...ids, "sizePhoto"] : ids };
+    });
+    setDirty(true);
+  };
+  const sizeControl = (targetId: string) => {
+    const field = entries.find((e) => e.field.targetId === targetId && e.field.fieldKey === "sizePhoto")?.field;
+    if (!field) return null;
+    const current = (enabled[targetId] ?? []).includes("sizePhoto") ? field.illustrationId : null;
+    if (!current && sizeOff) return null;
+    const sizes = [["hand-citrus-small", "소과"], ["hand-citrus-medium", "중과"], ["hand-citrus-large", "대과"]] as const;
+    return (
+      <View testID="size-card" style={{ padding: 14, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: tokens.color.border }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <T weight="semibold" style={{ flex: 1 }}>{current ? "크기 그림" : "크기 참고 그림 넣기"}</T>
+          <Button compact variant="text" label={current ? "그림 빼기" : "넣지 않기"} disabled={busy || locked}
+            onPress={() => (current ? setSize(targetId, null) : onSizeOff?.())} />
+        </View>
+        {current ? null : <T variant="caption" muted>귤 크기를 손 그림으로 보여 줄 수 있어요. 크기를 고르면 이 자리에 들어가요.</T>}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {sizes.map(([id, label]) => (
+            <Button key={id} compact variant={current === id ? "primary" : "outline"} label={label} style={{ flex: 1 }} disabled={busy || locked}
+              onPress={() => setSize(targetId, id)} />
+          ))}
+        </View>
+      </View>
+    );
+  };
+  const canvas = (target: SourceBatch["targets"][number], opts: { preview: boolean; only?: string[]; add?: boolean; illustration?: string }) => {
+    const all = SOURCE_MODULES.map(([id]) => ({
+            id,
+            enabled: enabled[target.id]?.includes(id) ?? false,
+            texts: entries
+              .filter(
+                (e) =>
+                  e.field.targetId === target.id &&
+                  keys(id).includes(e.field.fieldKey) &&
+                  (!opts.preview || e.field.state !== "EXCLUDED"),
+              )
+              .map((e) => ({
+                fieldKey: e.field.fieldKey,
+                value:
+                  displayName &&
+                  e.field.fieldKey === "name" &&
+                  e.field.state !== "EXCLUDED"
+                    ? displayName
+                    : e.field.value,
+              })),
+            photos: entries
+              .filter(
+                (e) =>
+                  e.field.targetId === target.id &&
+                  keys(id).includes(e.field.fieldKey) &&
+                  (!opts.preview || e.field.state !== "EXCLUDED"),
+              )
+              .flatMap((e) =>
+                e.field.photoAssetIds.map((uri) => ({
+                  uri,
+                  alt:
+                    batch.sources.find((s) => s.id === uri)?.description ||
+                    "상품 사진",
+                })),
+              ),
+            illustrationId: entries.find(
+              (e) => e.field.targetId === target.id && e.field.fieldKey === id &&
+                (!opts.preview || e.field.state !== "EXCLUDED"),
+            )?.field.illustrationId,
+          }));
+    return (
+        <PageCanvas
+          key={`${opts.only ? "section-" : ""}${target.id}`}
+          preview={opts.preview}
+          sectionAccessory={opts.preview ? sectionAccessory : undefined}
+          sectionFooter={opts.preview && sizeSuggestion && !opts.only ? (id) => (id === "taste" ? sizeControl(target.id) : null) : undefined}
+          onlyIds={opts.only}
+          initialSelected={opts.add && opts.only?.length === 1 ? opts.only[0] : undefined}
+          initialIllustration={opts.illustration}
+          scrollRef={scrollRef}
+          hiddenSectionIds={hidden[target.id] ?? []}
+          onHiddenSectionsChange={(ids) => {
+            setHidden((old) => ({ ...old, [target.id]: ids }));
+            setDirty(true);
+          }}
+          busy={busy || locked || copyBusy}
+          onUploading={(v) => {
+            setUploading(v);
+            onBusy(v);
+          }}
+          blocked={SOURCE_MODULES.filter(([id]) =>
+            entries.some(
+              (e) =>
+                e.field.targetId === target.id &&
+                keys(id).includes(e.field.fieldKey) &&
+                ["conflict", "outdated", "unassigned"].includes(e.status),
+            ),
+          ).map(([id]) => id)}
+          representativeUri={
+            target.representativeAssetId ||
+            batch.sources.find(
+              (s) =>
+                s.originalPhoto &&
+                (s.common || s.targetIds.includes(target.id)),
+            )?.id
+          }
+          media={(uri) => photoUrls[uri] ?? ""}
+          modules={opts.only ? all.filter((m) => opts.only!.includes(m.id)) : all}
+          photos={[
+            ...extraPhotos.filter((p) => p.targetId === target.id),
+            ...batch.sources
+              .filter(
+                (s) =>
+                  s.originalPhoto &&
+                  s.status === "PREPARED" &&
+                  (s.common || s.targetIds.includes(target.id)),
+              )
+              .map((s) => ({ uri: s.id, alt: s.description || s.filename })),
+          ]}
+          onUpload={async () => {
+            const files = await chooseSourceFiles(true);
+            const added: { uri: string; alt: string }[] = [];
+            for (const file of files) {
+              const latest = await sourceAnalysis.get(batch.id);
+              if (latest.reviewVersion !== version.current)
+                throw new Error(
+                  "다른 곳에서 내용이 바뀌었어요. 현재 입력을 보관하고 다시 열어 주세요.",
+                );
+              const asset = await uploadSource(
+                batch.id,
+                latest.version,
+                [target.id],
+                false,
+                true,
+                file,
+              );
+              version.current += 1;
+              added.push({ uri: asset.id, alt: file.name });
+              // 올리기는 끝났으니 미리보기를 못 받아도 사진은 넣고, 실패 칸에서 다시 불러온다(DEV-341)
+              const url = await sourcePageImage(batch.id, asset.id, 1, {
+                variant: "display",
+                source: asset,
+              }).catch(() => null);
+              if (url) {
+                extraUrls.current.push(url);
+                setPhotoUrls((old) => ({ ...old, [asset.id]: url }));
+              } else failPhoto(asset);
+            }
+            setExtraPhotos((old) => [
+              ...old,
+              ...added.map((p) => ({ ...p, targetId: target.id })),
+            ]);
+            return added;
+          }}
+          onChange={(changed) => {
+            // A section sheet edits some modules; keep the rest as they are.
+            // PageCanvas reports every module (placeholders for sections it does not show), so only
+            // the edited section's modules may change here; all others stay exactly as they were.
+            const modules = all.map((m) =>
+              opts.only && !opts.only.includes(m.id) ? m : (changed.find((c) => c.id === m.id) ?? m),
+            );
+            delete sourceCopyModules.current[target.id];
+            setEnabled((old) => ({
+              ...old,
+              [target.id]: modules.filter((m) => m.enabled).map((m) => m.id),
+            }));
+            setEntries((old) =>
+              old.map((entry) => {
+                if (entry.field.targetId !== target.id) return entry;
+                const f = entry.field;
+                const m = modules.find((m) => keys(m.id).includes(f.fieldKey))!;
+                // 표시용 상품명(displayName)은 저장 값이 아니다. 이름 칸은 원래 값을 유지한다.
+                const value =
+                  displayName && f.fieldKey === "name"
+                    ? f.value
+                    : (m.texts.find((t) => t.fieldKey === f.fieldKey)?.value ??
+                      f.value);
+                const photoAssetIds =
+                  f.fieldKey === "name"
+                    ? f.photoAssetIds
+                    : m.photos.map((p) => p.uri);
+                const illustrationId = m.illustrationId ?? null;
+                if (
+                  value === f.value &&
+                  JSON.stringify(photoAssetIds) ===
+                    JSON.stringify(f.photoAssetIds) &&
+                  illustrationId === f.illustrationId
+                )
+                  return entry;
+                return {
+                  status: "ready" as const,
+                  field: {
+                    ...f,
+                    value,
+                    photoAssetIds,
+                    illustrationId,
+                    state: "CONFIRMED" as const,
+                    provenance: "PRODUCER" as const,
+                    candidateIds: [],
+                  },
+                };
+              }),
+            );
+            setDirty(true);
+          }}
+          emptyHint={emptyHint}
+          showStoryTextHints={showStoryTextHints}
+          notes={combined && !opts.preview && !opts.only && typeof review.sourceCopyEnabled === "boolean" ? (id) => (
+            <SourceCopyReview batchId={batch.id} targetId={target.id} section={id}
+              enabled={!!review.sourceCopyEnabled} reviewVersion={review.reviewVersion}
+              locked={busy || locked || uploading || copyBusy}
+              beforeMutation={() => saveRef.current?.() ?? Promise.resolve(false)}
+              onReload={async () => { sourceCopyRefresh.current = true; await onReload(); }} onBusy={(value) => { setCopyBusy(value); onBusy(value); }} />
+          ) : undefined}
+          details={(id) => (
+            <View style={{ gap: 8 }}>
+              {entries
+                .filter(
+                  (e) =>
+                    e.field.targetId === target.id &&
+                    keys(id).includes(e.field.fieldKey) &&
+                    ["conflict", "outdated", "unassigned"].includes(e.status),
+                )
+                .map((e) => (
+                  <View key={e.field.fieldKey}>
+                    <T>
+                      내용 확인 필요 · 사용할 문구를 선택하거나 직접 수정해
+                      주세요.
+                    </T>
+                    {e.status === "conflict" && e.field.value ? (
+                      <Button
+                        disabled={busy || locked || copyBusy}
+                        label={e.field.value}
+                        variant="outline"
+                        onPress={() => change({ ...e.field, state: "CONFIRMED" })}
+                      />
+                    ) : null}
+                    {uniqueChoices(
+                      review.candidates.filter(
+                        (c) =>
+                          !c.outdated &&
+                          !c.historical &&
+                          !hasMoney(c.value) &&
+                          !hasHealthClaim(c.value) &&
+                          c.fieldKey === e.field.fieldKey &&
+                          (c.targetId === target.id || c.targetId === null),
+                      ),
+                      e.status === "conflict" ? e.field.value : "",
+                    ).map((c) => (
+                        <Button
+                          disabled={busy || locked || copyBusy}
+                          key={c.id}
+                          label={c.value}
+                          variant="outline"
+                          onPress={() =>
+                            change({
+                              ...e.field,
+                              value: c.value,
+                              candidateIds: c.candidateIds,
+                              provenance: "EXTRACTED",
+                              state: "CONFIRMED",
+                            })
+                          }
+                        />
+                      ))}
+                  </View>
+                ))}
+            </View>
+          )}
+        />
+
+    );
+  };
   return (
     <View style={{ gap: 16 }}>
       {error ? (
@@ -392,7 +726,7 @@ export function SourceDetailsEditor({
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Icon name="alert" size={18} color={tokens.color.error} />
             <T variant="caption" color={tokens.color.error} style={{ flex: 1 }}>{error}</T>
-            <Button label="다시 불러오기" accessibilityLabel="판매페이지 다시 불러오기" variant="text" compact disabled={busy || locked} onPress={() => setConfirmReload(true)} />
+            <Button label="다시 불러오기" accessibilityLabel="판매페이지 다시 불러오기" variant="text" compact disabled={busy || locked || copyBusy} onPress={() => setConfirmReload(true)} />
           </View>
           <T variant="caption" muted>입력한 내용은 그대로 남아 있어요.</T>
         </View>
@@ -458,226 +792,41 @@ export function SourceDetailsEditor({
           골라 주세요.
         </T>
       ) : null}
-      {batch.targets.map((target) => (
-        <PageCanvas
-          key={target.id}
-          preview={preview}
-          scrollRef={scrollRef}
-          hiddenSectionIds={hidden[target.id] ?? []}
-          onHiddenSectionsChange={(ids) => {
-            setHidden((old) => ({ ...old, [target.id]: ids }));
-            setDirty(true);
-          }}
-          busy={busy || locked}
-          onUploading={(v) => {
-            setUploading(v);
-            onBusy(v);
-          }}
-          blocked={SOURCE_MODULES.filter(([id]) =>
-            entries.some(
-              (e) =>
-                e.field.targetId === target.id &&
-                keys(id).includes(e.field.fieldKey) &&
-                ["conflict", "outdated", "unassigned"].includes(e.status),
-            ),
-          ).map(([id]) => id)}
-          representativeUri={
-            target.representativeAssetId ||
-            batch.sources.find(
-              (s) =>
-                s.originalPhoto &&
-                (s.common || s.targetIds.includes(target.id)),
-            )?.id
-          }
-          media={(uri) => photoUrls[uri] ?? ""}
-          modules={SOURCE_MODULES.map(([id]) => ({
-            id,
-            enabled: enabled[target.id]?.includes(id) ?? false,
-            texts: entries
-              .filter(
-                (e) =>
-                  e.field.targetId === target.id &&
-                  keys(id).includes(e.field.fieldKey) &&
-                  (!preview || e.field.state !== "EXCLUDED"),
-              )
-              .map((e) => ({
-                fieldKey: e.field.fieldKey,
-                value:
-                  displayName &&
-                  e.field.fieldKey === "name" &&
-                  e.field.state !== "EXCLUDED"
-                    ? displayName
-                    : e.field.value,
-              })),
-            photos: entries
-              .filter(
-                (e) =>
-                  e.field.targetId === target.id &&
-                  keys(id).includes(e.field.fieldKey) &&
-                  (!preview || e.field.state !== "EXCLUDED"),
-              )
-              .flatMap((e) =>
-                e.field.photoAssetIds.map((uri) => ({
-                  uri,
-                  alt:
-                    batch.sources.find((s) => s.id === uri)?.description ||
-                    "상품 사진",
-                })),
-              ),
-            illustrationId: entries.find(
-              (e) => e.field.targetId === target.id && e.field.fieldKey === id &&
-                (!preview || e.field.state !== "EXCLUDED"),
-            )?.field.illustrationId,
-          }))}
-          photos={[
-            ...extraPhotos.filter((p) => p.targetId === target.id),
-            ...batch.sources
-              .filter(
-                (s) =>
-                  s.originalPhoto &&
-                  s.status === "PREPARED" &&
-                  (s.common || s.targetIds.includes(target.id)),
-              )
-              .map((s) => ({ uri: s.id, alt: s.description || s.filename })),
-          ]}
-          onUpload={async () => {
-            const files = await chooseSourceFiles(true);
-            const added: { uri: string; alt: string }[] = [];
-            for (const file of files) {
-              const latest = await sourceAnalysis.get(batch.id);
-              if (latest.reviewVersion !== version.current)
-                throw new Error(
-                  "다른 곳에서 내용이 바뀌었어요. 현재 입력을 보관하고 다시 열어 주세요.",
-                );
-              const asset = await uploadSource(
-                batch.id,
-                latest.version,
-                [target.id],
-                false,
-                true,
-                file,
-              );
-              version.current += 1;
-              added.push({ uri: asset.id, alt: file.name });
-              // 올리기는 끝났으니 미리보기를 못 받아도 사진은 넣고, 실패 칸에서 다시 불러온다(DEV-341)
-              const url = await sourcePageImage(batch.id, asset.id, 1, {
-                variant: "display",
-                source: asset,
-              }).catch(() => null);
-              if (url) {
-                extraUrls.current.push(url);
-                setPhotoUrls((old) => ({ ...old, [asset.id]: url }));
-              } else failPhoto(asset);
-            }
-            setExtraPhotos((old) => [
-              ...old,
-              ...added.map((p) => ({ ...p, targetId: target.id })),
-            ]);
-            return added;
-          }}
-          onChange={(modules) => {
-            setEnabled((old) => ({
-              ...old,
-              [target.id]: modules.filter((m) => m.enabled).map((m) => m.id),
-            }));
-            setEntries((old) =>
-              old.map((entry) => {
-                if (entry.field.targetId !== target.id) return entry;
-                const f = entry.field;
-                const m = modules.find((m) => keys(m.id).includes(f.fieldKey))!;
-                // 표시용 상품명(displayName)은 저장 값이 아니다. 이름 칸은 원래 값을 유지한다.
-                const value =
-                  displayName && f.fieldKey === "name"
-                    ? f.value
-                    : (m.texts.find((t) => t.fieldKey === f.fieldKey)?.value ??
-                      f.value);
-                const photoAssetIds =
-                  f.fieldKey === "name"
-                    ? f.photoAssetIds
-                    : m.photos.map((p) => p.uri);
-                const illustrationId = m.illustrationId ?? null;
-                if (
-                  value === f.value &&
-                  JSON.stringify(photoAssetIds) ===
-                    JSON.stringify(f.photoAssetIds) &&
-                  illustrationId === f.illustrationId
-                )
-                  return entry;
-                return {
-                  status: "ready" as const,
-                  field: {
-                    ...f,
-                    value,
-                    photoAssetIds,
-                    illustrationId,
-                    state: "CONFIRMED" as const,
-                    provenance: "PRODUCER" as const,
-                    candidateIds: [],
-                  },
-                };
-              }),
-            );
-            setDirty(true);
-          }}
-          emptyHint={emptyHint}
-          showStoryTextHints={showStoryTextHints}
-          details={(id) => (
-            <View style={{ gap: 8 }}>
-              {entries
-                .filter(
-                  (e) =>
-                    e.field.targetId === target.id &&
-                    keys(id).includes(e.field.fieldKey) &&
-                    ["conflict", "outdated", "unassigned"].includes(e.status),
-                )
-                .map((e) => (
-                  <View key={e.field.fieldKey}>
-                    <T>
-                      내용 확인 필요 · 사용할 문구를 선택하거나 직접 수정해
-                      주세요.
-                    </T>
-                    {e.status === "conflict" && e.field.value ? (
-                      <Button
-                        disabled={busy || locked}
-                        label={e.field.value}
-                        variant="outline"
-                        onPress={() => change({ ...e.field, state: "CONFIRMED" })}
-                      />
-                    ) : null}
-                    {uniqueChoices(
-                      review.candidates.filter(
-                        (c) =>
-                          !c.outdated &&
-                          !c.historical &&
-                          !hasMoney(c.value) &&
-                          !hasHealthClaim(c.value) &&
-                          c.fieldKey === e.field.fieldKey &&
-                          (c.targetId === target.id || c.targetId === null),
-                      ),
-                      e.status === "conflict" ? e.field.value : "",
-                    ).map((c) => (
-                        <Button
-                          disabled={busy || locked}
-                          key={c.id}
-                          label={c.value}
-                          variant="outline"
-                          onPress={() =>
-                            change({
-                              ...e.field,
-                              value: c.value,
-                              candidateIds: c.candidateIds,
-                              provenance: "EXTRACTED",
-                              state: "CONFIRMED",
-                            })
-                          }
-                        />
-                      ))}
-                  </View>
-                ))}
-            </View>
-          )}
-        />
+      {preview && review.sourceCopyEnabled && !combined ? <T variant="sub" style={{ paddingHorizontal: tokens.space.gutter }}>비공개 초안 미리보기예요. 확인이 필요한 원문도 포함돼 있어요. 편집 화면의 공개 전 확인 대기 항목을 모두 처리해야 상품에 반영할 수 있어요.</T> : null}
+      {!preview && !combined && typeof review.sourceCopyEnabled === "boolean" && batch.targets.map((target) => (
+        <SourceCopyReview key={`copy-${batch.id}-${target.id}`} batchId={batch.id} targetId={target.id}
+          enabled={!!review.sourceCopyEnabled} reviewVersion={review.reviewVersion}
+          locked={busy || locked || uploading || copyBusy}
+          beforeMutation={() => saveRef.current?.() ?? Promise.resolve(false)}
+          onReload={async () => { sourceCopyRefresh.current = true; await onReload(); }} onBusy={(value) => { setCopyBusy(value); onBusy(value); }} />
       ))}
+      {batch.targets.map((target) => canvas(target, { preview }))}
+      {editSection ? (
+        <Sheet visible onClose={() => { if (!busy) onCloseSection?.(); }} title={`${editSection.title} ${editSection.add ? "추가" : "고치기"}`}>
+          <View style={{ gap: 12 }}>
+            {batch.targets.map((target) => canvas(target, { preview: false, only: editSection.moduleIds, add: editSection.add, illustration: editSection.illustration }))}
+            <Button
+              label="저장하고 닫기"
+              loading={busy}
+              disabled={busy || locked || uploading}
+              onPress={() => {
+                void (async () => {
+                  // Save right away so the page behind the sheet shows the change.
+                  if (dirty && (await saveRef.current?.()) === false) return;
+                  onCloseSection?.();
+                })();
+              }}
+            />
+          </View>
+        </Sheet>
+      ) : null}
+      {combined && !preview && typeof review.sourceCopyEnabled === "boolean" ? batch.targets.map((target) => (
+        <SourceCopyReview key={`leftover-${target.id}`} batchId={batch.id} targetId={target.id} section={null}
+          enabled={!!review.sourceCopyEnabled} reviewVersion={review.reviewVersion}
+          locked={busy || locked || uploading || copyBusy}
+          beforeMutation={() => saveRef.current?.() ?? Promise.resolve(false)}
+          onReload={async () => { sourceCopyRefresh.current = true; await onReload(); }} onBusy={(value) => { setCopyBusy(value); onBusy(value); }} />
+      )) : null}
     </View>
   );
 }

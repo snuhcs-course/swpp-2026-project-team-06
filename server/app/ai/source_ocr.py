@@ -3,6 +3,7 @@
 import base64
 import io
 import json
+import math
 from dataclasses import dataclass
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
@@ -37,6 +38,7 @@ class Transcription:
     lines: list[str]
     usage: dict
     request_id: str | None
+    skipped: bool = False
 
 
 def crops(data):
@@ -65,6 +67,24 @@ def crops(data):
                 raise ExtractionError("CHUNK_IMAGE_LIMIT")
             yield encoded
             top = bottom
+
+
+def split_crop(encoded):
+    """Split one exhausted dense crop once, at a quiet row, without adding source pixels."""
+    with Image.open(io.BytesIO(base64.b64decode(encoded))) as raw:
+        image = raw.convert("RGB")
+        if image.height < 64:
+            return []
+        middle = min(
+            range(image.height * 2 // 5, image.height * 3 // 5 + 1),
+            key=lambda y: ImageStat.Stat(image.crop((0, y, image.width, y + 1))).var[0],
+        )
+        result = []
+        for top, bottom in [(0, middle), (middle, image.height)]:
+            out = io.BytesIO()
+            image.crop((0, top, image.width, bottom)).save(out, "JPEG", quality=85)
+            result.append(base64.b64encode(out.getvalue()).decode())
+        return result
 
 
 def transcribe(encoded, *, retry=False):
@@ -125,7 +145,14 @@ def transcribe(encoded, *, retry=False):
         )
         usage = result.usage.model_dump() if result.usage else {}
         if not result.choices or result.choices[0].finish_reason != "stop":
-            raise ExtractionError("INCOMPLETE_OCR", usage=usage, request_id=result.id)
+            raise ExtractionError(
+                "INCOMPLETE_OCR",
+                usage=usage,
+                request_id=result.id,
+                details={
+                    "finishReason": result.choices[0].finish_reason if result.choices else "missing"
+                },
+            )
         try:
             obj = json.loads(result.choices[0].message.content or "")
             if not isinstance(obj, dict) or set(obj) != {"lines"}:
@@ -141,13 +168,36 @@ def transcribe(encoded, *, retry=False):
             raise ExtractionError("INVALID_OCR", usage=usage, request_id=result.id) from exc
         return Transcription(lines, usage, result.id)
     except (APITimeoutError, APIConnectionError) as exc:
-        raise ExtractionError("REQUEST_UNCERTAIN") from exc
-    except APIStatusError as exc:
-        # No automatic retry: an earlier crop may already have incurred a charge.
-        if exc.status_code in {401, 403}:
-            raise ExtractionError("PROVIDER_AUTH") from exc
         raise ExtractionError(
-            "REQUEST_UNCERTAIN" if exc.status_code >= 500 else "PROVIDER_REJECTED"
+            "REQUEST_UNCERTAIN",
+            details={
+                "errorCategory": "TIMEOUT" if isinstance(exc, APITimeoutError) else "CONNECTION",
+                "automaticRetry": True,
+            },
         ) from exc
+    except APIStatusError as exc:
+        status = exc.status_code
+        details = {
+            "httpStatus": status,
+            "errorCategory": "HTTP",
+            "automaticRetry": status == 429 or status >= 500,
+        }
+        if status == 429:
+            try:
+                delay = float(exc.response.headers.get("retry-after", "0"))
+                if math.isfinite(delay) and delay >= 0:
+                    details["retryAfterSeconds"] = delay
+            except (ValueError, TypeError):
+                pass
+        code = (
+            "PROVIDER_AUTH"
+            if status in {401, 403}
+            else "RATE_LIMITED"
+            if status == 429
+            else "REQUEST_UNCERTAIN"
+            if status >= 500
+            else "PROVIDER_REJECTED"
+        )
+        raise ExtractionError(code, details=details) from exc
     finally:
         client.close()

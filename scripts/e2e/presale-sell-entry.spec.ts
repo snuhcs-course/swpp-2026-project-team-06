@@ -24,7 +24,8 @@ test("AC-04-1 DEV-361 DEV-487: pre-sale cards open 판매·가격 and approved c
   await expect(card.getByRole("button", { name: "기간·가격" })).toHaveCount(0);
   await card.getByRole("button", { name: "판매·가격", exact: true }).click();
   await expect(page).toHaveURL(/\/products\/p-hallabong\/sell$/);
-  await expect(page.getByRole("button", { name: "판매 시작 요청" })).toBeVisible();
+  // DEV-452: 판매·가격 → 최종 미리보기 → 판매 시작 요청 (docs/spec/source-preserving-drafts.md)
+  await expect(page.getByRole("button", { name: "최종 미리보기", exact: true })).toBeVisible();
 
   await page.goto(`${producerUrl}/products?filter=selling`);
   await expect(page.getByText("하우스 감귤 5kg / 10kg").first()).toBeVisible();
@@ -225,7 +226,8 @@ test("AC-04-1 DEV-361: 판매·가격 blocks the first sale request with the mis
   });
   await page.goto(`${producerUrl}/products/${draft.productId}/sell`);
   await page.getByLabel("판매할 총 물량", { exact: true }).fill("50");
-  await page.getByRole("button", { name: "판매 시작 요청" }).click();
+  // DEV-452: the request goes through 최종 미리보기, which validates and saves first.
+  await page.getByRole("button", { name: "최종 미리보기", exact: true }).click();
   await expect(page.getByRole("alert").getByText("받는 시기를 정해 주세요.", { exact: true })).toBeVisible();
   expect(sent).toEqual([]);
   assertClean();
@@ -279,6 +281,9 @@ test("AC-04-1 DEV-361: the composer keeps unsaved input after visiting another s
   await expect(page).toHaveURL(/composer=1/);
   await expect(shown(page.getByLabel("상품명", { exact: true }))).toHaveValue("원래 이름 귤");
   await shown(page.getByLabel("상품명", { exact: true })).fill("고치는 중인 이름");
+  // A draft without material opens with the AI sheet up; close it to reach 상품정보.
+  const closeAi = page.getByRole("button", { name: "AI 시트 닫기", exact: true }).first();
+  if (await closeAi.isVisible()) await closeAi.click();
   await page.getByText("상품정보", { exact: true }).click();
   await page.getByRole("link", { name: "원산지 표시 방법 보기" }).click();
   await expect(page).toHaveURL(/\/origin-notice/);
@@ -287,5 +292,23 @@ test("AC-04-1 DEV-361: the composer keeps unsaved input after visiting another s
   // 돌아와 상품을 다시 읽어도 고치던 입력은 남는다
   await page.waitForLoadState("networkidle");
   await expect(shown(page.getByLabel("상품명", { exact: true }))).toHaveValue("고치는 중인 이름");
+  assertClean();
+});
+
+test("DEV-452 PM 11/28: the owner sets how many fruits each box holds and it is saved with the option", async ({ page, request }) => {
+  const assertClean = monitor(page);
+  await loginProducer(page, "강영수");
+  const { draft, read } = await sellReadyDraft(request);
+  const id = draft.productId;
+  await page.goto(`${producerUrl}/products/${id}/sell`);
+  const count = page.getByLabel("5kg 과 수 (선택)", { exact: true });
+  await expect(count).toBeVisible();
+  await count.fill("14~18과");
+  await page.getByLabel("판매할 총 물량", { exact: true }).fill("50");
+  await page.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(page.getByText("저장했어요", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await read(id) as Draft & { options: { note?: string }[] }).options[0].note).toBe("14~18과");
+  await page.reload();
+  await expect(page.getByLabel("5kg 과 수 (선택)", { exact: true })).toHaveValue("14~18과");
   assertClean();
 });

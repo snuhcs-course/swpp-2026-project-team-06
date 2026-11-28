@@ -86,3 +86,23 @@ export async function newPage(context: BrowserContext) {
   const assertClean = monitor(page);
   return { page, assertClean };
 }
+
+/**
+ * DEV-452 (PM 11/26): '새 상품' opens the combined setup page. The one-screen composer is still the
+ * editor of an existing draft; tests of it open a fresh draft directly. Returns the batch id.
+ */
+export async function openFreshComposer(page: Page) {
+  await page.goto(`${producerUrl}/products`);
+  await page.getByRole("button", { name: "새 상품", exact: true }).click();
+  await expect(page).toHaveURL(/product-setup\?id=/);
+  const token = await apiLogin(page.request, "u-kang", "producer");
+  const opened = await page.request.post(`${apiUrl}/api/source-analysis/product-workspaces`, {
+    headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": crypto.randomUUID() },
+    data: {},
+  });
+  expect(opened.ok(), await opened.text()).toBeTruthy();
+  const { batchId } = await opened.json();
+  await page.goto(`${producerUrl}/products/source-analysis?batchId=${batchId}&composer=1`);
+  return batchId as string;
+}
+

@@ -8,7 +8,7 @@ import {
   type ProductOption,
   type StageInput,
 } from "@farmclub/api";
-import { Button, Checkbox, Icon, Segmented, T, md, tokens } from "@farmclub/ui";
+import { Button, Checkbox, Icon, Input, Segmented, T, md, tokens } from "@farmclub/ui";
 import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 
@@ -277,6 +277,10 @@ export function SalesTermsEditor({
   ].sort(byKg);
   // 기간 가격 줄도 가벼운 순서
   const byWeight = [...t.options].sort(byKg);
+  // PM 11/28: how many fruits each box holds ("8~11과"), kept in the option's note, which the
+  // buyer's option list already shows.
+  const setNote = (optionId: string, note: string) =>
+    set("options", t.options.map((o) => (o.optionId === optionId ? { ...o, note: note || undefined } : o)));
   const toggleWeight = (w: number) => {
     const on = t.options.filter((o) => o.weightKg === w);
     if (!on.length) return turnOn(w);
@@ -374,6 +378,22 @@ export function SalesTermsEditor({
               onPress={() => setCustom((c) => ({ ...c, open: true }))}
             />
           )}
+          {byWeight.length ? (
+            <View style={{ gap: 8 }} testID="option-counts">
+              <T variant="caption" muted>상자에 몇 과가 들어가는지 적으면 구매자에게 옵션과 함께 보여요.</T>
+              {byWeight.map((o) => (
+                <Input
+                  key={o.optionId}
+                  label={`${o.label} 과 수 (선택)`}
+                  placeholder="예: 8~11과"
+                  maxLength={50}
+                  editable={!off}
+                  value={o.note ?? ""}
+                  onChangeText={(note) => setNote(o.optionId, note)}
+                />
+              ))}
+            </View>
+          ) : null}
         </Sec>
       </FieldFeedback>
 

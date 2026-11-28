@@ -426,7 +426,7 @@ def test_AC_SRC_2_5_10_pdf_page_failure_preserves_other_pages_and_accounting(
 
 
 @pytest.mark.usefixtures("single_page_extraction_chunks")
-def test_AC_SRC_5_10_partial_ocr_retry_requires_ack_and_rereads_entire_item(
+def test_AC_SRC_5_10_partial_ocr_retry_requires_ack_and_reuses_completed_crops(
     client, login, monkeypatch
 ):
     # This fixture keys responses by sequential invocation count.
@@ -470,7 +470,7 @@ def test_AC_SRC_5_10_partial_ocr_retry_requires_ack_and_rereads_entire_item(
         assert len(db.get(Item, new_id).pages) == 3
         db.commit()
     assert worker.run_once()
-    assert len(attempted) == 6  # Explicitly re-read all pages, including the failed one.
+    assert len(attempted) == 4  # Only the failed page is sent again; two successes are cached.
     with get_sessionmaker()() as db:
         assert db.get(Item, new_id).status == "SUCCEEDED"
         current = list(db.scalars(select(Candidate).where(Candidate.outdated.is_(False))))
@@ -663,7 +663,7 @@ def test_AC_SRC_5_10_diagnostics_fencing_preserves_original_exception(
     assert claimed_id == iid
     original = ExtractionError(code, usage={"cost": 0.001}, request_id="original-request")
 
-    def fail_ocr(*args):
+    def fail_ocr(*args, **kwargs):
         raise original
 
     if stage == "ocr":
@@ -2215,3 +2215,42 @@ def test_AC_SRC_5_ocr_cap_failure_is_retried_once_with_double_room(
         assert failed.value.code == (second or first)
     assert len(seen) == calls and seen == [False, True][:calls]
     assert tokens == [worker.OCR_MAX_TOKENS, worker.OCR_RETRY_MAX_TOKENS][:calls]
+
+
+@pytest.mark.parametrize(
+    "reason,child_fails,expected_calls",
+    [("length", False, 4), ("length", True, 3), ("content_filter", False, 2)],
+)
+def test_AC_SRC_5_dense_crop_recovery_is_bounded_and_failure_is_not_complete(
+    monkeypatch, reason, child_fails, expected_calls
+):
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
+    image = io.BytesIO()
+    Image.new("RGB", (100, 200), "white").save(image, "PNG")
+    chunk = {"pages": [{"number": 1, "spans": []}]}
+    calls = []
+
+    def ocr(encoded, retry=False):
+        calls.append(retry)
+        if len(calls) <= 2:
+            raise ExtractionError("INCOMPLETE_OCR", details={"finishReason": reason})
+        if child_fails:
+            raise ExtractionError("INVALID_OCR")
+        return Transcription([f"원문 {len(calls)}"], {}, "fixture")
+
+    def call(*args):
+        return args[5]()
+
+    def recovery(fn, *args):
+        return fn(*args)
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    if reason == "length" and not child_fails:
+        result = worker.transcribe_pages(chunk, {1: image.getvalue()}, call, recovery)
+        assert not result["pagesFailed"]
+        assert [s["text"] for s in chunk["pages"][0]["spans"]] == ["원문 3", "원문 4"]
+    else:
+        with pytest.raises(ExtractionError):
+            worker.transcribe_pages(chunk, {1: image.getvalue()}, call, recovery)
+        assert chunk["pages"][0]["spans"] == []
+    assert len(calls) == expected_calls
