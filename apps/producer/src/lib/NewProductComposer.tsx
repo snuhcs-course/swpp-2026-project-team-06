@@ -1303,7 +1303,11 @@ export function NewProductComposer({ productId: fixedProductId }: { productId?: 
   const unresolvedReading = processingIssues(review, target?.id);
   const canEdit = canEditBatch(batch, runs, drafts, review, activeRun);
   // 저장하지 않은 상세 수정이 있으면 편집기를 내리지 않는다(첨부를 바꿔도 수정이 사라지지 않게).
-  const showEditor = !!review && !working && (canEdit || editorDirty || unresolvedReading.length > 0);
+  // DEV-452 (user 11/28, choice A): when the material could not be read and the owner removed it,
+  // the page is written by hand — the editor stays open once a run happened and no material is left.
+  const manualAfterRun = !!batch && !activeRun && runs.length > 0 &&
+    !batch.sources.some((s) => !s.originalPhoto && !s.placement?.extracted);
+  const showEditor = !!review && !working && (canEdit || editorDirty || unresolvedReading.length > 0 || manualAfterRun);
   /** 화면의 모든 입력을 비공개로 저장한다(판매 전 상품은 상품 칸을 바로 상품에). 구매자에게 보이는 상품은 상품 초안 결과를 돌려준다 */
   const saveAll = async (): Promise<ProductDraftView | null> => {
     // 상품만 여는 composer는 새 대표사진을 사진 맨 앞에 넣어 두어 10장을 넘을 수 있다. 서버에 보내기 전에 같은 문구로 막는다(5차 scan)

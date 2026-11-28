@@ -331,3 +331,5 @@ Follow-up (November 28): product photos alone no longer generate a page (setup s
 Photo check (November 28): before a sale request, only material photos the page uses (placed in a section or chosen as the representative) must be confirmed; the screen count and the server check use the same rule. The section list for moving a photo opens right under the photos, above "사진 추가", with a cancel button.
 
 Automatic removals (November 28): a sentence a rule takes off the page by itself (today the past-sale notice) is listed under "자동으로 뺀 내용" in "자료에서 안 쓴 내용" with its reason; the owner picks the section (the original one is preselected) and puts it back. The owner's own removals, exact repeats and lines replaced by the sale settings are not listed there; the last ones stay next to the sale settings.
+
+Unreadable material (November 28): when the owner removes material that could not be read, the page editor stays open so the page can be written by hand; a page still needs a representative photo before it is applied or sent for approval.
