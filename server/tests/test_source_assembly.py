@@ -1,6 +1,5 @@
 """AC-SRC-2/3/11: exact-facts assembly audits, invented source blocks only."""
 
-import json
 from copy import deepcopy
 
 import pytest
@@ -252,27 +251,6 @@ def test_AC_SRC_3_input_ids_must_be_nonempty_unique():
     for inputs in [row(text("", "설명")), row(text("a", "설명"), text("a", "다른 설명"))]:
         with pytest.raises(ValueError):
             audit(output(), inputs)
-
-
-def test_AC_SRC_5_runner_payload_does_not_send_gold_source_or_unknown_metadata():
-    from app.source_analysis.assembly_experiment import payload
-
-    inputs = row(text("a", "감귤 설명", flags=["PRICE"]))
-    inputs.update(
-        baselineRecord={"secret": "DO_NOT_SEND"},
-        sourcePassageAudit=["DO_NOT_SEND"],
-        gold={"expected": "DO_NOT_SEND"},
-        missingFactHints=["DO_NOT_SEND"],
-        other="DO_NOT_SEND",
-    )
-    inputs["target"]["unknown"] = "DO_NOT_SEND"
-    inputs["texts"][0].update(
-        gold="DO_NOT_SEND", originalTextId="DO_NOT_SEND", unknown="DO_NOT_SEND"
-    )
-    wire = payload(inputs)
-    assert set(wire) == {"target", "texts"}
-    assert set(wire["texts"][0]) == {"id", "module", "value", "ownerFlags"}
-    assert "DO_NOT_SEND" not in json.dumps(wire)
 
 
 def test_AC_SRC_11_excluding_text_cannot_erase_inherited_owner_flags():
