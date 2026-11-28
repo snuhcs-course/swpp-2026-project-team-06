@@ -339,3 +339,22 @@ FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
 | 2026-11-17 | 작업 사진 업로드는 잠금 없이 소유·작업 공간을 먼저 확인하고 읽기 트랜잭션을 닫은 뒤(`db.rollback()`, 변환 동안 idle in transaction 방지) JPEG 변환·저장을 하고, `workspace.owned`(advisory lock + FOR UPDATE)로 다시 확인하고 행만 넣는다. 잠금 확인이 실패하면 저장한 파일은 고아 정리가 지운다 | 큰 사진 변환 동안 같은 상품의 저장·반영·다른 업로드가 기다리지 않게 | AC-SRC-11 |
 | 2026-11-17 | 공개 반영(`copy_photo`)은 `page_variant(display)`를 써서 이미 만든 미리보기 바이트를 새 키로 복사한다(같은 변환이라 결과 동일) | 반영 때 12MP PNG를 다시 디코딩하지 않음 | AC-SRC-9 |
 | 2026-11-17 | 감수한 점: 미리보기는 그 브라우저에 최대 하루 남는다(자료를 지우거나 상품 연결을 바꿔도 이미 받은 사본은 `max-age` 동안 그 생산자 브라우저에만 남음, 다른 로그인은 `Vary: Authorization`으로 재검증). 앱 메모리 공유본은 로그인이 바뀌거나 로그아웃하면 지운다. 상품사진 업로드는 미리보기 두 장을 더 만들어 12MP 기준 서버 처리 0.64초→0.79초(로컬 측정) | 여는 시간 49.6초→2.1초(10Mbps)에 비해 작은 비용. 원본·가림 전 이미지는 계속 `no-store` | AC-SRC-5/6 |
+
+DEV-448 text-first opt-in evaluation follows docs/evaluation/i5-text-scoring/spec.md; legacy scorer immutable.
+
+
+### DEV-450 opt-in literal inventory writer
+FEAT-03/04/07, AC-SRC-2/3/5/10/11, M-11/18: explicit inventory_refinement request/response validator and ai.source_refine.refine_inventory adapter; default v11 path unchanged. Bind full rebuilt inventory/current revisions/target/writer/safety hash. Reject truncated accounting, arbitrary rewriting and changed numeric/qualifier spacing. Derive candidate citations then run existing final validate; missing KEEP is incomplete, EXCLUDE/REVIEW requires review. All-source exclusions are not a successful empty result. No producer persistence mutation or semantic proof from unit IDs. New development-only offline literal control never calls providers or silently drops failed sources.
+
+
+### DEV-450/451 passage classification
+FEAT-03/04/07 AC-SRC-2/3/5/10/11 M-11/18: passage_refinement preserves complete deterministic partitions and source order; explicit refine_passages adds assignment-only classification into existing text modules. Parent review blocks persist, recognized context stays whole, all IDs exactly once and final validation applies. Compact shared-context wire is fully derived from the hash-bound internal request; no truncation/default change. Primary/supplement comparisons remain separate; phase/global budget and unknown-send/cost stopping enforced by development runner.
+
+
+### DEV-450 voice-polishing experiment
+FEAT-03/04/07 AC-SRC-2/3/5/10/11 M-11/18: voice_polish freezes exact reviewed baseline modules/texts/citations and safe style excerpts; source_polish provides isolated writer/critic adapters. Per-text guards and existing final validation expose incomplete output; separate critic bindings are rebuilt from source and writer result. No default generator, persistence or editor changes. Model critique never equals human acceptance.
+
+DEV-447/448 2026-11-25: 원본 gold/critical 보존, 별도 draft-first-gold-v2 sidecar essential/optional/review 및 source-specific 동치/금지 규칙 처분. 원문/개정/출력 해시와 양쪽 비교 분모 유지. 상세 source-scoring-relaxed.md.
+
+
+DEV-448 scorer v2: scoring_text.py applies shared bounded Brix/mass normalization and preserves paragraph/numeric boundaries for selectors and numeric diagnostics. Original final_score.py/corpus_score.py remain byte-identical. text_score.py dev448-text-v2 and relaxed_score.py dev448-relaxed-v2 expose per-fact lexical outcomes independently of semantic status and placement. Optional selector aliases are explicit source/fact/gold/safe-text-bound policies; they require source occurrence and retain numeric/option/qualifier constraints, never grant semantic support. Primary reporting omits spelling aliases; separately show the source-verified spelling/phrase adjudication effect and immutable raw legacy numbers. Versioned hashes retain previous reports; see server/tasks/DEV-448.md.

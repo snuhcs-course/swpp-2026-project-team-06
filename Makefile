@@ -83,6 +83,12 @@ test-source-final: ## Offline stage-2 evaluator and final-text scorer tests (DEV
 	@$(LOCAL_DB_ONLY)
 	$(SERVER) uv run pytest tests/test_final_eval.py tests/test_final_score.py
 
+.PHONY: test-text-scoring
+test-text-scoring: ## Opt-in text evaluator and legacy scoring regressions (DEV-448)
+	@$(LOCAL_DB_ONLY)
+	$(SERVER) uv run pytest tests/test_scoring_text.py tests/test_relaxed_score.py tests/test_text_score.py tests/test_text_score_compare.py tests/test_text_calibration.py tests/test_edit_review.py tests/test_source_copy.py tests/test_source_copy_quality.py tests/test_source_inventory.py tests/test_inventory_refinement.py tests/test_inventory_compare.py tests/test_passage_refinement.py tests/test_passage_compare.py tests/test_voice_polish.py tests/test_voice_compare.py tests/test_source_refine.py tests/test_final_score.py tests/test_final_eval.py
+	server/.venv/bin/pytest docs/evaluation/i5-relaxed-gold/test_migrate.py -q
+
 test-server: ## pytest + alembic check (CI server job; run make db first)
 	@$(LOCAL_DB_ONLY)
 	$(SERVER) uv run pytest

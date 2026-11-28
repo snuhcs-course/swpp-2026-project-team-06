@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "split": "synthetic-controls",
+  "semanticReviewStatus": "PROPOSED_HUMAN_REVIEW_PENDING",
+  "cases": [
+    {
+      "id": "producer-description-lost",
+      "category": "producer-preservation",
+      "evidence": "솔바람농장은 해안 마을에서 12년째 감귤을 재배해요.",
+      "reference": "솔바람농장은 해안 마을에서 12년째 감귤을 재배해요.",
+      "selectors": ["솔바람농장", "해안 마을", "12년"],
+      "referenceModule": "farmStory",
+      "outputs": [{"module": "farmStory", "texts": ["솔바람농장은 감귤을 재배해요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": false, "allOutputSupported": true, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "재배 사실은 맞지만 생산자 소개의 장소와 경력을 잃는다."}
+    },
+    {
+      "id": "producer-description-preserved",
+      "category": "producer-preservation",
+      "evidence": "솔바람농장은 해안 마을에서 12년째 감귤을 재배해요.",
+      "reference": "솔바람농장은 해안 마을에서 12년째 감귤을 재배해요.",
+      "selectors": ["해안 마을", "12년"],
+      "referenceModule": "farmStory",
+      "outputs": [{"module": "farmStory", "texts": ["솔바람농장은 해안 마을에서 12년째 감귤을 재배해요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": true, "allOutputSupported": true, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "농가 주체, 장소, 재배 기간을 함께 보존한다."}
+    },
+    {
+      "id": "full-source-wrong-option",
+      "category": "option-binding",
+      "evidence": "가정용 3kg 상자는 18개이고 선물용 5kg 상자는 29개예요.",
+      "reference": "가정용 3kg 상자는 18개예요.",
+      "selectors": ["가정용", "3kg", "18개"],
+      "referenceModule": "composition",
+      "outputs": [{"module": "composition", "texts": ["가정용 3kg 상자는 29개예요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": false, "allOutputSupported": false, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "원문에 두 개수가 모두 있지만 가정용 옵션의 개수를 선물용 옵션의 개수로 바꾼다."}
+    },
+    {
+      "id": "full-source-correct-option",
+      "category": "option-binding",
+      "evidence": "가정용 3kg 상자는 18개이고 선물용 5kg 상자는 29개예요.",
+      "reference": "가정용 3kg 상자는 18개예요.",
+      "selectors": ["가정용", "3kg", "18개"],
+      "referenceModule": "composition",
+      "outputs": [{"module": "composition", "texts": ["가정용 3kg 상자는 18개예요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": true, "allOutputSupported": true, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "원문에 함께 있는 두 옵션 중 해당 옵션과 개수의 연결을 보존한다."}
+    },
+    {
+      "id": "swapped-box-counts",
+      "category": "quantity-binding",
+      "evidence": "3kg 상자는 18개, 5kg 상자는 30개예요.",
+      "reference": "3kg 상자는 18개예요.",
+      "selectors": ["3kg", "18개"],
+      "referenceModule": "pieceCount",
+      "outputs": [{"module": "pieceCount", "texts": ["3kg 상자는 30개예요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": false, "allOutputSupported": false, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "두 개수가 원문에 존재해도 3kg 상자와 연결된 개수는 18개다."}
+    },
+    {
+      "id": "range-truncated",
+      "category": "range-preservation",
+      "evidence": "수확 상자의 무게는 3kg에서 5kg 사이예요.",
+      "reference": "수확 상자의 무게는 3kg에서 5kg 사이예요.",
+      "selectors": ["3kg", "5kg", "사이"],
+      "referenceModule": "composition",
+      "outputs": [{"module": "composition", "texts": ["수확 상자의 무게는 3kg에서 5kg 사이예요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": true, "allOutputSupported": true, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "양 끝값과 그 사이 범위라는 관계를 그대로 유지한다."}
+    },
+    {
+      "id": "range-truncated-to-endpoint",
+      "category": "range-preservation",
+      "evidence": "수확 상자의 무게는 3kg에서 5kg 사이예요.",
+      "reference": "수확 상자의 무게는 3kg에서 5kg 사이예요.",
+      "selectors": ["3kg", "5kg", "사이"],
+      "referenceModule": "composition",
+      "outputs": [{"module": "composition", "texts": ["수확 상자의 무게는 3kg이에요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": false, "allOutputSupported": false, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "범위 안에 있는 수치라도 원문은 정확히 3kg이라고 말하지 않는다. 하한값으로 단정해 기준 범위를 잃는다."}
+    },
+    {
+      "id": "double-negation-preserved",
+      "category": "negation-scope",
+      "evidence": "이 농장 감귤은 씨가 없는 것은 아니에요.",
+      "reference": "이 농장 감귤은 씨가 없는 것은 아니에요.",
+      "selectors": ["씨가 없는 것은 아니"],
+      "referenceModule": "taste",
+      "outputs": [{"module": "taste", "texts": ["이 농장 감귤은 씨가 없는 것은 아니에요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": true, "allOutputSupported": true, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "이중 부정이 씨가 있을 수 있음을 뜻하는 원문의 유보된 의미를 유지한다."}
+    },
+    {
+      "id": "double-negation-flipped",
+      "category": "negation-scope",
+      "evidence": "이 농장 감귤은 씨가 없는 것은 아니에요.",
+      "reference": "이 농장 감귤은 씨가 없는 것은 아니에요.",
+      "selectors": ["씨가 없는 것은 아니"],
+      "referenceModule": "taste",
+      "outputs": [{"module": "taste", "texts": ["이 농장 감귤은 씨가 없어요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": false, "allOutputSupported": false, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "원문의 이중 부정을 단정적인 씨 없음으로 뒤집는다."}
+    },
+    {
+      "id": "expected-vs-measured-preserved",
+      "category": "measurement-scope",
+      "evidence": "이번 수확분의 예상 평균 당도는 10브릭스예요.",
+      "reference": "이번 수확분의 예상 평균 당도는 10브릭스예요.",
+      "selectors": ["예상", "평균", "10브릭스"],
+      "referenceModule": "qualityEvidence",
+      "outputs": [{"module": "qualityEvidence", "texts": ["이번 수확분의 예상 평균 당도는 10브릭스예요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": true, "allOutputSupported": true, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "예상치라는 상태와 평균 측정 기준을 보존한다."}
+    },
+    {
+      "id": "expected-recast-as-measured",
+      "category": "measurement-scope",
+      "evidence": "이번 수확분의 예상 평균 당도는 10브릭스예요.",
+      "reference": "이번 수확분의 예상 평균 당도는 10브릭스예요.",
+      "selectors": ["예상", "평균", "10브릭스"],
+      "referenceModule": "qualityEvidence",
+      "outputs": [{"module": "qualityEvidence", "texts": ["이번 수확분의 평균 당도를 10브릭스로 측정했어요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": false, "allOutputSupported": false, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "예상을 실제 측정 결과로 바꾸고 측정 행위까지 새로 단정한다."}
+    },
+    {
+      "id": "unsupported-nonnumeric-extra",
+      "category": "unsupported-extra",
+      "evidence": "푸른마루농장은 감귤을 재배해요.",
+      "reference": "푸른마루농장은 감귤을 재배해요.",
+      "selectors": ["푸른마루농장", "감귤"],
+      "referenceModule": "farmStory",
+      "outputs": [{"module": "farmStory", "texts": ["푸른마루농장은 감귤을 재배해요. 바닷바람이 당도를 높여줘요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": true, "allOutputSupported": false, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "출처에 없는 재배 사실의 원인과 당도 효과를 추가한다. 새 숫자가 없어도 미지원 주장이다."}
+    },
+    {
+      "id": "valid-negative-support-override",
+      "category": "judgment-override",
+      "evidence": "바람이 잘 드는 밭에서 감귤을 재배해요.",
+      "reference": "바람이 잘 드는 밭에서 감귤을 재배해요.",
+      "selectors": ["바람", "밭", "감귤"],
+      "referenceModule": "farmStory",
+      "outputs": [{"module": "farmStory", "texts": ["바람이 잘 드는 밭에서 감귤을 재배해 당도가 높아요."]}],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": true, "allOutputSupported": false, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "출처가 뒷받침하는 재배 사실이 있어도 당도가 높다는 인과 주장은 뒷받침되지 않는다. 의미 검토의 명시적 부정은 표면 단어 겹침으로 뒤집지 않는다."}
+    },
+    {
+      "id": "duplicate-invariant-after-move",
+      "category": "deduplication-placement",
+      "evidence": "새벽뜰농장은 2018년에 문을 열었어요.",
+      "reference": "새벽뜰농장은 2018년에 문을 열었어요.",
+      "selectors": ["새벽뜰농장", "2018년"],
+      "referenceModule": "farmStory",
+      "outputs": [
+        {"module": "farmStory", "texts": ["새벽뜰농장은 2018년에 문을 열었어요."]},
+        {"module": "storage", "texts": ["새벽뜰농장은 2018년에 문을 열었어요."]}
+      ],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": true, "allOutputSupported": true, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "사실은 보존되고 한 번은 올바른 위치에 있다. 중복은 보존율을 부풀리지 않으며 다른 섹션 사본은 위치 결함으로 별도 기록한다."}
+    },
+    {
+      "id": "correct-empty-reviewable",
+      "category": "empty-contract",
+      "evidence": "배송 문의는 고객센터로 연락해 주세요.",
+      "reference": null,
+      "selectors": [],
+      "referenceModule": "composition",
+      "outputs": [],
+      "recordStatus": "EVALUATED",
+      "proposed": {"claimPreserved": false, "allOutputSupported": true, "placement": "NA", "processingOutcome": "CORRECT_EMPTY", "rationale": "사람이 검토한 기준에서 상품 구성 주장이 없으므로 빈 composition 출력은 올바른 빈 결과다."}
+    },
+    {
+      "id": "failed-empty-stays-failure",
+      "category": "processing",
+      "evidence": "배송 문의는 고객센터로 연락해 주세요.",
+      "reference": null,
+      "selectors": [],
+      "referenceModule": "composition",
+      "outputs": [],
+      "recordStatus": "FAILED",
+      "proposed": {"claimPreserved": false, "allOutputSupported": true, "placement": "NA", "processingOutcome": "FAILED", "rationale": "같은 빈 출력이어도 처리 상태가 실패면 올바른 빈 결과로 간주하지 않는다."}
+    },
+    {
+      "id": "partial-output-remains-partial",
+      "category": "processing",
+      "evidence": "단단한 과육과 상큼한 향이 특징이에요.",
+      "reference": "단단한 과육과 상큼한 향이 특징이에요.",
+      "selectors": ["단단한 과육", "상큼한 향"],
+      "referenceModule": "taste",
+      "outputs": [{"module": "taste", "texts": ["단단한 과육이 특징이에요."]}],
+      "recordStatus": "PARTIAL",
+      "proposed": {"claimPreserved": false, "allOutputSupported": true, "placement": "PRIMARY", "processingOutcome": "SUCCESS", "rationale": "출력된 문장은 지원되지만 상큼한 향이 누락됐다. 이 proposal 필드는 CORRECT_EMPTY/FAILED/SUCCESS만 허용하므로 SUCCESS로 두며, 실제 PARTIAL 상태는 recordStatus에 보존한다."}
+    }
+  ]
+}

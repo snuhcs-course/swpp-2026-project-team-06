@@ -1,6 +1,7 @@
 """AC-SRC-2/3/5/6: offline final text, denominator integrity and privacy."""
 
 import copy
+import importlib.util
 import json
 import subprocess
 import sys
@@ -31,6 +32,151 @@ from app.source_analysis.final_score import (
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATION = ROOT / "docs/spec/validation"
 TEXT = "감귤 3kg 한 상자입니다."
+
+
+def scorer_probe():
+    path = ROOT / "docs/evaluation/i5-scorer-controls/probe.py"
+    spec = importlib.util.spec_from_file_location("dev448_probe", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def control_probe_data():
+    return json.loads(
+        (ROOT / "docs/evaluation/i5-scorer-controls/controls.json").read_text()
+    )
+
+
+def control_rows():
+    return {r["id"]: r for r in scorer_probe().observe(control_probe_data())["cases"]}
+
+
+def test_AC_SRC_2_DEV_448_controls_keep_inputs_and_semantic_status_separate():
+    data = control_probe_data()
+    original = copy.deepcopy(data)
+    result = scorer_probe().observe(data)
+    assert data == original
+    assert result["semanticReviewStatus"] == "PROPOSED_HUMAN_REVIEW_PENDING"
+    assert result["summary"]["controls"] == 38
+    assert sum(result["summary"]["historicalGate"].values()) == 38
+    assert result["summary"]["referenceNonemptyGateFailures"] == 1
+    assert all(
+        row["referenceHistorical"]["factHit"] == row["referenceHistorical"]["factTotal"]
+        for row in result["cases"]
+    )
+
+
+@pytest.mark.parametrize(
+    "case_id",
+    [
+        "negation-weak-selector",
+        "expected-to-measured",
+        "sample-to-guarantee",
+        "wrong-product",
+        "swapped-samples",
+        "swapped-options",
+        "approximation-dropped",
+        "contradiction-added",
+        "unrelated-fragments-same-section",
+        "valid-plus-invented-property",
+        "substring-number",
+        "uncertainty-reversed",
+        "historical-to-current",
+    ],
+)
+def test_AC_SRC_3_DEV_448_exposes_historical_semantic_false_accept_candidates(case_id):
+    row = control_rows()[case_id]
+    assert row["proposed"]["allOutputSupported"] is False
+    assert row["historical"]["criticalGate"] == "PASS"
+    assert "proposedUnsupportedOutputPassesHistoricalGate" in row["diagnosticFlags"]
+
+
+@pytest.mark.parametrize(
+    "case_id",
+    ["mass-unit-equivalence", "range-separator", "spaced-brix", "korean-paraphrase", "peel-alias"],
+)
+def test_AC_SRC_2_DEV_448_exposes_historical_valid_output_rejection_candidates(case_id):
+    row = control_rows()[case_id]
+    assert row["proposed"]["claimPreserved"] is True
+    assert row["proposed"]["allOutputSupported"] is True
+    assert row["historical"]["criticalGate"] == "FAIL"
+    assert "proposedValidPrimaryOutputFailsHistoricalGate" in row["diagnosticFlags"]
+
+
+def test_AC_SRC_3_DEV_448_numeric_guards_and_strong_negation_still_reject():
+    rows = control_rows()
+    for key in [
+        "new-number", "changed-unit", "separate-measurements-to-range", "valid-plus-new-number"
+    ]:
+        assert rows[key]["historical"]["criticalGate"] == "FAIL"
+        assert sum(rows[key]["historical"]["unsupported"].values()) > 0
+    assert rows["negation-explicit-selector"]["historical"]["factHit"] == 0
+    assert rows["negation-explicit-selector"]["historical"]["criticalGate"] == "FAIL"
+
+
+def test_AC_SRC_2_DEV_448_dedup_placement_and_empty_are_distinct_dimensions():
+    rows = control_rows()
+    assert rows["duplicate-valid"]["historical"]["factHit"] == 1
+    assert rows["duplicate-valid"]["historical"]["factTotal"] == 1
+    misplaced = rows["misplaced-valid"]
+    assert misplaced["historical"]["factHit"] == 0
+    assert misplaced["historical"]["misplaced"] == 1
+    assert misplaced["diagnosticFlags"] == ["pageWidePreservationDistinctFromStrictPlacement"]
+    assert rows["same-section-other-module"]["historical"]["factHit"] == 1
+    empty = rows["correct-empty-contract"]
+    assert empty["historical"]["factTotal"] == 0
+    assert empty["historical"]["failedRuns"] == 1
+    assert empty["diagnosticFlags"] == ["proposedCorrectEmptyCountedAsHistoricalFailure"]
+
+
+def test_AC_SRC_5_DEV_448_failure_denominator_and_partial_status_are_visible():
+    rows = control_rows()
+    for key in ["failed-empty", "failed-with-output", "missing-run"]:
+        assert rows[key]["historical"]["factTotal"] == 1
+        assert rows[key]["historical"]["factHit"] == 0
+        assert rows[key]["historical"]["failedRuns"] == 1
+    assert sum(rows["failed-with-output"]["historical"]["unsupported"].values()) > 0
+    assert rows["partial-valid"]["historical"]["recordStatus"] == "PARTIAL"
+    assert rows["partial-valid"]["historical"]["criticalGate"] == "PASS"
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda d: d["cases"].append(copy.deepcopy(d["cases"][0])),
+        lambda d: d.update(split="holdout"),
+        lambda d: d.update(semanticReviewStatus="APPROVED"),
+        lambda d: d["cases"][0].update(referenceModule="farmPhotos"),
+        lambda d: d["cases"][0].update(selectors=["reference missing token"]),
+        lambda d: d["cases"][0].update(selectors=[" "]),
+        lambda d: d["cases"][0].update(recordStatus="MISSING"),
+        lambda d: d["cases"][0].update(secret="do not echo this"),
+    ],
+)
+def test_AC_SRC_3_DEV_448_invalid_controls_are_rejected_with_redacted_errors(mutate):
+    data = control_probe_data()
+    mutate(data)
+    with pytest.raises(ValueError, match="^Invalid scorer controls \\(details redacted\\)$"):
+        scorer_probe().observe(data)
+
+
+def test_AC_SRC_2_DEV_448_probe_provenance_and_exclusive_cli_output(tmp_path, capsys):
+    probe = scorer_probe()
+    out = tmp_path / "report.json"
+    assert probe.main(["--out", str(out)]) == 0
+    first = out.read_bytes()
+    result = json.loads(first)
+    assert result["provenanceSha256"]["final_score.py"] == sha256(
+        Path(final_score.__file__).read_bytes()
+    )
+    assert result["provenanceSha256"]["controls.json"] == sha256(probe.CONTROLS.read_bytes())
+    assert result["summary"]["controls"] == 38
+    flags = result["summary"]["diagnosticFlags"]
+    assert flags["proposedUnsupportedOutputPassesHistoricalGate"] == 13
+    assert probe.main(["--out", str(out)]) == 2
+    assert out.read_bytes() == first
+    assert "details redacted" in capsys.readouterr().err
 
 
 def gold(*, text=TEXT, tokens=None, section="composition", module="composition", critical=True):

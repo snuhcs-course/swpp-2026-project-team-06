@@ -1,0 +1,29 @@
+# Targeted source-linked gold pilot
+
+**Prepared, not adjudicated.** This bounded pilot preserves the original 47-source development gold byte for byte: all 354 historical facts and 154 critical flags remain unchanged. Eight source-linked correction proposals are separate sidecars; every human and policy decision is PENDING. No approved labels, required-fact denominators, criticality flags, historical scores or generation outputs changed.
+
+The pilot selects eight of the existing 24 public-development sources, two each for text, image, long image and PDF. It contains 130 historical facts, including 55 critical facts. Selection was frozen from source/input complexity and recorded extraction-rejection metadata before inspecting new outputs: compact factual anchors are contrasted with dense, mixed-context, option-rich or multipage cases. This is purposive development evidence; prior assistant exposure to some sources and historical diagnostics is disclosed. It is neither blinded nor representative and does not establish model improvement or independent performance. The existing 23 synthetic cases remain outside this source pilot.
+
+The eight proposals cover a source descriptor present in a historical reference but absent from its selectors; upper-bound versus approximate package count; production-season range punctuation; separate random measurements and their reference-only context; explicit component mass/count/total relations and bounded unit equivalences; option-bound weight/count/complete size/packing tuples; shared sample-photo and approximate-count caveats; and overlapping combined/split negative-process claims. Source wording remains a source claim rather than independent certification. Source equivalences are proposed evaluation meanings, not authorization to rewrite source quantities or infer missing facts. Any future merge, exclusion, added claim or revised selector requires a human disposition and a new version with old-to-new mapping.
+
+Private artifacts include an immutable selection manifest, original-gold byte copy, all 354 old claim records and source-scoped IDs, source references/locations, proposal sidecar, pilot legacy-schema gold and safe-text inputs, and saved-output adapters. The saved OCR is retained only as historical evaluator input; duplicate or unrelated OCR does not independently authorize claims. Targeted pixel/raw-text checks support the proposals, not a full audit of all 130 pilot facts or all 354 historical facts.
+
+Eight flat saved-output arrays are available: baseline and candidate, trials 1 and 2, for both a historical writer comparison and its separately labeled offline validator replay. Each array includes all eight selected source rows without filtering failures or substituting trials. All 96 original source/trial rows across the two historical artifact variants are also preserved byte exactly. Validator replay is not new model generation. Previously failed experiments remain historical evidence rather than a selected successful treatment.
+
+Executed offline verification confirmed eight original source asset hashes; exact round-trip of all 354 source-scoped historical claim records and 154 critical flags; two sources per format; eight pending proposals; 64 adapted run records across eight arrays; and unchanged original gold and output artifacts. Legacy input-schema and adapter fidelity checks are recorded privately. The initial preparation audit incorrectly assumed fact IDs were globally unique; it was corrected to the actual `(sourceId, factId)` identity contract. There are 330 distinct raw fact IDs but 354 unique source-scoped pairs. This preparation failure is retained in the verification record and changed no source, gold or saved output.
+
+No model/provider calls, database access, sealed holdout access or runtime pytest execution occurred in this preparation. Human-reviewed claims and approved label changes both remain zero. The coordinator must apply any eventual approved sidecar symmetrically to baseline and candidate, retain raw legacy reports, separate page-wide preservation from correctness and placement, and report unresolved judgments explicitly.
+
+The final independent schema/fidelity pass completed **105 checks, 0 failed**. All 64 adapted records validate against the legacy run schema and exactly match their corresponding saved records; statuses remain 63 EVALUATED and one FAILED. The original full artifacts also remain unchanged. These are artifact/schema checks, not semantic tests or runtime pytest results.
+
+| Private artifact identity | SHA-256 |
+| --- | --- |
+| Frozen selection v1 | `a085c2017b710ad0fbcc838e46e1478e31714bb4ab12ab555526f4cbddd19288` |
+| Proposed corrections v1 | `1d81b58478e22b3759789b59a8747f9476b2de6cedcc19f03122bb86cd9ddd2a` |
+| Pilot manifest | `ab3089ab9a0b1b1202fc73c9983d56e48ab18888df4507a8e35cfae8b219145b` |
+| Preparation verification | `da2c3cbd93f5a8756012c35d4a5c6dbc01f1b3d0e19243379281fd924e1d240c` |
+| Adapter verification | `f9045c7d268a1e096635e2752650e9944b6b3aaebce98fe6768b533c4a40dc07` |
+
+
+## Superseding user-authorized policy revision — 2026-11-25
+The user explicitly authorizes revised, simpler gold instead of awaiting a new full human audit. Original artifacts above stay immutable history. New draft-first-gold-v2 maps all354old facts, adds1optional source descriptor and separates142essential/186optional/27review requirements without changing historical critical flags. Explicit source-specific aliases and positive/forbidden conflict dispositions live privately. This is policy authorization, not full source factual adjudication. See ../i5-relaxed-gold/RESULTS.md and contract.md.
