@@ -294,3 +294,21 @@ test("AC-04-1 DEV-361: the composer keeps unsaved input after visiting another s
   await expect(shown(page.getByLabel("상품명", { exact: true }))).toHaveValue("고치는 중인 이름");
   assertClean();
 });
+
+test("DEV-452 PM 11/28: the owner sets how many fruits each box holds and it is saved with the option", async ({ page, request }) => {
+  const assertClean = monitor(page);
+  await loginProducer(page, "강영수");
+  const { draft, read } = await sellReadyDraft(request);
+  const id = draft.productId;
+  await page.goto(`${producerUrl}/products/${id}/sell`);
+  const count = page.getByLabel("5kg 과 수 (선택)", { exact: true });
+  await expect(count).toBeVisible();
+  await count.fill("14~18과");
+  await page.getByLabel("판매할 총 물량", { exact: true }).fill("50");
+  await page.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(page.getByText("저장했어요", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await read(id) as Draft & { options: { note?: string }[] }).options[0].note).toBe("14~18과");
+  await page.reload();
+  await expect(page.getByLabel("5kg 과 수 (선택)", { exact: true })).toHaveValue("14~18과");
+  assertClean();
+});

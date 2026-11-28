@@ -37,7 +37,13 @@ def fact_label(fact, sentence=None):
         and (has_money(sentence["text"]) or _PRICE_NOTE.search(sentence["text"]))
     ):
         return "removed"
-    if words and all(_WEIGHT.match(w) or _DATE.match(w) or has_money(w) for w in words):
+    # PM 11/28: only what the owner sets on the setup page — box weights of option lines, delivery
+    # dates. A harvest season in the growing story or a fruit-size spec stays page text.
+    module = (sentence or {}).get("module")
+    if words and module in {"composition", "pieceCount"}:
+        if all(_WEIGHT.match(w) or has_money(w) for w in words):
+            return "settings"
+    if words and module == "delivery" and all(_DATE.match(w) for w in words):
         return "settings"
     return "page"
 

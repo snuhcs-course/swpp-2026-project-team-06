@@ -45,7 +45,7 @@ Each of the 355 facts gets one label (proposed by rule, every non-`page` label r
 | Label | Meaning | Rule proposal |
 | -- | -- | -- |
 | `page` | must be in the page text | default |
-| `settings` | shown by the sale settings, not needed in the text | every required word is a weight, price or date token |
+| `settings` | shown by the sale settings, not needed in the text | every required word is a box weight (or price) in an option line, or a date in a delivery line; harvest seasons in the story and fruit-size specs stay `page` (PM 11/28) |
 | `removed` | should not be on the page unasked | past-sale notice (same detector as the product); a past-price note (`historicalSales` naming a price, 판매 기록, 행사 or 할인) once the owner has set prices (PM 11/28) |
 
 Each case gets the setup inputs an owner would enter: prices always set; sale options = the box

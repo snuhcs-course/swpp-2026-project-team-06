@@ -18,9 +18,16 @@ def passage(value, status="READY", pending=False, **extra):
 
 
 def test_AC_SRC_10_fact_labels_follow_settings_and_past_sale_rules():
-    assert fact_label(fact("a", ["5kg"])) == "settings"
-    assert fact_label(fact("b", ["12월"])) == "settings"
-    assert fact_label(fact("c", ["5kg", "20~25과"])) == "page"
+    option = {"module": "composition", "text": ""}
+    assert fact_label(fact("a", ["5kg"]), option) == "settings"
+    assert fact_label(fact("b", ["12월"]), {"module": "delivery", "text": ""}) == "settings"
+    assert fact_label(fact("c", ["5kg", "20~25과"]), option) == "page"
+    # PM 11/28: a harvest season in the story and a fruit-size spec stay page text.
+    assert (
+        fact_label(fact("h", ["12월", "2월"]), {"module": "productionProcess", "text": ""})
+        == "page"
+    )
+    assert fact_label(fact("z", ["500g"]), {"module": "specification", "text": ""}) == "page"
     assert fact_label(fact("d", ["껍질이 얇"])) == "page"
     assert fact_label(fact("e", ["종료"], statement="판매가 올해 종료되었습니다")) == "removed"
 
