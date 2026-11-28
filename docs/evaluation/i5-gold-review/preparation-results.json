@@ -1,0 +1,78 @@
+{
+  "status": "PREPARATION_ONLY_NOT_AUDITED_GOLD",
+  "sources": 47,
+  "publicDevelopmentSources": 24,
+  "syntheticSources": 23,
+  "facts": 354,
+  "criticalFacts": 154,
+  "referenceSentences": 212,
+  "priorAuditedCriticalMisses": 51,
+  "priorAuditedSources": 17,
+  "remainingClaimsWithoutPriorCriticalAudit": 303,
+  "humanReviewedClaims": 0,
+  "originalPublicAssetsHashVerified": 24,
+  "syntheticFixturesLinked": 23,
+  "emptyGoldSources": 4,
+  "duplicateSelectorPairs": 4,
+  "flaggedReferenceSentences": 6,
+  "byFormat": {
+    "text": {
+      "sources": 26,
+      "facts": 103,
+      "critical": 46
+    },
+    "image": {
+      "sources": 9,
+      "facts": 52,
+      "critical": 35
+    },
+    "long_image": {
+      "sources": 4,
+      "facts": 92,
+      "critical": 25
+    },
+    "pdf": {
+      "sources": 8,
+      "facts": 107,
+      "critical": 48
+    }
+  },
+  "unchangedTrackedInputFiles": 54,
+  "goldChanged": false,
+  "scorerChanged": false,
+  "modelCalls": 0,
+  "holdoutAccessed": false,
+  "privateArtifactSha256": {
+    "review-packet.json": "8c69b96e4afebce6510916c338068f2b036e8203149195698216444faa154c36",
+    "prior-critical-audit.json": "ee8941aa57546140a3042a7204997ccf6801b21403c1d057964b357a115c783f",
+    "original-gold-snapshot.json": "deb1d9718a4562b5bfb4bbf1bf9046296c30dd551c60d61e797ad61c55f8e67f",
+    "PRIORITY-51.md": "bd9636f628d4ecf372f0598c15cb852ea8b3a98012fd758460092d3a09937cc6"
+  },
+  "privateBuildScriptSha256": "0e3a68141acac0e7bfb7487c27137f845f46c56498db1a087cd9dd6372cc4782",
+  "privateCompletionScriptSha256": "86aee0ae1dd57670e89a2a703ecf1a27416d3faf4343f1a0b14b1fc460e1125d",
+  "verification": {
+    "passedChecks": 17,
+    "failedChecks": 0,
+    "checks": [
+      "exact_old_claim_mapping_354_unique",
+      "all_47_source_rows_including_empty",
+      "all_human_reviews_pending",
+      "no_approved_new_labels",
+      "51_prior_audits_first_and_only",
+      "51_prior_audits_preserved",
+      "154_critical_labels_preserved",
+      "4_empty_gold_sources_retained",
+      "54_tracked_inputs_unchanged",
+      "24_original_assets_hash_match",
+      "23_synthetic_definitions_not_falsely_render_verified",
+      "47_source_markdown_files",
+      "private_links_resolve",
+      "all_private_files_0600",
+      "private_directories_0700",
+      "review_leads_retained",
+      "format_totals_consistent"
+    ],
+    "privateLinksChecked": 123
+  },
+  "runtimeTests": "NOT_RUN_DOCUMENT_AND_PRIVATE_PACKET_ONLY"
+}
