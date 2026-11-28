@@ -110,7 +110,8 @@ _LINEUP_LIST = re.compile(
     + "|".join(
         r"\s*".join(map(re.escape, re.sub(r"\s+", "", m))) for m in SAFETY_LISTS["lineupMarkers"]
     )
-    + r")\s*(?::|은|는|으로는|로는)?\s*[^\s,·/、]+\s*[,·/、]\s*[^\s,·/、]+",
+    # DEV-452 QA 11/28: "주 생산품목 : 비트차 & 비트칩" lists with & or 및 too.
+    + r")\s*(?::|은|는|으로는|로는)?\s*[^\s,·/、&＆]+\s*(?:[,·/、&＆]|및)\s*[^\s,·/、&＆]+",
     re.IGNORECASE,
 )
 

@@ -90,9 +90,10 @@ test("DEV-452 AC-SRC-1/5/10/11: required setup, generated page, check sheet and 
 
   // 3. The generated page: input wins (price), size and count kept, check bar on top.
   await expect(page.getByTestId("check-bar")).toBeVisible({ timeout: 30_000 });
-  // PM 11/27 rule b: a variant line (가정용) the sale options do not name stays off the page and
-  // is shown for reference in 정보 고치기 together with its old price.
-  await expect(page.getByTestId("buyer-preview").getByText(/가정용 3kg/)).toHaveCount(0);
+  // PM 11/28: an option line about a sold weight (3kg) stays whatever grade it names (가정용) and
+  // keeps its count; only its old price is left out (the setup price wins) and shown in 정보 고치기.
+  await expect(page.getByTestId("buyer-preview").getByText(/가정용 3kg \(9~12과\)/).first()).toBeVisible();
+  await expect(page.getByTestId("buyer-preview").getByText(/32,000원/)).toHaveCount(0);
   await page.getByRole("button", { name: "✎ 정보 고치기", exact: true }).click();
   await expect(page.getByTestId("fact-doc-price")).toContainText(option);
   await page.getByRole("dialog").getByRole("button", { name: "닫기", exact: true }).first().click();

@@ -563,7 +563,8 @@ def test_AC_SRC_5_reading_progress_counts_pages_not_crops(monkeypatch):
 
 
 def test_AC_SRC_10_variants_and_out_of_season_text_follow_the_sale_settings():
-    """DEV-452 (PM 11/27): rule b for option variants, rule a for harvest seasons."""
+    """DEV-452 (PM 11/27 rule a for harvest seasons; PM 11/28 for options: a line about a sold
+    weight stays whatever grade it names, a line about another weight goes)."""
     from app.source_analysis.source_preserving import (
         build_plan,
         months_in,
@@ -577,9 +578,13 @@ def test_AC_SRC_10_variants_and_out_of_season_text_follow_the_sale_settings():
     assert season_conflict("1월 중순부터 2월 말까지 수확합니다.", (11,))
     assert not season_conflict("11월부터 판매합니다.", (11, 12))
     assert not season_conflict("올해도 맛있어요.", (11,))
-    assert option_conflict("선물용 3kg (8~10과)", (3.0, 5.0), ("3kg", "5kg"))
+    assert not option_conflict("선물용 3kg (8~10과)", (3.0, 5.0), ("3kg", "5kg"))
+    assert not option_conflict("천혜향 3kg (대과) 8과 ~ 11과", (3.0,), ("3kg",))
+    assert option_conflict("선물용 10kg (30~40과)", (3.0, 5.0), ("3kg", "5kg"))
     assert not option_conflict("한라봉 3kg (9~12과)", (3.0, 5.0), ("3kg", "5kg"))
-    assert not option_conflict("가정용 3kg (9~12과)", (3.0,), ("가정용 3kg",))
+    # An item weight inside a pack is not an unsold option.
+    assert not option_conflict("30g 스틱포장 × 20봉 (총 600g)", (0.6,), ("600g",))
+    assert not option_conflict("개당 200g 내외, 3kg 상자", (3.0,), ("3kg",))
 
     def cand(cid, quote, field):
         return {
@@ -595,6 +600,7 @@ def test_AC_SRC_10_variants_and_out_of_season_text_follow_the_sale_settings():
 
     cands = [
         cand("a", "선물용 3kg (8~10과)", "composition"),
+        cand("e", "선물용 5kg (14~18과)", "composition"),
         cand("b", "한라봉 3kg (9~12과)", "composition"),
         cand("c", "1월 중순부터 2월 말까지 수확합니다.", "productionProcess"),
         cand("d", "껍질이 얇아요.", "taste"),
@@ -608,8 +614,9 @@ def test_AC_SRC_10_variants_and_out_of_season_text_follow_the_sale_settings():
         input_months=(11,),
     )
     by = {p["value"]: p for p in plan["passages"]}
-    assert by["선물용 3kg (8~10과)"]["inputPreferred"] == "WEIGHT"
-    assert by["선물용 3kg (8~10과)"]["status"] == "EXCLUDED"
+    assert by["선물용 3kg (8~10과)"]["includedInDraft"]
+    assert by["선물용 5kg (14~18과)"]["inputPreferred"] == "WEIGHT"
+    assert by["선물용 5kg (14~18과)"]["status"] == "EXCLUDED"
     assert by["한라봉 3kg (9~12과)"]["includedInDraft"]
     assert by["1월 중순부터 2월 말까지 수확합니다."]["inputPreferred"] == "SEASON"
     assert not by["1월 중순부터 2월 말까지 수확합니다."]["reviewPending"]

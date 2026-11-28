@@ -235,3 +235,10 @@ def test_AC_SRC_11_a_blocked_publication_names_the_sentence_and_why():
     assert "1795809545494" not in message
     assert "껍질" not in message  # only the sentence with the problem
     assert restricted_text(["껍질이 얇아요."], "황금향") is None
+
+
+def test_AC_SRC_3_a_farm_product_list_joined_by_and_is_another_product_question():
+    line = "주 생산품목 : 비트차 & 비트칩(상시)"
+    passage = _plan([(line, "summary")])[line]
+    assert "OTHER_PRODUCT" in passage["reasonCodes"]["SAFETY"]
+    assert passage["reviewPending"]

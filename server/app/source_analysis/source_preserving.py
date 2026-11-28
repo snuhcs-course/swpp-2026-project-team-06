@@ -492,12 +492,11 @@ def weight_conflict(value, input_weights):
     for m in _WEIGHT.finditer(value):
         number = float(re.match(r"\d+(?:\.\d+)?", m.group(0)).group(0))
         found.append(number / 1000 if re.search(r"(?<!k)g$", m.group(0).lower()) else number)
+    # A weight under half the smallest option is an item, not a box: "30g 스틱포장 × 20봉
+    # (총 600g)", "개당 200g" (PM 11/28: not an unsold option).
+    smallest = min(input_weights)
+    found = [w for w in found if w >= smallest / 2]
     return any(not any(abs(w - o) < 1e-6 for o in input_weights) for w in found)
-
-
-_VARIANT = re.compile(
-    r"가정용|선물용|실속형?|프리미엄|명품|로얄|특대과?|특과|대과|중대과|중과|소과|못난이|흠과|파치"
-)
 
 
 _HEADING_MARK = re.compile(r"^\s*(?:[①-⑳]|[■□●○◆◇▶▷★☆※#]|\[[^\]]{1,20}\]|\d{1,2}[.)])")
@@ -536,13 +535,13 @@ def strip_heading(value):
 
 
 def option_conflict(value, input_weights, input_labels=()):
-    """Weight not among the options, or a variant (가정용, 중대과 …) no option label names."""
-    if weight_conflict(value, input_weights):
-        return True
-    if not input_weights:
-        return False
-    labels = " ".join(input_labels)
-    return any(v not in labels for v in _VARIANT.findall(value))
+    """The line names a box weight the producer does not sell.
+
+    PM 11/28 (replaces 11/27 rule b for variants): a line about a weight the producer sells stays
+    whatever it calls the grade ("천혜향 3kg (대과) 8과 ~ 11과" with a 3kg option): it tells the
+    buyer how many fruits that box holds. A line naming any other weight goes.
+    """
+    return weight_conflict(value, input_weights)
 
 
 def months_in(value):

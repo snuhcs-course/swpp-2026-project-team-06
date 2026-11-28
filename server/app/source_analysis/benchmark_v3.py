@@ -8,8 +8,8 @@ import re
 from collections import Counter
 
 from app.source_analysis.final_score import NUMBER_RE, number_token
-from app.source_analysis.source_preserving import _SALE_ENDED
-from app.source_analysis.text_safety import has_money
+from app.source_analysis.source_preserving import _CURATIVE, _EXCESSIVE_PROMOTION, _SALE_ENDED
+from app.source_analysis.text_safety import has_health_claim, has_money
 
 VERSION = "source-copy-benchmark-v3"
 LABELS = ("page", "settings", "removed")
@@ -17,6 +17,7 @@ _WEIGHT = re.compile(r"^\d+(?:\.\d+)?\s*(?:kg|㎏|g)$", re.I)
 _DATE = re.compile(r"^(?:\d{1,2}\s*월(?:\s*\d{1,2}\s*일)?|\d{1,2}\s*일)$")
 _KG = re.compile(r"(\d+(?:\.\d+)?)\s*(kg|㎏|g)\b", re.I)
 _MONTH = re.compile(r"(\d{1,2})\s*월")
+_PRICE_NOTE = re.compile(r"가격|판매\s*기록|행사|할인")
 _SENTENCE = re.compile(r"(?<=[.!?。])\s+|\n+")
 
 
@@ -24,10 +25,17 @@ def norm(text):
     return re.sub(r"\s+", "", text or "")
 
 
-def fact_label(fact):
+def fact_label(fact, sentence=None):
     """Rule proposal for a gold fact; every non-`page` label is reviewed by the PM."""
     words = [w.strip() for w in fact["mustContain"] if w.strip()]
     if _SALE_ENDED.search(fact.get("statement", "")) or any(_SALE_ENDED.search(w) for w in words):
+        return "removed"
+    # PM 11/28: a past sale's price note goes once the producer has set current prices.
+    if (
+        sentence
+        and sentence.get("module") == "historicalSales"
+        and (has_money(sentence["text"]) or _PRICE_NOTE.search(sentence["text"]))
+    ):
         return "removed"
     if words and all(_WEIGHT.match(w) or _DATE.match(w) or has_money(w) for w in words):
         return "settings"
@@ -54,6 +62,23 @@ def setup_inputs(gold_source):
         "input_labels": tuple(f"{w:g}kg" for w in weights),
         "input_months": tuple(sorted(months)),
     }
+
+
+def forbidden_counted(item):
+    """PM 11/28: ordinary advertising is fine; only outlandish or serious claims count.
+
+    Health text counts when it claims to treat or prevent; boasting ('unsupported', 'other') when
+    the product's own excessive-promotion check matches. Already-masked text never counts.
+    """
+    text = item.get("text", "")
+    if item.get("counted") is False or "가림]" in text:
+        return False
+    kind = item.get("kind", "other")
+    if kind == "health":
+        return bool(has_health_claim(text) or _CURATIVE.search(text))
+    if kind in {"unsupported", "other"}:
+        return bool(_EXCESSIVE_PROMOTION.search(norm(text)))
+    return True
 
 
 def settings_text(setup):
@@ -102,7 +127,7 @@ def score_case(gold_source, plan, setup, *, source_text=None):
     out = Counter(dict.fromkeys(keys, 0))
     for sentence in gold_source["sentences"]:
         for fact in sentence["facts"]:
-            label = fact.get("label") or fact_label(fact)
+            label = fact.get("label") or fact_label(fact, sentence)
             crit = "critical_" if fact["critical"] else ""
             on_page = _present(fact, page) or (label == "settings" and _present(fact, settings))
             if label == "removed":
@@ -117,6 +142,8 @@ def score_case(gold_source, plan, setup, *, source_text=None):
             if label == "page" and not _present(fact, page) and _present(fact, available):
                 out["wrong_removals"] += 1
     for item in gold_source.get("forbidden", []):
+        if not forbidden_counted(item):
+            continue
         text = norm(item.get("text", ""))
         if text and text in page and text not in pending_text:
             out[f"forbidden_{item.get('kind', 'other')}"] += 1

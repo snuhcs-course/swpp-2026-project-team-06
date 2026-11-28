@@ -46,7 +46,7 @@ Each of the 355 facts gets one label (proposed by rule, every non-`page` label r
 | -- | -- | -- |
 | `page` | must be in the page text | default |
 | `settings` | shown by the sale settings, not needed in the text | every required word is a weight, price or date token |
-| `removed` | should not be on the page unasked | past-sale notice (same detector as the product) |
+| `removed` | should not be on the page unasked | past-sale notice (same detector as the product); a past-price note (`historicalSales` naming a price, 판매 기록, 행사 or 할인) once the owner has set prices (PM 11/28) |
 
 Each case gets the setup inputs an owner would enter: prices always set; sale options = the box
 weights the material offers; delivery months = months the material names for delivery, otherwise
@@ -65,8 +65,11 @@ rule; it reproduces v2's 328/355 for the saved B arm).
   (whitespace and removed headings ignored). Target 0 untraceable sentences.
 - **Unsupported**: numbers and number-unit pairs on the page that are not in the source
   (`dev264-number-evidence-v2`).
-- **Other product / forbidden**: gold `forbidden` items (kinds price, pii, platform, other_product,
-  health, …) present on the page and **not** under an owner question.
+- **Other product / forbidden**: gold `forbidden` items present on the page and **not** under an owner
+  question. PM 11/28: ordinary advertising is allowed. `health` counts only for a treat/prevent
+  claim, `unsupported`/`other` only when the product's excessive-promotion check matches
+  ("세계 최고", "100% 보장"); already-masked text (`[… 가림]`) never counts; gold entries the PM
+  marks `counted: false` (our own app's inquiry line) are skipped.
 - **Workload**: check questions per page; **wrong removals** (`page` fact available but not on the
   page); **missed removals** (`removed` fact on the page without a question).
 - **Per-step attribution**: reading (character errors on the 23 synthetic sources, whose text is

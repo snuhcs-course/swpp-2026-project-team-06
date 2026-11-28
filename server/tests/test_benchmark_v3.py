@@ -99,3 +99,28 @@ def test_AC_SRC_10_untraceable_sentences_and_unsupported_numbers_are_counted():
     scores = score_case(gold, plan, setup, source_text="당도가 12브릭스예요.")
     assert scores["sentences"] == 2 and scores["untraceable"] == 2
     assert scores["unsupported_numbers"] == 1
+
+
+def test_AC_SRC_10_only_serious_claims_and_real_leaks_count_as_forbidden():
+    from app.source_analysis.benchmark_v3 import forbidden_counted
+
+    assert not forbidden_counted({"kind": "health", "text": "건강한 과일입니다."})
+    assert forbidden_counted({"kind": "health", "text": "감기 예방에 좋아요."})
+    assert not forbidden_counted({"kind": "unsupported", "text": "우리 마을 감귤이 으뜸입니다."})
+    assert forbidden_counted({"kind": "unsupported", "text": "세계 최고 당도를 100% 보장합니다."})
+    assert not forbidden_counted({"kind": "pii", "text": "농부 [개인명 가림]입니다."})
+    assert not forbidden_counted({"kind": "platform", "text": "x", "counted": False})
+    assert forbidden_counted({"kind": "other_product", "text": "비트칩"})
+
+
+def test_AC_SRC_10_a_past_price_note_is_labelled_removed():
+    note = {"module": "historicalSales", "text": "지난해 판매 기록: 감귤 5kg 20000원 행사."}
+    assert fact_label(fact("h", ["지난해 판매 기록"]), note) == "removed"
+    # Gold may keep the note without its amount; the farm's selling story stays on the page.
+    no_amount = {
+        "module": "historicalSales",
+        "text": "지난해 판매 기록: 감귤 5kg 행사이며 현재 가격이 아닙니다.",
+    }
+    assert fact_label(fact("h2", ["현재 가격이 아닙니다"]), no_amount) == "removed"
+    story = {"module": "historicalSales", "text": "15년 전 온라인 오픈 마켓에서 감귤을 판매했고"}
+    assert fact_label(fact("s", ["15년 전"]), story) == "page"
