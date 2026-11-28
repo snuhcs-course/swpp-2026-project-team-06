@@ -96,7 +96,8 @@ test("DEV_473 producer pushed screen dies → retry redraws that same screen, no
   await page.getByRole("button", { name: "다시 시도" }).click();
   await expect(shown(page)).toHaveCount(0);
   await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
-  await expect(page.getByRole("button", { name: "판매 시작 요청" })).toBeVisible();
+  // DEV-452: the sell screen's main button is 최종 미리보기 (then 판매 시작 요청).
+  await expect(page.getByRole("button", { name: "최종 미리보기", exact: true })).toBeVisible();
 });
 
 test("DEV_473 home leaves the dead screen: browser back and the tab do not reopen it", async ({ page }) => {

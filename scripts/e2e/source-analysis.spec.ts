@@ -5,6 +5,7 @@ import {
   apiUrl,
   producerUrl,
   loginProducer,
+  openFreshComposer,
   monitor,
 } from "./helpers";
 
@@ -52,7 +53,8 @@ for (const width of [360, 390, 430]) {
     await page.setViewportSize({ width, height: 850 });
     const clean = monitor(page);
     await loginProducer(page, "강영수");
-    await page.goto(`${producerUrl}/products/new`);
+    // DEV-452: '새 상품' opens the combined setup page; this flow is the composer of a draft.
+    await openFreshComposer(page);
     await expect(page).toHaveURL(/composer=1/);
     const openSheet = () =>
       page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
@@ -140,10 +142,9 @@ for (const width of [360, 390, 430]) {
     });
     if (width === 360) {
       await openSheet();
-      await expect(page.getByText(
-        "일부 내용을 채우지 못했어요. 다시 시도해 주세요.",
-      )).toBeVisible();
-      await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeVisible();
+      // 5617bc7b (DEV-452): the partial run is saved as a draft; the unfinished part can be redone.
+      await expect(page.getByText("초안을 저장했어요. 원문을 확인하고 고쳐 주세요.")).toBeVisible();
+      await expect(page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true })).toBeVisible();
       await closeSheet();
     }
     await expect(
@@ -209,13 +210,12 @@ for (const width of [360, 390, 430]) {
       await openSheet();
       // DEV-287: retry is available without a cost-confirmation step.
       await expect(page.getByRole("checkbox", { name: /비용이 다시/ })).toHaveCount(0);
-      await page.getByRole("button", { name: "재시도", exact: true }).click();
+      await page.getByRole("button", { name: "미완료 부분 다시 처리", exact: true }).click();
       work();
       await expect(page.getByText("AI가 다 채웠어요. 위에서 확인하고 고쳐 주세요.")).toBeVisible({ timeout: 15000 });
       await closeSheet();
       await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue("제주산 감귤입니다.");
       await expect(storage).toHaveValue("서늘한 곳에 보관해 주세요.");
-      // Retrying changes the source version; confirm the preserved editor before applying.
       await save.click();
       await expect(saved).toBeVisible();
     }
@@ -236,15 +236,16 @@ for (const width of [360, 390, 430]) {
       page.getByTestId("source-heading-icon-storage").last(),
     ).toBeVisible();
     await page.getByRole("button", { name: "편집하기", exact: true }).click();
-    // A pre-sale product applies its page with '다음' (no confirmation, buyers do not see it yet, DEV-361 C-4).
-    const applied = page.waitForResponse(response =>
-      response.request().method() === "POST" && /\/drafts\/[^/]+\/apply$/.test(new URL(response.url()).pathname));
+    // DEV-452 decision 2A: '다음' saves the page privately and moves on; the page is applied with the
+    // sale request, not here.
+    let applies = 0;
+    page.on("request", (r) => { if (r.method() === "POST" && /\/drafts\/[^/]+\/apply$/.test(new URL(r.url()).pathname)) applies++; });
+    const batchId = new URL(page.url()).searchParams.get("batchId")!;
     await page
       .getByRole("button", { name: "다음: 판매·가격", exact: true })
       .click();
-    const appliedResponse = await applied;
-    expect(appliedResponse.ok(), await appliedResponse.text()).toBeTruthy();
     await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
+    expect(applies).toBe(0);
     const productId = page.url().match(/products\/([^/?]+)\/sell/)![1];
     const token = await page.evaluate(
       () => Object.entries(localStorage).find(([k]) => /token/i.test(k))?.[1],
@@ -254,12 +255,15 @@ for (const width of [360, 390, 430]) {
         headers: { Authorization: `Bearer ${token}` },
       })
     ).json();
-    expect(
-      product.moduleDetail.modules.find(
-        (m: { id: string }) => m.id === "storage",
-      ).texts[0].value,
-    ).toBe("서늘한 곳에 보관해 주세요.");
-    // Applied is not public: a new product is visible to buyers only after approval.
+    expect(product.status).toBe("DRAFT");
+    // The private draft keeps the edited page (storage re-added above).
+    const drafts = await (
+      await page.request.get(`${apiUrl}/api/source-analysis/batches/${batchId}/drafts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    ).json();
+    expect(JSON.stringify(drafts.items)).toContain("서늘한 곳에 보관해 주세요.");
+    // A new product is visible to buyers only after approval.
     expect((await page.request.get(`${apiUrl}/api/products/${productId}`)).status()).toBe(404);
     expect(
       await page.evaluate(

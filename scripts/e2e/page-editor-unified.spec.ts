@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { apiUrl, loginProducer, monitor, producerUrl } from "./helpers";
+import { apiUrl, loginProducer, monitor, openFreshComposer, producerUrl } from "./helpers";
 
 // DEV-346: 새 상품과 판매페이지 수정은 같은 화면(composer). 모든 상태, composer 밖에서 만든 상품도(지금 페이지를 옮겨 연다).
 // DEV-361 PR C: 이 화면이 상품 수정 한 화면이다. 구매자에게 보이는 상품도 모든 칸을 고치고(잠금 없음) '상품에 반영' 한 번에 반영한다.
@@ -79,8 +79,8 @@ test("DEV-346 FEAT-04 AC-SRC-11: a draft reopened from the product list shows it
   await page.setViewportSize({ width: 390, height: 844 });
   const clean = monitor(page);
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products`);
-  await page.getByRole("button", { name: "새 상품", exact: true }).click();
+  // DEV-452: '새 상품' opens the combined setup page; the composer under test edits a fresh draft.
+  await openFreshComposer(page);
   await expect(page).toHaveURL(/composer=1/);
   const batchId = new URL(page.url()).searchParams.get("batchId");
   await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
@@ -115,8 +115,8 @@ test("DEV-346 FEAT-04 AC-SRC-11: a draft reopened from the product list shows it
   await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue("농부가 직접 쓴 소개");
   await expect(page.getByRole("button", { name: "다음: 판매·가격", exact: true })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/dev346-draft-reopen.png` });
-  // DEV-184 guard: the same draft is applied once. Reopening via '상품 수정' and pressing
-  // '다음' unchanged must not apply (and copy the uploaded photo) again.
+  // DEV-184 guard: reopening via '상품 수정' and pressing '다음' must not apply (and copy the
+  // uploaded photo) again. DEV-452 decision 2A: '다음' never applies; the sale request does.
   const applies: string[] = [];
   page.on("request", (r) => {
     if (r.method() === "POST" && /\/drafts\/[^/]+\/apply$/.test(r.url())) applies.push(r.url());
@@ -128,13 +128,13 @@ test("DEV-346 FEAT-04 AC-SRC-11: a draft reopened from the product list shows it
   const photos = async () =>
     (await (await page.request.get(`${apiUrl}/api/products/mine/${productId}`, { headers: { Authorization: `Bearer ${token}` } })).json()).photos;
   const applied = await photos();
-  expect(applies).toHaveLength(1);
+  expect(applies).toHaveLength(0);
   await page.goto(`${producerUrl}/products?filter=draft`);
   await page.getByRole("button", { name: `${name} 상품 수정` }).locator("..").getByRole("button", { name: "상품 수정", exact: true }).click();
   await expect(page).toHaveURL(/composer=1/);
   await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
   await expect(page).toHaveURL(/\/sell/);
-  expect(applies).toHaveLength(1);
+  expect(applies).toHaveLength(0);
   expect(await photos()).toEqual(applied);
   clean();
 });
@@ -158,7 +158,9 @@ test("DEV-346 DEV-361 FEAT-04 AC-SRC-9: a seeded selling product opens in the co
   await expect(page.getByRole("button", { name: "대표 사진 바꾸기", exact: true })).toBeVisible();
   await expect(page.getByTestId("product-basic-info").getByLabel("상품명", { exact: true })).toBeEditable();
   if (shots) await page.screenshot({ path: `${shots}/dev361-published-composer.png` });
-  const edited = `${description} 수정 ${Date.now()}`;
+  // A 13-digit timestamp reads as a private number (account/phone) and is refused at apply, so the
+  // marker is letters (DEV-452: editing a product runs the publication privacy check).
+  const edited = `${description} 수정 ${Date.now().toString(36)}`;
   await summary.fill(edited);
   await summary.blur();
   await page.getByRole("button", { name: "임시 저장", exact: true }).click();
