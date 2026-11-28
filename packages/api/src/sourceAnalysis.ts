@@ -16,6 +16,14 @@ export type SourceTarget = {
   basicInfo?: SourceBasicInfo;
   representativeAssetId?: string | null;
 };
+/** DEV-452: a product photo found inside an uploaded document. Needs the producer's confirmation before a sale request. */
+export type ExtractedPhotoInfo = {
+  sourceId: string;
+  page: number;
+  box: [number, number, number, number];
+  method: string;
+  confirmed: boolean;
+};
 export type SourceAsset = {
   id: string;
   filename: string;
@@ -25,7 +33,7 @@ export type SourceAsset = {
   originalPhoto: boolean;
   description?: string;
   descriptionVersion?: number;
-  placement?: { revision?: number; fieldKey?: string | null };
+  placement?: { revision?: number; fieldKey?: string | null; extracted?: ExtractedPhotoInfo };
   revision: number;
   sanitizationVersion: number;
   privacyApproved: boolean;
@@ -39,6 +47,7 @@ export type SourceBatch = {
   id: string;
   version: number;
   reviewVersion: number;
+  sourceCopyEnabled?: boolean;
   targets: SourceTarget[];
   sources: SourceAsset[];
 };
@@ -102,9 +111,12 @@ export type SourceRefinementResult = {
   refinementVersion: string | null;
 };
 export type SourceReview = {
+  processingIssues?: { sourceId: string; itemId: string; runId: string; phase: string; status: string; error: string | null; pagesSkipped: number; failedPages?: { number: number; code: string }[]; targetIds: string[]; common: boolean }[];
+
   refinementResults?: Record<string, SourceRefinementResult>;
   editorFields: SourceEditorField[];
   reviewVersion: number;
+  sourceCopyEnabled?: boolean;
   targets: SourceTarget[];
   fields: SourceField[];
   candidates: SourceCandidate[];
@@ -118,6 +130,68 @@ export type SourceReview = {
     fieldKey: string;
     candidateIds: string[];
   }[];
+};
+export type SourceCopyAction = "KEEP" | "EDIT" | "OMIT" | "TRANSFER_TO_SETTINGS" | "ACCEPT_REPAIR";
+export type SourceCopyDecision = {
+  bindingHash: string;
+  action: SourceCopyAction;
+  value?: string;
+  note?: string;
+  module?: string;
+};
+export type SourceCopyPrompt = {
+  code: string;
+  question: string;
+  detail: string;
+  severity: "check" | "warning" | "critical";
+  confirmation: string;
+};
+export type SourceCopyPassage = {
+  id: string;
+  bindingHash: string;
+  module: string | null;
+  value: string;
+  originalValue: string;
+  candidateIds: string[];
+  evidence: SourceEvidence[];
+  queueKinds: string[];
+  reasonCodes: Record<"COPY_EDIT" | "OWNER_CONFIRMATION" | "PLACEMENT" | "SAFETY", string[]>;
+  repairValue: string | null;
+  status: "READY" | "PENDING" | "EXCLUDED" | "BLOCKED";
+  optionAssembly?: { type: string; passageIds: string[]; module: string };
+  autoRepair?: { type: string; passageIds: string[]; module: string; contextReviewRequired?: boolean };
+  includedInDraft: boolean;
+  reviewPending: boolean;
+  reviewExplanations: string[];
+  reviewPrompts?: SourceCopyPrompt[];
+  assemblyAcknowledged?: boolean;
+  decision: SourceCopyDecision | null;
+  /** DEV-452: left out because the producer's own sale settings cover it (input wins). */
+  inputPreferred?: "PRICE" | "WEIGHT" | "SEASON";
+  /** DEV-452: an exact repeat of this earlier passage, kept off the page. */
+  duplicateOf?: string;
+};
+export type SourceCopyPresentation = {
+  status: "PENDING" | "APPLIED" | "FALLBACK" | "STALE" | "DISABLED";
+  reason?: string;
+  baselineWordingRetained?: number;
+};
+export type SourceCopyModule = {
+  module: string;
+  texts: { value: string; candidateIds: string[]; passageIds?: string[] }[];
+};
+export type SourceCopyReview = {
+  reviewVersion: number;
+  enabled: boolean;
+  plan: {
+    version: string;
+    planHash: string;
+    targetId: string;
+    passages: SourceCopyPassage[];
+    modules: SourceCopyModule[];
+    presentation?: SourceCopyPresentation;
+    accounting: unknown;
+  };
 };
 export type SourceRun = {
   inputs?: { id: string; revision: number; description: string }[];
@@ -144,10 +218,14 @@ export type SourceRun = {
     emptyReason?: string | null;
     candidatesSkipped?: number;
     acceptedCount: number;
+    /** DEV-452: live work counts while the item runs (pages read, then text chunks analysed). */
+    progress?: { stage: "READ" | "ANALYSE"; done: number; total: number } | null;
     rejectedCount: number;
   }[];
 };
 export type ModuleDetail = {
+  design?: unknown;
+  hiddenSectionIds?: string[];
   schemaVersion: number;
   modules: {
     id: string;
@@ -206,7 +284,7 @@ export const sourceAnalysis = {
     }),
   create: (targets: { name: string; productId?: string }[], key: string) =>
     request<SourceBatch>("POST", base, {
-      body: { targets },
+      body: { targets, sourceCopyEnabled: true },
       idempotencyKey: key,
     }),
   setRepresentative: (
@@ -255,6 +333,15 @@ export const sourceAnalysis = {
       idempotencyKey: key,
     }),
   review: (bid: string) => request<SourceReview>("GET", `${at(bid)}/review`),
+  sourceCopy: (bid: string, targetId: string) =>
+    request<SourceCopyReview>("GET", `${at(bid)}/source-copy`, { query: { targetId } }),
+  saveSourceCopy: (
+    bid: string,
+    targetId: string,
+    body: { reviewVersion: number; planHash: string; decisions: SourceCopyDecision[] },
+  ) => request<SourceCopyReview>("PUT", `${at(bid)}/source-copy/${encodeURIComponent(targetId)}`, { body }),
+  enableSourceCopy: (bid: string, reviewVersion: number) =>
+    request<SourceReview>("POST", `${at(bid)}/source-copy/enable`, { body: { reviewVersion } }),
   saveReview: (bid: string, reviewVersion: number, fields: SourceField[]) =>
     request<SourceReview>("PATCH", `${at(bid)}/review`, {
       body: { reviewVersion, fields },
@@ -286,6 +373,11 @@ export const sourceAnalysis = {
         common,
         originalPhoto: source.originalPhoto,
       },
+    }),
+  /** DEV-452: keep a photo found in a document (removing uses removeSource). */
+  confirmExtracted: (bid: string, source: SourceAsset) =>
+    request<SourceAsset>("POST", `${at(bid)}/sources/${source.id}/confirm-extracted`, {
+      query: { version: source.revision },
     }),
   removeSource: (bid: string, source: SourceAsset) =>
     request("DELETE", `${at(bid)}/sources/${source.id}`, {

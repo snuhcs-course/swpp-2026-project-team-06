@@ -132,12 +132,33 @@ AC-12-21·22 / AC-15-14. optional emoticonId와 고정 캡션을 저장·전달�
 ## DEV-455 생산자 마지막 작업 실행 취소
 주문 처리 결과에 마지막 실행 취소 토큰을 제공하고, 같은 농가의 해당 작업만 현재 주문·결제·환불 스냅샷이 같을 때 복구한다. 감사 기록과 역전 기록을 보존한다. 목록의 `undoAction`은 실제 실행 취소와 같은 사전 조건(입금 기한·입금자명 겹침·미승인 취소의 판매 중 여부)을 통과할 때만 준다. Mock `orderRestoreBlocker`가 서버 `_restore_blocker`와 같은 규칙이다. 상세 동작은 FEAT-09/17 DEV-455 절을 따른다.
 
+
+## DEV-452 원문 보존 검토 계약
+sourceCopyEnabled가 있는 서버에만 검토 UI를 노출한다. 새 composer workspace 생성에만 명시 opt-in을 전달한다. source-copy GET은 {plan,reviewVersion,enabled}, 결정 PUT은 현재 planHash/reviewVersion 및 항목 bindingHash를 보내며, 기존 batch 전환은 enable POST다. 수동 편집 flush와 별도로 결정의 최초 서버값을 비교해 폴링을 통한 동시 쓰기 우회를 막는다. FEAT-03/04/07 · AC-SRC-2/3/5/7/11.
+
+2026-11-25 DEV-452: 사용자 지시로 검토 대기 문구도 비공개 초안에 보존한다. 포함 상태와 확인 상태를 분리하고 설명을 표시하며 공개 반영 전에 확인한다. source-preserving-drafts.md와 DEV-452 최신 결정이 종전 보류 정책을 대체한다.
+
+DEV-452 원문 조립 metadata를 표시하고 확인 기본 모듈은 실제 조립 위치를 따른다. 명시적 owner 위치 선택은 옵션 조립이 덮어쓰지 않는다. 날짜/가격 확인과 비공개 저장/명시 공개 경계는 유지한다.
+
+
+DEV-452 선택된 표현 정리 통합: source-copy plan.presentation은 선택 상태 metadata이며 PENDING/APPLIED/FALLBACK/STALE만 한국어로 안내하고 DISABLED/누락은 표시하지 않는다. 내부 reason·모델명은 제품 화면에 노출하지 않는다. 표현 정리 완료도 기존 원문과 owner 확인 대기 상태를 해제하지 않는다. 확인 기본 위치는 plan.modules[].texts[].passageIds로 찾은 실제 위치를 먼저 쓰고, 구버전 응답은 기존 optionAssembly/autoRepair/module 위치로 돌아간다. 저장 전 직접 고른 위치·문구와 최초 서버 결정 비교는 유지한다. FEAT-03/04/07 · AC-SRC-2/3/5/11.
+
+- DEV-452 SourceReview.processingIssues: additive current source/work-scope diagnostics (sourceId/itemId/runId/phase/status/error/pagesSkipped/targetIds/common); no private OCR text or provider error body. Optional for compatibility; server publication guard is authoritative.
+
+## DEV-485 사유별 생산자 확인
+FEAT-03/04/07 및 AC-SRC-2/3/5/9/10/11: reviewPrompts는 사유별 질문·설명·심각도·확인 기록 문구를 제공한다. 기존 reviewExplanations 호환을 유지한다. 확인 버튼은 기존 검토 저장 경로를 사용하고 성공 뒤 완료 표시하며, 연결 문단의 모든 KEEP 결정이 같은 배치를 승인하면 연결을 유지한다. 사용 제한은 단순 확인으로 통과시키지 않는다. UI는 일반 황색/중요 산호색과 기호·문구를 함께 사용한다.
 ## DEV-493 앱 파일 업로드
 - 파일 업로드(FormData POST)는 `postForm`(`src/formPost.ts`·`src/formPost.native.ts`)으로만 보낸다. 웹은 fetch 그대로, 앱은 React Native `XMLHttpRequest`다. Expo SDK 57은 앱의 전역 fetch를 expo/fetch로 바꾸는데, expo/fetch는 RN 방식 `{uri, name, type}` 파트를 "Unsupported FormDataPart implementation"으로 거절한다. RN 네트워킹은 그 파트를 파일에서 바로 읽어 보내므로 영상(100MB)도 JS 메모리에 올리지 않는다.
 - 앱에서 응답을 못 받으면 `ApiError(0, "인터넷 연결을 확인하고 다시 시도해 주세요.")`(`request()`와 같은 문구)로 던지고, 원인은 `cause`와 경고 로그에 남긴다. JSON이 아닌 오류 응답(프록시 413·502)은 두 플랫폼 모두 본문 `{}`의 ApiError다.
 - 고른 사진의 형식·이름은 `pickedImage`로 다시 압축한 파일(uri 확장자) 기준으로 정한다. quality < 1이면 PNG 밖은 JPEG 바이트인데 picker의 mimeType·fileName은 원본(HEIC·WebP)이라 서버가 400을 줬다.
 - `scripts/test-native-upload.mjs`가 fetch로 FormData 보내기, `{uri}` 파트 직접 붙이기, 허용 목록 밖 직접 fetch, picker 원본 형식 직접 쓰기를 막는다. 상세는 tasks/DEV-493.md.
 
+### DEV-464 saved source layout integration (local r006 recovery)
+Preserve the validated source-guided renderer as an optional page design. Store its bounded sections, source media and caption/text links with the existing private page snapshot JSON (no migration). Workspace validation rejects dangling text/photo references and media outside the product's allowed photos. Publication retains design metadata and resolves only publicly referenced photos; authenticated private previews resolve the same owned media. Legacy pages without design keep the existing rendering. A saved-layout page uses a versioned workspace reference at final initial-sale submission; rebase sales-term version changes only when the underlying page still exactly matches its published baseline. Source-copy workspaces retain their existing source-completeness and owner-review gates.
+
+Local recovery editor uses the actual private workspace endpoints and inline editing in the same source-guided layout, with photo replace/remove and explicit private save; it is not an arbitrary-upload generation implementation. User-confirmed r006 fixture and source bytes remain local/ignored. No static fixture is presented as a fresh generation result.
+
+DEV-452 local candidate adds versioned productWorkspace.saveSetup/generate (workspace plus batch version) and reviewPassage (passage binding, full pending snapshot and explicit action). Read-only private review/context/setup metadata cannot be replaced by page PUT. Generation run targets freeze current producer settings separately from document evidence.
 ## DEV-494 관문 중 내 정보·배지
 - `keepUser`(`src/userState.ts`): 다시 읽은 내 정보가 이전과 같으면 이전 객체를 그대로 둔다. 두 앱 세션이 refresh에서 쓴다. 403 관문 응답마다 내 정보를 다시 읽어도 `[user]` effect가 요청을 되풀이하지 않는다.
 - `accountGated`: 비밀번호 변경·가입 온보딩·약관 재동의 관문이 남았는가. 탭 배지 같은 주기 요청은 이때 쉰다. 상세는 `apps/consumer/tasks/DEV-494.md`.
