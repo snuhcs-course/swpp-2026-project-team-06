@@ -18,6 +18,7 @@ from app.core.security import ApprovedProducer
 from app.source_analysis import editor as e
 from app.source_analysis import product_draft as pd
 from app.source_analysis import service as s
+from app.source_analysis import setup as setup_service
 from app.source_analysis import workspace as w
 from app.source_analysis.caching import PREVIEW_CACHE, PREVIEW_REVALIDATE, not_modified, tag_for
 from app.source_analysis.models import Asset, Batch, Draft, Page, PublicPhoto, Run
@@ -33,6 +34,8 @@ from app.source_analysis.schemas import (
     Retry,
     ReviewPatch,
     RunStart,
+    SourceCopySave,
+    SourceCopyVersion,
     SourceEdit,
     Version,
 )
@@ -98,6 +101,19 @@ def applied_page(db, product_id, actor_id, run):
     return result
 
 
+@router.get("/product-workspaces/page-status")
+def page_status(who: ApprovedProducer, db: DB):
+    """DEV-452: per-product page generation state for the product list."""
+    return setup_service.page_statuses(db, who[1].id)
+
+
+@router.get("/product-workspaces/{pid}/sale-preview")
+def sale_preview(pid: str, who: ApprovedProducer, db: DB):
+    from app.source_analysis.source_sale import preview
+
+    return preview(db, who[1].id, pid)
+
+
 @router.post("/product-workspaces")
 def open_product_workspace(body: w.OpenWorkspace, who: ApprovedProducer, db: DB, key: Key = None):
     return commit(
@@ -113,6 +129,40 @@ def open_product_workspace(body: w.OpenWorkspace, who: ApprovedProducer, db: DB,
     )
 
 
+@router.post("/product-workspaces/{pid}/setup")
+def save_setup(
+    pid: str, body: setup_service.SetupSave, who: ApprovedProducer, db: DB, key: Key = None
+):
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            "setup:" + pid,
+            key,
+            body.model_dump(mode="json"),
+            lambda: setup_service.save(db, who[1], pid, body),
+        ),
+    )
+
+
+@router.post("/product-workspaces/{pid}/generate")
+def generate_page(
+    pid: str, body: setup_service.SetupSave, who: ApprovedProducer, db: DB, key: Key = None
+):
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            "generate:" + pid,
+            key,
+            body.model_dump(mode="json"),
+            lambda: setup_service.save(db, who[1], pid, body, generate=True),
+        ),
+    )
+
+
 @router.put("/product-workspaces/{pid}")
 def save_product_page(pid: str, body: w.PageSave, who: ApprovedProducer, db: DB, key: Key = None):
     return commit(
@@ -124,6 +174,25 @@ def save_product_page(pid: str, body: w.PageSave, who: ApprovedProducer, db: DB,
             key,
             body.model_dump(),
             lambda: w.save(db, who[1], pid, body),
+        ),
+    )
+
+
+@router.post("/product-workspaces/{pid}/review-decisions")
+def review_page_passage(
+    pid: str, body: w.PageReviewSave, who: ApprovedProducer, db: DB, key: Key = None
+):
+    from app.source_analysis.page_review import decide
+
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            "page-review:" + pid,
+            key,
+            body.model_dump(),
+            lambda: decide(db, who[1], pid, body, who[0].id),
         ),
     )
 
@@ -296,6 +365,14 @@ def source(bid: str, sid: str, who: ApprovedProducer, db: DB):
 def source_patch(bid: str, sid: str, body: Assignment, who: ApprovedProducer, db: DB):
     row = s.batch(db, who[1].id, bid)
     return commit(db, s.patch_asset(db, row, s.asset(db, bid, sid), body))
+
+
+@router.post("/batches/{bid}/sources/{sid}/confirm-extracted")
+def source_confirm_extracted(
+    bid: str, sid: str, who: ApprovedProducer, db: DB, version: int = Query(ge=1)
+):
+    row = s.batch(db, who[1].id, bid)
+    return commit(db, s.confirm_extracted(db, row, s.asset(db, bid, sid), version))
 
 
 @router.get("/batches/{bid}/sources/{sid}/text")
@@ -544,6 +621,27 @@ def cancel(bid: str, rid: str, who: ApprovedProducer, db: DB):
 @router.get("/batches/{bid}/review")
 def review(bid: str, who: ApprovedProducer, db: DB):
     return s.review(db, s.batch(db, who[1].id, bid, False))
+
+
+@router.get("/batches/{bid}/source-copy")
+def source_copy(bid: str, targetId: str, who: ApprovedProducer, db: DB):
+    from app.source_analysis import source_copy_service as copy
+
+    return copy.get(db, s.batch(db, who[1].id, bid, False), targetId)
+
+
+@router.put("/batches/{bid}/source-copy/{target_id}")
+def source_copy_save(bid: str, target_id: str, body: SourceCopySave, who: ApprovedProducer, db: DB):
+    from app.source_analysis import source_copy_service as copy
+
+    return commit(db, copy.save(db, s.batch(db, who[1].id, bid), target_id, body, who[0].id))
+
+
+@router.post("/batches/{bid}/source-copy/enable")
+def source_copy_enable(bid: str, body: SourceCopyVersion, who: ApprovedProducer, db: DB):
+    from app.source_analysis import source_copy_service as copy
+
+    return commit(db, copy.enable(db, s.batch(db, who[1].id, bid), body))
 
 
 @router.patch("/batches/{bid}/review")
