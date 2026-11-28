@@ -601,7 +601,7 @@ def evaluate_source(row, provider, model, calls, target_name="", *, stage2_model
             response = calls(
                 "refine",
                 stage2_model,
-                {"prompt": refine_ai.PROMPT, "candidates": safe},
+                {"prompt": refine_ai.PROMPT, **refine_ai.request_payload(target, safe)},
                 [target],
                 [],
                 lambda: refine_ai.refine(provider, stage2_model, target, safe),

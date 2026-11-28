@@ -9,6 +9,7 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError
 from pydantic import Field, ValidationError
 
 from app.ai import source_analysis as provider
+from app.ai.page_plan import EDITORIAL_CONTRACT, build_page_plan
 from app.ai.source_analysis import ExtractionError
 from app.core.config import SOURCE_OPENROUTER_PRICES, get_settings
 from app.source_analysis.schemas import MODULE_FIELDS, Id, Input
@@ -20,7 +21,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v11-routing"
+PROMPT_VERSION = "source-refine-v11-source-audit"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)
@@ -159,6 +160,9 @@ its weight), cite ALL of those candidates; otherwise the text is rejected and th
 """
 
 
+PLANNED_PROMPT = PROMPT + EDITORIAL_CONTRACT
+
+
 class RefineError(ExtractionError):
     pass
 
@@ -282,7 +286,7 @@ def mock_refine(candidates):
     )
 
 
-def provider_schema():
+def provider_schema(response_type=Refinement):
     # Same provider restrictions as extraction: bounds are enforced after the response.
     def compact(value):
         if isinstance(value, dict):
@@ -295,13 +299,42 @@ def provider_schema():
             return [compact(v) for v in value]
         return value
 
-    schema = compact(Refinement.model_json_schema())
-    schema["required"] = ["modules", "excluded"]
-    schema["$defs"]["RefinedModule"]["properties"]["module"]["enum"] = list(TEXT_MODULE_FIELDS)
+    schema = compact(response_type.model_json_schema())
+    schema["required"] = (
+        ["modules", "excluded"] if response_type is Refinement else list(schema["properties"])
+    )
+    for definition in schema.get("$defs", {}).values():
+        module = definition.get("properties", {}).get("module")
+        if module is not None:
+            module["enum"] = list(TEXT_MODULE_FIELDS)
     return schema
 
 
-def refine(mode, model, target, candidates):
+def request_payload(target, candidates):
+    return {"target": target, "candidates": candidates}
+
+
+class PlannedBuilder:
+    """Explicit experimental adapter; the production default remains the baseline."""
+
+    PROMPT_VERSION = "source-refine-v12-page-plan"
+    PROMPT = PLANNED_PROMPT
+    RESPONSE_TYPE = Refinement
+
+    @staticmethod
+    def request_payload(target, candidates):
+        return {**request_payload(target, candidates), "pagePlan": build_page_plan(candidates)}
+
+    @staticmethod
+    def convert(output, candidates):
+        return output
+
+    @staticmethod
+    def refine(mode, model, target, candidates):
+        return refine(mode, model, target, candidates, contract=PlannedBuilder)
+
+
+def refine(mode, model, target, candidates, *, contract=None):
     if mode == "mock":
         return RefineResponse(
             mock_refine([c for c in candidates if c["targetId"] in (None, target["id"])]),
@@ -319,7 +352,14 @@ def refine(mode, model, target, candidates):
         max_retries=0,
         timeout=90,
     )
-    payload = json.dumps({"target": target, "candidates": candidates}, ensure_ascii=False)
+    response_type = contract.RESPONSE_TYPE if contract else Refinement
+    system_prompt = contract.PROMPT if contract else PROMPT
+    data = (
+        contract.request_payload(target, candidates)
+        if contract
+        else request_payload(target, candidates)
+    )
+    payload = json.dumps(data, ensure_ascii=False)
     try:
         if mode == "openrouter":
             input_rate, output_rate = SOURCE_OPENROUTER_PRICES[model]
@@ -331,7 +371,7 @@ def refine(mode, model, target, candidates):
             result = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": payload},
                 ],
                 response_format={
@@ -339,7 +379,7 @@ def refine(mode, model, target, candidates):
                     "json_schema": {
                         "name": "Refinement",
                         "strict": True,
-                        "schema": provider_schema(),
+                        "schema": provider_schema(response_type),
                     },
                 },
                 max_tokens=settings.source_max_output_tokens,
@@ -356,17 +396,19 @@ def refine(mode, model, target, candidates):
             if not result.choices or result.choices[0].finish_reason != "stop":
                 raise RefineError("INCOMPLETE_OR_REFUSED", usage=usage, request_id=result.id)
             try:
-                output = Refinement.model_validate_json(result.choices[0].message.content or "")
-            except ValidationError as exc:
+                output = response_type.model_validate_json(result.choices[0].message.content or "")
+                if contract:
+                    output = contract.convert(output, candidates)
+            except (ValidationError, ValueError) as exc:
                 raise RefineError(
                     "INVALID_MODEL_OUTPUT", usage=usage, request_id=result.id
                 ) from exc
             return RefineResponse(output, usage, result.id)
         result = client.responses.parse(
             model=model,
-            instructions=PROMPT,
+            instructions=system_prompt,
             input=[{"role": "user", "content": payload}],
-            text_format=Refinement,
+            text_format=response_type,
             reasoning={"effort": "medium"},
             max_output_tokens=settings.source_max_output_tokens,
             store=False,
@@ -375,7 +417,15 @@ def refine(mode, model, target, candidates):
         request_id = getattr(result, "_request_id", None) or result.id
         if result.status != "completed" or result.output_parsed is None:
             raise RefineError("INCOMPLETE_OR_REFUSED", usage=usage, request_id=request_id)
-        return RefineResponse(result.output_parsed, usage, request_id)
+        try:
+            output = (
+                contract.convert(result.output_parsed, candidates)
+                if contract
+                else result.output_parsed
+            )
+        except ValueError as exc:
+            raise RefineError("INVALID_MODEL_OUTPUT", usage=usage, request_id=request_id) from exc
+        return RefineResponse(output, usage, request_id)
     except (APITimeoutError, APIConnectionError) as exc:
         raise RefineError("REQUEST_UNCERTAIN") from exc
     except APIStatusError as exc:

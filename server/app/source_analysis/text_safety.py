@@ -10,7 +10,7 @@ SAFETY_LISTS = json.loads(_LISTS_TEXT)
 SAFETY_LISTS_HASH = hashlib.sha256(_LISTS_TEXT.encode("utf-8")).hexdigest()
 MONEY = re.compile(SAFETY_LISTS["moneyPattern"], re.IGNORECASE)
 _UNIT = (
-    r"kg|㎏|km|cm|mm|ml|mg|g|ℓ|l|%|°\s*Bx|브릭스|brix|"
+    r"kg|㎏|km|cm|mm|ml|mg|g|ℓ|l|%|°\s*Bx|브\s*릭\s*스|brix|"
     r"개월|상자|박스|시간|과|개|알|년|월|일|분|회|평|ha|㎡"
 )
 _NUMBER = re.compile(
