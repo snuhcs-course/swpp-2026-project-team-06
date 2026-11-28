@@ -206,7 +206,7 @@ def request_capacity(
         key,
         body,
         lambda: service.create_capacity_request(
-            db, farm.id, product_id, body.requested_total_grams, body.version
+            db, farm.id, product_id, body.requested_total_grams, body.version, page=body.page
         ),
     )
 

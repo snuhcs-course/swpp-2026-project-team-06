@@ -1075,8 +1075,19 @@ def product_changes(db: Session, product_id: str, limit: int) -> list[ProductCha
 
 
 def create_capacity_request(
-    db: Session, farm_id: str, product_id: str, requested_total_grams: int, version: int
+    db: Session,
+    farm_id: str,
+    product_id: str,
+    requested_total_grams: int,
+    version: int,
+    *,
+    page=None,
 ) -> CapacityRequestView:
+    # Match source/page publication's batch -> product lock order.
+    from app.farms.models import Farm
+    from app.source_analysis.workspace import product_lock
+
+    product_lock(db, db.get(Farm, farm_id), product_id)
     item = load_my_product(db, farm_id, product_id, lock=True)
     p = item.product
     if version != p.version:
@@ -1097,6 +1108,10 @@ def create_capacity_request(
                 "NO_FARM_ACCOUNT",
                 "입금 계좌를 먼저 등록해 주세요. 소비자가 그 계좌로 직접 입금해요.",
             )
+        from app.source_analysis.source_sale import apply_for_sale
+
+        apply_for_sale(db, farm_id, p, page)
+        item = load_my_product(db, farm_id, product_id)
         missing = missing_fields(item)
         if missing:
             raise invalid(
